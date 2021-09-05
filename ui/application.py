@@ -4,6 +4,11 @@ import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.task import Task
+from .task_model import TaskModel
+from .task_view import TaskView
+from .timetable_view import TimetableView
+
 
 class SchedulerWindow(QtWidgets.QMainWindow):
     """Scheduler window class."""
@@ -13,24 +18,30 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         super(QtWidgets.QMainWindow, self).__init__(*args, **kwargs)
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
+        self.setup_tabs()
+        self.setup_menu()
 
-        # central widget and overall layout
-        self.central_widget = QtWidgets.QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.layout = QtWidgets.QHBoxLayout()
-        self.central_widget.setLayout(self.layout)
+    def setup_tabs(self):
+        """Setup the tabs widget and different pages."""
+        self.tabs_widget = QtWidgets.QTabWidget()
+        self.setCentralWidget(self.tabs_widget)
+        self.tasks_tab = TaskView(self)
+        self.tabs_widget.addTab(self.tasks_tab, "Tasks")
+        self.timetable_tab = TimetableView(self)
+        self.tabs_widget.addTab(self.timetable_tab, "Timetable")
 
-        # outliner panel
-        self.outliner_layout = QtWidgets.QVBoxLayout()
-        self.layout.addLayout(self.outliner_layout)
-        self.outliner_tree_view = QtWidgets.QTreeView()
-        self.outliner_layout.addWidget(self.outliner_tree_view)
+    def setup_menu(self):
+        """Setup the menu actions."""
+        menu_bar = self.menuBar()
+        self.setMenuBar(menu_bar)
+        file_menu = QtWidgets.QMenu("File", menu_bar)
+        menu_bar.addMenu(file_menu)
+        save_action = file_menu.addAction("Save")
+        save_action.triggered.connect(self.save)
 
-        # main view
-        self.main_view_layout = QtWidgets.QVBoxLayout()
-        self.layout.addLayout(self.main_view_layout)
-        self.table = QtWidgets.QTableWidget(3, 10)
-        self.main_view_layout.addWidget(self.table)
+    def save(self):
+        """Save scheduler data."""
+        self.tasks_tab.outliner.tasks_data.write()
 
 
 def run_application():

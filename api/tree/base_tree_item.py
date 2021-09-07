@@ -1,0 +1,205 @@
+"""Base tree item class."""
+
+from abc import ABC
+from collections import OrderedDict
+from contextlib import contextmanager
+
+
+class TreeChildNameError(Exception):
+    """Exception for newly added child having same name as existing child."""
+    def __init__(self, tree_item_name, child_item_name):
+        """Initialise exception.
+
+        Args:
+            tree_item_name (str): name of tree item we're adding child to.
+            child_item_name (str): name of child.
+        """
+        message = "child of {0} with name {1} already exists".format(
+            tree_item_name, child_item_name
+        )
+        super(TreeChildNameError, self).__init__(message)
+
+
+class MultipleParentsError(Exception):
+    """Exception for when new child does not have current item as a parent."""
+    pass
+
+
+class BaseTreeItem(ABC):
+    """Base class representing a tree item.
+    
+    This class has a _children dict attribute representing the list of children
+    of the current item. However, all its methods include a child_dict arg
+    which allow subclasses to pass in a second dictionary of children to use,
+    enabling multiple types of children.
+    """
+    
+    def __init__(self, name, parent=None):
+        """Initialise tree item class.
+
+        Args:
+            name (str): name of tree item.
+            parent (Task or None): parent of current item, if it's not a root.
+        """
+        self.name = name
+        self.parent = parent
+        self._children = OrderedDict()
+
+    @contextmanager
+    def filter_children(self, filter_type):
+        """Filter children temporarily so kids are chosen from smaller list.
+
+        This is to be overridden in subclasses that require the filtering.
+
+        Args:
+            filter_type (str or None): type of filtering required, or None if not
+                required.
+        """
+        yield
+
+    def create_child(
+            self,
+            name,
+            *args,
+            child_type=None,
+            child_dict=None,
+            **kwargs):
+        """Create child item and add to children dict.
+
+        Args:
+            name (str): name of child.
+            *args: args to be passed to child init.
+            child_type (class or None): class to use for child init. If None,
+                use current class.
+            child_dict (OrderedDict or None): dict to add child to. If None,
+                use self._children.
+            **kwargs: kwargs to be passed to child init.
+
+        Raises:
+            (TreeChildNameError): if a child with given name already exists.
+
+        Returns:
+            (BaseTreeItem): newly created child. In subclasses, this will use
+                the type of the subclass.
+        """
+        if child_dict is None:
+            child_dict = self._children
+        if name in child_dict:
+            raise TreeChildNameError(self.name, name)
+        child_type = child_type or self.__class__
+        child = child_type(name, parent=self, *args, **kwargs)
+        self._children[name] = child
+        return child
+
+    def add_child(self, child, child_dict=None):
+        """Add an existing child to this item's children dict.
+
+        Args:
+            child (Task): child item to add.
+            child_dict (OrderedDict or None): dict to add child to. If None,
+                use self._children.
+
+        Raises:
+            (TreeChildNameError): if a child with given name already exists.
+            (MultipleParentsError): if the child has a different tree item as
+                a parent.
+        """
+        if child_dict is None:
+            child_dict = self._children
+        if child.name in self._children:
+            raise TreeChildNameError(self.name, child.name)
+        if not child.parent:
+            child.parent = self
+        if child.parent != self:
+            raise MultipleParentsError(
+                "child {0} has incorrect parent: {1} instead of {2}".format(
+                    child.name, child.parent.name, self.name
+                )
+            )
+        child_dict[child.name] = child
+
+    def get_child(self, name, child_dict=None):
+        """Get child by name.
+
+        Args:
+            name (str): name of child.
+            child_dict (OrderedDict or None): dict to get child from. If None,
+                use self._children.
+
+        Returns:
+            (BaseTreeItem or None): child, if one by that name exits.
+        """
+        if child_dict is None:
+            child_dict = self._children
+        return child_dict.get(name, None)
+
+    def get_child_at_index(self, index, child_dict=None):
+        """Get child by index.
+
+        Args:
+            index (int): index of child.
+            child_dict (OrderedDict or None): dict to get child from. If None,
+                use self._children.
+
+        Returns:
+            (Task or None): child, if one of that index exits.
+        """
+        if child_dict is None:
+            child_dict = self._children
+        if 0 <= index < len(child_dict):
+            return list(child_dict.values())[index]
+        return None
+
+    def get_all_children(self, child_dict=None):
+        """Get all children of this item.
+
+        Args:
+            child_dict (OrderedDict or None): dict to get children from. If
+                None, use self._children.
+
+        Returns:
+            (list(Task)): list of all children.
+        """
+        if child_dict is None:
+            child_dict = self._children
+        return list(child_dict.values())
+
+    def num_children(self, child_dict=None):
+        """Get number of children of this item.
+
+        child_dict (OrderedDict or None): dict to get children from. If None,
+                use self._children.
+
+        Returns:
+            (int): number of children.
+        """
+        if child_dict is None:
+            child_dict = self._children
+        return len(child_dict)
+
+    def index(self, child_dict=None):
+        """Get index of this item as a child of its parent.
+
+        child_dict (OrderedDict or None): dict of parent's to use as
+            child_dict. If None, use parent._children.
+
+        Returns:
+            (int): index of this item.
+        """
+        if not self.parent:
+            return None
+        else:
+            return self.parent.get_all_children(child_dict).index(self)
+
+    def is_leaf(self, child_dict=None):
+        """Return whether or not this item is a leaf (ie has no children).
+
+        child_dict (OrderedDict or None): dict to search for children in. If
+            None, use self._children.
+
+        Returns:
+            (bool): True if this is a leaf, else False.
+        """
+        if child_dict is None:
+            child_dict = self._children
+        return not bool(child_dict)

@@ -4,9 +4,9 @@ import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.task import Task
-from scheduler.api.tasks_data import TaskData
-from .task_model import TaskModel
+from scheduler.api.task_data import TaskData
+from scheduler.api.tree.task_category import TaskCategory
+from .models.task_category_model import TaskCategoryModel
 
 
 class TaskOutliner(QtWidgets.QTreeView):
@@ -14,9 +14,9 @@ class TaskOutliner(QtWidgets.QTreeView):
 
     def __init__(self, *args, **kwargs):
         """Initialise task view."""
-        super(QtWidgets.QTreeView, self).__init__(*args, **kwargs)
+        super(TaskOutliner, self).__init__(*args, **kwargs)
 
         path = "C:\\Users\\benca\\OneDrive\\Documents\\Admin\\Scheduler\\tasks\\projects.json"
-        self.tasks_data = TaskData.from_file(path)
+        self.task_data = TaskData.from_file(path)
 
-        self.setModel(TaskModel(self.tasks_data.get_tasks(), self))
+        self.setModel(TaskCategoryModel(self.task_data.get_root_data(), self))

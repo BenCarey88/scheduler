@@ -1,26 +1,9 @@
 """Task class."""
 
 from collections import OrderedDict
+from contextlib import contextmanager
 
-
-class SubtaskNameError(Exception):
-    """Exception for when multiple subtasks have the same name."""
-    def __init__(self, task_name, subtask_name):
-        """Initialise exception.
-
-        Args:
-            task_name (str): name of task we're adding subtask to.
-            subtask_name (str): name of subtask.
-        """
-        message = "subtask of {0} with name {1} already exists".format(
-            task_name, subtask_name
-        )
-        super(Exception, self).__init__(message)
-
-
-class SubtaskParentError(Exception):
-    """Exception for when subtask does not have current task as a parent."""
-    pass
+from .base_tree_item import BaseTreeItem
 
 
 class TaskType():
@@ -36,9 +19,11 @@ class TaskStatus():
     COMPLETE = "Complete"
 
 
-class Task(object):
+class Task(BaseTreeItem):
     """Class representing a generic task."""
-    
+
+    NO_SUBTASKS_FILTER = "No Subtasks"
+
     def __init__(
             self,
             name,
@@ -57,140 +42,44 @@ class Task(object):
                 we default to unstarted.
             history (TaskHistory or None): task history, if exists.
         """
-        self.name = name
-        self.parent = parent
-        self._subtasks = OrderedDict()
+        super(Task, self).__init__(name, parent)
         self.type = task_type or TaskType.GENERAL
         self.status = status or TaskStatus.UNSTARTED
         self.history = history or TaskHistory(self)
 
-    def create_subtask(
-            self,
-            name,
-            task_type=None,
-            status=None,
-            history=None):
-        """Create subtask and add to task subtasks dict.
+        # new attribute and method names for convenience
+        self._subtasks = self._children
+        self.create_subtask = self.create_child
+        self.add_subtask = self.add_child
+        self.get_subtask = self.get_child
+        self.get_subtask_at_index = self.get_child_at_index
+        self.get_all_subtasks = self.get_all_children
+        self.num_subtasks = self.num_children
 
-        Raises:
-            (SubtaskNameError): if a subtask with given name already exists.
-
-        Args:
-            name (str): name of subtask.
-            task_type (TaskType or None): type of subtask (routine or general).
-                if None, we default to current task type.
-            status (TaskStatus or None): status of subtask. If None, we default
-                to unstarted.
-            history (TaskHistory or None): subtask history, if exists.
-
-        Returns:
-            (Task): newly created subtask.
-        """
-        if name in self._subtasks:
-            raise SubtaskNameError(self.name, name)
-        subtask = Task(
-            name,
-            parent=self,
-            task_type=task_type or self.type,
-            status=status,
-            history=history
-        )
-        self._subtasks[name] = subtask
-        return subtask
-
-    def add_subtask(self, task):
-        """Add an existing subtask to this task's subtasks dict.
+    @contextmanager
+    def filter_children(self, filter_type):
+        """Filter children temporarily so kids are chosen from smaller list.
 
         Args:
-            task (Task): subtask Task object to add.
+            filter_type (str or None): type of filtering required, or None if
+                not required.
 
-        Raises:
-            (SubtaskNameError): if a subtask with given name already exists.
-            (SubtaskParentError): if the subtask has a different task as a
-                parent.
+        Filter Types:
+            (NO_SUBTASKS_FILTER): remove all children.
         """
-        if task.name in self._subtasks:
-            raise SubtaskNameError(self.name, task.name)
-        if not task.parent:
-            task.parent = self
-        if task.parent != self:
-            raise SubtaskParentError(
-                "subtask {0} has incorrect patent: {1} instead of {2}".format(
-                    task.name, task.parent.name, self.name
-                )
-            )
-        self._subtasks[task.name] = task
-
-    def get_subtask(self, name):
-        """Get subtask by name.
-
-        Args:
-            name (str): name of subtask.
-
-        Returns:
-            (Task or None): subtask, if one by that name exits.
-        """
-        return self._subtasks.get(name, None)
-
-    def get_subtask_at_index(self, index):
-        """Get subtask by index.
-
-        Args:
-            index (int): index of subtask.
-
-        Returns:
-            (Task or None): subtask, if one of that index exits.
-        """
-        if 0 <= index < len(self._subtasks):
-            return list(self._subtasks.values())[index]
-        return None
-
-    def get_all_subtasks(self):
-        """Get all subtasks of task.
-
-        Returns:
-            (list(Task)): list of all subtasks of task.
-        """
-        return list(self._subtasks.values())
-
-    def num_subtasks(self):
-        """Get number of subtasks of this task.
-
-        Returns:
-            (int): number of subtasks.
-        """
-        return len(self._subtasks)
-
-    def index(self):
-        """Get index of this task as a subtask of its parent task.
-
-        Returns:
-            (int): index of task.
-        """
-        if not self.parent:
-            return None
+        if filter_type != self.NO_SUBTASKS_FILTER:
+            yield
         else:
-            return self.parent.get_all_subtasks().index(self)
-
-    def is_leaf(self):
-        """Return whether or not task is a leaf (ie has no subtasks).
-
-        Returns:
-            (bool): True if task is leaf, else False.
-        """
-        return not bool(self._subtasks)
-
-    def is_subtask(self):
-        """Return whether or not task is a subtask.
-
-        Returns:
-            (bool): True if task is subtask, else False.
-        """
-        return (self.parent is not None)
+            try:
+                _children = self._children
+                self._children = OrderedDict()
+                yield
+            finally:
+                self._children = _children
 
     def update_task(self, date_time, status, comment=None):
         """Update task history and status.
-        
+
         Args:
             date (datetime.datetime): datetime object to update task with.
             status (TaskStatus): status to update task with.
@@ -215,7 +104,7 @@ class Task(object):
         }
         Note that this does not contain a name field, as the name is expected
         to be added as a key to this dictionary in the tasks json files (see
-        the tasks_data module for details on this).
+        the task_data module for details on this).
 
         Returns:
             (OrderedDict): dictionary representation.
@@ -287,7 +176,7 @@ class TaskHistory(object):
         self.dict = OrderedDict()
 
     def __bool__(self):
-        """Override bool operator to depend on whether dictionary is filled.
+        """Override bool operator to indicate whether dictionary is filled.
 
         Returns:
             (bool): False if dictionary is empty, else True.

@@ -4,8 +4,8 @@ import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.task import Task
-from .task_model import TaskModel
+from scheduler.api.tree.task import Task
+from .models.task_model import TaskModel
 from .task_view import TaskView
 from .timetable_view import TimetableView
 
@@ -15,7 +15,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         """Initialise main window."""
-        super(QtWidgets.QMainWindow, self).__init__(*args, **kwargs)
+        super(SchedulerWindow, self).__init__(*args, **kwargs)
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
         self.setup_tabs()
@@ -41,7 +41,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def save(self):
         """Save scheduler data."""
-        self.tasks_tab.outliner.tasks_data.write()
+        self.tasks_tab.outliner.task_data.write()
 
 
 def run_application():

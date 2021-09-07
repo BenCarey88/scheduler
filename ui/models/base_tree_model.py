@@ -1,24 +1,21 @@
-"""Tree model."""
+"""Abstract Base Tree model."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.task import Task
 
+class BaseTreeModel(QtCore.QAbstractItemModel):
+    """Base tree model."""
 
-class TaskModel(QtCore.QAbstractItemModel):
-    """Task tree model."""
-
-    def __init__(self, root_tasks, parent):
-        """Initialise task tree model.
+    def __init__(self, tree_root, parent):
+        """Initialise base tree model.
         
         Args:
-            root_tasks (list(Task)): list of root Task items.
+            tree_root (scheduler.api.tree_items.BaseTreeItem): tree root.
             parent (QtWidgets.QWidget): QWidget that this models.
         """
-        self.tree_root = Task("Tasks")
-        for task in root_tasks:
-            self.tree_root.add_subtask(task)
-        super(QtCore.QAbstractItemModel, self).__init__(parent)
+        self.tree_root = tree_root
+        self.child_filter = None
+        super(BaseTreeModel, self).__init__(parent)
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -34,12 +31,13 @@ class TaskModel(QtCore.QAbstractItemModel):
         if not self.hasIndex(row, column, parent_index):
             return QtCore.QModelIndex()
         if not parent_index.isValid():
-            parent_task = self.tree_root
+            parent_item = self.tree_root
         else:
-            parent_task = parent_index.internalPointer()
-        child_task = parent_task.get_subtask_at_index(row)
-        if child_task:
-            return self.createIndex(row, column, child_task)
+            parent_item = parent_index.internalPointer()
+        with parent_item.filter_children(self.child_filter):
+            child_item = parent_item.get_child_at_index(row)
+        if child_item:
+            return self.createIndex(row, column, child_item)
         return QtCore.QModelIndex()
 
     def parent(self, index):
@@ -53,15 +51,15 @@ class TaskModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.QModelIndex()
-        child_task = index.internalPointer()
-        parent_task = child_task.parent
-        if parent_task == self.tree_root:
+        child_item = index.internalPointer()
+        parent_item = child_item.parent
+        if parent_item == self.tree_root:
             return QtCore.QModelIndex()
-        return self.createIndex(parent_task.index(), 0, parent_task)
+        return self.createIndex(parent_item.index(), 0, parent_item)
 
     def rowCount(self, parent_index):
         """Get number of children of given parent.
-        
+
         Args:
             parent_index (QtCore.QModelIndex) parent QModelIndex.
 
@@ -71,13 +69,14 @@ class TaskModel(QtCore.QAbstractItemModel):
         if parent_index.column() > 0:
             return 0
         if not parent_index.isValid():
-            parent_task = self.tree_root
+            parent_item = self.tree_root
         else:
-            parent_task = parent_index.internalPointer()
-        return parent_task.num_subtasks()
+            parent_item = parent_index.internalPointer()
+        with parent_item.filter_children(self.child_filter):
+            return parent_item.num_children()
 
     def columnCount(self, index):
-        """Get number of columns of given task
+        """Get number of columns of given item
         
         Returns:
             (int): number of columns.
@@ -85,10 +84,10 @@ class TaskModel(QtCore.QAbstractItemModel):
         return 1
 
     def data(self, index, role):
-        """Get data for given task item and role.
+        """Get data for given item item and role.
         
         Args:
-            index (QtCore.QModelIndex): index of task item.
+            index (QtCore.QModelIndex): index of item item.
             role (QtCore.Qt.Role): role we want data for.
 
         Returns:
@@ -100,12 +99,13 @@ class TaskModel(QtCore.QAbstractItemModel):
             return QtCore.QVariant()
         item = index.internalPointer()
         return item.name
+        # return self.get_item_role(item, role)
 
     def flags(self, index):
-        """Get flags for given task item.
+        """Get flags for given item item.
 
         Args:
-            index (QtCore.QModelIndex): index of task item.
+            index (QtCore.QModelIndex): index of item item.
 
         Returns:
             (QtCore.Qt.Flag): Qt flags for item.

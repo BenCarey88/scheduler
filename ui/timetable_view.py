@@ -2,8 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.task import Task
-from .task_model import TaskModel
+from scheduler.api.tree.task import Task
 from .task_outliner import TaskOutliner
 
 
@@ -12,7 +11,7 @@ class TimetableView(QtWidgets.QWidget):
 
     def __init__(self, *args, **kwargs):
         """Initialise task view."""
-        super(QtWidgets.QWidget, self).__init__(*args, **kwargs)
+        super(TimetableView, self).__init__(*args, **kwargs)
 
         self.layout = QtWidgets.QHBoxLayout()
         self.setLayout(self.layout)

@@ -16,7 +16,8 @@ class TaskModel(BaseTreeModel):
             root_tasks (list(Task)): list of root Task items.
             parent (QtWidgets.QWidget): QWidget that this models.
         """
-        tree_root = Task("Tasks")
-        for task in root_tasks:
-            tree_root.add_subtask(task)
-        super(TaskModel, self).__init__(tree_root, parent)
+        # tree_root = Task("Tasks")
+        # for task in root_tasks:
+        #     tree_root.add_subtask(task)
+        # super(TaskModel, self).__init__(tree_root, parent)
+        super(TaskModel, self).__init__(root_tasks, parent)

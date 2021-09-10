@@ -6,14 +6,15 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
-    def __init__(self, tree_root, parent):
+    def __init__(self, tree_roots, parent):
         """Initialise base tree model.
         
         Args:
-            tree_root (scheduler.api.tree_items.BaseTreeItem): tree root.
+            tree_roots (list(scheduler.api.tree_items.BaseTreeItem)): tree
+                root items.
             parent (QtWidgets.QWidget): QWidget that this models.
         """
-        self.tree_root = tree_root
+        self.tree_roots = tree_roots
         self.child_filter = None
         super(BaseTreeModel, self).__init__(parent)
 
@@ -31,11 +32,14 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not self.hasIndex(row, column, parent_index):
             return QtCore.QModelIndex()
         if not parent_index.isValid():
-            parent_item = self.tree_root
+            if 0 <= row < len(self.tree_roots):
+                child_item = self.tree_roots[row]
+            else:
+                return QtCore.QModelIndex()
         else:
             parent_item = parent_index.internalPointer()
-        with parent_item.filter_children(self.child_filter):
-            child_item = parent_item.get_child_at_index(row)
+            with parent_item.filter_children(self.child_filter):
+                child_item = parent_item.get_child_at_index(row)
         if child_item:
             return self.createIndex(row, column, child_item)
         return QtCore.QModelIndex()
@@ -53,7 +57,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             return QtCore.QModelIndex()
         child_item = index.internalPointer()
         parent_item = child_item.parent
-        if parent_item == self.tree_root:
+        if not parent_item: # == self.tree_root:
             return QtCore.QModelIndex()
         return self.createIndex(parent_item.index(), 0, parent_item)
 
@@ -69,9 +73,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if parent_index.column() > 0:
             return 0
         if not parent_index.isValid():
-            parent_item = self.tree_root
-        else:
-            parent_item = parent_index.internalPointer()
+            return len(self.tree_roots) # parent_item = self.tree_root
+        #else:
+        parent_item = parent_index.internalPointer()
         with parent_item.filter_children(self.child_filter):
             return parent_item.num_children()
 
@@ -119,7 +123,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """Get header data.
         
         Args:
-            section (int): column we want header data for.
+            section (int): row we want header data for.
             orientation (QtCore.Qt.Orientaion): orientation of widget.
             role (QtCore.Qt.Role): role we want header data for.
 
@@ -128,5 +132,5 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if (orientation == QtCore.Qt.Horizontal
                 and role == QtCore.Qt.DisplayRole):
-            return self.tree_root.name
+            return "Tasks" #self.tree_root.name
         return QtCore.QVariant()

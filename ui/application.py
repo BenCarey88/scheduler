@@ -6,7 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import Task
 from .models.task_model import TaskModel
-from .task_view import TaskView
+from .task_view import TaskTab
 from .timetable_view import TimetableView
 
 
@@ -25,7 +25,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """Setup the tabs widget and different pages."""
         self.tabs_widget = QtWidgets.QTabWidget()
         self.setCentralWidget(self.tabs_widget)
-        self.tasks_tab = TaskView(self)
+        self.tasks_tab = TaskTab(self)
         self.tabs_widget.addTab(self.tasks_tab, "Tasks")
         self.timetable_tab = TimetableView(self)
         self.tabs_widget.addTab(self.timetable_tab, "Timetable")

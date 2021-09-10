@@ -23,8 +23,9 @@ class TaskCategoryModel(BaseTreeModel):
             root_categories (list(Task)): list of root TaskCategory items.
             parent (QtWidgets.QWidget): QWidget that this models.
         """
-        tree_root = TaskCategory("Tasks")
-        for category in root_categories:
-            tree_root.add_child(category)
-        super(TaskCategoryModel, self).__init__(tree_root, parent)
+        # tree_root = TaskCategory("Tasks")
+        # for category in root_categories:
+        #     tree_root.add_child(category)
+        # super(TaskCategoryModel, self).__init__(tree_root, parent)
+        super(TaskCategoryModel, self).__init__(root_categories, parent)
         self.child_filter = Task.NO_SUBTASKS_FILTER

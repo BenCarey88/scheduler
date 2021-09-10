@@ -48,7 +48,6 @@ class Task(BaseTreeItem):
         self.history = history or TaskHistory(self)
 
         # new attribute and method names for convenience
-        self._subtasks = self._children
         self.create_subtask = self.create_child
         self.add_subtask = self.add_child
         self.get_subtask = self.get_child
@@ -56,26 +55,32 @@ class Task(BaseTreeItem):
         self.get_all_subtasks = self.get_all_children
         self.num_subtasks = self.num_children
 
-    @contextmanager
-    def filter_children(self, filter_type):
-        """Filter children temporarily so kids are chosen from smaller list.
+    @property
+    def _subtasks(self):
+        """Get subtasks dict.
+
+        This is identical to children dict. It is implemented as a getter so
+        that it stays updated with the _children dict.
+
+        Returns:
+            (OrderedDict): dictionary of subtasks.
+        """
+        return self._children
+
+    def _filter_children(self, filter_type):
+        """Filter children dict for filter_children contextmanager.
 
         Args:
             filter_type (str or None): type of filtering required, or None if
                 not required.
 
-        Filter Types:
+        Accepted Filter Types:
             (NO_SUBTASKS_FILTER): remove all children.
         """
         if filter_type != self.NO_SUBTASKS_FILTER:
-            yield
+            return
         else:
-            try:
-                _children = self._children
-                self._children = OrderedDict()
-                yield
-            finally:
-                self._children = _children
+            self._children = OrderedDict()
 
     def update_task(self, date_time, status, comment=None):
         """Update task history and status.

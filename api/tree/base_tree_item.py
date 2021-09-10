@@ -5,8 +5,8 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 
-class TreeChildNameError(Exception):
-    """Exception for newly added child having same name as existing child."""
+class DuplicateChildNameError(Exception):
+    """Exception for two cildren having the same name."""
     def __init__(self, tree_item_name, child_item_name):
         """Initialise exception.
 
@@ -17,7 +17,7 @@ class TreeChildNameError(Exception):
         message = "child of {0} with name {1} already exists".format(
             tree_item_name, child_item_name
         )
-        super(TreeChildNameError, self).__init__(message)
+        super(DuplicateChildNameError, self).__init__(message)
 
 
 class MultipleParentsError(Exception):
@@ -41,26 +41,79 @@ class BaseTreeItem(ABC):
             name (str): name of tree item.
             parent (Task or None): parent of current item, if it's not a root.
         """
-        self.name = name
+        self._name = name
         self.parent = parent
         self._children = OrderedDict()
 
+    @property
+    def name(self):
+        """Get item name.
+
+        Returns:
+            (str): item's name.
+        """
+        return self._name
+
+    @name.setter
+    def name(self, new_name):
+        """Set item name.
+
+        This setter also updates the item's name in its parent's child dict.
+
+        Args:
+            new_name (str): new item name.
+
+        Raises:
+            (DuplicateChildNameError): if the new name is the same as one of its
+                siblings.
+        """
+        parent = self.parent
+        if parent:
+            if parent.get_child(new_name):
+                raise DuplicateChildNameError(parent.name, new_name)
+            # replace parent's child item key by cycling through ordered dict
+            for i in range(len(parent._children)):
+                k, v = parent._children.popitem(last=False)
+                if k == self._name:
+                    k = new_name
+                parent._children[k] = v
+        self._name = new_name
+
     @contextmanager
     def filter_children(self, filter_type):
-        """Filter children temporarily so kids are chosen from smaller list.
+        """Contextmanager to filter _children dict temporarily.
 
-        This is to be overridden in subclasses that require the filtering.
+        This uses the _filter_children method to determine the type of filtering,
+        which must be overridden in subclasses that want to use it.
 
         Args:
             filter_type (str or None): type of filtering required, or None if not
                 required.
         """
-        yield
+        _children = self._children
+        try:
+            if filter_type is not None:
+                self._filter_children(filter_type)
+            yield
+        except Exception:
+            yield
+        finally:
+            self._children = _children
+
+    def _filter_children(self, filter_type):
+        """Filter _children dict.
+
+        This is to be overridden in subclasses that require filtering.
+
+        Args:
+            filter_type (str or None): type of filtering required, or None if not
+                required.
+        """
+        pass
 
     def create_child(
             self,
             name,
-            *args,
             child_type=None,
             child_dict=None,
             **kwargs):
@@ -68,7 +121,6 @@ class BaseTreeItem(ABC):
 
         Args:
             name (str): name of child.
-            *args: args to be passed to child init.
             child_type (class or None): class to use for child init. If None,
                 use current class.
             child_dict (OrderedDict or None): dict to add child to. If None,
@@ -76,7 +128,7 @@ class BaseTreeItem(ABC):
             **kwargs: kwargs to be passed to child init.
 
         Raises:
-            (TreeChildNameError): if a child with given name already exists.
+            (DuplicateChildNameError): if a child with given name already exists.
 
         Returns:
             (BaseTreeItem): newly created child. In subclasses, this will use
@@ -85,9 +137,9 @@ class BaseTreeItem(ABC):
         if child_dict is None:
             child_dict = self._children
         if name in child_dict:
-            raise TreeChildNameError(self.name, name)
+            raise DuplicateChildNameError(self.name, name)
         child_type = child_type or self.__class__
-        child = child_type(name, parent=self, *args, **kwargs)
+        child = child_type(name, parent=self, **kwargs)
         self._children[name] = child
         return child
 
@@ -100,14 +152,14 @@ class BaseTreeItem(ABC):
                 use self._children.
 
         Raises:
-            (TreeChildNameError): if a child with given name already exists.
+            (DuplicateChildNameError): if a child with given name already exists.
             (MultipleParentsError): if the child has a different tree item as
                 a parent.
         """
         if child_dict is None:
             child_dict = self._children
         if child.name in self._children:
-            raise TreeChildNameError(self.name, child.name)
+            raise DuplicateChildNameError(self.name, child.name)
         if not child.parent:
             child.parent = self
         if child.parent != self:
@@ -187,7 +239,7 @@ class BaseTreeItem(ABC):
             (int): index of this item.
         """
         if not self.parent:
-            return None
+            return 0
         else:
             return self.parent.get_all_children(child_dict).index(self)
 

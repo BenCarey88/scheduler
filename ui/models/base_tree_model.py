@@ -56,8 +56,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not index.isValid():
             return QtCore.QModelIndex()
         child_item = index.internalPointer()
+        if child_item in self.tree_roots:
+            return QtCore.QModelIndex()
         parent_item = child_item.parent
-        if not parent_item: # == self.tree_root:
+        if not parent_item:
             return QtCore.QModelIndex()
         return self.createIndex(parent_item.index(), 0, parent_item)
 

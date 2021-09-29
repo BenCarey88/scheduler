@@ -18,21 +18,20 @@ class TaskTab(QtWidgets.QSplitter):
         """Initialise task view."""
         super(TaskTab, self).__init__(*args, **kwargs)
 
+        self.setChildrenCollapsible(False)
+
         path = "C:\\Users\\benca\\OneDrive\\Documents\\Admin\\Scheduler\\tasks\\projects.json"
         self.task_data = TaskData.from_file(path)
 
-        self.layout = QtWidgets.QHBoxLayout()
-        self.setLayout(self.layout)
-
         self.outliner = TaskOutliner(self.task_data, parent=self)
         self.outliner.setMinimumWidth(100)
-        self.layout.addWidget(self.outliner)
+        self.addWidget(self.outliner)
 
         self.main_view = QtWidgets.QListView()
         self.main_view.setVerticalScrollMode(self.main_view.ScrollPerPixel)
         self.main_view.setResizeMode(self.main_view.Adjust)
         self.main_view.setItemDelegate(TaskDelegate(self))
-        self.layout.addWidget(self.main_view)
+        self.addWidget(self.main_view)
         root_data = self.task_data.get_root_data()
         for data in root_data:
             print (type(data), data.name)
@@ -101,7 +100,7 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
                 editor.line_edit.setText(item.name)
 
     # def setEditorData(self, editor, index):
-        
+
 
     # hash this function out to get stuff working again
     # def paint(self, painter, option, index):

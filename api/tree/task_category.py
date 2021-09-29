@@ -28,19 +28,19 @@ class TaskCategory(BaseTreeItem):
         self.add_subcategory = self.add_child
         self.get_subcategory = partial(
             self.get_child,
-            self._subcategories
+            child_dict=self._subcategories
         )
         self.get_subcategory_at_index = partial(
             self.get_child_at_index,
-            self._subcategories
+            child_dict=self._subcategories
         )
         self.get_all_subcategories = partial(
             self.get_all_children,
-            self._subcategories
+            child_dict=self._subcategories
         )
         self.num_subcategories = partial(
             self.num_children,
-            self._subcategories
+            child_dict=self._subcategories
         )
 
         # task methods
@@ -63,7 +63,7 @@ class TaskCategory(BaseTreeItem):
         )
         self.num_tasks = partial(
             self.num_children,
-            child_list=self._tasks
+            child_dict=self._tasks
         )
 
     @property

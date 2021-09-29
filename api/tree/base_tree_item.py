@@ -134,8 +134,7 @@ class BaseTreeItem(ABC):
             (BaseTreeItem): newly created child. In subclasses, this will use
                 the type of the subclass.
         """
-        if child_dict is None:
-            child_dict = self._children
+        child_dict = child_dict or self._children
         if name in child_dict:
             raise DuplicateChildNameError(self.name, name)
         child_type = child_type or self.__class__
@@ -147,7 +146,7 @@ class BaseTreeItem(ABC):
         """Add an existing child to this item's children dict.
 
         Args:
-            child (Task): child item to add.
+            child (BaseTreeItem): child item to add.
             child_dict (OrderedDict or None): dict to add child to. If None,
                 use self._children.
 
@@ -156,8 +155,7 @@ class BaseTreeItem(ABC):
             (MultipleParentsError): if the child has a different tree item as
                 a parent.
         """
-        if child_dict is None:
-            child_dict = self._children
+        child_dict = child_dict or self._children
         if child.name in self._children:
             raise DuplicateChildNameError(self.name, child.name)
         if not child.parent:
@@ -181,8 +179,7 @@ class BaseTreeItem(ABC):
         Returns:
             (BaseTreeItem or None): child, if one by that name exits.
         """
-        if child_dict is None:
-            child_dict = self._children
+        child_dict = child_dict or self._children
         return child_dict.get(name, None)
 
     def get_child_at_index(self, index, child_dict=None):
@@ -196,8 +193,7 @@ class BaseTreeItem(ABC):
         Returns:
             (Task or None): child, if one of that index exits.
         """
-        if child_dict is None:
-            child_dict = self._children
+        child_dict = child_dict or self._children
         if 0 <= index < len(child_dict):
             return list(child_dict.values())[index]
         return None
@@ -212,8 +208,7 @@ class BaseTreeItem(ABC):
         Returns:
             (list(Task)): list of all children.
         """
-        if child_dict is None:
-            child_dict = self._children
+        child_dict = child_dict or self._children
         return list(child_dict.values())
 
     def num_children(self, child_dict=None):
@@ -225,8 +220,7 @@ class BaseTreeItem(ABC):
         Returns:
             (int): number of children.
         """
-        if child_dict is None:
-            child_dict = self._children
+        child_dict = child_dict or self._children
         return len(child_dict)
 
     def index(self, child_dict=None):
@@ -252,6 +246,5 @@ class BaseTreeItem(ABC):
         Returns:
             (bool): True if this is a leaf, else False.
         """
-        if child_dict is None:
-            child_dict = self._children
+        child_dict = child_dict or self._children
         return not bool(child_dict)

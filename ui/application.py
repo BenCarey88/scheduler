@@ -8,6 +8,7 @@ from scheduler.api.tree.task import Task
 from .models.task_model import TaskModel
 from .task_view import TaskTab
 from .timetable_view import TimetableView
+from .next_up_view import NextUpView
 
 
 class SchedulerWindow(QtWidgets.QMainWindow):

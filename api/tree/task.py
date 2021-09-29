@@ -59,7 +59,7 @@ class Task(BaseTreeItem):
     def _subtasks(self):
         """Get subtasks dict.
 
-        This is identical to children dict. It is implemented as a getter so
+        This is identical to children dict. It is implemented as a property so
         that it stays updated with the _children dict.
 
         Returns:

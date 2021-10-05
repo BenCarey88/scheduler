@@ -80,36 +80,24 @@ class BaseTreeItem(ABC):
         self._name = new_name
 
     @contextmanager
-    def filter_children(self, filter_type):
+    def filter_children(self, *filters):
         """Contextmanager to filter _children dict temporarily.
 
-        This uses the _filter_children method to determine the type of filtering,
-        which must be overridden in subclasses that want to use it.
+        This uses the child filters defined in the filters module.
 
         Args:
-            filter_type (str or None): type of filtering required, or None if not
-                required.
+            filters (list(BaseFilter)): types of filtering required.
         """
         _children = self._children
         try:
-            if filter_type is not None:
-                self._filter_children(filter_type)
-            yield
-        except Exception:
+            for child_filter in filters:
+                self._children = child_filter.filter_function(
+                    self._children,
+                    self
+                )
             yield
         finally:
             self._children = _children
-
-    def _filter_children(self, filter_type):
-        """Filter _children dict.
-
-        This is to be overridden in subclasses that require filtering.
-
-        Args:
-            filter_type (str or None): type of filtering required, or None if not
-                required.
-        """
-        pass
 
     def create_child(
             self,
@@ -222,6 +210,20 @@ class BaseTreeItem(ABC):
         """
         child_dict = child_dict or self._children
         return len(child_dict)
+
+    def num_descendants(self, child_dict=None):
+        """Get number of descendants of this item.
+
+        child_dict (OrderedDict or None): dict to get children from. If None,
+                use self._children.
+
+        Returns:
+            (int): number of descendants.
+        """
+        child_dict = child_dict or self._children
+        return sum(
+            [(child.num_descendants() + 1) for child in child_dict.values()]
+        )
 
     def index(self, child_dict=None):
         """Get index of this item as a child of its parent.

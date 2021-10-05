@@ -4,6 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
+from scheduler.api.tree import filters
 from .base_tree_model import BaseTreeModel
 
 
@@ -27,5 +28,8 @@ class TaskCategoryModel(BaseTreeModel):
         # for category in root_categories:
         #     tree_root.add_child(category)
         # super(TaskCategoryModel, self).__init__(tree_root, parent)
-        super(TaskCategoryModel, self).__init__(root_categories, parent)
-        self.child_filter = Task.NO_SUBTASKS_FILTER
+        super(TaskCategoryModel, self).__init__(
+            root_categories,
+            parent,
+            filters=[filters.NoSubtasks()]
+        )

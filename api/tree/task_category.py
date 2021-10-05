@@ -42,6 +42,10 @@ class TaskCategory(BaseTreeItem):
             self.num_children,
             child_dict=self._subcategories
         )
+        self.num_subcategory_descendants = partial(
+            self.num_descendants,
+            child_dict=self._subcategories
+        )
 
         # task methods
         self.create_task = partial(
@@ -63,6 +67,10 @@ class TaskCategory(BaseTreeItem):
         )
         self.num_tasks = partial(
             self.num_children,
+            child_dict=self._tasks
+        )
+        self.num_task_descendants = partial(
+            self.num_descendants,
             child_dict=self._tasks
         )
 

@@ -22,8 +22,6 @@ class TaskStatus():
 class Task(BaseTreeItem):
     """Class representing a generic task."""
 
-    NO_SUBTASKS_FILTER = "No Subtasks"
-
     def __init__(
             self,
             name,
@@ -54,6 +52,7 @@ class Task(BaseTreeItem):
         self.get_subtask_at_index = self.get_child_at_index
         self.get_all_subtasks = self.get_all_children
         self.num_subtasks = self.num_children
+        self.num_subtask_descendants = self.num_descendants
 
     @property
     def _subtasks(self):
@@ -66,21 +65,6 @@ class Task(BaseTreeItem):
             (OrderedDict): dictionary of subtasks.
         """
         return self._children
-
-    def _filter_children(self, filter_type):
-        """Filter children dict for filter_children contextmanager.
-
-        Args:
-            filter_type (str or None): type of filtering required, or None if
-                not required.
-
-        Accepted Filter Types:
-            (NO_SUBTASKS_FILTER): remove all children.
-        """
-        if filter_type != self.NO_SUBTASKS_FILTER:
-            return
-        else:
-            self._children = OrderedDict()
 
     def update_task(self, date_time, status, comment=None):
         """Update task history and status.

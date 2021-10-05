@@ -16,4 +16,5 @@ class TaskOutliner(QtWidgets.QTreeView):
 
         self.task_data = task_data
         self.setModel(TaskCategoryModel(self.task_data.get_root_data(), self))
+        self.setHeaderHidden(True)
         self.expandAll()

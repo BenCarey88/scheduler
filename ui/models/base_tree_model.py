@@ -2,20 +2,37 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.tree import filters
+
 
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
-    def __init__(self, tree_roots, parent):
+    def __init__(self, tree_roots, parent=None, filters=None):
         """Initialise base tree model.
-        
+
         Args:
             tree_roots (list(scheduler.api.tree_items.BaseTreeItem)): tree
                 root items.
-            parent (QtWidgets.QWidget): QWidget that this models.
+            parent (QtWidgets.QWidget or None): QWidget that this models.
+            filters (list(scheduler.api.tree.filters.BaseFilter)): filters
+                for reducing number of children to consider.
         """
         self.tree_roots = tree_roots
-        self.child_filter = None
+        self.child_filters = filters or []
+        first_item = next(iter(tree_roots), None)
+        if first_item:
+            parent_item = first_item.parent
+            if parent_item:
+                with parent_item.filter_children(*self.child_filters):
+                    children_of_parent = parent_item.get_all_children()
+                if children_of_parent != tree_roots:
+                    self.child_filters.append(
+                        filters.RestrictToGivenChildren(
+                            parent_item,
+                            [item.name for item in tree_roots]
+                        )
+                    )
         super(BaseTreeModel, self).__init__(parent)
 
     def index(self, row, column, parent_index):
@@ -38,7 +55,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 return QtCore.QModelIndex()
         else:
             parent_item = parent_index.internalPointer()
-            with parent_item.filter_children(self.child_filter):
+            # move filter inside the base tree class as a decorator maybe?
+            # or maybe this way is still better?
+            with parent_item.filter_children(*self.child_filters):
                 child_item = parent_item.get_child_at_index(row)
         if child_item:
             return self.createIndex(row, column, child_item)
@@ -76,7 +95,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             return len(self.tree_roots) # parent_item = self.tree_root
         #else:
         parent_item = parent_index.internalPointer()
-        with parent_item.filter_children(self.child_filter):
+        with parent_item.filter_children(*self.child_filters):
             return parent_item.num_children()
 
     def columnCount(self, index):
@@ -99,11 +118,31 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if role != QtCore.Qt.DisplayRole:
-            return QtCore.QVariant()
-        item = index.internalPointer()
-        return item.name
+        if role == QtCore.Qt.DisplayRole:
+            item = index.internalPointer()
+            return item.name
+        if role == QtCore.Qt.EditRole:
+            item = index.internalPointer()
+            return item.name
+        return QtCore.QVariant()
         # return self.get_item_role(item, role)
+
+    # def setData(self, column, value):
+    #     """Set data at given column to given value.
+
+    #     Implementing this method allows the tree model to be editable.
+
+    #     Args:
+    #         column (int): column we're setting data at.
+    #         value (QtCore.QVariant): value to set for data.
+
+    #     Returns:
+    #         (bool): True if setting data was successful, else False.
+    #     """
+    #     # if column != 0:
+    #     #     return False
+    #     self.tree_roots = value
+    #     return True
 
     def flags(self, index):
         """Get flags for given item item.

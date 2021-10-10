@@ -90,7 +90,8 @@ class TaskCategoryWidget(QtWidgets.QWidget):
                 self._height += widget._height
 
         elif type(task_item) == Task:
-            tree = QtWidgets.QTreeView(self)
+            tree = QtWidgets.QTreeView()
+            tree.setItemDelegate(TaskDelegate(tree))
             tree.setFrameStyle(tree.Shape.NoFrame)
             model = TaskModel(task_item.get_all_subtasks(), self)
             tree.setModel(model)
@@ -115,3 +116,82 @@ class TaskCategoryWidget(QtWidgets.QWidget):
             )
 
         self.setMinimumHeight(self._height)
+
+
+class TaskDelegate(QtWidgets.QStyledItemDelegate):
+
+    def __init__(self, parent=None):
+        super(TaskDelegate, self).__init__(parent)
+        #self.setItemEditorFactory(TaskItemEditorFactory())
+
+    def createEditor(self, parent, option, index):
+        print ("test")
+        # if not index.model():
+        #     return
+        editor = TaskWidget(parent, index)
+        editor.line_edit.setText(index.data())
+        editor.line_edit.editingFinished.connect(
+            partial(self.commitData.emit, editor)
+        )
+        if index.model():
+            index.model().setData(index, editor, QtCore.Qt.UserRole)
+        print ("BENN")
+        return editor
+
+    def setEditorData(self, editor, index):
+        if index.model():
+            index.model().setData(index, editor, QtCore.Qt.UserRole)
+        return
+
+    # def sizeHint(self, option, index):
+    #     return QtCore.QSize(500, 30)
+
+    def setModelData(self, editor, model, index):
+        item = index.internalPointer()
+        if editor.line_edit.text() != item.name:
+            try:
+                item.name = editor.text()
+            except DuplicateChildNameError:
+                editor.line_edit.setText(item.name)
+
+    # hash this function out to get stuff working again
+    # def paint(self, painter, option, index):
+    #     string = index.data()
+    #     style = QtWidgets.QApplication.style()
+    #     style.drawPrimitive(
+    #         style.PrimitiveElement.PE_IndicatorArrowUp,
+    #         QtWidgets.QStyleOption(),
+    #         painter,
+    #         QtWidgets.QPushButton()
+    #     )
+
+
+class TaskWidget(QtWidgets.QWidget):
+
+    def __init__(self, parent, index):
+        super(TaskWidget, self).__init__(parent)
+        layout = QtWidgets.QVBoxLayout()
+        self.setLayout(layout)
+        self.line_edit = QtWidgets.QLineEdit(parent)
+        self.line_edit.setText(index.data())
+        layout.addWidget(self.line_edit)
+
+
+class TaskItemEditorFactory(QtWidgets.QItemEditorFactory):
+
+    def __init__(self):
+        super(TaskItemEditorFactory, self).__init__()
+        print ("BEN")
+
+    def createEditor(self, userType, parent):
+        # if not index.model():
+        #     return
+        editor = TaskWidget(parent, "")
+        editor.line_edit.setText("index.data()")
+        editor.line_edit.editingFinished.connect(
+            partial(self.commitData.emit, editor)
+        )
+        # if index.model():
+        #     index.model().setData(index, editor, QtCore.Qt.UserRole)
+        print ("BEbenNN")
+        return editor

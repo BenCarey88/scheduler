@@ -48,6 +48,7 @@ class Task(BaseTreeItem):
         # new attribute and method names for convenience
         self.create_subtask = self.create_child
         self.add_subtask = self.add_child
+        self.remove_subtask = self.remove_child
         self.get_subtask = self.get_child
         self.get_subtask_at_index = self.get_child_at_index
         self.get_all_subtasks = self.get_all_children

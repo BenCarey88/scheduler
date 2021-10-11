@@ -13,23 +13,25 @@ class TaskCategoryModel(BaseTreeModel):
 
     This model is to be used in the task outliner. It's intended to expand
     up to the first task items under each category but not show any subtasks.
-    To do this, we override the index and rowCount methods to ignore children
-    of any items of type Task.
     """
 
-    def __init__(self, root_categories, parent):
+    def __init__(self, root_categories, parent=None):
         """Initialise task category tree model.
 
         Args:
             root_categories (list(Task)): list of root TaskCategory items.
-            parent (QtWidgets.QWidget): QWidget that this models.
+            parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        # tree_root = TaskCategory("Tasks")
-        # for category in root_categories:
-        #     tree_root.add_child(category)
-        # super(TaskCategoryModel, self).__init__(tree_root, parent)
         super(TaskCategoryModel, self).__init__(
             root_categories,
-            parent,
+            parent=parent,
             filters=[filters.NoSubtasks()]
         )
+
+    def columnCount(self, index):
+        """Get number of columns of given item
+        
+        Returns:
+            (int): number of columns.
+        """
+        return 1

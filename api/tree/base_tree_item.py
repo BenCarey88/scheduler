@@ -31,7 +31,8 @@ class BaseTreeItem(ABC):
     This class has a _children dict attribute representing the list of children
     of the current item. However, all its methods include a child_dict arg
     which allow subclasses to pass in a second dictionary of children to use,
-    enabling multiple types of children.
+    enabling multiple types of children. It is assumed that this child_dict
+    will always be a subdict of self._children.
     """
     
     def __init__(self, name, parent=None):
@@ -44,6 +45,7 @@ class BaseTreeItem(ABC):
         self._name = name
         self.parent = parent
         self._children = OrderedDict()
+        self.pruned = False
 
     @property
     def name(self):
@@ -155,6 +157,26 @@ class BaseTreeItem(ABC):
                 )
             )
         child_dict[child.name] = child
+
+    def remove_child(self, name, child_dict=None):
+        """Remove an existing child from this item's children dict.
+
+        Args:
+            name (str): name of child item to remove.
+            child_dict (OrderedDict or None): dict to check if child is in.
+                We still remove the child from self._children as it's
+                assumed the given child_dict will be a subset of
+                self._children.
+        """
+        child_dict = child_dict or self._children
+        if name in child_dict.keys():
+            # edit self._children by cycling through dict
+            for i in range(len(self._children)):
+                k, v = self._children.popitem(last=False)
+                if k != name:
+                    self._children[k] = v
+                else:
+                    v.pruned = True
 
     def get_child(self, name, child_dict=None):
         """Get child by name.

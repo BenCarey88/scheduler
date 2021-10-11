@@ -7,17 +7,41 @@ from .base_tree_model import BaseTreeModel
 
 
 class TaskModel(BaseTreeModel):
-    """Task tree model."""
+    """Task tree model.
 
-    def __init__(self, root_tasks, parent):
+    This model is intended to be used in the main panel of the Task Tab.
+    """
+
+    def __init__(self, root_tasks, parent=None):
         """Initialise task tree model.
-        
+
         Args:
             root_tasks (list(Task)): list of root Task items.
-            parent (QtWidgets.QWidget): QWidget that this models.
+            parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        # tree_root = Task("Tasks")
-        # for task in root_tasks:
-        #     tree_root.add_subtask(task)
-        # super(TaskModel, self).__init__(tree_root, parent)
-        super(TaskModel, self).__init__(root_tasks, parent)
+        super(TaskModel, self).__init__(root_tasks, parent=parent)
+
+    def columnCount(self, index):
+        """Get number of columns of given item
+        
+        Returns:
+            (int): number of columns.
+        """
+        return 2
+
+    def data(self, index, role):
+        """Get data for given item item and role.
+        
+        Args:
+            index (QtCore.QModelIndex): index of item item.
+            role (QtCore.Qt.Role): role we want data for.
+
+        Returns:
+            (QtCore.QVariant): data for given item and role.
+        """
+        if not index.isValid():
+            return QtCore.QVariant()
+        if index.column() == 1 and role == QtCore.Qt.DisplayRole:
+            item = index.internalPointer()
+            return item.status
+        return super(TaskModel, self).data(index, role)

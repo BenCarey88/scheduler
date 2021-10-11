@@ -1,5 +1,6 @@
 """Scheduler Qt application."""
 
+import os
 import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -45,9 +46,24 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tasks_tab.outliner.task_data.write()
 
 
+def set_style(app):
+    """Set style from style/stylesheet.qss on app.
+
+    Args:
+        app (QtWidgets.QApplication): Qt Application.
+    """
+    stylesheet_path = os.path.join(
+        os.path.dirname(__file__), "style", "stylesheet.qss"
+    )
+    with open(stylesheet_path, "r") as stylesheet_file:
+        stylesheet = stylesheet_file.read()
+    app.setStyleSheet(stylesheet)
+
+
 def run_application():
     """Open application window."""
     app = QtWidgets.QApplication(sys.argv)
+    set_style(app)
     window = SchedulerWindow()
     window.show()
     app.exec_()

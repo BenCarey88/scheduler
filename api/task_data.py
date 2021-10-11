@@ -1,4 +1,8 @@
-"""Module for reading and writing task data."""
+"""Module for reading and writing task data.
+
+At any one time the scheduler ui should have one TaskData item that is
+used across all its tabs and widgets.
+"""
 
 from collections import OrderedDict
 import json
@@ -14,7 +18,7 @@ class TaskFileError(Exception):
 
 
 class TaskData(object):
-    """Class for reading and writing task data."""
+    """Object representing all the task data for the scheduler."""
 
     def __init__(self, _dict, file_path):
         """Initialize TaskData item.

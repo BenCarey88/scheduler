@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree import filters
+from scheduler.api.tree.base_tree_item import DuplicateChildNameError
 
 
 class BaseTreeModel(QtCore.QAbstractItemModel):
@@ -12,8 +12,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """Initialise base tree model.
 
         Args:
-            tree_roots (list(scheduler.api.tree_items.BaseTreeItem)): tree
-                root items.
+            tree_roots (list(scheduler.api.tree_items.BaseTreeItem)): model
+                root items (these are assumed to all be siblings in some
+                tree, although they don't need to actually be at the root
+                of that tree).
             parent (QtWidgets.QWidget or None): QWidget that this models.
             filters (list(scheduler.api.tree.filters.BaseFilter)): filters
                 for reducing number of children to consider.
@@ -24,6 +26,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if first_item:
             parent_item = first_item.parent
             if parent_item:
+                # in case the given roots are missing some siblings, we need
+                # a filter to remove the other siblings from consideration
                 with parent_item.filter_children(*self.child_filters):
                     children_of_parent = parent_item.get_all_children()
                 if children_of_parent != tree_roots:
@@ -99,7 +103,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             return parent_item.num_children()
 
     def columnCount(self, index):
-        """Get number of columns of given item
+        """Get number of columns of given item.
+
+        This is set to 1 in base class but can be overridden if needed.
         
         Returns:
             (int): number of columns.
@@ -118,31 +124,43 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if role == QtCore.Qt.DisplayRole:
-            item = index.internalPointer()
-            return item.name
-        if role == QtCore.Qt.EditRole:
+        if role == QtCore.Qt.ItemDataRole.DisplayRole:
             item = index.internalPointer()
             return item.name
         return QtCore.QVariant()
         # return self.get_item_role(item, role)
 
-    # def setData(self, column, value):
-    #     """Set data at given column to given value.
+    def setData(self, index, value, role):
+        """Set data at given index to given value.
 
-    #     Implementing this method allows the tree model to be editable.
+        Implementing this method allows the tree model to be editable.
 
-    #     Args:
-    #         column (int): column we're setting data at.
-    #         value (QtCore.QVariant): value to set for data.
+        Args:
+            index (QtCore.QModelIndex): index of item we're setting data for.
+            value (QtCore.QVariant): value to set for data.
+            role (QtCore.Qt.Role): role we want to set data for.
 
-    #     Returns:
-    #         (bool): True if setting data was successful, else False.
-    #     """
-    #     # if column != 0:
-    #     #     return False
-    #     self.tree_roots = value
-    #     return True
+        Returns:
+            (bool): True if setting data was successful, else False.
+        """
+        if not index.isValid():
+            return False
+        if not value:
+            # can't set tree with empty name
+            return False
+        if index.column() != 0:
+            # in base class, we can only set data on the name column
+            return False
+        item = index.internalPointer()
+        if not item:
+            return False
+        try:
+            item.name = value
+            self.dataChanged.emit(index, index)
+            # import pdb; pdb.set_trace()
+            return True
+        except DuplicateChildNameError:
+            return False
 
     def flags(self, index):
         """Get flags for given item item.
@@ -155,8 +173,12 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
-        return QtCore.Qt.ItemIsEditable
-        #return QtCore.QAbstractItemModel.flags(index)
+        return (
+            QtCore.Qt.ItemFlag.ItemIsEnabled | 
+            QtCore.Qt.ItemFlag.ItemIsSelectable |
+            QtCore.Qt.ItemFlag.ItemIsEditable |
+            QtCore.Qt.ItemFlag.ItemIsTristate
+        )
 
     def headerData(self, section, orientation, role):
         """Get header data.

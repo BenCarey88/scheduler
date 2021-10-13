@@ -16,7 +16,9 @@ class TaskOutliner(QtWidgets.QTreeView):
         """Initialise task view."""
         super(TaskOutliner, self).__init__(*args, **kwargs)
 
-        self.task_data = task_data
+        # TESTING NEW ROOT
+        self.root = task_data
+        # self.task_data = task_data
         self.set_model()
 
         self.setHeaderHidden(True)
@@ -24,9 +26,9 @@ class TaskOutliner(QtWidgets.QTreeView):
         self.setSelectionMode(
             QtWidgets.QAbstractItemView.SelectionMode.MultiSelection
         )
-        self.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
-        )
+        # self.setSelectionBehavior(
+        #     QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
+        # )
 
     def update(self):
         self.set_model(keep_selection=True)
@@ -41,40 +43,47 @@ class TaskOutliner(QtWidgets.QTreeView):
                 if index.isValid()
             ]
             current_item = self.currentIndex().internalPointer()
-        self.model = TaskCategoryModel(self.task_data.get_root_data(), self)
+        
+        # TESTING NEW ROOT
+        # root_data = self.task_data.get_root_data()
+        # self.model = TaskCategoryModel(root_data, self)
+        self.model = TaskCategoryModel(self.root, self)
+
         self.setModel(self.model)
         self.expandAll()
         self.model.dataChanged.connect(
             self.parent().reset
         )
-        print (selected_items)
-        for item in selected_items:
-            print (item.name)
-            if item.pruned:
-                continue
-            print (1)
+        for item in selected_items: 
+            # TESTING NEW ROOT
+            # if item in root_data:
+            #     item_row = root_data.index(item)
+            # else:
+            if True:
+                item_row = item.index()
+            index = self.model.createIndex(       
+                item_row,
+                0,
+                item
+            )
             index = self.model.createIndex(
                 item.index(),
                 0,
-                current_item
+                item
             )
-            print (index)
             if not index.isValid():
                 continue
-            print (3)
             self.selectionModel().select(
                 index,
-                self.selection_model().SelectionFlag.SelectCurrent
+                self.selectionModel().SelectionFlag.Select
             )
-            print (4)
-        if current_item and not current_item.pruned:
-            index = self.model.createIndex(
-                current_item.index(),
-                0,
-                current_item
-            )
-            print (index)
-            self.setCurrentIndex(index)
+        # if current_item and not current_item.pruned:
+        #     index = self.model.createIndex(
+        #         current_item.index(),
+        #         0,
+        #         current_item
+        #     )
+        #     self.setCurrentIndex(index)
 
 
         # def current_changed(new_index, old_index):

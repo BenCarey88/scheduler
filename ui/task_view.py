@@ -5,7 +5,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.base_tree_item import DuplicateChildNameError
+from scheduler.api.tree.base_tree_item import BaseTreeItem, DuplicateChildNameError
 from scheduler.api.tree.task import Task
 from scheduler.api.task_data import TaskData
 from scheduler.api.tree.task_category import TaskCategory
@@ -27,11 +27,20 @@ class TaskTab(QtWidgets.QSplitter):
 
         path = "C:\\Users\\benca\\OneDrive\\Documents\\Admin\\Scheduler\\tasks\\projects.json"
         self.task_data = TaskData.from_file(path)
-        root_data = self.task_data.get_root_data()
+        self.tree_root = self.task_data.get_tree_root()
+
+        # TESTING NEW ROOT
+        # root = BaseTreeItem("Root")
+        # for category in root_data:
+        #     root.add_child(category)
 
         # self.main_layout = QtWidgets.QVBoxLayout()
         # self.setLayout(self.main_layout)
-        self.outliner = TaskOutliner(self.task_data, parent=self)
+
+        # TESTING NEW ROOT
+        # self.outliner = TaskOutliner(self.task_data, parent=self)
+        self.outliner = TaskOutliner(self.tree_root, parent=self)
+
         self.addWidget(self.outliner)
 
         self.scroll_area = QtWidgets.QScrollArea(self) 
@@ -53,12 +62,12 @@ class TaskTab(QtWidgets.QSplitter):
         #     self.reset
         # )
 
-        self.display_tasks(root_data)
+        self.display_tasks(self.tree_root)
         self.refresh_scroll_area()
 
-    def display_tasks(self, task_catgeory_list):
+    def display_tasks(self, tree_root):
         minimum_height = 0
-        for category in task_catgeory_list:
+        for category in tree_root.get_all_children():
             widget = TaskCategoryWidget(
                 category,
                 parent=self,
@@ -90,8 +99,8 @@ class TaskTab(QtWidgets.QSplitter):
         self.main_view = QtWidgets.QWidget()
         self.main_view_layout = QtWidgets.QVBoxLayout()
         self.main_view.setLayout(self.main_view_layout)
-        root_data = self.task_data.get_root_data()
-        self.display_tasks(root_data)
+        # tree_root = self.task_data.get_tree_root()
+        self.display_tasks(self.tree_root)
         self.refresh_scroll_area()
         # self.outliner.model.dataChanged.connect(
         #     self.reset
@@ -149,7 +158,11 @@ class TaskCategoryWidget(QtWidgets.QWidget):
             tree = QtWidgets.QTreeView()
             tree.setItemDelegate(TaskDelegate(tree))
             tree.setFrameStyle(tree.Shape.NoFrame)
-            model = TaskModel(task_item.get_all_subtasks(), parent)
+             
+            # TESTING NEW ROOT
+            # model = TaskModel(task_item.get_all_subtasks(), parent)
+            model = TaskModel(task_item, parent)
+
             tree.setModel(model)
             tree.expandAll()
 

@@ -20,23 +20,28 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             filters (list(scheduler.api.tree.filters.BaseFilter)): filters
                 for reducing number of children to consider.
         """
-        self.tree_roots = tree_roots
+        # TESTING NEW ROOT
+        self.root = tree_roots
+        with self.root.filter_children(*filters or []):
+            self.tree_roots = self.root.get_all_children()
+
+        # self.tree_roots = tree_roots
         self.child_filters = filters or []
-        first_item = next(iter(tree_roots), None)
-        if first_item:
-            parent_item = first_item.parent
-            if parent_item:
-                # in case the given roots are missing some siblings, we need
-                # a filter to remove the other siblings from consideration
-                with parent_item.filter_children(*self.child_filters):
-                    children_of_parent = parent_item.get_all_children()
-                if children_of_parent != tree_roots:
-                    self.child_filters.append(
-                        filters.RestrictToGivenChildren(
-                            parent_item,
-                            [item.name for item in tree_roots]
-                        )
-                    )
+        # first_item = next(iter(tree_roots), None)
+        # if first_item:
+        #     parent_item = first_item.parent
+        #     if parent_item:
+        #         # in case the given roots are missing some siblings, we need
+        #         # a filter to remove the other siblings from consideration
+        #         with parent_item.filter_children(*self.child_filters):
+        #             children_of_parent = parent_item.get_all_children()
+        #         if children_of_parent != tree_roots:
+        #             self.child_filters.append(
+        #                 filters.RestrictToGivenChildren(
+        #                     parent_item,
+        #                     [item.name for item in tree_roots]
+        #                 )
+        #             )
         super(BaseTreeModel, self).__init__(parent)
 
     def index(self, row, column, parent_index):
@@ -82,6 +87,15 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         parent_item = child_item.parent
         if not parent_item: # == self.tree_root:
             return QtCore.QModelIndex()
+        if parent_item == self.root:
+            return QtCore.QModelIndex()
+        # if parent_item in self.tree_roots:
+        #     # print ("1")
+        #     parent_item_row = self.tree_roots.index(parent_item)
+        # else:
+        #     # print ("2")
+        #     parent_item_row = parent_item.index()
+        # print ("\t", [a.name for a in self.tree_roots], parent_item.name, parent_item_row)
         return self.createIndex(parent_item.index(), 0, parent_item)
 
     def rowCount(self, parent_index):

@@ -8,6 +8,8 @@ from collections import OrderedDict
 import json
 import os
 
+from api.tree.base_tree_item import BaseTreeItem
+
 from .tree.task import Task
 from .tree.task_category import TaskCategory
 
@@ -32,6 +34,7 @@ class TaskData(object):
         self._file_path = file_path
         self._data = []
         self.update_data_from_dict()
+        self._root = None
 
     @classmethod
     def from_file(cls, file_path):
@@ -62,13 +65,18 @@ class TaskData(object):
             )
         return cls(tasks_dict, file_path)
 
-    def get_root_data(self):
-        """Get top level Task/TaskCategory objects from file.
+    def get_tree_root(self):
+        """Get root of tree for all tasks and categories in file.
 
         Returns:
-            (list(Task or TaskCategory)): list of Task or TaskCategory items.
+            (BaseTreeItem): base tree item acting as a root of all task
+                categories from file.
         """
-        return self._data
+        if not self._root:
+            self._root = BaseTreeItem("Root")
+            for task_item in self._data:
+                self._root.add_child(task_item)
+        return self._root
 
     def set_file_path(self, file_path):
         """Change file path to read/write from.

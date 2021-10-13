@@ -45,7 +45,6 @@ class BaseTreeItem(ABC):
         self._name = name
         self.parent = parent
         self._children = OrderedDict()
-        self.pruned = False
 
     @property
     def name(self):
@@ -170,13 +169,12 @@ class BaseTreeItem(ABC):
         """
         child_dict = child_dict or self._children
         if name in child_dict.keys():
-            # edit self._children by cycling through dict
-            for i in range(len(self._children)):
-                k, v = self._children.popitem(last=False)
-                if k != name:
-                    self._children[k] = v
-                else:
-                    v.pruned = True
+            del child_dict[name]
+            # # edit self._children by cycling through dict
+            # for i in range(len(self._children)):
+            #     k, v = self._children.popitem(last=False)
+            #     if k != name:
+            #         self._children[k] = v
 
     def get_child(self, name, child_dict=None):
         """Get child by name.
@@ -254,10 +252,10 @@ class BaseTreeItem(ABC):
             child_dict. If None, use parent._children.
 
         Returns:
-            (int): index of this item.
+            (int or None): index of this item, or None if it has no parent.
         """
         if not self.parent:
-            return 0
+            return None
         else:
             return self.parent.get_all_children(child_dict).index(self)
 

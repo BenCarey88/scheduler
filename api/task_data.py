@@ -8,8 +8,7 @@ from collections import OrderedDict
 import json
 import os
 
-from api.tree.base_tree_item import BaseTreeItem
-
+from .tree.base_tree_item import BaseTreeItem
 from .tree.task import Task
 from .tree.task_category import TaskCategory
 

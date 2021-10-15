@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from ..models.task_category_model import TaskCategoryModel
+from scheduler.ui.models.task_category_model import TaskCategoryModel
 
 
 class Outliner(QtWidgets.QTreeView):
@@ -70,7 +70,7 @@ class Outliner(QtWidgets.QTreeView):
                 index,
                 self.selectionModel().SelectionFlag.Select
             )
-        if current_item and not current_item.pruned:
+        if current_item:
             index = self.model.createIndex(
                 current_item.index(),
                 0,

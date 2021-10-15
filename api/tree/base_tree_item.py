@@ -5,6 +5,9 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 
+from ..edit_log import register_edit
+
+
 class DuplicateChildNameError(Exception):
     """Exception for two cildren having the same name."""
     def __init__(self, tree_item_name, child_item_name):
@@ -100,10 +103,13 @@ class BaseTreeItem(ABC):
         finally:
             self._children = _children
 
+    @register_edit
     def create_child(
             self,
             name,
             child_type=None,
+            edit_object=None,
+            add_to_edit_log=True,
             **kwargs):
         """Create child item and add to children dict.
 
@@ -111,6 +117,9 @@ class BaseTreeItem(ABC):
             name (str): name of child.
             child_type (class or None): class to use for child init. If None,
                 use current class.
+            edit_object (EditObject): edit object to use for setting undo
+                functionality in edit log.
+            add_to_edit_log (bool): if True, add to edit log when called.
             **kwargs: kwargs to be passed to child init.
 
         Raises:
@@ -125,6 +134,11 @@ class BaseTreeItem(ABC):
         child_type = child_type or self.__class__
         child = child_type(name, parent=self, **kwargs)
         self._children[name] = child
+        if edit_object:
+            edit_object.set_undo_function(
+                self.remove_child,
+                [name],
+            )
         return child
 
     def create_new_child(

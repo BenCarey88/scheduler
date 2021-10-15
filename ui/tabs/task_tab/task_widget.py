@@ -4,7 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.base_tree_item import DuplicateChildNameError
 
-from ..models.task_model import TaskModel
+from scheduler.ui.models.task_model import TaskModel
 
 
 class TaskWidget(QtWidgets.QTreeView):
@@ -13,15 +13,17 @@ class TaskWidget(QtWidgets.QTreeView):
     This widget holds the tree view for the various tasks.
     """
 
-    def __init__(self, task_item, parent=None):
+    def __init__(self, task_item, tab, parent=None):
         """Initialise task category widget.
 
         Args:
             task_item (Task): task category tree item.
+            tab (TaskTab): task tab this widget is a descendant of.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TaskWidget, self).__init__(parent)
         self.task_item = task_item
+        self.tab = tab
 
         # setup model and delegate
         self.setItemDelegate(TaskDelegate(self))
@@ -29,7 +31,7 @@ class TaskWidget(QtWidgets.QTreeView):
         model = TaskModel(task_item, parent)
         self.setModel(model)
         self.expandAll()
-        # model.dataChanged.connect(self.parent().update)
+        model.dataChanged.connect(self.tab.update)
 
         height = task_item.num_descendants() * 25
         self.setMinimumHeight(height + 50)

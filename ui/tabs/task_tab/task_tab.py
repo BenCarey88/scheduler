@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from ..base_tab import BaseTab
+from scheduler.ui.tabs.base_tab import BaseTab
 from .task_category_widget import TaskCategoryWidget
 
 class TaskTab(BaseTab):

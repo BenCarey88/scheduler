@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from ..widgets.outliner import Outliner
+from scheduler.ui.widgets.outliner import Outliner
 
 
 class BaseTab(QtWidgets.QSplitter):
@@ -34,4 +34,6 @@ class BaseTab(QtWidgets.QSplitter):
 
     def update(self):
         """Update main view to sync with model."""
-        pass
+        raise Exception(
+            "This needs to be reimplemented in subclasses."
+        )

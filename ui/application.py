@@ -5,15 +5,11 @@ import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import Task
 from scheduler.api.task_data import TaskData
-from .models.task_model import TaskModel
-#from .task_view import TaskTab
-from .timetable_view import TimetableView
-from .next_up_view import NextUpView
 
-#from .tabs.task_tab import TaskTab
-from .task_tab import TaskTab
+from .tabs.task_tab import TaskTab
+from .tabs.timetable_tab import TimetableTab
+from .tabs.suggestions_tab import SuggestionsTab
 
 
 class SchedulerWindow(QtWidgets.QMainWindow):
@@ -36,8 +32,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.tabs_widget)
         self.tasks_tab = TaskTab(self.tree_root, self)
         self.tabs_widget.addTab(self.tasks_tab, "Tasks")
-        self.timetable_tab = TimetableView(self)
+        self.timetable_tab = TimetableTab(self.tree_root, self)
         self.tabs_widget.addTab(self.timetable_tab, "Timetable")
+        self.suggestions_tab = SuggestionsTab(self.tree_root, self)
+        self.tabs_widget.addTab(self.suggestions_tab, "Suggestions")
 
     def setup_menu(self):
         """Setup the menu actions."""

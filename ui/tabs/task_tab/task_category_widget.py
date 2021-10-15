@@ -58,15 +58,19 @@ class TaskCategoryWidget(QtWidgets.QWidget):
             for child in task_item.get_all_children():
                 widget = TaskCategoryWidget(
                     child,
-                    tab,
-                    recursive_depth+1,
-                    self
+                    tab=tab,
+                    recursive_depth=recursive_depth+1,
+                    parent=self
                 )
                 self.outer_layout.addWidget(widget)
                 self._height += widget._height
 
         elif type(task_item) == Task:
-            widget = TaskWidget(self.task_item, self)
+            widget = TaskWidget(
+                self.task_item,
+                tab=tab,
+                parent=self
+            )
             self.outer_layout.addWidget(widget)
             self._height += widget.height()
 

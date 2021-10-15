@@ -54,18 +54,11 @@ class TaskOutliner(QtWidgets.QTreeView):
         self.model.dataChanged.connect(
             self.parent().reset
         )
-        for item in selected_items: 
+        for item in selected_items:
             # TESTING NEW ROOT
             # if item in root_data:
             #     item_row = root_data.index(item)
             # else:
-            if True:
-                item_row = item.index()
-            index = self.model.createIndex(       
-                item_row,
-                0,
-                item
-            )
             index = self.model.createIndex(
                 item.index(),
                 0,
@@ -77,13 +70,13 @@ class TaskOutliner(QtWidgets.QTreeView):
                 index,
                 self.selectionModel().SelectionFlag.Select
             )
-        # if current_item and not current_item.pruned:
-        #     index = self.model.createIndex(
-        #         current_item.index(),
-        #         0,
-        #         current_item
-        #     )
-        #     self.setCurrentIndex(index)
+        if current_item and not current_item.pruned:
+            index = self.model.createIndex(
+                current_item.index(),
+                0,
+                current_item
+            )
+            self.setCurrentIndex(index)
 
 
         # def current_changed(new_index, old_index):

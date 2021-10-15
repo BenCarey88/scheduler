@@ -1,8 +1,5 @@
 """TaskTab tab."""
 
-import datetime
-from functools import partial
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.base_tree_item import BaseTreeItem, DuplicateChildNameError
@@ -95,7 +92,6 @@ class TaskTab(QtWidgets.QSplitter):
         #     self.main_view_layout.removeWidget(widget)
         #     widget.safe_delete()
         # self.main_view.deleteLater()
-        print ("RESET")
         self.main_view = QtWidgets.QWidget()
         self.main_view_layout = QtWidgets.QVBoxLayout()
         self.main_view.setLayout(self.main_view_layout)
@@ -138,7 +134,7 @@ class TaskCategoryWidget(QtWidgets.QWidget):
                 self.task_item.name = self.line_edit.text()
                 self.main_view.refresh_outliner()
             except:
-                pass
+                self.line_edit.setText(self.task_item.name)
 
         self.line_edit.editingFinished.connect(
             on_editing_finished

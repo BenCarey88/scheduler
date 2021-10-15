@@ -1,7 +1,7 @@
 """Task class."""
 
 from collections import OrderedDict
-from contextlib import contextmanager
+from functools import partial
 
 from .base_tree_item import BaseTreeItem
 
@@ -47,6 +47,10 @@ class Task(BaseTreeItem):
 
         # new attribute and method names for convenience
         self.create_subtask = self.create_child
+        self.create_new_subtask = partial(
+            self.create_new_child,
+            default_name="subtask"
+        )
         self.add_subtask = self.add_child
         self.remove_subtask = self.remove_child
         self.get_subtask = self.get_child

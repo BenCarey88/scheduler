@@ -6,10 +6,14 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import Task
+from scheduler.api.task_data import TaskData
 from .models.task_model import TaskModel
-from .task_view import TaskTab
+#from .task_view import TaskTab
 from .timetable_view import TimetableView
 from .next_up_view import NextUpView
+
+#from .tabs.task_tab import TaskTab
+from .task_tab import TaskTab
 
 
 class SchedulerWindow(QtWidgets.QMainWindow):
@@ -20,6 +24,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         super(SchedulerWindow, self).__init__(*args, **kwargs)
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
+        path = "C:\\Users\\benca\\OneDrive\\Documents\\Admin\\Scheduler\\tasks\\projects.json"
+        self.task_data = TaskData.from_file(path)
+        self.tree_root = self.task_data.get_tree_root()
         self.setup_tabs()
         self.setup_menu()
 
@@ -27,7 +34,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """Setup the tabs widget and different pages."""
         self.tabs_widget = QtWidgets.QTabWidget()
         self.setCentralWidget(self.tabs_widget)
-        self.tasks_tab = TaskTab(self)
+        self.tasks_tab = TaskTab(self.tree_root, self)
         self.tabs_widget.addTab(self.tasks_tab, "Tasks")
         self.timetable_tab = TimetableView(self)
         self.tabs_widget.addTab(self.timetable_tab, "Timetable")

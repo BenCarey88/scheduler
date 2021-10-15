@@ -22,19 +22,19 @@ class TaskFileError(Exception):
 class TaskData(object):
     """Object representing all the task data for the scheduler."""
 
-    def __init__(self, _dict, file_path):
+    def __init__(self, _dict=None, file_path=None):
         """Initialize TaskData item.
 
         Args:
-            _dict (OrderedDict): dictionary representing the
-                task data.
-            file_path (str): path to file this should be saved in.
+            _dict (OrderedDict or None): dictionary representing the task
+                data, or None if not set yet.
+            file_path (str or None): path to file this should be saved in,
+                or None if not set yet.
         """
-        self._dict = _dict
+        self._dict = _dict or OrderedDict()
         self._file_path = file_path
-        self._data = []
-        self.update_data_from_dict()
-        self._root = None
+        self._root = BaseTreeItem("Root")
+        self._update_data_from_dict()
 
     @classmethod
     def from_file(cls, file_path):
@@ -72,36 +72,41 @@ class TaskData(object):
             (BaseTreeItem): base tree item acting as a root of all task
                 categories from file.
         """
-        if not self._root:
-            self._root = BaseTreeItem("Root")
-            for task_item in self._data:
-                self._root.add_child(task_item)
         return self._root
 
     def set_file_path(self, file_path):
-        """Change file path to read/write from.
+        """Change file path to read/write from/to.
 
         Args:
             file_path (str): new file path.
         """
         self._file_path = file_path
 
-    def update_data_from_dict(self):
+    def get_file_path(self):
+        """Get file path to read/write from/to.
+        
+        Returns:
+            file_path (str): name of file path.
+        """
+        return self._file_path
+
+    def _update_data_from_dict(self):
         """Update Task/TaskCategory objects from internal dict."""
-        self._data = []
         for category_name, category_dict in self._dict.items():
             category = TaskCategory.from_dict(category_dict, category_name)
-            self._data.append(category)
+            self._root.add_child(category)
 
-    def update_dict_from_data(self):
+    def _update_dict_from_data(self):
         """Update dict from Task or TaskCategory data."""
         self._dict = OrderedDict()
-        for task_item in self._data:
+        for task_item in self._root.get_all_children():
             self._dict[task_item.name] = task_item.to_dict()
 
     def write(self):
-        """Write data to file"""
-        self.update_dict_from_data()
+        """Write data to file."""
+        if not self._file_path:
+            raise TaskFileError("No task file set.")
+        self._update_dict_from_data()
         if not os.path.isdir(os.path.dirname(self._file_path)):
             raise TaskFileError(
                 "Tasks file directory {0} does not exist".format(

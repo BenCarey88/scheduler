@@ -22,7 +22,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         # TESTING NEW ROOT
         self.root = tree_roots
-        with self.root.filter_children(*filters or []):
+        with self.root.filter_children(filters or []):
             self.tree_roots = self.root.get_all_children()
 
         # self.tree_roots = tree_roots
@@ -33,7 +33,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         #     if parent_item:
         #         # in case the given roots are missing some siblings, we need
         #         # a filter to remove the other siblings from consideration
-        #         with parent_item.filter_children(*self.child_filters):
+        #         with parent_item.filter_children(self.child_filters):
         #             children_of_parent = parent_item.get_all_children()
         #         if children_of_parent != tree_roots:
         #             self.child_filters.append(
@@ -66,7 +66,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             parent_item = parent_index.internalPointer()
             # move filter inside the base tree class as a decorator maybe?
             # or maybe this way is still better?
-            with parent_item.filter_children(*self.child_filters):
+            with parent_item.filter_children(self.child_filters):
                 child_item = parent_item.get_child_at_index(row)
         if child_item:
             return self.createIndex(row, column, child_item)
@@ -113,7 +113,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             return len(self.tree_roots) # parent_item = self.tree_root
         #else:
         parent_item = parent_index.internalPointer()
-        with parent_item.filter_children(*self.child_filters):
+        with parent_item.filter_children(self.child_filters):
             return parent_item.num_children()
 
     def columnCount(self, index):
@@ -160,7 +160,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not index.isValid():
             return False
         if not value:
-            # can't set tree with empty name
+            # can't set tree item with empty name
             return False
         if index.column() != 0:
             # in base class, we can only set data on the name column

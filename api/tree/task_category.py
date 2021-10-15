@@ -25,6 +25,10 @@ class TaskCategory(BaseTreeItem):
 
         # subcategory methods
         self.create_subcategory = self.create_child
+        self.create_new_subcategory = partial(
+            self.create_new_child,
+            default_name="subcategory"
+        )
         self.add_subcategory = self.add_child
         self.remove_subcategory = partial(
             self.remove_child,
@@ -54,6 +58,11 @@ class TaskCategory(BaseTreeItem):
         # task methods
         self.create_task = partial(
             self.create_child,
+            child_type=Task,
+        )
+        self.create_new_task = partial(
+            self.create_new_child,
+            default_name="task",
             child_type=Task,
         )
         self.add_task = self.add_child

@@ -27,14 +27,14 @@ class MultipleParentsError(Exception):
 
 class BaseTreeItem(ABC):
     """Base class representing a tree item.
-    
+
     This class has a _children dict attribute representing the list of children
-    of the current item. However, all its methods include a child_dict arg
+    of the current item. However, most of its methods include a child_dict arg
     which allow subclasses to pass in a second dictionary of children to use,
     enabling multiple types of children. It is assumed that this child_dict
     will always be a subdict of self._children.
     """
-    
+
     def __init__(self, name, parent=None):
         """Initialise tree item class.
 
@@ -81,7 +81,7 @@ class BaseTreeItem(ABC):
         self._name = new_name
 
     @contextmanager
-    def filter_children(self, *filters):
+    def filter_children(self, filters):
         """Contextmanager to filter _children dict temporarily.
 
         This uses the child filters defined in the filters module.
@@ -104,7 +104,6 @@ class BaseTreeItem(ABC):
             self,
             name,
             child_type=None,
-            child_dict=None,
             **kwargs):
         """Create child item and add to children dict.
 
@@ -112,8 +111,6 @@ class BaseTreeItem(ABC):
             name (str): name of child.
             child_type (class or None): class to use for child init. If None,
                 use current class.
-            child_dict (OrderedDict or None): dict to add child to. If None,
-                use self._children.
             **kwargs: kwargs to be passed to child init.
 
         Raises:
@@ -123,28 +120,54 @@ class BaseTreeItem(ABC):
             (BaseTreeItem): newly created child. In subclasses, this will use
                 the type of the subclass.
         """
-        child_dict = child_dict or self._children
-        if name in child_dict:
+        if name in self._children:
             raise DuplicateChildNameError(self.name, name)
         child_type = child_type or self.__class__
         child = child_type(name, parent=self, **kwargs)
         self._children[name] = child
         return child
 
-    def add_child(self, child, child_dict=None):
+    def create_new_child(
+            self,
+            default_name="child",
+            child_type=None,
+            **kwargs):
+        """Create a new subtask with a default name.
+
+        This adds a number at the end of the name to allow us to add mutliple
+        new children with different names.
+
+        Args:
+            default_name (str): the default name to use (before appending
+                the number).
+            child_type (class or None): class to use for child init. If None,
+                use current class.
+            **kwargs: kwargs to be passed to child init.
+
+        Returns:
+            (BaseTreeItem): newly created child. In subclasses, this will use
+                the type of the subclass.
+        """
+        suffix = 1
+        while (default_name + str(suffix).zfill(3)) in self._children.keys():
+            suffix += 1
+        return self.create_child(
+            default_name + str(suffix).zfill(3),
+            child_type,
+            **kwargs
+        )
+
+    def add_child(self, child):
         """Add an existing child to this item's children dict.
 
         Args:
             child (BaseTreeItem): child item to add.
-            child_dict (OrderedDict or None): dict to add child to. If None,
-                use self._children.
 
         Raises:
             (DuplicateChildNameError): if a child with given name already exists.
             (MultipleParentsError): if the child has a different tree item as
                 a parent.
         """
-        child_dict = child_dict or self._children
         if child.name in self._children:
             raise DuplicateChildNameError(self.name, child.name)
         if not child.parent:
@@ -155,7 +178,7 @@ class BaseTreeItem(ABC):
                     child.name, child.parent.name, self.name
                 )
             )
-        child_dict[child.name] = child
+        self._children[child.name] = child
 
     def remove_child(self, name, child_dict=None):
         """Remove an existing child from this item's children dict.
@@ -170,11 +193,6 @@ class BaseTreeItem(ABC):
         child_dict = child_dict or self._children
         if name in child_dict.keys():
             del child_dict[name]
-            # # edit self._children by cycling through dict
-            # for i in range(len(self._children)):
-            #     k, v = self._children.popitem(last=False)
-            #     if k != name:
-            #         self._children[k] = v
 
     def get_child(self, name, child_dict=None):
         """Get child by name.

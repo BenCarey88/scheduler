@@ -5,7 +5,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 
-from ..edit_log import register_edit
+# from ..edit_log import register_edit
 
 
 class DuplicateChildNameError(Exception):
@@ -103,13 +103,33 @@ class BaseTreeItem(ABC):
         finally:
             self._children = _children
 
-    @register_edit
+    @property
+    def path_list(self):
+        """Get path to self from root tree item as list.
+
+        Returns:
+            (list(str)): list of names of ancestors.
+        """
+        path = [self.name]
+        parent = self.parent
+        while parent:
+            path.insert(0, parent.name)
+            parent = parent.parent
+        return path
+
+    @property
+    def path(self):
+        """Get path to self from root tree item as string.
+
+        Returns:
+            (str): path with names of all ancestors.
+        """
+        return "|".join(self.path_list)
+
     def create_child(
             self,
             name,
             child_type=None,
-            edit_object=None,
-            add_to_edit_log=True,
             **kwargs):
         """Create child item and add to children dict.
 
@@ -117,9 +137,6 @@ class BaseTreeItem(ABC):
             name (str): name of child.
             child_type (class or None): class to use for child init. If None,
                 use current class.
-            edit_object (EditObject): edit object to use for setting undo
-                functionality in edit log.
-            add_to_edit_log (bool): if True, add to edit log when called.
             **kwargs: kwargs to be passed to child init.
 
         Raises:
@@ -134,11 +151,6 @@ class BaseTreeItem(ABC):
         child_type = child_type or self.__class__
         child = child_type(name, parent=self, **kwargs)
         self._children[name] = child
-        if edit_object:
-            edit_object.set_undo_function(
-                self.remove_child,
-                [name],
-            )
         return child
 
     def create_new_child(
@@ -146,7 +158,7 @@ class BaseTreeItem(ABC):
             default_name="child",
             child_type=None,
             **kwargs):
-        """Create a new subtask with a default name.
+        """Create a new child with a default name.
 
         This adds a number at the end of the name to allow us to add mutliple
         new children with different names.

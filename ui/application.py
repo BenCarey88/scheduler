@@ -12,6 +12,7 @@ from scheduler.api.task_data import TaskData
 from .tabs.task_tab import TaskTab
 from .tabs.timetable_tab import TimetableTab
 from .tabs.suggestions_tab import SuggestionsTab
+from .widgets.outliner import Outliner
 
 
 class SchedulerWindow(QtWidgets.QMainWindow):
@@ -29,14 +30,34 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
-        self.tabs_widget = QtWidgets.QTabWidget()
-        self.setCentralWidget(self.tabs_widget)
-        self.tasks_tab = TaskTab(self.tree_root, self)
-        self.tabs_widget.addTab(self.tasks_tab, "Tasks")
-        self.timetable_tab = TimetableTab(self.tree_root, self)
-        self.tabs_widget.addTab(self.timetable_tab, "Timetable")
-        self.suggestions_tab = SuggestionsTab(self.tree_root, self)
-        self.tabs_widget.addTab(self.suggestions_tab, "Suggestions")
+        splitter = QtWidgets.QSplitter(self)
+        self.setCentralWidget(splitter)
+        splitter.setChildrenCollapsible(False)
+
+        self.outliner_stack = QtWidgets.QStackedWidget(self)
+        self.tabs_widget = QtWidgets.QTabWidget(self)
+        splitter.addWidget(self.outliner_stack)
+        splitter.addWidget(self.tabs_widget)
+
+        self.create_tab_and_outliner("Tasks", TaskTab)
+        self.create_tab_and_outliner("Timetable", TimetableTab)
+        self.create_tab_and_outliner("Suggestions", SuggestionsTab)
+
+        self.tabs_widget.currentChanged.connect(
+            self.outliner_stack.setCurrentIndex
+        )
+
+    def create_tab_and_outliner(self, tab_name, tab_class):
+        """Create tab and outliner combo for given tab_type.
+
+        Args:
+            tab_name (str): name to use for tab.
+            tab_class (class): BaseTab subclass to use for class.
+        """
+        outliner = Outliner(self.tree_root)
+        self.outliner_stack.addWidget(outliner)
+        tab = tab_class(self.tree_root, outliner)
+        self.tabs_widget.addTab(tab, tab_name)
 
     def setup_menu(self):
         """Setup the menu actions."""
@@ -55,6 +76,28 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         redo_action = edit_menu.addAction("Redo")
         redo_action.triggered.connect(self.redo)
 
+    def keyPressEvent(self, event):
+        """Reimplement key event to add hotkeys.
+
+        Args:
+            event (PySide.QtGui.QKeyEvent): The event.
+        """
+        modifiers = QtWidgets.QApplication.keyboardModifiers()
+
+        if modifiers == QtCore.Qt.ControlModifier:
+            if event.key() == QtCore.Qt.Key_S:
+                self.save()
+            elif event.key() == QtCore.Qt.Key_Z:
+                self.undo()
+            elif event.key() == QtCore.Qt.Key_Y:
+                self.redo()
+
+        elif modifiers == (QtCore.Qt.ControlModifier|QtCore.Qt.ShiftModifier):
+            if event.key() == QtCore.Qt.Key_Z:
+                self.redo()
+
+        super(SchedulerWindow, self).keyPressEvent(event)
+
     def save(self):
         """Save scheduler data."""
         self.tasks_tab.outliner.task_data.write()
@@ -72,7 +115,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
     def update(self):
         """Update current tab and outliner"""
         # TODO: implement this properly
-        self.tasks_tab.update()
+        self.tabs_widget.currentWidget().update()
 
 
 def set_style(app):

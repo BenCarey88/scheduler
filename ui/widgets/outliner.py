@@ -76,4 +76,7 @@ class Outliner(QtWidgets.QTreeView):
                 0,
                 current_item
             )
-            self.setCurrentIndex(index)
+            self.selectionModel().select(
+                index,
+                self.selectionModel().SelectionFlag.Current
+            )

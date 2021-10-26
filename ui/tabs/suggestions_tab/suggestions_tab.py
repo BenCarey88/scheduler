@@ -18,7 +18,7 @@ class SuggestionsTab(BaseTab):
         super(SuggestionsTab, self).__init__(tree_root, parent)
 
         self.view = QtWidgets.QWidget(self)
-        self.addWidget(self.view)
+        self.outer_layout.addWidget(self.view)
 
     def update(self):
         pass

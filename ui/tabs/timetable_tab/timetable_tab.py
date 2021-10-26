@@ -18,7 +18,7 @@ class TimetableTab(BaseTab):
         super(TimetableTab, self).__init__(tree_root, parent)
 
         self.table = QtWidgets.QTableWidget(3, 10)
-        self.addWidget(self.table)
+        self.outer_layout.addWidget(self.table)
 
     def update(self):
         pass

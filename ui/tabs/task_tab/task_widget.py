@@ -1,5 +1,7 @@
 """Task widget for Task Tab."""
 
+from functools import partial
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.base_tree_item import DuplicateChildNameError
@@ -50,6 +52,20 @@ class TaskWidget(QtWidgets.QTreeView):
         self.setSelectionMode(
             QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
         )
+        self.selectionModel().currentChanged.connect(
+            partial(self.tab.switch_active_task_widget, self.task_item.path)
+        )
+
+        if tab.selected_subtask_item:
+            index = model.createIndex(
+                tab.selected_subtask_item.index(),
+                0,
+                tab.selected_subtask_item
+            )
+            self.selectionModel().select(
+                index,
+                self.selectionModel().SelectionFlag.SelectCurrent
+            )
 
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):

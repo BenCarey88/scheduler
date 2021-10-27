@@ -4,7 +4,7 @@ from abc import ABC
 from collections import OrderedDict
 from contextlib import contextmanager
 
-
+from scheduler.api.utils import catch_exceptions
 from .tree_edits import BaseTreeEdit, EditOperation
 
 
@@ -48,7 +48,7 @@ class BaseTreeItem(ABC):
         self._name = name
         self.parent = parent
         self._children = OrderedDict()
-        self.register_edits = False
+        self._register_edits = False
 
     @property
     def name(self):
@@ -79,7 +79,7 @@ class BaseTreeItem(ABC):
             name_edit = BaseTreeEdit(
                 diff_dict=OrderedDict([(self.name, new_name)]),
                 op_type=EditOperation.RENAME,
-                register_edit=self.register_edits,
+                register_edit=self._register_edits,
             )
             name_edit(parent)
 
@@ -153,7 +153,7 @@ class BaseTreeItem(ABC):
         add_child_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(name, child)]),
             op_type=EditOperation.ADD,
-            register_edit=self.register_edits,
+            register_edit=self._register_edits,
         )
         add_child_edit(self)
         return child
@@ -212,9 +212,58 @@ class BaseTreeItem(ABC):
         add_child_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(child.name, child)]),
             op_type=EditOperation.ADD,
-            register_edit=self.register_edits,
+            register_edit=self._register_edits,
         )
         add_child_edit(self)
+
+    def create_sibling(self, name, **kwargs):
+        """Create sibling item for self.
+
+        Args:
+            name (str): the name of the sibling.
+            **kwargs: kwargs to be passed to sibling init.
+
+        Returns:
+            (BaseTreeItem): newly created sibling. In subclasses, this will use
+                the type of the subclass.
+        """
+        if not self.parent:
+            return None
+        return self.parent.create_child(
+            name,
+            child_type=self.__class__,
+            **kwargs
+        )
+
+    def create_new_sibling(self, default_name="sibling", **kwargs):
+        """Create sibling item for self.
+
+        Args:
+            default_name (str): the default name to use (before appending
+                the number).
+            **kwargs: kwargs to be passed to sibling init.
+
+        Returns:
+            (BaseTreeItem): newly created sibling. In subclasses, this will use
+                the type of the subclass.
+        """
+        if not self.parent:
+            return None
+        return self.parent.create_new_child(
+            default_name,
+            child_type=self.__class__,
+            **kwargs
+        )
+
+    def add_sibling(self, sibling):
+        """Create sibling item for self.
+
+        Args:
+            sibling (BaseTreeItem): the sibling to add.
+        """
+        if not self.parent:
+            return None
+        self.parent.add_child(sibling)
 
     def remove_child(self, name, child_dict=None):
         """Remove an existing child from this item's children dict.
@@ -231,7 +280,7 @@ class BaseTreeItem(ABC):
             remove_child_edit = BaseTreeEdit(
                 diff_dict=OrderedDict([(name, None)]),
                 op_type=EditOperation.REMOVE,
-                register_edit=self.register_edits,
+                register_edit=self._register_edits,
             )
             remove_child_edit(self)
 
@@ -304,8 +353,13 @@ class BaseTreeItem(ABC):
             [(child.num_descendants() + 1) for child in child_dict.values()]
         )
 
+    @catch_exceptions(ValueError)
     def index(self, child_dict=None):
         """Get index of this item as a child of its parent.
+
+        Wrapped to catch ValueError exceptions, in case of race conditions,
+        ie. this has been deleted from its parent list during the course of
+        this function being called.
 
         child_dict (OrderedDict or None): dict of parent's to use as
             child_dict. If None, use parent._children.
@@ -332,6 +386,6 @@ class BaseTreeItem(ABC):
 
     def open_edit_registry(self):
         """Set all children editable so that users can undo and redo edits."""
-        self.register_edits = True
+        self._register_edits = True
         for child in self.get_all_children():
             child.open_edit_registry()

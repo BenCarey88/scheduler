@@ -52,6 +52,12 @@ class Task(BaseTreeItem):
             default_name="subtask"
         )
         self.add_subtask = self.add_child
+        self.create_sibling_task = self.create_sibling
+        self.create_new_sibling_task = partial(
+            self.create_new_sibling,
+            default_name = "task"
+        )
+        self.add_sibling_task = self.add_sibling
         self.remove_subtask = self.remove_child
         self.get_subtask = self.get_child
         self.get_subtask_at_index = self.get_child_at_index

@@ -30,11 +30,24 @@ class TaskTab(BaseTab):
         This is done by deleting and then recreating the scroll area and
         main view.
         """
+        _selected_subtask_item = None
+        _active_task_path = None
+        if self.selected_subtask_item:
+            _selected_subtask_item = self.selected_subtask_item
+        if self._active_task_path:
+            _active_task_path = self._active_task_path
+
         self.task_widget_tree = OrderedDict()
         self.category_widget_tree = OrderedDict()
         self.scroll_area.deleteLater()
         self._fill_main_view()
         self._fill_scroll_area()
+
+        if _active_task_path and _selected_subtask_item:
+            self._active_task_path = _active_task_path
+            self.selected_subtask_item = _selected_subtask_item
+            if self.active_task_widget:
+                self.active_task_widget.select_subtask_item()
 
     def _fill_main_view(self):
         """Fill main task view from tree root.
@@ -83,13 +96,23 @@ class TaskTab(BaseTab):
             new_index (QtCore.QModelIndex): index of new task model item.
             old_index (QtCore.QModelIndex): index of old task model item.
         """
-        if self._active_task_path:
-            active_task_widget = self.task_widget_tree[self._active_task_path]
-            active_task_widget.selectionModel().clearSelection()
+        if self.active_task_widget:
+            self.active_task_widget.selectionModel().clearSelection()
         self._active_task_path = task_item_path
         selected_subtask_item = new_index.internalPointer()
         if selected_subtask_item:
             self.selected_subtask_item  = selected_subtask_item
+
+    @property
+    def active_task_widget(self):
+        """Get active task widget.
+
+        Returns:
+            (TaskWidget or None): active task widget.
+        """
+        if self._active_task_path:
+            return self.task_widget_tree.get(self._active_task_path, None)
+        return None
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
@@ -97,26 +120,34 @@ class TaskTab(BaseTab):
         Args:
             event (PySide.QtGui.QKeyEvent): The event.
         """
-        modifiers = QtWidgets.QApplication.keyboardModifiers()
+        modifiers = event.modifiers()
 
-        if self._active_task_path:
-            if not modifiers:
-                if event.key() == QtCore.Qt.Key_Delete:
-                    pass
-                    # TODO: self._active_task_widget.remove_item()
-                if event.key() == QtCore.Qt.Key_Tab:
-                    pass
-                    # TODO: self._active_task_widget.move_item_down_a_level
-                    # would be cool to get drag and drop in outliner too
+        if not modifiers:
+            # del: remove item
+            if event.key() == QtCore.Qt.Key_Delete:
+                if self.selected_subtask_item:
+                    self.selected_subtask_item.parent.remove_child(
+                        self.selected_subtask_item.name
+                    )
+                    self.update()
 
-            elif modifiers == QtCore.Qt.ControlModifier:
-                if event.key() == QtCore.Qt.Key_Plus:
-                    pass
-                    # TODO: self._active_task_widget.add_new_item()
+        elif modifiers == QtCore.Qt.ControlModifier:
+            # ctrl+plus: add new child
+            if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
+                if self.selected_subtask_item:
+                    self.selected_subtask_item.create_new_subtask()
+                    self.update()
 
-            elif modifiers == QtCore.Qt.ShiftModifier:
-                if event.key() == QtCore.Qt.Key_Tab:
-                    pass
-                    # TODO: self._active_task_widget.move_item_up_a_level
+        elif modifiers == QtCore.Qt.ShiftModifier:
+            if event.key() == QtCore.Qt.Key_Tab:
+                pass
+                # TODO: self._active_task_widget.move_item_up_a_level
+
+        elif modifiers == (QtCore.Qt.ShiftModifier|QtCore.Qt.ControlModifier):
+            # ctrl+shift+plus: add new sibling
+            if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
+                if self.selected_subtask_item:
+                    self.selected_subtask_item.create_new_sibling_task()
+                    self.update()
 
         super(TaskTab, self).keyPressEvent(event)

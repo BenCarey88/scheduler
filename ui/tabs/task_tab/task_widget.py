@@ -6,6 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.base_tree_item import DuplicateChildNameError
 
+from scheduler.ui.utils import suppress_signals
 from scheduler.ui.models.task_model import TaskModel
 
 
@@ -56,16 +57,25 @@ class TaskWidget(QtWidgets.QTreeView):
             partial(self.tab.switch_active_task_widget, self.task_item.path)
         )
 
-        if tab.selected_subtask_item:
-            index = model.createIndex(
-                tab.selected_subtask_item.index(),
-                0,
-                tab.selected_subtask_item
-            )
-            self.selectionModel().select(
-                index,
-                self.selectionModel().SelectionFlag.SelectCurrent
-            )
+        self.select_subtask_item()
+
+    def select_subtask_item(self):
+        """Select the subtask item marked as active in the task tab."""
+        if (self.tab.selected_subtask_item and
+                self.task_item.path in self.tab.selected_subtask_item.path):
+            item_index = self.tab.selected_subtask_item.index()
+            if item_index is not None:
+                index = self.model().createIndex(
+                    item_index,
+                    0,
+                    self.tab.selected_subtask_item
+                )
+                if index.isValid():
+                    self.selectionModel().select(
+                        index,
+                        self.selectionModel().SelectionFlag.SelectCurrent
+                    )
+                    self.setFocus()
 
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):
@@ -188,7 +198,7 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
                 task_item.create_new_subtask()
                 model.dataChanged.emit(index, index)
                 return True
-            elif minus_button_rect.contains(event.pos()):
+            elif pos and minus_button_rect.contains(pos):
                 task_item.parent.remove_child(task_item.name)
                 model.dataChanged.emit(index, index)
                 return True

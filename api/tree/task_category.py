@@ -30,6 +30,12 @@ class TaskCategory(BaseTreeItem):
             default_name="subcategory"
         )
         self.add_subcategory = self.add_child
+        self.create_sibling_category = self.create_sibling
+        self.create_new_sibling_category = partial(
+            self.create_new_sibling,
+            default_name = "category"
+        )
+        self.add_sibling_category = self.add_sibling
         self.remove_subcategory = partial(
             self.remove_child,
             child_dict=self._subcategories

@@ -101,7 +101,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def save(self):
         """Save scheduler data."""
-        self.tasks_tab.outliner.task_data.write()
+        self.task_data.write()
 
     def undo(self):
         """Undo last action."""
@@ -114,7 +114,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.update()
 
     def update(self):
-        """Update current tab and outliner"""
+        """Update current tab and outliner."""
         self.tabs_widget.currentWidget().update()
         self.tabs_widget.currentWidget().outliner.update()
 

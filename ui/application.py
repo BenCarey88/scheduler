@@ -83,7 +83,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (PySide.QtGui.QKeyEvent): The event.
         """
-        modifiers = QtWidgets.QApplication.keyboardModifiers()
+        modifiers = event.modifiers()
 
         if modifiers == QtCore.Qt.ControlModifier:
             if event.key() == QtCore.Qt.Key_S:

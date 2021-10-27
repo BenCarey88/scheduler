@@ -284,6 +284,25 @@ class BaseTreeItem(ABC):
             )
             remove_child_edit(self)
 
+    def remove_children(self, names, child_dict=None):
+        """Remove existing children from this item's children dict.
+
+        Args:
+            name (list(str)): name of child items to remove.
+            child_dict (OrderedDict or None): dict to check if child is in.
+                We still remove the child from self._children as it's
+                assumed the given child_dict will be a subset of
+                self._children.
+        """
+        child_dict = child_dict or self._children
+        names = [name for name in names if name in child_dict.keys()]
+        remove_children_edit = BaseTreeEdit(
+            diff_dict=OrderedDict([(name, None) for name in names]),
+            op_type=EditOperation.REMOVE,
+            register_edit=self._register_edits,
+        )
+        remove_children_edit(self)
+
     def get_child(self, name, child_dict=None):
         """Get child by name.
 

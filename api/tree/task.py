@@ -59,6 +59,7 @@ class Task(BaseTreeItem):
         )
         self.add_sibling_task = self.add_sibling
         self.remove_subtask = self.remove_child
+        self.remove_subtasks = self.remove_children
         self.get_subtask = self.get_child
         self.get_subtask_at_index = self.get_child_at_index
         self.get_all_subtasks = self.get_all_children

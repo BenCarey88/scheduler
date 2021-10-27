@@ -40,6 +40,10 @@ class TaskCategory(BaseTreeItem):
             self.remove_child,
             child_dict=self._subcategories
         )
+        self.remove_subcategories = partial(
+            self.remove_children,
+            child_dict=self._subcategories
+        )
         self.get_subcategory = partial(
             self.get_child,
             child_dict=self._subcategories
@@ -74,6 +78,10 @@ class TaskCategory(BaseTreeItem):
         self.add_task = self.add_child
         self.remove_task = partial(
             self.remove_child,
+            child_dict=self._tasks
+        )
+        self.remove_tasks = partial(
+            self.remove_children,
             child_dict=self._tasks
         )
         self.get_task = partial(

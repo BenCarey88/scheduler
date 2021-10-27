@@ -4,6 +4,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.tabs.base_tab import BaseTab
+from scheduler.ui.utils import launch_message_dialog
 from .task_category_widget import TaskCategoryWidget
 
 class TaskTab(BaseTab):
@@ -126,16 +127,28 @@ class TaskTab(BaseTab):
             # del: remove item
             if event.key() == QtCore.Qt.Key_Delete:
                 if self.selected_subtask_item:
-                    self.selected_subtask_item.parent.remove_child(
-                        self.selected_subtask_item.name
+                    continue_deletion = launch_message_dialog(
+                        "Delete {0}?".format(self.selected_subtask_item.name),
+                        parent=self
                     )
-                    self.update()
+                    if continue_deletion:
+                        self.selected_subtask_item.parent.remove_child(
+                            self.selected_subtask_item.name
+                        )
+                        self.update()
 
         elif modifiers == QtCore.Qt.ControlModifier:
             # ctrl+plus: add new child
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 if self.selected_subtask_item:
                     self.selected_subtask_item.create_new_subtask()
+                    self.update()
+            # ctrl+del: force remove item
+            if event.key() == QtCore.Qt.Key_Delete:
+                if self.selected_subtask_item:
+                    self.selected_subtask_item.parent.remove_child(
+                        self.selected_subtask_item.name
+                    )
                     self.update()
 
         elif modifiers == QtCore.Qt.ShiftModifier:

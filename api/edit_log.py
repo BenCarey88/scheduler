@@ -4,106 +4,115 @@
 from contextlib import contextmanager
 
 
-class EditUndefinedError(Exception):
-    """Error for undo/redo called on an edit that's not fully defined."""
-    def __init__(self, edit_name):
-        super(EditUndefinedError, self).__init__(
-            "Edit {0} has not been fully defined".format(edit_name)
-        )
+class EditError(Exception):
+    pass
 
 
-class UndoError(Exception):
-    """Error for when undo is called on an edit that's already been undone."""
-    def __init__(self, edit_name):
-        super(UndoError, self).__init__(
-            "Cannot undo edit {0}: already been undone.".format(edit_name)
-        )
+class BaseEdit(object):
+    """Base class representing an edit that we can register in the log."""
 
+    def __init__(self, register_edit=True):
+        """Initialise edit.
+        
+        Args:
+            register_edit (bool): whether or not to register this edit in the
+                edit log (ie. whether or not it's a user edit that can be
+                undone).
+        """
+        self._register_edit = register_edit
+        self._registered = False
+        self._undone = True
+        self._args = None
+        self._kwargs = None
+        self._inverse_edit = None
 
-class RedoError(Exception):
-    """Error for when redo is called on an edit that's not been undone."""
-    def __init__(self, edit_name):
-        super(UndoError, self).__init__(
-            "Cannot redo edit {0}: has not been undone.".format(edit_name)
-        )
+    @classmethod
+    def from_inverse(cls, inverse_edit, *args, **kwargs):
+        """Initiailise edit from inverse edit.
 
-
-class EditObject(object):
-    """Class represeneting a single edit with undo, redo functionality."""
-
-    def __init__(
-            self,
-            edit_function,
-            edit_function_args=None,
-            edit_function_kwargs=None):
-        """Initialize edit object.
+        Edits should always modify their args/kwargs, so the edit and
+        its inverse should share the same args/kwargs.
 
         Args:
-            edit_function (function): the function that created the edit.
-            edit_function_args (list): the function's args.
-            edit_function_kwargs (dict): the function's kwargs.
+            inverse_edit (BaseEdit): inverse edit to initialise from.
+            args (list): args to pass to __init__.
+            kwargs (dict): kwargs to pass to __init__.]
+
+        Returns:
+            (BaseEdit): edit.
         """
-        self.redo_function = edit_function
-        self.redo_function_args = edit_function_args or []
-        self.redo_function_kwargs = edit_function_kwargs or {}
-        self.undo_function = None
-        self.undo_function_args = None
-        self.undo_function_kwargs = None
-        self.fully_defined = False
-        self.undone = False
+        edit = cls(*args, **kwargs)
+        edit._registered = True
+        edit._args = inverse_edit._args
+        edit._kwargs = inverse_edit._kwargs
+        return edit
 
-    def __repr__(self):
-        """Get sring representation of self."""
-        return "[EditObject {0}({1}, {2}); Undo {3}({4}, {5})]".format(
-            str(self.redo_function),
-            str(self.redo_function_args),
-            str(self.redo_function_kwargs),
-            str(self.undo_function),
-            str(self.undo_function_args),
-            str(self.undo_function_kwargs)
-        )
-
-    def set_undo_function(
-            self,
-            undo_function,
-            undo_function_args=None,
-            undo_function_kwargs=None):
-        """Set the undo function for the edit object.
+    def _run(self, *args, **kwargs):
+        """Run edit and register with edit log if not already done so.
 
         Args:
-            undo_function (function): function that can be used to undo the
-                edit.
-            undo_function_args (list): the function's args.
-            undo_function_kwargs (dict): the function's kwargs.
+            args (list): list of args this was called with.
+            kwargs (dict): dict of kwargs this was called with.
         """
-        self.undo_function = undo_function
-        self.undo_function_args = undo_function_args or []
-        self.undo_function_kwargs = undo_function_kwargs or {}
-        self.fully_defined = True
+        if self._register_edit:
+            if not self._registered:
+                self._args = args
+                self._kwargs = kwargs
+                EDIT_LOG.add_edit(self)
+                self._registered = True
+            self._undone = False
+
+    def _inverse(self):
+        """Get inverse edit object.
+
+        This needs to be run after the function is first called.
+
+        Returns:
+            (BaseEdit): Inverse BaseEdit, used to undo this one.
+        """
+        if self._inverse_edit:
+            return self._inverse_edit
+        if not self._registered:
+            raise EditError(
+                "_inverse must be called after edit has been run."
+            )
+        self._inverse_edit = self.from_inverse(self)
+        return self._inverse_edit
+
+    def __call__(self, *args, **kwargs):
+        """Call edit function externally. This can only be done the once.
+
+        This can only be done the once. Other calls are handled internally
+        through the _run method and only used for undoing / redoing.
+
+        Args:
+            args (list): list of args this was called with.
+            kwargs (dict): dict of kwargs this was called with.
+        """
+        if self._registered:
+            raise EditError(
+                "Edit object cannot be called externally after registration."
+            )
+        self._run(*args, **kwargs)
 
     def undo(self):
-        """Undo the edit by calling the undo function."""
-        if not self.fully_defined:
-            raise EditUndefinedError(self)
-        if self.undone:
-            raise UndoError(self)
-        self.undo_function(
-            *self.undo_function_args,
-            **self.undo_function_kwargs
-        )
-        self.undone = True
+        """Undo edit function."""
+        if self._undone:
+            raise EditError(
+                "Can't call undo on edit that's already been undone"
+            )
+        inverse_edit = self._inverse()
+        inverse_edit._run(*inverse_edit._args, **inverse_edit._kwargs)
+        self._undone = True
 
     def redo(self):
-        """Redo the edit by calling the redo function."""
-        if not self.fully_defined:
-            raise EditUndefinedError(self)
-        if not self.undone:
-            raise RedoError(self.name)
-        self.redo_function(
-            *self.redo_function_args,
-            **self.redo_function_kwargs
-        )
-        self.undone = False
+        """Redo the edit function."""
+        if not self._undone:
+            raise EditError(
+                "Can't call redo on edit that's not been undone"
+            )
+        self._run(*self._args, **self._kwargs)
+        self._undone = False
 
 
 class EditLog(object):
@@ -117,31 +126,15 @@ class EditLog(object):
             _undo_log (list): list of edits that have previously been undone,
                 saved so we can redo them.
             _registration_locked (bool): toggle to tell if the log is currently
-                being modified. This allows us to not re-add functions to the
-                log when they're being used to undo or redo.
-            _current_edit (EditObject or None): the current_edit being added,
-                if we're in the process of adding an edit.
+                being modified. This allows us to ensure we don't re-add
+                functions to the log when they're being used to undo or redo.
         """
         self._log = []
         self._undo_log = []
         self._registration_locked = False
         self._current_edit = None
 
-    @property
-    def registration_locked(self):
-        """Check if the registry is locked and hence no new edits can be added.
-
-        The registry is locked if one of the following is occuring
-        - the undo or redo functions are being called. This ensures that we
-            don't add new edits while we're trying to undo/redo an old one.
-        - we're in the process of adding an edit already, so self._current_edit
-            is not None
-
-        Returns:
-            (bool): whether or not the registry is locked.
-        """
-        return self._registration_locked or not self._current_edit
-
+    # SHOULDN'T BE NEEDED ANYMORE:
     @contextmanager
     def lock_registry(self):
         """Context manager to lock registry while ."""
@@ -149,42 +142,7 @@ class EditLog(object):
         yield
         self._registration_locked = False
 
-    @contextmanager
-    def register_edit(self, edit):
-        """Context manager to add a new edit to the log.
-
-        This allows us to define the edit in two steps (defining the edit
-        function first and then the undo function) and then only add the
-        edit if both steps have been done.
-
-        If the registration is locked, this does nothing.
-
-        Args:
-            edit (EditObject): the edit object to add. We assume that it is
-                not fully defined when passed to the context manager but must
-                be at the end in order to be added to the log.
-        """
-        can_register = self.registration_locked
-        if can_register:
-            self._current_edit = edit
-        yield
-        if can_register:
-            if self._current_edit.fully_defined:
-                self._add_edit(self._current_edit)
-            self._current_edit = None
-
-    def register_edit_inverse(self, function, args=None, kwargs=None):
-        """Set undo function for the edit object currently being registered.
-
-        Args:
-            function (function): the function that created the edit.
-            undo_function_args (list or None): the function's args.
-            undo_function_kwargs (dict or None): the function's kwargs.
-        """
-        if self._current_edit:
-            self._current_edit.set_undo_function(function, args, kwargs)
-
-    def _add_edit(self, edit):
+    def add_edit(self, edit):
         """Add edit object to list.
 
         This will also clear the undo log, as we can no longer redo
@@ -193,85 +151,55 @@ class EditLog(object):
         Args:
             edit (EditObject): edit object to add to list.
         """
+        if self._registration_locked:
+            return
         if self._undo_log:
             self._undo_log = []
-        self.log.append(edit)
+        self._log.append(edit)
 
     def undo(self):
-        """Undo most recent edit."""
+        """Undo most recent edit.
+
+        Returns:
+            (bool): whether or not undo was successful.
+        """
         with self.lock_registry():
             try:
                 edit = self._log.pop()
             except IndexError:
-                return
+                return False
             edit.undo()
             self._undo_log.append(edit)
+            return True
 
     def redo(self):
-        """Redo most recently undone edit."""
+        """Redo most recently undone edit.
+
+        Returns:
+            (bool): whether or not redo was successful.
+        """
         with self.lock_registry():
             try:
                 edit = self._undo_log.pop()
             except IndexError:
-                return
+                return False
             edit.redo()
             self._log.append(edit)
+            return True
 
 
 EDIT_LOG = EditLog()
 
 
-def register_edit(function):
-    """Decorator to register a function as an undoable/redoable edit.
-
-    This requires that the function calls the register_edit_inverse
-    function in order for the edit to actually be accepted and added
-    to the edit log.
-
-    add_to_edit_log=False is passed to the undo function to ensure it
-    doesn't reregister the undo edit.
-    """
-    def decorated_function(*args, add_to_edit_log=True, **kwargs):
-        if not add_to_edit_log or EDIT_LOG.registration_locked:
-            return function(*args, **kwargs)
-        edit = EditObject(function, args, kwargs)
-        with EDIT_LOG.register_edit(edit):
-            return function(*args, **kwargs)
-    return decorated_function
-
-
-def register_edit_inverse(function, args=None, kwargs=None):
-    """Set the undo function for the edit object currently being registered.
-
-    This needs to be added within a function that's being decorated with
-    the regitster_edit decorator.
-
-    Args:
-        function (function): the function that created the edit.
-        undo_function_args (list or None): the function's args.
-        undo_function_kwargs (dict or None): the function's kwargs.
-    """
-    kwargs = kwargs or {}
-    # add add_to_edit_log=False to kwargs so that the undo function isn't
-    # re-registered
-    kwargs["add_to_edit_log"] = False
-
-    # in case undo function isn't registered, redefine function to ensure
-    # it can accept the add_to_edit_log kwarg
-    def modified_function(*_args, **_kwargs):
-        try:
-            return function(*_args, **_kwargs)
-        except TypeError:
-            del _kwargs["add_to_edit_log"]
-            return function(*_args, **_kwargs)
-    EDIT_LOG.register_edit_inverse(modified_function, args, kwargs)
-
-
 def undo():
     """Run undo on edit log singleton."""
-    EDIT_LOG.undo()
+    success = EDIT_LOG.undo()
+    if not success:
+        print ("Nothing left to undo.")
 
 
 def redo():
     """Run redo on edit log singleton."""
-    EDIT_LOG.redo()
+    success = EDIT_LOG.redo()
+    if not success:
+        print ("Nothing left to redo.")

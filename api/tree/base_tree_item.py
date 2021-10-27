@@ -5,7 +5,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 
-# from ..edit_log import register_edit
+from .tree_edits import BaseTreeEdit, EditOperation
 
 
 class DuplicateChildNameError(Exception):
@@ -48,6 +48,7 @@ class BaseTreeItem(ABC):
         self._name = name
         self.parent = parent
         self._children = OrderedDict()
+        self.register_edits = False
 
     @property
     def name(self):
@@ -75,13 +76,12 @@ class BaseTreeItem(ABC):
         if parent:
             if parent.get_child(new_name):
                 raise DuplicateChildNameError(parent.name, new_name)
-            # replace parent's child item key by cycling through ordered dict
-            for i in range(len(parent._children)):
-                k, v = parent._children.popitem(last=False)
-                if k == self._name:
-                    k = new_name
-                parent._children[k] = v
-        self._name = new_name
+            name_edit = BaseTreeEdit(
+                diff_dict=OrderedDict([(self.name, new_name)]),
+                op_type=EditOperation.RENAME,
+                register_edit=self.register_edits,
+            )
+            name_edit(parent)
 
     @contextmanager
     def filter_children(self, filters):
@@ -150,7 +150,12 @@ class BaseTreeItem(ABC):
             raise DuplicateChildNameError(self.name, name)
         child_type = child_type or self.__class__
         child = child_type(name, parent=self, **kwargs)
-        self._children[name] = child
+        add_child_edit = BaseTreeEdit(
+            diff_dict=OrderedDict([(name, child)]),
+            op_type=EditOperation.ADD,
+            register_edit=self.register_edits,
+        )
+        add_child_edit(self)
         return child
 
     def create_new_child(
@@ -204,7 +209,12 @@ class BaseTreeItem(ABC):
                     child.name, child.parent.name, self.name
                 )
             )
-        self._children[child.name] = child
+        add_child_edit = BaseTreeEdit(
+            diff_dict=OrderedDict([(child.name, child)]),
+            op_type=EditOperation.ADD,
+            register_edit=self.register_edits,
+        )
+        add_child_edit(self)
 
     def remove_child(self, name, child_dict=None):
         """Remove an existing child from this item's children dict.
@@ -218,7 +228,12 @@ class BaseTreeItem(ABC):
         """
         child_dict = child_dict or self._children
         if name in child_dict.keys():
-            del child_dict[name]
+            remove_child_edit = BaseTreeEdit(
+                diff_dict=OrderedDict([(name, None)]),
+                op_type=EditOperation.REMOVE,
+                register_edit=self.register_edits,
+            )
+            remove_child_edit(self)
 
     def get_child(self, name, child_dict=None):
         """Get child by name.
@@ -314,3 +329,9 @@ class BaseTreeItem(ABC):
         """
         child_dict = child_dict or self._children
         return not bool(child_dict)
+
+    def open_edit_registry(self):
+        """Set all children editable so that users can undo and redo edits."""
+        self.register_edits = True
+        for child in self.get_all_children():
+            child.open_edit_registry()

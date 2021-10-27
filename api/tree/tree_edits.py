@@ -2,9 +2,7 @@
 
 from collections import OrderedDict
 
-
-class EditObjectException(Exception):
-    pass
+from scheduler.api.edit_log import BaseEdit, EditError
 
 
 class EditOperation(object):
@@ -38,10 +36,10 @@ class EditOperation(object):
         return cls.INVERSES.get(op_type)
 
 
-class OrderedDictEdit(object):
+class OrderedDictEdit(BaseEdit):
     """Object representing an edit on an OrderedDict."""
 
-    def __init__(self, diff_dict, op_type):
+    def __init__(self, diff_dict, op_type, register_edit=True):
         """Initialise edit item.
 
         Args:
@@ -49,6 +47,7 @@ class OrderedDictEdit(object):
                 to a dict. How to interpret this dictionary depends on the
                 operation type.
             operation_type (EditOperation): The type of edit operation to do.
+            register_edit (bool): whether or not to register this edit.
 
         diff_dict formats:
             ADD: {new_key: new_value} - add new values at new keys
@@ -59,12 +58,13 @@ class OrderedDictEdit(object):
             MODIFY: {old_key: new_value} - add new values at old keys
             MOVE: {old_key: new_index} - move given key to given index
         """
+        super(OrderedDictEdit, self).__init__(register_edit)
         self.diff_dict = diff_dict
         self.operation_type = op_type
         self.inverse_diff_dict = None
         self.inverse_operation_type = EditOperation.get_inverse_op(op_type)
 
-    def __call__(self, ordered_dict):
+    def _run(self, ordered_dict, *args, **kwargs):
         """Run this edit on the given ordered_dict.
 
         The first time this is called it should also fill up the inverse
@@ -72,24 +72,32 @@ class OrderedDictEdit(object):
 
         Args:
             ordered_dict (OrderedDict): ordered dict object to run on.
+            args (list): additional args this was called with.
+            kwargs (dict): additional kwargs this was called with.
         """
+        super(OrderedDictEdit, self)._run(
+            *args,
+            ordered_dict=ordered_dict,
+            **kwargs
+        )
+
         define_inverse = False
         if self.inverse_diff_dict is None:
             self.inverse_diff_dict = OrderedDict()
             define_inverse = True
 
         if self.operation_type == EditOperation.ADD:
-            self.add(ordered_dict, define_inverse)
+            self._add(ordered_dict, define_inverse)
         elif self.operation_type == EditOperation.INSERT:
-            self.insert(ordered_dict, define_inverse)
+            self._insert(ordered_dict, define_inverse)
         elif self.operation_type == EditOperation.REMOVE:
-            self.remove(ordered_dict, define_inverse)
+            self._remove(ordered_dict, define_inverse)
         elif self.operation_type == EditOperation.RENAME:
-            self.rename(ordered_dict, define_inverse)
+            self._rename(ordered_dict, define_inverse)
         elif self.operation_type == EditOperation.MODIFY:
-            self.modify(ordered_dict, define_inverse)
+            self._modify(ordered_dict, define_inverse)
         elif self.operation_type == EditOperation.MOVE:
-            self.move(ordered_dict, define_inverse)
+            self._move(ordered_dict, define_inverse)
 
         # reverse inverse dict since we build up operations in opposite order
         if define_inverse:
@@ -97,7 +105,7 @@ class OrderedDictEdit(object):
                 reversed(list(self.inverse_diff_dict.items()))
             )
 
-    def add(self, ordered_dict, define_inverse):
+    def _add(self, ordered_dict, define_inverse):
         """Run add operation on the given ordered_dict.
 
         Args:
@@ -110,7 +118,7 @@ class OrderedDictEdit(object):
                     self.inverse_diff_dict[key] = None
                 ordered_dict[key] = value
 
-    def insert(self, ordered_dict, define_inverse):
+    def _insert(self, ordered_dict, define_inverse):
         """Run insert operation on the given ordered_dict.
 
         The index in the diff_dict here defines the index we want the item
@@ -124,7 +132,7 @@ class OrderedDictEdit(object):
             if new_key in ordered_dict:
                 continue
             if type(value_tuple) != tuple:
-                raise EditObjectException(
+                raise EditError(
                     "Insert diff dict needs tuple values"
                 )
             index = value_tuple[0]
@@ -142,7 +150,7 @@ class OrderedDictEdit(object):
                         ordered_dict[new_key] = new_value
                     ordered_dict[key] = value
 
-    def remove(self, ordered_dict, define_inverse):
+    def _remove(self, ordered_dict, define_inverse):
         """Run remove operation on the given ordered_dict.
 
         Args:
@@ -156,7 +164,7 @@ class OrderedDictEdit(object):
                     self.inverse_diff_dict[key] = (index, ordered_dict[key])
                 del ordered_dict[key]
 
-    def rename(self, ordered_dict, define_inverse):
+    def _rename(self, ordered_dict, define_inverse):
         """Run rename operation on the given ordered_dict.
 
         Args:
@@ -172,7 +180,7 @@ class OrderedDictEdit(object):
                 key = new_key
             ordered_dict[key] = value
 
-    def modify(self, ordered_dict, define_inverse):
+    def _modify(self, ordered_dict, define_inverse):
         """Run modify operation on the given ordered_dict.
 
         Args:
@@ -185,7 +193,7 @@ class OrderedDictEdit(object):
                     self.inverse_diff_dict[key] = ordered_dict[key]
                 ordered_dict[key] = value
 
-    def move(self, ordered_dict, define_inverse):
+    def _move(self, ordered_dict, define_inverse):
         """Run move operation on the given ordered_dict.
 
         Just like insert, the index in move defines the index we expect
@@ -219,7 +227,7 @@ class OrderedDictEdit(object):
                         ordered_dict[diff_key] = diff_value
                     ordered_dict[key] = value
 
-    def inverse(self):
+    def _inverse(self):
         """Get inverse edit object.
 
         This needs to be run after the function is called.
@@ -227,20 +235,24 @@ class OrderedDictEdit(object):
         Returns:
             (OrderedDictEdit): Inverse OrderedDictEdit, used to undo this one.
         """
+        if self._inverse_edit:
+            return self._inverse_edit
         if not self.inverse_diff_dict:
-            raise EditObjectException(
-                "Edit object inverse must be called after edit has been run."
+            raise EditError(
+                "_inverse must be called after edit has been run."
             )
-        return self.__class__(
+        self._inverse_edit = self.from_inverse(
+            self,
             self.inverse_diff_dict,
             self.inverse_operation_type
         )
+        return self._inverse_edit
 
 
 class BaseTreeEdit(OrderedDictEdit):
     """Object representing an edit that can be called on a tree item."""
 
-    def __call__(self, tree_item):
+    def _run(self, tree_item, *args, **kwargs):
         """Run this edit on a tree item.
 
         This method just applies an OrderedDictEdit to the tree's child dict
@@ -262,4 +274,9 @@ class BaseTreeEdit(OrderedDictEdit):
                 if child:
                     child._name = new_name
 
-        super(BaseTreeEdit, self).__call__(ordered_dict)
+        kwargs["ordered_dict"] = ordered_dict
+        super(BaseTreeEdit, self)._run(
+            *args,
+            tree_item=tree_item,
+            **kwargs
+        )

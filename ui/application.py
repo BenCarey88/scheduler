@@ -25,6 +25,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.resize(1600, 800)
         self.task_data = TaskData.from_file(constants.SCHEDULER_TASKS_FILE)
         self.tree_root = self.task_data.get_tree_root()
+        self.tree_root.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
 
@@ -114,8 +115,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def update(self):
         """Update current tab and outliner"""
-        # TODO: implement this properly
         self.tabs_widget.currentWidget().update()
+        self.tabs_widget.currentWidget().outliner.update()
 
 
 def set_style(app):

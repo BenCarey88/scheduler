@@ -27,7 +27,7 @@ class OrderedDictEditTest(unittest.TestCase):
             OrderedDict([("z", "Z")]),
             EditOperation.ADD
         )
-        edit(self.ordered_dict)
+        edit._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             OrderedDict([
@@ -38,7 +38,7 @@ class OrderedDictEditTest(unittest.TestCase):
                 ("z", "Z"),
             ])
         )
-        edit.inverse()(self.ordered_dict)
+        edit._inverse()._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             self.original_ordered_dict
@@ -50,7 +50,7 @@ class OrderedDictEditTest(unittest.TestCase):
             OrderedDict([("z", (2, "Z"))]),
             EditOperation.INSERT
         )
-        edit(self.ordered_dict)
+        edit._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             OrderedDict([
@@ -61,7 +61,7 @@ class OrderedDictEditTest(unittest.TestCase):
                 ("d", "D"),
             ])
         )
-        edit.inverse()(self.ordered_dict)
+        edit._inverse()._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             self.original_ordered_dict
@@ -73,7 +73,7 @@ class OrderedDictEditTest(unittest.TestCase):
             OrderedDict([("b", None), ("d", None)]),
             EditOperation.REMOVE
         )
-        edit(self.ordered_dict)
+        edit._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             OrderedDict([
@@ -81,7 +81,7 @@ class OrderedDictEditTest(unittest.TestCase):
                 ("c", "C"),
             ])
         )
-        edit.inverse()(self.ordered_dict)
+        edit._inverse()._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             self.original_ordered_dict
@@ -93,7 +93,7 @@ class OrderedDictEditTest(unittest.TestCase):
             OrderedDict([("a", "z"), ("b", "y")]),
             EditOperation.RENAME
         )
-        edit(self.ordered_dict)
+        edit._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             OrderedDict([
@@ -103,7 +103,7 @@ class OrderedDictEditTest(unittest.TestCase):
                 ("d", "D"),
             ])
         )
-        edit.inverse()(self.ordered_dict)
+        edit._inverse()._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             self.original_ordered_dict
@@ -115,7 +115,7 @@ class OrderedDictEditTest(unittest.TestCase):
             OrderedDict([("c", "Z"), ("a", "Y")]),
             EditOperation.MODIFY
         )
-        edit(self.ordered_dict)
+        edit._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             OrderedDict([
@@ -125,7 +125,7 @@ class OrderedDictEditTest(unittest.TestCase):
                 ("d", "D"),
             ])
         )
-        edit.inverse()(self.ordered_dict)
+        edit._inverse()._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             self.original_ordered_dict
@@ -137,7 +137,7 @@ class OrderedDictEditTest(unittest.TestCase):
             OrderedDict([("b", 2), ("d", 1), ("c", 3)]),
             EditOperation.MOVE
         )
-        edit(self.ordered_dict)
+        edit._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             OrderedDict([
@@ -147,7 +147,7 @@ class OrderedDictEditTest(unittest.TestCase):
                 ("c", "C"),
             ])
         )
-        edit.inverse()(self.ordered_dict)
+        edit._inverse()._run(self.ordered_dict)
         self.assertEqual(
             self.ordered_dict,
             self.original_ordered_dict
@@ -176,7 +176,7 @@ class BaseTreeEditTest(unittest.TestCase):
             OrderedDict([("child1", "new_name")]),
             EditOperation.RENAME
         )
-        edit(self.tree_item)
+        edit._run(self.tree_item)
         self.assertEqual(
             list(self.tree_item._children.keys()),
             ["new_name", "child2"]
@@ -184,7 +184,7 @@ class BaseTreeEditTest(unittest.TestCase):
         self.assertEqual(
             self.tree_item.get_child("new_name").name, "new_name"
         )
-        edit.inverse()(self.tree_item)
+        edit._inverse()._run(self.tree_item)
         self.assertEqual(
             list(self.tree_item._children.keys()),
             list(self.original_tree_item._children.keys())

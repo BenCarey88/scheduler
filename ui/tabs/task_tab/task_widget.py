@@ -4,9 +4,6 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.base_tree_item import DuplicateChildNameError
-
-from scheduler.ui.utils import suppress_signals
 from scheduler.ui.models.task_model import TaskModel
 
 

@@ -2,9 +2,17 @@
 
 from collections import OrderedDict
 from functools import partial
+import os
+import shutil
+import tempfile
 
 from .base_tree_item import BaseTreeItem
+from .exceptions import TaskFileError
 from .task import Task
+from .tree_utils import (
+    is_tree_directory,
+    check_directory_can_be_written_to
+)
 
 
 class TaskCategory(BaseTreeItem):
@@ -12,6 +20,8 @@ class TaskCategory(BaseTreeItem):
 
     This class has two types of children: subcategories and tasks.
     """
+
+    TASK_CATEGORY_MARKER = "category.info"
 
     def __init__(self, name, parent=None):
         """Initialise category class.
@@ -36,33 +46,33 @@ class TaskCategory(BaseTreeItem):
             default_name = "category"
         )
         self.add_sibling_category = self.add_sibling
-        self.remove_subcategory = partial(
+        self.remove_subcategory = self.run_method_with_subdict(
             self.remove_child,
-            child_dict=self._subcategories
+            "subcategories"
         )
-        self.remove_subcategories = partial(
+        self.remove_subcategories = self.run_method_with_subdict(
             self.remove_children,
-            child_dict=self._subcategories
+            "subcategories"
         )
-        self.get_subcategory = partial(
+        self.get_subcategory = self.run_method_with_subdict(
             self.get_child,
-            child_dict=self._subcategories
+            "subcategories"
         )
-        self.get_subcategory_at_index = partial(
+        self.get_subcategory_at_index = self.run_method_with_subdict(
             self.get_child_at_index,
-            child_dict=self._subcategories
+            "subcategories"
         )
-        self.get_all_subcategories = partial(
+        self.get_all_subcategories = self.run_method_with_subdict(
             self.get_all_children,
-            child_dict=self._subcategories
+            "subcategories"
         )
-        self.num_subcategories = partial(
+        self.num_subcategories = self.run_method_with_subdict(
             self.num_children,
-            child_dict=self._subcategories
+            "subcategories"
         )
-        self.num_subcategory_descendants = partial(
+        self.num_subcategory_descendants = self.run_method_with_subdict(
             self.num_descendants,
-            child_dict=self._subcategories
+            "subcategories"
         )
 
         # task methods
@@ -76,34 +86,61 @@ class TaskCategory(BaseTreeItem):
             child_type=Task,
         )
         self.add_task = self.add_child
-        self.remove_task = partial(
+        self.remove_task = self.run_method_with_subdict(
             self.remove_child,
-            child_dict=self._tasks
+            "tasks"
         )
-        self.remove_tasks = partial(
+        self.remove_tasks = self.run_method_with_subdict(
             self.remove_children,
-            child_dict=self._tasks
+            "tasks"
         )
-        self.get_task = partial(
+        self.get_task = self.run_method_with_subdict(
             self.get_child,
-            child_dict=self._tasks
+            "tasks"
         )
-        self.get_task_at_index = partial(
+        self.get_task_at_index = self.run_method_with_subdict(
             self.get_child_at_index,
-            child_dict=self._tasks
+            "tasks"
         )
-        self.get_all_tasks = partial(
+        self.get_all_tasks = self.run_method_with_subdict(
             self.get_all_children,
-            child_dict=self._tasks
+            "tasks"
         )
-        self.num_tasks = partial(
+        self.num_tasks = self.run_method_with_subdict(
             self.num_children,
-            child_dict=self._tasks
+            "tasks"
         )
-        self.num_task_descendants = partial(
+        self.num_task_descendants = self.run_method_with_subdict(
             self.num_descendants,
-            child_dict=self._tasks
+            "tasks"
         )
+
+    def run_method_with_subdict(self, method, tree_type):
+        """Decorator to run method with different child_dict.
+
+        Args:
+            method (function): method to decorate.
+            tree_type (str): type of tree to use.
+
+        Returns:
+            (function): decorated method.
+        """
+        # TODO: feels like we could replace the entire idea of child_dict
+        # keyword just with filters, and then use that in this func instead
+        # Just need to sort out the recursive imports for filters.
+
+        def decorated_method(*args, **kwargs):
+            # NOTE: this dict must be done inside this function
+            # otherwise we calculate the values when the decorator is called
+            # rather than when the decorated method is called
+            child_dict = {
+                "tasks": self._tasks,
+                "subcategories": self._subcategories
+            }.get(tree_type)
+            if child_dict is None:
+                raise Exception("tree_type {0} not defined".format(tree_type))
+            return method(*args, child_dict=child_dict, **kwargs)
+        return decorated_method
 
     @property
     def _subcategories(self):
@@ -150,8 +187,7 @@ class TaskCategory(BaseTreeItem):
             }
         }
         Note that this does not contain a name field, as the name is expected
-        to be added as a key to this dictionary in the tasks json files (see
-        the task_data module for details on this).
+        to be added as a key to this dictionary in the tasks json files.
 
         Returns:
             (OrderedDict): dictionary representation.
@@ -171,7 +207,7 @@ class TaskCategory(BaseTreeItem):
 
     @classmethod
     def from_dict(cls, json_dict, name, parent=None):
-        """Initialize class from dictionary representation.
+        """Initialise class from dictionary representation.
 
         The json_dict is expected to be structured as described in the to_dict
         docstring.
@@ -195,3 +231,95 @@ class TaskCategory(BaseTreeItem):
             task = Task.from_dict(task_dict, task_name)
             category.add_task(task)
         return category
+
+    def write(self, directory_path, marker=TASK_CATEGORY_MARKER):
+        """Write data to directory tree.
+
+        The structure is:
+            category_tree_dir:
+                subcategory_1_tree_dir:
+                subcategory_2_tree_dir:
+                task_1.json
+                task_2.json
+                TASK_CATEGORY_MARKER
+
+        The TASK_CATEGORY_MARKER file saves the official ordering as this
+        will be lost in the directory.
+
+        Args:
+            directory_path (str): path to directory to write to.
+            marker (str): name of marker file that marks this as a tree.
+        """
+        check_directory_can_be_written_to(directory_path, marker)
+
+        tmp_dir = None
+        if os.path.exists(directory_path):
+            tmp_dir = tempfile.mkdtemp(dir=os.path.dirname(directory_path))
+            shutil.move(directory_path, tmp_dir)
+        os.mkdir(directory_path)
+        task_category_file = os.path.join(directory_path, marker)
+        with open(task_category_file, "w") as file_:
+            file_.write(
+                "\n".join([child.name for child in self.get_all_children()])
+            )
+
+        for subcategory in self.get_all_subcategories():
+            subcategory_directory = os.path.join(
+                directory_path,
+                subcategory.name
+            )
+            subcategory.write(subcategory_directory)
+
+        for task in self.get_all_tasks():
+            task_file = os.path.join(
+                directory_path,
+                "{0}.json".format(task.name)
+            )
+            task.write(task_file)
+
+        if tmp_dir:
+            shutil.rmtree(tmp_dir)
+
+    @classmethod
+    def from_directory(
+            cls,
+            directory_path,
+            parent=None,
+            marker=TASK_CATEGORY_MARKER):
+        """Create TaskCategory object from category directory.
+
+        Args:
+            directory_path (str): path to category directory.
+            parent (TaskCategory or None): parent item.
+            marker (str): name of marker file that marks this as a tree.
+
+        Raises:
+            (TaskFileError): if the directory doesn't exist or isn't a task
+                directory (ie. doesn't have a TASK_CATEGORY_MARKER)
+
+        Returns:
+            (TaskCategory): TaskCategory object populated with categories from
+                directory tree.
+        """
+        if not is_tree_directory(directory_path, marker):
+            raise TaskFileError(
+                "Directory {0} is not a valid task root directory".format(
+                    directory_path
+                )
+            )
+        category_name = os.path.basename(directory_path)
+        category_item = cls(name=category_name, parent=parent)
+
+        task_category_file = os.path.join(directory_path, marker)
+        with open(task_category_file, "r") as file_:
+            child_order = file_.read().split("\n")
+
+        for name in child_order:
+            path = os.path.join(directory_path, name)
+            if is_tree_directory(path, cls.TASK_CATEGORY_MARKER):
+                subcategory = TaskCategory.from_directory(path, category_item)
+                category_item.add_subcategory(subcategory)
+            elif (os.path.isfile("{0}.json".format(path))):
+                task = Task.from_file("{0}.json".format(path), category_item)
+                category_item.add_task(task)
+        return category_item

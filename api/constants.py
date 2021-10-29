@@ -10,6 +10,6 @@ USER_PREFS_FILE = os.path.join(
 )
 
 # this should be found from user prefs ideally
-SCHEDULER_TASKS_FILE = os.path.normpath(
-    "/users/benca/OneDrive/Documents/Admin/scheduler/tasks/projects.json"
+SCHEDULER_TASKS_DIRECTORY = os.path.normpath(
+    "/users/benca/OneDrive/Documents/Admin/scheduler/tasks"
 )

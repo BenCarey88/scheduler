@@ -1,9 +1,5 @@
 """Tree model."""
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
-from scheduler.api.tree.task import Task
-from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree import filters
 from .base_tree_model import BaseTreeModel
 

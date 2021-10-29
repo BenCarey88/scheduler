@@ -4,28 +4,10 @@ from abc import ABC
 from collections import OrderedDict
 from contextlib import contextmanager
 
+from scheduler.api.edit.tree_edit import BaseTreeEdit, EditOperation
 from scheduler.api.utils import catch_exceptions
-from .tree_edits import BaseTreeEdit, EditOperation
 
-
-class DuplicateChildNameError(Exception):
-    """Exception for two cildren having the same name."""
-    def __init__(self, tree_item_name, child_item_name):
-        """Initialise exception.
-
-        Args:
-            tree_item_name (str): name of tree item we're adding child to.
-            child_item_name (str): name of child.
-        """
-        message = "child of {0} with name {1} already exists".format(
-            tree_item_name, child_item_name
-        )
-        super(DuplicateChildNameError, self).__init__(message)
-
-
-class MultipleParentsError(Exception):
-    """Exception for when new child does not have current item as a parent."""
-    pass
+from .exceptions import DuplicateChildNameError, MultipleParentsError
 
 
 class BaseTreeItem(ABC):
@@ -275,7 +257,8 @@ class BaseTreeItem(ABC):
                 assumed the given child_dict will be a subset of
                 self._children.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         if name in child_dict.keys():
             remove_child_edit = BaseTreeEdit(
                 diff_dict=OrderedDict([(name, None)]),
@@ -294,7 +277,8 @@ class BaseTreeItem(ABC):
                 assumed the given child_dict will be a subset of
                 self._children.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         names = [name for name in names if name in child_dict.keys()]
         remove_children_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(name, None) for name in names]),
@@ -314,7 +298,8 @@ class BaseTreeItem(ABC):
         Returns:
             (BaseTreeItem or None): child, if one by that name exits.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         return child_dict.get(name, None)
 
     def get_child_at_index(self, index, child_dict=None):
@@ -328,7 +313,8 @@ class BaseTreeItem(ABC):
         Returns:
             (Task or None): child, if one of that index exits.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         if 0 <= index < len(child_dict):
             return list(child_dict.values())[index]
         return None
@@ -343,7 +329,8 @@ class BaseTreeItem(ABC):
         Returns:
             (list(Task)): list of all children.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         return list(child_dict.values())
 
     def num_children(self, child_dict=None):
@@ -355,7 +342,8 @@ class BaseTreeItem(ABC):
         Returns:
             (int): number of children.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         return len(child_dict)
 
     def num_descendants(self, child_dict=None):
@@ -367,7 +355,8 @@ class BaseTreeItem(ABC):
         Returns:
             (int): number of descendants.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         return sum(
             [(child.num_descendants() + 1) for child in child_dict.values()]
         )
@@ -400,7 +389,8 @@ class BaseTreeItem(ABC):
         Returns:
             (bool): True if this is a leaf, else False.
         """
-        child_dict = child_dict or self._children
+        if child_dict is None:
+            child_dict = self._children
         return not bool(child_dict)
 
     def open_edit_registry(self):

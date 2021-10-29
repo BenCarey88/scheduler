@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from scheduler.api.edit_log import BaseEdit, EditError
+from .edit_log import BaseEdit, EditError
 
 
 class EditOperation(object):

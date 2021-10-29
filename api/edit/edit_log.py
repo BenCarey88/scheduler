@@ -193,13 +193,9 @@ EDIT_LOG = EditLog()
 
 def undo():
     """Run undo on edit log singleton."""
-    success = EDIT_LOG.undo()
-    if not success:
-        print ("Nothing left to undo.")
+    EDIT_LOG.undo()
 
 
 def redo():
     """Run redo on edit log singleton."""
-    success = EDIT_LOG.redo()
-    if not success:
-        print ("Nothing left to redo.")
+    EDIT_LOG.redo()

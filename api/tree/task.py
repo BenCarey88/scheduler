@@ -2,8 +2,11 @@
 
 from collections import OrderedDict
 from functools import partial
+import json
+import os
 
 from .base_tree_item import BaseTreeItem
+from .exceptions import TaskFileError
 
 
 class TaskType():
@@ -104,8 +107,7 @@ class Task(BaseTreeItem):
             }
         }
         Note that this does not contain a name field, as the name is expected
-        to be added as a key to this dictionary in the tasks json files (see
-        the task_data module for details on this).
+        to be added as a key to this dictionary in the tasks json files.
 
         Returns:
             (OrderedDict): dictionary representation.
@@ -125,7 +127,7 @@ class Task(BaseTreeItem):
 
     @classmethod
     def from_dict(cls, json_dict, name, parent=None):
-        """Initialize class from dictionary representation.
+        """Initialise class from dictionary representation.
 
         The json_dict is expected to be structured as described in the to_dict
         docstring.
@@ -133,7 +135,7 @@ class Task(BaseTreeItem):
         Args:
             json_dict (OrderedDict): dictionary representation.
             name (str): name of task.
-            parent (Task or None): parent of current task, if task is subtask.
+            parent (Task, TaskCategory or None): parent of task.
 
         Returns:
             (Task): task class for given dict.
@@ -148,6 +150,53 @@ class Task(BaseTreeItem):
             subtask = cls.from_dict(subtask_dict, subtask_name, task)
             task.add_subtask(subtask)
         return task
+
+    def write(self, file_path):
+        """Write this task item to a json file, using the to_dict string.
+
+        Args:
+            file_path (str): path to the json file.
+        """
+        if not os.path.isdir(os.path.dirname(file_path)):
+            raise TaskFileError(
+                "Task file directory {0} does not exist".format(
+                    file_path
+                )
+            )
+        if os.path.splitext(file_path)[-1] != ".json":
+            raise TaskFileError(
+                "Task file path {0} is not a json.".format(file_path)
+            )
+        with open(file_path, 'w') as f:
+            json.dump(self.to_dict(), f, indent=4)
+
+    @classmethod
+    def from_file(cls, file_path, parent=None):
+        """Initialise class from json file.
+
+        Args:
+            file_path (str): path to the json file.
+            parent (Task or TaskCategory or None): parent of task.
+
+        Returns:
+            (Task): Task item described by json file.
+        """
+        if not os.path.isfile(file_path):
+            raise TaskFileError(
+                "Task file {0} does not exist".format(file_path)
+            )
+        with open(file_path, "r") as file_:
+            file_text = file_.read()
+        try:
+            task_dict = json.loads(file_text, object_pairs_hook=OrderedDict)
+        except json.JSONDecodeError:
+            raise TaskFileError(
+                "Tasks file {0} is incorrectly formatted for json load".format(
+                    file_path
+                )
+            )
+        name = os.path.splitext(os.path.basename(file_path))[0]
+        return cls.from_dict(task_dict, name, parent)
 
 
 class TaskHistory(object):

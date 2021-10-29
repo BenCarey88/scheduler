@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.base_tree_item import DuplicateChildNameError
+from scheduler.api.tree.exceptions import DuplicateChildNameError
 
 
 class BaseTreeModel(QtCore.QAbstractItemModel):

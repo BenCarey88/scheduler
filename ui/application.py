@@ -6,8 +6,8 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants
-from scheduler.api.edit_log import EDIT_LOG, redo, undo
-from scheduler.api.task_data import TaskData
+from scheduler.api.edit.edit_log import redo, undo
+from scheduler.api.tree.task_root import TaskRoot
 
 from .tabs.task_tab import TaskTab
 from .tabs.timetable_tab import TimetableTab
@@ -23,8 +23,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         super(SchedulerWindow, self).__init__(*args, **kwargs)
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
-        self.task_data = TaskData.from_file(constants.SCHEDULER_TASKS_FILE)
-        self.tree_root = self.task_data.get_tree_root()
+        self.tree_root = TaskRoot.from_directory(
+            constants.SCHEDULER_TASKS_DIRECTORY
+        )
         self.tree_root.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
@@ -101,7 +102,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def save(self):
         """Save scheduler data."""
-        self.task_data.write()
+        self.tree_root.write()
 
     def undo(self):
         """Undo last action."""

@@ -96,7 +96,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         #     # print ("2")
         #     parent_item_row = parent_item.index()
         # print ("\t", [a.name for a in self.tree_roots], parent_item.name, parent_item_row)
-        return self.createIndex(parent_item.index(), 0, parent_item)
+        parent_row = parent_item.index()
+        if parent_row is not None:
+            return self.createIndex(parent_row, 0, parent_item)
+        return QtCore.QModelIndex()
 
     def rowCount(self, parent_index):
         """Get number of children of given parent.

@@ -361,7 +361,6 @@ class BaseTreeItem(ABC):
             [(child.num_descendants() + 1) for child in child_dict.values()]
         )
 
-    @catch_exceptions(ValueError)
     def index(self, child_dict=None):
         """Get index of this item as a child of its parent.
 
@@ -378,7 +377,10 @@ class BaseTreeItem(ABC):
         if not self.parent:
             return None
         else:
-            return self.parent.get_all_children(child_dict).index(self)
+            try:
+                return self.parent.get_all_children(child_dict).index(self)
+            except ValueError:
+                return None
 
     def is_leaf(self, child_dict=None):
         """Return whether or not this item is a leaf (ie has no children).

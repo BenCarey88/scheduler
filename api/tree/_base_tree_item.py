@@ -11,14 +11,7 @@ from .exceptions import DuplicateChildNameError, MultipleParentsError
 
 
 class BaseTreeItem(ABC):
-    """Base class representing a tree item.
-
-    This class has a _children dict attribute representing the list of children
-    of the current item. However, most of its methods include a child_dict arg
-    which allow subclasses to pass in a second dictionary of children to use,
-    enabling multiple types of children. It is assumed that this child_dict
-    will always be a subdict of self._children.
-    """
+    """Base class representing a tree item."""
 
     def __init__(self, name, parent=None):
         """Initialise tree item class.
@@ -247,19 +240,13 @@ class BaseTreeItem(ABC):
             return None
         self.parent.add_child(sibling)
 
-    def remove_child(self, name, child_dict=None):
+    def remove_child(self, name):
         """Remove an existing child from this item's children dict.
 
         Args:
             name (str): name of child item to remove.
-            child_dict (OrderedDict or None): dict to check if child is in.
-                We still remove the child from self._children as it's
-                assumed the given child_dict will be a subset of
-                self._children.
         """
-        if child_dict is None:
-            child_dict = self._children
-        if name in child_dict.keys():
+        if name in self._children.keys():
             remove_child_edit = BaseTreeEdit(
                 diff_dict=OrderedDict([(name, None)]),
                 op_type=EditOperation.REMOVE,
@@ -267,19 +254,13 @@ class BaseTreeItem(ABC):
             )
             remove_child_edit(self)
 
-    def remove_children(self, names, child_dict=None):
+    def remove_children(self, names):
         """Remove existing children from this item's children dict.
 
         Args:
             name (list(str)): name of child items to remove.
-            child_dict (OrderedDict or None): dict to check if child is in.
-                We still remove the child from self._children as it's
-                assumed the given child_dict will be a subset of
-                self._children.
         """
-        if child_dict is None:
-            child_dict = self._children
-        names = [name for name in names if name in child_dict.keys()]
+        names = [name for name in names if name in self._children.keys()]
         remove_children_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(name, None) for name in names]),
             op_type=EditOperation.REMOVE,
@@ -287,89 +268,62 @@ class BaseTreeItem(ABC):
         )
         remove_children_edit(self)
 
-    def get_child(self, name, child_dict=None):
+    def get_child(self, name):
         """Get child by name.
 
         Args:
             name (str): name of child.
-            child_dict (OrderedDict or None): dict to get child from. If None,
-                use self._children.
 
         Returns:
             (BaseTreeItem or None): child, if one by that name exits.
         """
-        if child_dict is None:
-            child_dict = self._children
-        return child_dict.get(name, None)
+        return self._children.get(name, None)
 
-    def get_child_at_index(self, index, child_dict=None):
+    def get_child_at_index(self, index):
         """Get child by index.
 
         Args:
             index (int): index of child.
-            child_dict (OrderedDict or None): dict to get child from. If None,
-                use self._children.
 
         Returns:
             (Task or None): child, if one of that index exits.
         """
-        if child_dict is None:
-            child_dict = self._children
-        if 0 <= index < len(child_dict):
-            return list(child_dict.values())[index]
+        if 0 <= index < len(self._children):
+            return list(self._children.values())[index]
         return None
 
-    def get_all_children(self, child_dict=None):
+    def get_all_children(self):
         """Get all children of this item.
-
-        Args:
-            child_dict (OrderedDict or None): dict to get children from. If
-                None, use self._children.
 
         Returns:
             (list(Task)): list of all children.
         """
-        if child_dict is None:
-            child_dict = self._children
-        return list(child_dict.values())
+        return list(self._children.values())
 
-    def num_children(self, child_dict=None):
+    def num_children(self):
         """Get number of children of this item.
-
-        child_dict (OrderedDict or None): dict to get children from. If None,
-                use self._children.
 
         Returns:
             (int): number of children.
         """
-        if child_dict is None:
-            child_dict = self._children
-        return len(child_dict)
+        return len(self._children)
 
-    def num_descendants(self, child_dict=None):
+    def num_descendants(self):
         """Get number of descendants of this item.
-
-        child_dict (OrderedDict or None): dict to get children from. If None,
-                use self._children.
 
         Returns:
             (int): number of descendants.
         """
-        if child_dict is None:
-            child_dict = self._children
-        return sum(
-            [(child.num_descendants() + 1) for child in child_dict.values()]
-        )
+        return sum([
+            (child.num_descendants() + 1) for child in self._children.values()
+        ])
 
-    def index(self, child_dict=None):
+    def index(self):
         """Get index of this item as a child of its parent.
 
         Wrapped to catch ValueError exceptions, in case of race conditions,
         ie. this has been deleted from its parent list during the course of
         this function being called.
-
-        child_dict (OrderedDict or None): dict of parent's to use as
-            child_dict. If None, use parent._children.
 
         Returns:
             (int or None): index of this item, or None if it has no parent.
@@ -378,22 +332,17 @@ class BaseTreeItem(ABC):
             return None
         else:
             try:
-                return self.parent.get_all_children(child_dict).index(self)
+                return self.parent.get_all_children().index(self)
             except ValueError:
                 return None
 
-    def is_leaf(self, child_dict=None):
+    def is_leaf(self):
         """Return whether or not this item is a leaf (ie has no children).
-
-        child_dict (OrderedDict or None): dict to search for children in. If
-            None, use self._children.
 
         Returns:
             (bool): True if this is a leaf, else False.
         """
-        if child_dict is None:
-            child_dict = self._children
-        return not bool(child_dict)
+        return not bool(self._children)
 
     def open_edit_registry(self):
         """Set all children editable so that users can undo and redo edits."""

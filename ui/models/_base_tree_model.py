@@ -8,40 +8,21 @@ from scheduler.api.tree.exceptions import DuplicateChildNameError
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
-    def __init__(self, tree_roots, parent=None, filters=None):
+    def __init__(self, tree_root, parent=None, filters=None):
         """Initialise base tree model.
 
         Args:
-            tree_roots (list(scheduler.api.tree_items.BaseTreeItem)): model
-                root items (these are assumed to all be siblings in some
-                tree, although they don't need to actually be at the root
-                of that tree).
+            tree_root (BaseTreeItem): model root tree item. We actually treat
+                its children as the roots of this model, but we pass in the
+                parent of those children for easier calculations.
             parent (QtWidgets.QWidget or None): QWidget that this models.
             filters (list(scheduler.api.tree.filters.BaseFilter)): filters
-                for reducing number of children to consider.
+                for reducing number of children in model.
         """
-        # TESTING NEW ROOT
-        self.root = tree_roots
+        self.root = tree_root
         with self.root.filter_children(filters or []):
             self.tree_roots = self.root.get_all_children()
-
-        # self.tree_roots = tree_roots
         self.child_filters = filters or []
-        # first_item = next(iter(tree_roots), None)
-        # if first_item:
-        #     parent_item = first_item.parent
-        #     if parent_item:
-        #         # in case the given roots are missing some siblings, we need
-        #         # a filter to remove the other siblings from consideration
-        #         with parent_item.filter_children(self.child_filters):
-        #             children_of_parent = parent_item.get_all_children()
-        #         if children_of_parent != tree_roots:
-        #             self.child_filters.append(
-        #                 filters.RestrictToGivenChildren(
-        #                     parent_item,
-        #                     [item.name for item in tree_roots]
-        #                 )
-        #             )
         super(BaseTreeModel, self).__init__(parent)
 
     def index(self, row, column, parent_index):
@@ -64,8 +45,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 return QtCore.QModelIndex()
         else:
             parent_item = parent_index.internalPointer()
-            # move filter inside the base tree class as a decorator maybe?
-            # or maybe this way is still better?
             with parent_item.filter_children(self.child_filters):
                 child_item = parent_item.get_child_at_index(row)
         if child_item:
@@ -85,17 +64,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             return QtCore.QModelIndex()
         child_item = index.internalPointer()
         parent_item = child_item.parent
-        if not parent_item: # == self.tree_root:
+        if not parent_item:
             return QtCore.QModelIndex()
         if parent_item == self.root:
             return QtCore.QModelIndex()
-        # if parent_item in self.tree_roots:
-        #     # print ("1")
-        #     parent_item_row = self.tree_roots.index(parent_item)
-        # else:
-        #     # print ("2")
-        #     parent_item_row = parent_item.index()
-        # print ("\t", [a.name for a in self.tree_roots], parent_item.name, parent_item_row)
         parent_row = parent_item.index()
         if parent_row is not None:
             return self.createIndex(parent_row, 0, parent_item)
@@ -113,8 +85,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if parent_index.column() > 0:
             return 0
         if not parent_index.isValid():
-            return len(self.tree_roots) # parent_item = self.tree_root
-        #else:
+            return len(self.tree_roots)
         parent_item = parent_index.internalPointer()
         with parent_item.filter_children(self.child_filters):
             return parent_item.num_children()

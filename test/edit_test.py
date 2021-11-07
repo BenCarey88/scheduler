@@ -4,7 +4,7 @@ from collections import OrderedDict
 import unittest
 
 from api.edit.tree_edit import BaseTreeEdit, EditOperation, OrderedDictEdit
-from api.tree.base_tree_item import BaseTreeItem
+from api.tree._base_tree_item import BaseTreeItem
 
 
 class OrderedDictEditTest(unittest.TestCase):

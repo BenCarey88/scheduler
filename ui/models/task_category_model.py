@@ -1,7 +1,7 @@
 """Tree model."""
 
 from scheduler.api.tree import filters
-from .base_tree_model import BaseTreeModel
+from ._base_tree_model import BaseTreeModel
 
 
 class TaskCategoryModel(BaseTreeModel):
@@ -11,15 +11,15 @@ class TaskCategoryModel(BaseTreeModel):
     up to the first task items under each category but not show any subtasks.
     """
 
-    def __init__(self, root_categories, parent=None):
+    def __init__(self, root_category, parent=None):
         """Initialise task category tree model.
 
         Args:
-            root_categories (list(Task)): list of root TaskCategory items.
+            root_category (TaskRoot): task root tree item.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(TaskCategoryModel, self).__init__(
-            root_categories,
+            root_category,
             parent=parent,
             filters=[filters.NoSubtasks()]
         )

@@ -5,7 +5,7 @@ from functools import partial
 import json
 import os
 
-from .base_tree_item import BaseTreeItem
+from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
 
 
@@ -24,6 +24,11 @@ class TaskStatus():
 
 class Task(BaseTreeItem):
     """Class representing a generic task."""
+
+    TASKS_KEY = "subtasks"
+    HISTORY_KEY = "history"
+    STATUS_KEY = "status"
+    TYPE_KEY = "type"
 
     def __init__(
             self,
@@ -46,7 +51,7 @@ class Task(BaseTreeItem):
         super(Task, self).__init__(name, parent)
         self.type = task_type or TaskType.GENERAL
         self.status = status or TaskStatus.UNSTARTED
-        self.history = history or TaskHistory(self)
+        self.history = history or TaskHistory()
 
         # new attribute and method names for convenience
         self.create_subtask = self.create_child
@@ -113,16 +118,16 @@ class Task(BaseTreeItem):
             (OrderedDict): dictionary representation.
         """
         json_dict = {
-            "status": self.status,
-            "type": self.type,
+            self.STATUS_KEY: self.status,
+            self.TYPE_KEY: self.type,
         }
         if self.history:
-            json_dict["history"] = self.history.dict
+            json_dict[self.HISTORY_KEY] = self.history.dict
         if self._subtasks:
             subtasks_dict = OrderedDict()
             for subtask_name, subtask in self._subtasks.items():
                 subtasks_dict[subtask_name] = subtask.to_dict()
-            json_dict["subtasks"] = subtasks_dict
+            json_dict[self.TASKS_KEY] = subtasks_dict
         return json_dict
 
     @classmethod
@@ -140,12 +145,18 @@ class Task(BaseTreeItem):
         Returns:
             (Task): task class for given dict.
         """
-        task_type = json_dict.get("type", None)
-        task_status = json_dict.get("status", None)
-        task_history = json_dict.get("history", None)
-        task = cls(name, parent, task_type, task_status, task_history)
+        task_type = json_dict.get(cls.TYPE_KEY, None)
+        task_status = json_dict.get(cls.STATUS_KEY, None)
+        task_history = json_dict.get(cls.HISTORY_KEY, None)
+        task = cls(
+            name,
+            parent,
+            task_type,
+            task_status,
+            TaskHistory(task_history)
+        )
 
-        subtasks = json_dict.get("subtasks", {})
+        subtasks = json_dict.get(cls.TASKS_KEY, {})
         for subtask_name, subtask_dict in subtasks.items():
             subtask = cls.from_dict(subtask_dict, subtask_name, task)
             task.add_subtask(subtask)
@@ -201,7 +212,7 @@ class Task(BaseTreeItem):
 
 class TaskHistory(object):
     """Simple wrapper around an OrderedDict to represent task history.
-    
+
     The structure of a task history dict is like this:
     {
         date_1: {
@@ -216,14 +227,14 @@ class TaskHistory(object):
     }
     """
 
-    def __init__(self, task):
+    def __init__(self, history_dict=None):
         """Initialise task history object.
 
         Args:
-            task (Task): the task that this represents the history of.
+            history_dict (OrderedDict or None): the ordered dict representing
+                the history.
         """
-        self.task = task
-        self.dict = OrderedDict()
+        self.dict = history_dict or OrderedDict()
 
     def __bool__(self):
         """Override bool operator to indicate whether dictionary is filled.

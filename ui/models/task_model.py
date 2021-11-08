@@ -23,7 +23,7 @@ class TaskModel(BaseTreeModel):
 
     def columnCount(self, index):
         """Get number of columns of given item
-        
+
         Returns:
             (int): number of columns.
         """

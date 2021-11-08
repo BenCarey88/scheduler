@@ -41,7 +41,4 @@ def launch_message_dialog(message, informative_text=None, parent=None):
     message_dialog.setStandardButtons(
         message_dialog.StandardButton.Yes | message_dialog.StandardButton.No
     )
-    return (
-        True if message_dialog.exec() == message_dialog.StandardButton.Yes
-        else False
-    )
+    return (message_dialog.exec() == message_dialog.StandardButton.Yes)

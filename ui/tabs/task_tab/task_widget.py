@@ -70,7 +70,11 @@ class TaskWidget(QtWidgets.QTreeView):
                 if index.isValid():
                     self.selectionModel().select(
                         index,
-                        self.selectionModel().SelectionFlag.SelectCurrent
+                        self.selectionModel().SelectionFlag.Select
+                    )
+                    self.selectionModel().setCurrentIndex(
+                        index,
+                        self.selectionModel().SelectionFlag.Select
                     )
                     self.setFocus()
 

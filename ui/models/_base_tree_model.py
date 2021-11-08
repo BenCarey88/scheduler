@@ -25,9 +25,18 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         self.child_filters = filters or []
         super(BaseTreeModel, self).__init__(parent)
 
+    def add_filter(self, filter):
+        """Add filter to child filters.
+
+        Args:
+            filter (BaseFilter): child filter to add.
+        """
+        self.child_filters.append(filter)
+        # self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
+
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
-        
+
         Args:
             row (int): row index.
             column (int): column index.
@@ -53,7 +62,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
 
     def parent(self, index):
         """Get index of parent item of given child.
-        
+
         Args:
             index (QtCore.QModelIndex) child QModelIndex.
 
@@ -145,7 +154,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         try:
             item.name = value
             self.dataChanged.emit(index, index)
-            # import pdb; pdb.set_trace()
             return True
         except DuplicateChildNameError:
             return False
@@ -181,5 +189,5 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if (orientation == QtCore.Qt.Horizontal
                 and role == QtCore.Qt.DisplayRole):
-            return "Tasks" #self.tree_root.name
+            return "Tasks"
         return QtCore.QVariant()

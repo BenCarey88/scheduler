@@ -199,8 +199,9 @@ class BaseTreeItem(ABC):
             **kwargs: kwargs to be passed to sibling init.
 
         Returns:
-            (BaseTreeItem): newly created sibling. In subclasses, this will use
-                the type of the subclass.
+            (BaseTreeItem or None): newly created sibling, if one could be
+                created, else None. In subclasses, this will use the type
+                of the subclass.
         """
         if not self.parent:
             return None
@@ -219,8 +220,9 @@ class BaseTreeItem(ABC):
             **kwargs: kwargs to be passed to sibling init.
 
         Returns:
-            (BaseTreeItem): newly created sibling. In subclasses, this will use
-                the type of the subclass.
+            (BaseTreeItem or None): newly created sibling, if one could be
+                created, else None. In subclasses, this will use the type
+                of the subclass.
         """
         if not self.parent:
             return None
@@ -231,13 +233,13 @@ class BaseTreeItem(ABC):
         )
 
     def add_sibling(self, sibling):
-        """Create sibling item for self.
+        """Add sibling item for self.
 
         Args:
             sibling (BaseTreeItem): the sibling to add.
         """
         if not self.parent:
-            return None
+            return
         self.parent.add_child(sibling)
 
     def remove_child(self, name):

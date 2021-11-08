@@ -4,6 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
+from scheduler.api.tree.task_root import TaskRoot
 from scheduler.ui.models.task_category_model import TaskCategoryModel
 from scheduler.ui.utils import launch_message_dialog
 
@@ -100,7 +101,7 @@ class Outliner(QtWidgets.QTreeView):
                 0,
                 current_item
             )
-            self.selectionModel().select(
+            self.selectionModel().setCurrentIndex(
                 index,
                 self.selectionModel().SelectionFlag.Current
             )
@@ -137,7 +138,8 @@ class Outliner(QtWidgets.QTreeView):
             # ctrl+plus: add new child
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 current_item = self._get_current_item()
-                if current_item and type(current_item) == TaskCategory:
+                if (current_item 
+                        and type(current_item) in [TaskCategory, TaskRoot]):
                     current_item.create_new_task()
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()

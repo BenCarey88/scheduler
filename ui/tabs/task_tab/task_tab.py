@@ -4,7 +4,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.tabs.base_tab import BaseTab
-from scheduler.ui.utils import launch_message_dialog
+from scheduler.ui.utils import launch_message_dialog, suppress_signals
 from .task_category_widget import TaskCategoryWidget
 
 class TaskTab(BaseTab):

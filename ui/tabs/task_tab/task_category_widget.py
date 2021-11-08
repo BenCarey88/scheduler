@@ -56,6 +56,8 @@ class TaskCategoryWidget(QtWidgets.QWidget):
 
         if type(task_item) == TaskCategory:
             for child in task_item.get_all_children():
+                # TODO: naming is dodgy: the top level tasks are acdtually
+                # TaskCategoryWidgets here rather than TaskWidgets
                 widget = TaskCategoryWidget(
                     child,
                     tab=tab,

@@ -13,6 +13,10 @@ class Outliner(QtWidgets.QTreeView):
     """Task Outliner panel."""
 
     MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
+    CURRENT_CHANGED_SIGNAL = QtCore.pyqtSignal(
+        QtCore.QModelIndex,
+        QtCore.QModelIndex
+    )
 
     def __init__(self, tree_root, parent=None):
         """Initialise task outliner.
@@ -105,6 +109,10 @@ class Outliner(QtWidgets.QTreeView):
                 index,
                 self.selectionModel().SelectionFlag.Current
             )
+
+        self.selectionModel().currentChanged.connect(
+            self.CURRENT_CHANGED_SIGNAL.emit
+        )
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

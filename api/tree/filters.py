@@ -1,6 +1,6 @@
 """Filters for children in tree models.
 
-Includes all base filters as well as all filters for specific tree types.
+Includes all base filters as well as filters for specific tree types.
 """
 
 from ._base_filters import (
@@ -11,7 +11,11 @@ from ._base_filters import (
     RestrictToGivenChildren
 )
 from .task import Task
-from .task_category import TaskCategory, TaskCategoryFilter, TaskFilter
+from .task_category import (
+    TaskCategory,
+    TaskCategoryFilter,
+    TaskFilter
+)
 
 
 class NoTasks(RemoveChildrenOfType):

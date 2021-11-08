@@ -3,6 +3,9 @@
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.tree.task import Task
+from scheduler.api.tree.task_category import TaskCategory, TaskFilter
+
 from scheduler.ui.tabs.base_tab import BaseTab
 from scheduler.ui.utils import launch_message_dialog, suppress_signals
 from .task_category_widget import TaskCategoryWidget
@@ -24,6 +27,10 @@ class TaskTab(BaseTab):
         self.selected_subtask_item = None
         self._fill_main_view()
         self._fill_scroll_area()
+
+        self.outliner.CURRENT_CHANGED_SIGNAL.connect(
+            self.scroll_to_task
+        )
 
     def update(self):
         """Update view to sync with model.
@@ -114,6 +121,26 @@ class TaskTab(BaseTab):
         if self._active_task_path:
             return self.task_widget_tree.get(self._active_task_path, None)
         return None
+
+    def scroll_to_task(self, new_index, old_index):
+        """Scroll to the given task or task category.
+
+        Args:
+            new_index (QtCore.QModelIndex): index of task or category to
+                scroll to.
+            old_index (QtCore.QModelIndex): index of old task or category (not
+                used, just passed in by the signal that calls this method).
+        """
+        tree_item = new_index.internalPointer()
+        if not tree_item:
+            return
+        widget = self.category_widget_tree.get(tree_item.path)
+        if not widget:
+            return
+        point = widget.mapTo(self.scroll_area, QtCore.QPoint(0,0))
+        self.scroll_area.verticalScrollBar().setValue(
+            point.y() + self.scroll_area.verticalScrollBar().value()
+        )
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

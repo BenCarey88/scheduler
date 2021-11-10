@@ -64,7 +64,7 @@ class TaskCategoryWidget(QtWidgets.QWidget):
                     recursive_depth=recursive_depth+1,
                     parent=self
                 )
-                self.tab.category_widget_tree[child.path] = widget
+                self.tab.category_widget_tree[child.id] = widget
                 self.outer_layout.addWidget(widget)
                 self._height += widget._height
 
@@ -74,7 +74,7 @@ class TaskCategoryWidget(QtWidgets.QWidget):
                 tab=tab,
                 parent=self
             )
-            self.tab.task_widget_tree[task_item.path] = widget
+            self.tab.task_widget_tree[task_item.id] = widget
             self.outer_layout.addWidget(widget)
             self._height += widget.height()
 
@@ -82,6 +82,10 @@ class TaskCategoryWidget(QtWidgets.QWidget):
 
     def on_editing_finished(self):
         """Update views when line edit updated."""
+        # TODO: arguably this type of thing should be handled through the
+        # model - ie. would probably be better if all updates to the tree
+        # items are done through the model? so this functions would call
+        # the model's update_name method or something like that.
         try:
             self.task_item.name = self.line_edit.text()
             self.tab.MODEL_UPDATED_SIGNAL.emit()

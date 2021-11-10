@@ -18,30 +18,44 @@ class Outliner(QtWidgets.QTreeView):
         QtCore.QModelIndex
     )
 
-    def __init__(self, tree_root, parent=None):
+    def __init__(self, tree_root, tree_manager, parent=None):
         """Initialise task outliner.
-        
+
         Args:
             tree_root (BaseTreeItem): tree root item for outliner model.
+            tree_manager (TreeManager): tree manager item.
             parent (QtGui.QWidget or None): QWidget parent of widget. 
         """
         super(Outliner, self).__init__(parent)
 
         self.root = tree_root
-        self.reset_model()
+        self._model = TaskCategoryModel(self.root, tree_manager, self)
+        self._model.dataChanged.connect(
+            self.MODEL_UPDATED_SIGNAL.emit
+        )
+        self._model.dataChanged.connect(
+            self.update
+        )
+
+        self.reset_view()
         self.setHeaderHidden(True)
+        self.header().setStretchLastSection(False)
+        self.header().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.ResizeMode.Stretch
+        )
+        self.header().resizeSection(1, 1)
         self.allow_key_events = True
 
-        self.setSelectionMode(
-            QtWidgets.QAbstractItemView.SelectionMode.MultiSelection
-        )
+        # self.setSelectionMode(
+        #     QtWidgets.QAbstractItemView.SelectionMode.MultiSelection
+        # )
         self.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
         )
 
     def update(self):
         """Update view to pick up changes in model."""
-        self.reset_model(keep_selection=True)
+        self.reset_view(keep_selection=True)
 
     def _get_selected_items(self):
         """Get tree items that are selected.
@@ -67,8 +81,8 @@ class Outliner(QtWidgets.QTreeView):
             else None
         )
 
-    def reset_model(self, keep_selection=False):
-        """Reset model.
+    def reset_view(self, keep_selection=False):
+        """Reset view.
 
         Args:
             keep_selection (bool): if True, save current selection before
@@ -80,16 +94,22 @@ class Outliner(QtWidgets.QTreeView):
             selected_items = self._get_selected_items()
             current_item = self._get_current_item()
 
-        self.model = TaskCategoryModel(self.root, self)
-        self.setModel(self.model)
-        self.expandAll()
-        self.model.dataChanged.connect(
-            self.MODEL_UPDATED_SIGNAL.emit
+        # force update of model by calling setModel
+        old_selection_model = self.selectionModel()
+        self.setModel(self._model)
+        del old_selection_model
+        self.selectionModel().currentChanged.connect(
+            self.CURRENT_CHANGED_SIGNAL.emit
         )
+        # force update of view by calling expandAll
+        self.expandAll()
 
         for item in selected_items:
-            index = self.model.createIndex(
-                item.index(),
+            item_row = item.index()
+            if not item_row:
+                continue
+            index = self._model.createIndex(
+                item_row,
                 0,
                 item
             )
@@ -100,19 +120,18 @@ class Outliner(QtWidgets.QTreeView):
                 self.selectionModel().SelectionFlag.Select
             )
         if current_item:
-            index = self.model.createIndex(
-                current_item.index(),
-                0,
-                current_item
-            )
-            self.selectionModel().setCurrentIndex(
-                index,
-                self.selectionModel().SelectionFlag.Current
-            )
-
-        self.selectionModel().currentChanged.connect(
-            self.CURRENT_CHANGED_SIGNAL.emit
-        )
+            item_row = current_item.index()
+            if item_row:
+                index = self._model.createIndex(
+                    item_row,
+                    0,
+                    current_item
+                )
+                if index.isValid():
+                    self.selectionModel().setCurrentIndex(
+                        index,
+                        self.selectionModel().SelectionFlag.Current
+                    )
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
@@ -139,7 +158,7 @@ class Outliner(QtWidgets.QTreeView):
                             item.parent.remove_child(item.name)
                     # note we reset model rather than update here
                     # as we don't want to keep selection
-                    self.reset_model()
+                    self.reset_view()
                     self.MODEL_UPDATED_SIGNAL.emit()
 
         elif modifiers == QtCore.Qt.ControlModifier:
@@ -159,7 +178,7 @@ class Outliner(QtWidgets.QTreeView):
                         item.parent.remove_child(item.name)
                     # note we reset model rather than update here
                     # as we don't want to keep selection
-                    self.reset_model()
+                    self.reset_view()
                     self.MODEL_UPDATED_SIGNAL.emit()
 
         elif modifiers == QtCore.Qt.ShiftModifier:

@@ -3,6 +3,7 @@
 from abc import ABC
 from collections import OrderedDict
 from contextlib import contextmanager
+from uuid import uuid4
 
 from scheduler.api.edit.tree_edit import BaseTreeEdit, EditOperation
 from scheduler.api.utils import catch_exceptions
@@ -24,6 +25,7 @@ class BaseTreeItem(ABC):
         self.parent = parent
         self._children = OrderedDict()
         self._register_edits = False
+        self.id = uuid4()
 
     @property
     def name(self):

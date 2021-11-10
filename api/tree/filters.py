@@ -6,7 +6,9 @@ Includes all base filters as well as filters for specific tree types.
 from ._base_filters import (
     FullPrune,
     KeepChildrenOfType,
+    RemoveChildrenById,
     RemoveChildrenOfType,
+    RemoveGivenChildren,
     RemoveSubChildrenOfType,
     RestrictToGivenChildren
 )

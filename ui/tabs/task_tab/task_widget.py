@@ -28,7 +28,7 @@ class TaskWidget(QtWidgets.QTreeView):
         # setup model and delegate
         self.setItemDelegate(TaskDelegate(self))
         self.setFrameStyle(self.Shape.NoFrame)
-        model = TaskModel(task_item, parent)
+        model = TaskModel(task_item, tab.tree_manager, parent)
         self.setModel(model)
         self.expandAll()
         model.dataChanged.connect(self.tab.update)
@@ -51,7 +51,7 @@ class TaskWidget(QtWidgets.QTreeView):
             QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
         )
         self.selectionModel().currentChanged.connect(
-            partial(self.tab.switch_active_task_widget, self.task_item.path)
+            partial(self.tab.switch_active_task_widget, self.task_item.id)
         )
 
         self.select_subtask_item()

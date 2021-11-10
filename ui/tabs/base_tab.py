@@ -11,16 +11,18 @@ class BaseTab(QtWidgets.QWidget):
 
     MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
 
-    def __init__(self, tree_root, outliner, parent=None):
+    def __init__(self, tree_root, tree_manager, outliner, parent=None):
         """Initialise tab.
 
         Args:
             tree_root (BaseTreeItem): tree root item for tab's models.
+            tree_manager (TreeManager): tree manager item.
             outliner (Outliner): outliner widget associated with this tab.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseTab, self).__init__(parent)
 
+        self.tree_manager = tree_manager
         self.tree_root = tree_root
         self.outliner = outliner
 
@@ -34,6 +36,8 @@ class BaseTab(QtWidgets.QWidget):
             self._update_and_return_focus_to_outliner
         )
 
+    # TODO: neaten this section - should they probably both just always update
+    # everything? ie. no need for the separate outliner and tab update functions?
     def _update_outliner(self):
         """Update outliner to sync with model.
 

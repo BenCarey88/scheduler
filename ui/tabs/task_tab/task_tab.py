@@ -13,14 +13,21 @@ from .task_category_widget import TaskCategoryWidget
 class TaskTab(BaseTab):
     """Task Tab main view."""
 
-    def __init__(self, tree_root, parent=None):
+    def __init__(self, tree_root, tree_manager, outliner, parent=None):
         """Setup task main view.
 
         Args:
             tree_root (BaseTreeItem): tree root item for tab's models.
+            tree_manager (TreeManager): tree manager object.
+            outliner (Outliner): outliner widget.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        super(TaskTab, self).__init__(tree_root, parent)
+        super(TaskTab, self).__init__(
+            tree_root,
+            tree_manager,
+            outliner,
+            parent=parent
+        )
         self.task_widget_tree = OrderedDict()
         self.category_widget_tree = OrderedDict()
         self._active_task_path = None
@@ -38,6 +45,7 @@ class TaskTab(BaseTab):
         This is done by deleting and then recreating the scroll area and
         main view.
         """
+        scroll_value = self.scroll_area.verticalScrollBar().value()
         _selected_subtask_item = None
         _active_task_path = None
         if self.selected_subtask_item:
@@ -49,7 +57,7 @@ class TaskTab(BaseTab):
         self.category_widget_tree = OrderedDict()
         self.scroll_area.deleteLater()
         self._fill_main_view()
-        self._fill_scroll_area()
+        self._fill_scroll_area(scroll_value)
 
         if _active_task_path and _selected_subtask_item:
             self._active_task_path = _active_task_path
@@ -74,19 +82,26 @@ class TaskTab(BaseTab):
                 tab=self,
                 parent=self,
             )
-            self.category_widget_tree[category.path] = widget
+            self.category_widget_tree[category.id] = widget
             self.main_view_layout.addWidget(widget)
             minimum_height += widget.minimumHeight() + 10
         self.main_view.setMinimumSize(
             QtCore.QSize(1000, minimum_height)
         )
 
-    def _fill_scroll_area(self):
-        """Create scroll area and set its widget as main view."""
+    def _fill_scroll_area(self, scroll_value=None):
+        """Create scroll area and set its widget as main view.
+
+        Args:
+            scroll_value (int or None): current position of scroll bar, to
+                maintain.
+        """
         self.scroll_area = QtWidgets.QScrollArea()
         self.outer_layout.addWidget(self.scroll_area)
         self.scroll_area.setBackgroundRole(QtGui.QPalette.ColorRole.Light)
         self.scroll_area.setWidget(self.main_view)
+        if scroll_value:
+            self.scroll_area.verticalScrollBar().setValue(scroll_value)
 
     def switch_active_task_widget(self, task_item_path, new_index, old_index):
         """Change active task widget to new one.
@@ -131,10 +146,15 @@ class TaskTab(BaseTab):
             old_index (QtCore.QModelIndex): index of old task or category (not
                 used, just passed in by the signal that calls this method).
         """
+        # TODO: make neater:
+        # For now we're just hardcoding that clicking the second column in the
+        # outliner causes the scrolling behaviour.
+        if new_index.column() != 1:
+            return
         tree_item = new_index.internalPointer()
         if not tree_item:
             return
-        widget = self.category_widget_tree.get(tree_item.path)
+        widget = self.category_widget_tree.get(tree_item.id)
         if not widget:
             return
         point = widget.mapTo(self.scroll_area, QtCore.QPoint(0,0))

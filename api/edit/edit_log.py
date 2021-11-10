@@ -21,7 +21,7 @@ class BaseEdit(object):
         """
         self._register_edit = register_edit
         self._registered = False
-        self._undone = True
+        self._has_been_run = False
         self._args = None
         self._kwargs = None
         self._inverse_edit = None
@@ -60,7 +60,7 @@ class BaseEdit(object):
                 self._kwargs = kwargs
                 EDIT_LOG.add_edit(self)
                 self._registered = True
-            self._undone = False
+            self._has_been_run = True
 
     def _inverse(self):
         """Get inverse edit object.
@@ -97,22 +97,22 @@ class BaseEdit(object):
 
     def undo(self):
         """Undo edit function."""
-        if self._undone:
+        if not self._has_been_run:
             raise EditError(
                 "Can't call undo on edit that's already been undone"
             )
         inverse_edit = self._inverse()
         inverse_edit._run(*inverse_edit._args, **inverse_edit._kwargs)
-        self._undone = True
+        self._has_been_run = False
 
     def redo(self):
         """Redo the edit function."""
-        if not self._undone:
+        if self._has_been_run:
             raise EditError(
                 "Can't call redo on edit that's not been undone"
             )
         self._run(*self._args, **self._kwargs)
-        self._undone = False
+        self._has_been_run = True
 
 
 class EditLog(object):
@@ -134,10 +134,14 @@ class EditLog(object):
         self._registration_locked = False
         self._current_edit = None
 
-    # SHOULDN'T BE NEEDED ANYMORE:
     @contextmanager
     def lock_registry(self):
-        """Context manager to lock registry while ."""
+        """Context manager to lock registry while undoing/redoing.
+
+        In theory this shouldn't be needed right now but maybe could be
+        useful/necessary down the line, eg. if I ever decide to implement
+        multithreading?
+        """
         self._registration_locked = True
         yield
         self._registration_locked = False

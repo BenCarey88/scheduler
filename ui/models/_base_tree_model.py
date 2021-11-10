@@ -8,31 +8,42 @@ from scheduler.api.tree.exceptions import DuplicateChildNameError
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
-    def __init__(self, tree_root, parent=None, filters=None):
+    def __init__(self, tree_root, tree_manager, parent=None, filters=None):
         """Initialise base tree model.
 
         Args:
             tree_root (BaseTreeItem): model root tree item. We actually treat
                 its children as the roots of this model, but we pass in the
                 parent of those children for easier calculations.
+            tree_manager (TreeManager): tree manager item, used to manage the
+                ui specific attributes of the tree.
             parent (QtWidgets.QWidget or None): QWidget that this models.
             filters (list(scheduler.api.tree.filters.BaseFilter)): filters
-                for reducing number of children in model.
+                for reducing number of children in model. These will be added
+                to the filter from the tree_manager.
         """
+        # TODO: down the line is there an argument that everything should be
+        # managed through the tree manager? ie. every other ui class should
+        # call that instead of the Task, TaskCategory and TaskRoot items
+        # directly? might mean a lot of repeated code though which is annoying
+        # so not sure if it's the best option, will need to think, keeping
+        # them as separate objects for now.
         self.root = tree_root
-        with self.root.filter_children(filters or []):
+        self.tree_manager = tree_manager
+        self._base_filters = filters or []
+        with self.root.filter_children(self.child_filters):
             self.tree_roots = self.root.get_all_children()
-        self.child_filters = filters or []
         super(BaseTreeModel, self).__init__(parent)
 
-    def add_filter(self, filter):
-        """Add filter to child filters.
+    @property
+    def child_filters(self):
+        """Get child filters.
 
-        Args:
-            filter (BaseFilter): child filter to add.
+        Returns:
+            (list(BaseFilter)): list of all filters - in base class this is
+                the ones passed during initialization.
         """
-        self.child_filters.append(filter)
-        # self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
+        return self._base_filters
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -121,7 +132,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if role == QtCore.Qt.ItemDataRole.DisplayRole:
+        if index.column() == 0 and role == QtCore.Qt.ItemDataRole.DisplayRole:
             item = index.internalPointer()
             return item.name
         return QtCore.QVariant()
@@ -169,12 +180,14 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
-        return (
-            QtCore.Qt.ItemFlag.ItemIsEnabled | 
-            QtCore.Qt.ItemFlag.ItemIsSelectable |
-            QtCore.Qt.ItemFlag.ItemIsEditable |
-            QtCore.Qt.ItemFlag.ItemIsTristate
-        )
+        if index.column() == 0:
+            return (
+                QtCore.Qt.ItemFlag.ItemIsEnabled | 
+                QtCore.Qt.ItemFlag.ItemIsSelectable |
+                QtCore.Qt.ItemFlag.ItemIsEditable
+            )
+        else:
+            return QtCore.Qt.ItemFlag.ItemIsEnabled
 
     def headerData(self, section, orientation, role):
         """Get header data.

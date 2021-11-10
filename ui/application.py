@@ -12,6 +12,7 @@ from scheduler.api.tree.task_root import TaskRoot
 from .tabs.task_tab import TaskTab
 from .tabs.timetable_tab import TimetableTab
 from .tabs.suggestions_tab import SuggestionsTab
+from .models.tree_manager import TreeManager
 from .widgets.outliner import Outliner
 
 
@@ -56,9 +57,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             tab_name (str): name to use for tab.
             tab_class (class): BaseTab subclass to use for class.
         """
-        outliner = Outliner(self.tree_root)
+        tab_tree_manager = TreeManager()
+        outliner = Outliner(self.tree_root, tab_tree_manager)
         self.outliner_stack.addWidget(outliner)
-        tab = tab_class(self.tree_root, outliner)
+        tab = tab_class(self.tree_root, tab_tree_manager, outliner)
         self.tabs_widget.addTab(tab, tab_name)
 
     def setup_menu(self):

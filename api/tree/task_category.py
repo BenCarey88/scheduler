@@ -23,7 +23,7 @@ class TaskFilter(KeepChildrenOfType):
 
 
 class TaskCategoryFilter(KeepChildrenOfType):
-    """Filter to remove all subtasks from child dicts."""
+    """Filter for task categories in child dict."""
     def __init__(self):
         super(TaskCategoryFilter, self).__init__(TaskCategory)
 
@@ -48,6 +48,7 @@ class TaskCategory(BaseTreeItem):
                 subcategory.
         """
         super(TaskCategory, self).__init__(name, parent)
+        self.allowed_child_types = [TaskCategory, Task]
 
         # subcategory methods
         self.create_subcategory = self.create_child

@@ -5,6 +5,7 @@ import unittest
 
 from api.edit.tree_edit import BaseTreeEdit, EditOperation, OrderedDictEdit
 from api.tree._base_tree_item import BaseTreeItem
+from api.tree.task import Task
 
 
 class OrderedDictEditTest(unittest.TestCase):
@@ -171,7 +172,7 @@ class BaseTreeEditTest(unittest.TestCase):
         return super(BaseTreeEditTest, self).setUp(*args)
 
     def test_rename(self):
-        """Set up test class."""
+        """Test rename operation."""
         edit = BaseTreeEdit(
             OrderedDict([("child1", "new_name")]),
             EditOperation.RENAME
@@ -189,3 +190,41 @@ class BaseTreeEditTest(unittest.TestCase):
             list(self.tree_item._children.keys()),
             list(self.original_tree_item._children.keys())
         )
+
+
+class TaskEditTest(unittest.TestCase):
+    """Test task edit operations."""
+
+    def setUp(self, *args):
+        """Run before each test."""
+        self.task_items = {}
+        for key in ("default", "original"):
+            self.task_items[key] = Task("root")
+            self.task_items[key]._children = OrderedDict([
+                ("subtask1", Task("subtask1")),
+                ("subtask1", Task("subtask1")),
+            ])
+        self.task_item = self.task_items["default"]
+        self.original_task_item = self.task_items["original"]
+        return super(TaskEditTest, self).setUp(*args)
+
+    # def test_(self):
+    #     """Test Update History."""
+    #     edit = BaseTreeEdit(
+    #         OrderedDict([("child1", "new_name")]),
+    #         EditOperation.RENAME
+    #     )
+    #     edit._run(self.tree_item)
+    #     self.assertEqual(
+    #         list(self.tree_item._children.keys()),
+    #         ["new_name", "child2"]
+    #     )
+    #     self.assertEqual(
+    #         self.tree_item.get_child("new_name").name, "new_name"
+    #     )
+    #     edit._inverse()._run(self.tree_item)
+    #     self.assertEqual(
+    #         list(self.tree_item._children.keys()),
+    #         list(self.original_tree_item._children.keys())
+    #     )
+

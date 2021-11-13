@@ -21,13 +21,14 @@ class TaskRoot(TaskCategory):
         Args:
             directory_path (str or None): path to directory this should be
                 saved to, or None if not set yet.
-            *args (list): additional args to allow parent class classmethod
+            args (tuple): additional args to allow parent class classmethod
                 to use this init.
-            **kwargs (dict): additional kwargs to allow parent class
-                classmethod to use this init.
+            kwargs (dict): additional kwargs to allow parent class classmethod
+                to use this init.
         """
         super(TaskRoot, self).__init__(name=self.ROOT_NAME, parent=None)
         self._directory_path = directory_path
+        self.allowed_child_types = [TaskCategory]
 
         # use category in place of subcategory in category function names
         self.create_category = self.create_subcategory

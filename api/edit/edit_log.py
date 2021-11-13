@@ -4,117 +4,6 @@
 from contextlib import contextmanager
 
 
-class EditError(Exception):
-    pass
-
-
-class BaseEdit(object):
-    """Base class representing an edit that we can register in the log."""
-
-    def __init__(self, register_edit=True):
-        """Initialise edit.
-        
-        Args:
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
-        """
-        self._register_edit = register_edit
-        self._registered = False
-        self._has_been_run = False
-        self._args = None
-        self._kwargs = None
-        self._inverse_edit = None
-
-    @classmethod
-    def from_inverse(cls, inverse_edit, *args, **kwargs):
-        """Initiailise edit from inverse edit.
-
-        Edits should always modify their args/kwargs, so the edit and
-        its inverse should share the same args/kwargs.
-
-        Args:
-            inverse_edit (BaseEdit): inverse edit to initialise from.
-            args (list): args to pass to __init__.
-            kwargs (dict): kwargs to pass to __init__.]
-
-        Returns:
-            (BaseEdit): edit.
-        """
-        edit = cls(*args, **kwargs)
-        edit._registered = True
-        edit._args = inverse_edit._args
-        edit._kwargs = inverse_edit._kwargs
-        return edit
-
-    def _run(self, *args, **kwargs):
-        """Run edit and register with edit log if not already done so.
-
-        Args:
-            args (list): list of args this was called with.
-            kwargs (dict): dict of kwargs this was called with.
-        """
-        if self._register_edit:
-            if not self._registered:
-                self._args = args
-                self._kwargs = kwargs
-                EDIT_LOG.add_edit(self)
-                self._registered = True
-            self._has_been_run = True
-
-    def _inverse(self):
-        """Get inverse edit object.
-
-        This needs to be run after the function is first called.
-
-        Returns:
-            (BaseEdit): Inverse BaseEdit, used to undo this one.
-        """
-        if self._inverse_edit:
-            return self._inverse_edit
-        if not self._registered:
-            raise EditError(
-                "_inverse must be called after edit has been run."
-            )
-        self._inverse_edit = self.from_inverse(self)
-        return self._inverse_edit
-
-    def __call__(self, *args, **kwargs):
-        """Call edit function externally. This can only be done the once.
-
-        This can only be done the once. Other calls are handled internally
-        through the _run method and only used for undoing / redoing.
-
-        Args:
-            args (list): list of args this was called with.
-            kwargs (dict): dict of kwargs this was called with.
-        """
-        if self._registered:
-            raise EditError(
-                "Edit object cannot be called externally after registration."
-            )
-        self._run(*args, **kwargs)
-
-    def undo(self):
-        """Undo edit function."""
-        if not self._has_been_run:
-            raise EditError(
-                "Can't call undo on edit that's already been undone"
-            )
-        inverse_edit = self._inverse()
-        inverse_edit._run(*inverse_edit._args, **inverse_edit._kwargs)
-        self._has_been_run = False
-
-    def redo(self):
-        """Redo the edit function."""
-        if self._has_been_run:
-            raise EditError(
-                "Can't call redo on edit that's not been undone"
-            )
-        self._run(*self._args, **self._kwargs)
-        self._has_been_run = True
-
-
 class EditLog(object):
     """Log of user edits made in tool."""
 
@@ -131,20 +20,24 @@ class EditLog(object):
         """
         self._log = []
         self._undo_log = []
-        self._registration_locked = False
+        self._registration_locked = True
         self._current_edit = None
+
+    def open_registry(self):
+        """Open edit registry so edits can be added."""
+        self._registration_locked = False
 
     @contextmanager
     def lock_registry(self):
         """Context manager to lock registry while undoing/redoing.
 
         In theory this shouldn't be needed right now but maybe could be
-        useful/necessary down the line, eg. if I ever decide to implement
-        multithreading?
+        useful/necessary down the line.
         """
+        _registration_locked = self._registration_locked
         self._registration_locked = True
         yield
-        self._registration_locked = False
+        self._registration_locked = _registration_locked
 
     def add_edit(self, edit):
         """Add edit object to list.
@@ -193,6 +86,11 @@ class EditLog(object):
 
 
 EDIT_LOG = EditLog()
+
+
+def open_edit_registry():
+    """Unlock edit log singleton so edits can be registered."""
+    EDIT_LOG.open_registry()
 
 
 def undo():

@@ -76,15 +76,18 @@ class TaskTab(BaseTab):
         self.main_view.setLayout(self.main_view_layout)
 
         minimum_height = 0
-        for category in self.tree_root.get_all_children():
-            widget = TaskCategoryWidget(
-                category,
-                tab=self,
-                parent=self,
-            )
-            self.category_widget_tree[category.id] = widget
-            self.main_view_layout.addWidget(widget)
-            minimum_height += widget.minimumHeight() + 10
+        child_filter = self.tree_manager.child_filter
+        child_filters = [child_filter] if child_filter else []
+        with self.tree_root.filter_children(child_filters):
+            for category in self.tree_root.get_all_children():
+                widget = TaskCategoryWidget(
+                    category,
+                    tab=self,
+                    parent=self,
+                )
+                self.category_widget_tree[category.id] = widget
+                self.main_view_layout.addWidget(widget)
+                minimum_height += widget.minimumHeight() + 10
         self.main_view.setMinimumSize(
             QtCore.QSize(1000, minimum_height)
         )

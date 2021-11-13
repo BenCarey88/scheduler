@@ -39,6 +39,7 @@ class RemoveChildrenOfType(BaseFilter):
     def filter_function(self, child_dict, item):
         filtered_dict = OrderedDict()
         for key, value in child_dict.items():
+            # TODO replace all type() == comparisons with isinstance
             if type(value) != self.class_type:
                 filtered_dict[key] = value
         return filtered_dict

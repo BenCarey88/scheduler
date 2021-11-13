@@ -55,18 +55,21 @@ class TaskCategoryWidget(QtWidgets.QWidget):
         )
 
         if type(task_item) == TaskCategory:
-            for child in task_item.get_all_children():
-                # TODO: naming is dodgy: the top level tasks are acdtually
-                # TaskCategoryWidgets here rather than TaskWidgets
-                widget = TaskCategoryWidget(
-                    child,
-                    tab=tab,
-                    recursive_depth=recursive_depth+1,
-                    parent=self
-                )
-                self.tab.category_widget_tree[child.id] = widget
-                self.outer_layout.addWidget(widget)
-                self._height += widget._height
+            child_filter = self.tab.tree_manager.child_filter
+            child_filters = [child_filter] if child_filter else []
+            with task_item.filter_children(child_filters):
+                for child in task_item.get_all_children():
+                    # TODO: naming is dodgy: the top level tasks are actually
+                    # TaskCategoryWidgets here rather than TaskWidgets
+                    widget = TaskCategoryWidget(
+                        child,
+                        tab=tab,
+                        recursive_depth=recursive_depth+1,
+                        parent=self
+                    )
+                    self.tab.category_widget_tree[child.id] = widget
+                    self.outer_layout.addWidget(widget)
+                    self._height += widget._height
 
         elif type(task_item) == Task:
             widget = TaskWidget(

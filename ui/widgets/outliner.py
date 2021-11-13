@@ -44,6 +44,7 @@ class Outliner(QtWidgets.QTreeView):
             0, QtWidgets.QHeaderView.ResizeMode.Stretch
         )
         self.header().resizeSection(1, 1)
+        self.setItemsExpandable(False)
         self.allow_key_events = True
 
         # self.setSelectionMode(

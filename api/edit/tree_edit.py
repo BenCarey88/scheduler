@@ -2,281 +2,192 @@
 
 from collections import OrderedDict
 
-from .edit_log import BaseEdit, EditError
+from ._base_edit import BaseDiffEdit, BaseEdit, SelfInverseSimpleEdit
+from .composite_edit import CompositeEdit
+from .ordered_dict_edit import EditOperation, OrderedDictEdit
 
 
-class EditOperation(object):
-    """Enum representing an edit operation on a dictionary."""
-    ADD = "Add"
-    INSERT = "Insert"
-    REMOVE = "Remove"
-    RENAME = "Rename"
-    MODIFY = "Modify"
-    MOVE = "Move"
+class BaseTreeEdit(CompositeEdit):
+    """Object representing an edit that can be called on a tree item."""
 
-    INVERSES = {
-        ADD: REMOVE,
-        INSERT: REMOVE,
-        REMOVE: INSERT,
-        RENAME: RENAME,
-        MODIFY: MODIFY,
-        MOVE: MOVE,
-    }
-
-    @classmethod
-    def get_inverse_op(cls, op_type):
-        """Get inverse operation of given operation.
+    def __init__(self, tree_item, diff_dict, op_type, register_edit=True):
+        """Initialise base tree edit.
 
         Args:
-            op_type (EditOperation): operation type.
-
-        Returns:
-            (EditOperation): inverse operation type.
+            diff_dict (OrderedDict): diff dict 
         """
-        return cls.INVERSES.get(op_type)
+        ordered_dict_edit = OrderedDictEdit(
+            tree_item._children,
+            diff_dict,
+            op_type,
+            register_edit=False
+        )
+        if op_type == EditOperation.RENAME:
+            name_change_edit = SelfInverseSimpleEdit(
+                tree_item,
+                self._rename,
+                register_edit=False
+            )
+            super(BaseTreeEdit, self).__init__(
+                [tree_item, tree_item._children]
+                [name_change_edit, ordered_dict_edit],
+                register_edit=register_edit,
+            )
+        else:
+            super(BaseTreeEdit, self).__init__(
+                [tree_item._children]
+                [ordered_dict_edit],
+                register_edit=register_edit,
+            )
+
+    def _rename(self, tree_item):
+        """Additional renaming edit for tree name."""
+        for name, new_name in self.diff_dict.items():
+            child = tree_item._children.get(name)
+            if child:
+                child._name = new_name
+
+    # def _run(self, tree_items):
+    #     """Run this edit on a tree item.
+
+    #     This method just applies an OrderedDictEdit to the tree's child
+    #     (this class is a 'friend' of BaseTreeItem, hence why it can access
+    #     the 'private' _children and _name variables).
+
+    #     We also add additional logic to the RENAME operation to ensure that
+    #     renaming a tree in its parent's child_dict will also alter the child
+    #     item's name attribute.
+
+    #     Args:
+    #         tree_item (BaseTreeItem): tree item whose child dict is being
+    #             edited.
+    #     """
+    #     super(BaseTreeEdit, self)._run(
+    #         ([tree_item._children], {})
+    #     )
 
 
-class OrderedDictEdit(BaseEdit):
-    """Object representing an edit on an OrderedDict."""
+#     def _run(self, tree_item):
+#         """Run this edit on a tree item.
 
-    def __init__(self, diff_dict, op_type, register_edit=True):
+#         This method just applies an OrderedDictEdit to the tree's child
+#         (this class is a 'friend' of BaseTreeItem, hence why it can access
+#         the 'private' _children and _name variables).
+
+#         We also add additional logic to the RENAME operation to ensure that
+#         renaming a tree in its parent's child_dict will also alter the child
+#         item's name attribute.
+
+#         Args:
+#             tree_item (BaseTreeItem): tree item whose child dict is being
+#                 edited.
+#         """
+#         ordered_dict = tree_item._children
+#         if self.operation_type == EditOperation.RENAME:
+#             for name, new_name in self.diff_dict.items():
+#                 child = ordered_dict.get(name)
+#                 if child:
+#                     child._name = new_name
+
+#         super(BaseTreeEdit, self)._run(ordered_dict)
+
+
+class TreeAddChildrenEdit(BaseTreeEdit):
+    """Tree edit for adding children."""
+
+    def __init__(self, tree_item, children_to_add, register_edit=True):
         """Initialise edit item.
 
         Args:
-            diff_dict (OrderedDict): a dictionary representing modifications
-                to a dict. How to interpret this dictionary depends on the
-                operation type.
-            operation_type (EditOperation): The type of edit operation to do.
+            children_to_add (OrderedDict(str, BaseTreeItem)): dict of children
+                to add, keyed by names.
             register_edit (bool): whether or not to register this edit.
+        """
+        super(TreeAddChildrenEdit, self).__init__(
+            diff_dict=children_to_add,
+            op_type=EditOperation.ADD,
+            register_edit=register_edit,
+        )
+
+
+class TreeRemoveChildrenEdit(BaseTreeEdit):
+    """Tree edit for removing children."""
+
+    def __init__(self, children_to_remove, register_edit=True):
+        """Initialise edit item.
+
+        Args:
+            children_to_remove (OrderedDict(str, None)): list of names of
+                children to remove.
+            register_edit (bool): whether or not to register this edit.
+        """
+        super(TreeRemoveChildrenEdit, self).__init__(
+            diff_dict=OrderedDict(
+                [(name, None) for name in children_to_remove]
+            ),
+            op_type=EditOperation.REMOVE,
+            register_edit=register_edit,
+        )
+
+# TODO: getting slightly messy running these on top of eachother
+# maybe better to treat the inverse diff dict as part of the base edit and
+# then treat each of these as separate BaseEdit derived classes?
+# or should we literally have every edit operation is a separate class?
+# would mean the as_inverse method needs some work since it can't just use
+# the same class any more, but presumably we could pass in the class to it
+# too and not make it a class method?
+# Also means we can decide on case by case basis which derives from
+# OrderedDict edit
+# BUUUUT: it means that the current quite nice setup for BaseTreeEdit where
+# it inherits from ALL the OrderedDictEdits doesn't work, which is
+# annoying.
+#
+# OR (/and) a nicer structure is to change the base class from:
+#           __call__  -->  _run
+# to:
+#           __call__ --> _run_and_register --> _run
+# then can just implement the _run method and not have to worry about the
+# annoying super calls
+# OH DAMMIT just remembered though that the register NEEDS to be passed the
+# same arguments as _run in order to save the _args and _kwargs properly,
+# so may end up with the same issue?
+class TaskEdit(BaseEdit):
+    """Object representing an edit on a task tree item."""
+
+    def _run(self, task_item, *args, **kwargs):
+        """Run this edit on a task item.
+
+        The formats of the associated diff dicts are described below.
+
+        Args:
+            task_item (TaskItem or None): task tree item whose child dict
+                is being edited.
 
         diff_dict formats:
-            ADD: {new_key: new_value} - add new values at new keys
-            INSERT: {new_key: (index, new_value)} - insert new key, value at
-                given index
-            REMOVE: {old_key: anything} - remove given keys
-            RENAME: {old_key: new_key} - rename given keys
-            MODIFY: {old_key: new_value} - add new values at old keys
-            MOVE: {old_key: new_index} - move given key to given index
+            CHANGE_TASK_TYPE: {new_type: None} - change task type to new type.
+            ADD: {date: dict} - update task history dict to add the new dict
+                at the given date. The dict should have a status key and
+                optionally a comments key.
         """
-        super(OrderedDictEdit, self).__init__(register_edit)
-        self.diff_dict = diff_dict
-        self.operation_type = op_type
-        self.inverse_diff_dict = None
-        self.inverse_operation_type = EditOperation.get_inverse_op(op_type)
+        ordered_dict = task_item.history.dict
 
-    def _run(self, ordered_dict, *args, **kwargs):
-        """Run this edit on the given ordered_dict.
+        if self.operation_type == EditOperation.CHANGE_TASK_TYPE:
+            old_task_type = task_item.type
+            if self.inverse_diff_dict is None:
+                self.inverse_diff_dict = OrderedDict([old_task_type, None])
+            task_item.type = self.diff_dict.keys()[0]
 
-        The first time this is called it should also fill up the inverse
-        diff dict too.
-
-        Args:
-            ordered_dict (OrderedDict): ordered dict object to run on.
-            args (list): additional args this was called with.
-            kwargs (dict): additional kwargs this was called with.
-        """
-        super(OrderedDictEdit, self)._run(
-            *args,
-            ordered_dict=ordered_dict,
-            **kwargs
-        )
-
-        define_inverse = False
-        if self.inverse_diff_dict is None:
-            self.inverse_diff_dict = OrderedDict()
-            define_inverse = True
-
-        if self.operation_type == EditOperation.ADD:
-            self._add(ordered_dict, define_inverse)
-        elif self.operation_type == EditOperation.INSERT:
-            self._insert(ordered_dict, define_inverse)
-        elif self.operation_type == EditOperation.REMOVE:
-            self._remove(ordered_dict, define_inverse)
-        elif self.operation_type == EditOperation.RENAME:
-            self._rename(ordered_dict, define_inverse)
-        elif self.operation_type == EditOperation.MODIFY:
-            self._modify(ordered_dict, define_inverse)
-        elif self.operation_type == EditOperation.MOVE:
-            self._move(ordered_dict, define_inverse)
-
-        # reverse inverse dict since we build up operations in opposite order
-        if define_inverse:
-            self.inverse_diff_dict = OrderedDict(
-                reversed(list(self.inverse_diff_dict.items()))
-            )
-
-    def _add(self, ordered_dict, define_inverse):
-        """Run add operation on the given ordered_dict.
-
-        Args:
-            ordered_dict (OrderedDict): ordered dict object to run on.
-            define_inverse (bool): if True, also define inverse too.
-        """
-        for key, value in self.diff_dict.items():
-            if key not in ordered_dict:
-                if define_inverse:
-                    self.inverse_diff_dict[key] = None
-                ordered_dict[key] = value
-
-    def _insert(self, ordered_dict, define_inverse):
-        """Run insert operation on the given ordered_dict.
-
-        The index in the diff_dict here defines the index we want the item
-        to have once it's been inserted.
-
-        Args:
-            ordered_dict (OrderedDict): ordered dict object to run on.
-            define_inverse (bool): if True, also define inverse too.
-        """
-        for new_key, value_tuple in self.diff_dict.items():
-            if new_key in ordered_dict:
-                continue
-            if type(value_tuple) != tuple:
-                raise EditError(
-                    "Insert diff dict needs tuple values"
-                )
-            index = value_tuple[0]
-            if index < 0 or index > len(ordered_dict):
-                continue
-            new_value = value_tuple[1]
-            if index == len(ordered_dict):
-                ordered_dict[new_key] = new_value
-            else:
-                for i in range(len(ordered_dict)):
-                    key, value = ordered_dict.popitem(last=False)
-                    if index == i:
-                        if define_inverse:
-                            self.inverse_diff_dict[new_key] = None
-                        ordered_dict[new_key] = new_value
-                    ordered_dict[key] = value
-
-    def _remove(self, ordered_dict, define_inverse):
-        """Run remove operation on the given ordered_dict.
-
-        Args:
-            ordered_dict (OrderedDict): ordered dict object to run on.
-            define_inverse (bool): if True, also define inverse too.
-        """
-        for key in self.diff_dict:
-            if key in ordered_dict:
-                if define_inverse:
-                    index = list(ordered_dict.keys()).index(key)
-                    self.inverse_diff_dict[key] = (index, ordered_dict[key])
-                del ordered_dict[key]
-
-    def _rename(self, ordered_dict, define_inverse):
-        """Run rename operation on the given ordered_dict.
-
-        Args:
-            ordered_dict (OrderedDict): ordered dict object to run on.
-            define_inverse (bool): if True, also define inverse too.
-        """
-        for _ in range(len(ordered_dict)):
-            key, value = ordered_dict.popitem(last=False)
-            if key in self.diff_dict:
-                new_key = self.diff_dict[key]
-                if define_inverse:
-                    self.inverse_diff_dict[new_key] = key
-                key = new_key
-            ordered_dict[key] = value
-
-    def _modify(self, ordered_dict, define_inverse):
-        """Run modify operation on the given ordered_dict.
-
-        Args:
-            ordered_dict (OrderedDict): ordered dict object to run on.
-            define_inverse (bool): if True, also define inverse too.
-        """
-        for key, value in self.diff_dict.items():
-            if key in ordered_dict:
-                if define_inverse:
-                    self.inverse_diff_dict[key] = ordered_dict[key]
-                ordered_dict[key] = value
-
-    def _move(self, ordered_dict, define_inverse):
-        """Run move operation on the given ordered_dict.
-
-        Just like insert, the index in move defines the index we expect
-        the item to have once it's been moved.
-
-        Args:
-            ordered_dict (OrderedDict): ordered dict object to run on.
-            define_inverse (bool): if True, also define inverse too.
-        """
-        for diff_key, new_index in self.diff_dict.items():
-            diff_value = ordered_dict.get(diff_key)
-            if not diff_value:
-                continue
-            if new_index < 0 or new_index >= len(ordered_dict):
-                continue
-            # first remove item from dict
-            try:
-                old_index = list(ordered_dict.keys()).index(diff_key)
-            except ValueError:
-                continue
-            del ordered_dict[diff_key]
-            if define_inverse:
-                self.inverse_diff_dict[diff_key] = old_index
-            # now insert item into dict in new position
-            if new_index == len(ordered_dict):
-                ordered_dict[diff_key] = diff_value
-            else:
-                for i in range(len(ordered_dict)):
-                    key, value = ordered_dict.popitem(last=False)
-                    if i == new_index:
-                        ordered_dict[diff_key] = diff_value
-                    ordered_dict[key] = value
-
-    def _inverse(self):
-        """Get inverse edit object.
-
-        This needs to be run after the function is called.
-
-        Returns:
-            (OrderedDictEdit): Inverse OrderedDictEdit, used to undo this one.
-        """
-        if self._inverse_edit:
-            return self._inverse_edit
-        if not self.inverse_diff_dict:
-            raise EditError(
-                "_inverse must be called after edit has been run."
-            )
-        self._inverse_edit = self.from_inverse(
-            self,
-            self.inverse_diff_dict,
-            self.inverse_operation_type
-        )
-        return self._inverse_edit
-
-
-class BaseTreeEdit(OrderedDictEdit):
-    """Object representing an edit that can be called on a tree item."""
-
-    def _run(self, tree_item, *args, **kwargs):
-        """Run this edit on a tree item.
-
-        This method just applies an OrderedDictEdit to the tree's child dict
-        (this class is a 'friend' of BaseTreeItem, hence why it can access the
-        'private' _children and _name variables).
-
-        We also add additional logic to the rename operation to ensure
-        that renaming a tree in its parent's child_dict will also alter the
-        child item's name attribute.
-
-        Args:
-            tree_item (BaseTreeItem or None): tree item whose child dict
-                is being edited.
-        """
-        ordered_dict = tree_item._children
-        if self.operation_type == EditOperation.RENAME:
-            for name, new_name in self.diff_dict.items():
-                child = ordered_dict.get(name)
-                if child:
-                    child._name = new_name
+        elif self.operation_type == EditOperation.ADD:
+            for date, _dict in self.diff_dict.items():
+                status = _dict["status"]
 
         kwargs["ordered_dict"] = ordered_dict
-        super(BaseTreeEdit, self)._run(
+        super(TaskEdit, self)._run(
             *args,
-            tree_item=tree_item,
-            **kwargs
+            task_item=task_item,
+            **kwargs,
         )
+
+
+# TODO: Make CompositeEdit class
+# probably just use several sub-edits and make sure each is set to register=False

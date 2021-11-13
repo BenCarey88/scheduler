@@ -5,6 +5,8 @@ from functools import partial
 import json
 import os
 
+from scheduler.api.edit.tree_edit import BaseTreeEdit, EditOperation
+
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
 
@@ -52,6 +54,7 @@ class Task(BaseTreeItem):
         self.type = task_type or TaskType.GENERAL
         self.status = status or TaskStatus.UNSTARTED
         self.history = history or TaskHistory()
+        self.allowed_child_types = [Task]
 
         # new attribute and method names for convenience
         self.create_subtask = self.create_child

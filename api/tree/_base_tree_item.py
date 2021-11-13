@@ -6,9 +6,13 @@ from contextlib import contextmanager
 from uuid import uuid4
 
 from scheduler.api.edit.tree_edit import BaseTreeEdit, EditOperation
-from scheduler.api.utils import catch_exceptions
 
-from .exceptions import DuplicateChildNameError, MultipleParentsError
+from .exceptions import (
+    ChildNameError,
+    DuplicateChildNameError,
+    MultipleParentsError,
+    UnallowedChildType,
+)
 
 
 class BaseTreeItem(ABC):
@@ -24,8 +28,21 @@ class BaseTreeItem(ABC):
         self._name = name
         self.parent = parent
         self._children = OrderedDict()
-        self._register_edits = False
+        # TODO: delete this entire attribute? As we're now using the EDIT_LOG
+        # lock to decide whether or not to add edits. Unless we want to be
+        # able to lock for individual treed items? if can think of reason for
+        # that then we should keep it, otherwise can delete it from here and
+        # probably delete register_edit arg from edit objects.
+        #
+        # if want to keep, we need: on construction, register_edits is True if
+        # parent attr is true, AND add parent setter (and hence getter) to
+        # set it true if parents is true when setting parent, ie. anything
+        # that gets added to an editable tree is now user undoable - effectively
+        # I think we'd want undoability to be a property of the whole tree
+        self._register_edits = True
         self.id = uuid4()
+        # base class must be overridden, has no allowed child types.
+        self.allowed_child_types = []
 
     @property
     def name(self):
@@ -118,6 +135,7 @@ class BaseTreeItem(ABC):
 
         Raises:
             (DuplicateChildNameError): if a child with given name already exists.
+            (UnallowedChildType): if the child_type is not allowed.
 
         Returns:
             (BaseTreeItem): newly created child. In subclasses, this will use
@@ -126,6 +144,8 @@ class BaseTreeItem(ABC):
         if name in self._children:
             raise DuplicateChildNameError(self.name, name)
         child_type = child_type or self.__class__
+        if child_type not in self.allowed_child_types:
+            raise UnallowedChildType(self.__class__, child_type)
         child = child_type(name, parent=self, **kwargs)
         add_child_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(name, child)]),
@@ -178,6 +198,8 @@ class BaseTreeItem(ABC):
         """
         if child.name in self._children:
             raise DuplicateChildNameError(self.name, child.name)
+        if type(child) not in self.allowed_child_types:
+            raise UnallowedChildType(self.__class__, type(child))
         if not child.parent:
             child.parent = self
         if child.parent != self:
@@ -192,6 +214,78 @@ class BaseTreeItem(ABC):
             register_edit=self._register_edits,
         )
         add_child_edit(self)
+
+    # TODO: task, category and root versions of this and the below
+    # although also TODO: look at when these versions are used. They're neat
+    # but also really frustrating to keep up to date, is there an argument
+    # for deprecating at least most of them?
+    # also TODO: neaten up repeated code between this and the add_child
+    # methods. OR: better still add this all as part of add_child code
+    def insert_child(self, child, index):
+        """Insert existing child to this item's children dict at given index.
+
+        Args:
+            child (BaseTreeItem): child item to insert.
+            index (int): index to insert at.
+
+        Raises:
+            (DuplicateChildNameError): if a child with given name already exists.
+            (MultipleParentsError): if the child has a different tree item as
+                a parent.
+        """
+        if child.name in self._children:
+            raise DuplicateChildNameError(self.name, child.name)
+        if type(child) not in self.allowed_child_types:
+            raise UnallowedChildType(self.__class__, type(child))
+        if not child.parent:
+            child.parent = self
+        if child.parent != self:
+            raise MultipleParentsError(
+                "child {0} has incorrect parent: {1} instead of {2}".format(
+                    child.name, child.parent.name, self.name
+                )
+            )
+        insert_child_edit = BaseTreeEdit(
+            diff_dict=OrderedDict([(child.name, (index, child))]),
+            op_type=EditOperation.INSERT,
+            register_edit=self._register_edits,
+        )
+        insert_child_edit(self)
+
+    def replace_child(self, name, new_child):
+        """Replace child at given name with new_child.
+
+        Args:
+            name (str): name of child item to replace.
+            new_child (BaseTreeItem): new tree item to replace the original
+                child.
+
+        Raises:
+            (ChildNameError): if new_child has different name to old one.
+            (MultipleParentsError): if the child has a different tree item as
+                a parent.
+        """
+        if name != new_child.name:
+            raise ChildNameError(
+                "Can't replace child {0} with new child of "
+                "different name {1}".format(name, new_child.name)
+            )
+        if type(new_child) not in self.allowed_child_types:
+            raise UnallowedChildType(self.__class__, type(new_child))
+        if not new_child.parent:
+            new_child.parent = self
+        if new_child.parent != self:
+            raise MultipleParentsError(
+                "child {0} has incorrect parent: {1} instead of {2}".format(
+                    new_child.name, new_child.parent.name, self.name
+                )
+            )
+        replace_child_edit = BaseTreeEdit(
+            diff_dict=OrderedDict([(name, new_child)]),
+            op_type=EditOperation.MODIFY,
+            register_edit=self._register_edits,
+        )
+        replace_child_edit(self)
 
     def create_sibling(self, name, **kwargs):
         """Create sibling item for self.
@@ -271,6 +365,35 @@ class BaseTreeItem(ABC):
             register_edit=self._register_edits,
         )
         remove_children_edit(self)
+
+    def change_child_tree_type(self, child_name, new_tree_class):
+        """Attempt to change child tree class to a different tree class.
+
+        Args:
+            child_name (str): name of child to change.
+            new_tree_class (class): new tree class to use for child.
+
+        Raises:
+            (UnallowedChildType): if the new_tree_class is not an allowed
+                child type of the this class OR if some of the children
+                of the given child are unallowed child types for the new
+                tree class.
+        """
+        if new_tree_class not in self.allowed_child_types:
+            raise UnallowedChildType(self.__class__, new_tree_class)
+        child = self.get_child(child_name)
+        if not child or isinstance(child, new_tree_class):
+            return
+        new_child = new_tree_class(child_name)
+        for grandchild in child.get_all_children():
+            grandchild_class = type(grandchild)
+            if grandchild_class not in new_child.allowed_child_types:
+                raise UnallowedChildType(grandchild_class)
+            grandchild_copy = grandchild_class.from_dict(
+                grandchild.to_dict()
+            )
+            new_child._children[grandchild_copy.name] = grandchild_copy
+        self.replace_child(child_name, new_child)
 
     def get_child(self, name):
         """Get child by name.

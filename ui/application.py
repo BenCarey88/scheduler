@@ -6,7 +6,7 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants
-from scheduler.api.edit.edit_log import redo, undo
+from scheduler.api.edit.edit_log import open_edit_registry, redo, undo
 from scheduler.api.tree.task_root import TaskRoot
 
 from .tabs.task_tab import TaskTab
@@ -27,7 +27,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tree_root = TaskRoot.from_directory(
             constants.SCHEDULER_TASKS_DIRECTORY
         )
-        self.tree_root.open_edit_registry()
+        open_edit_registry()
+        # self.tree_root.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
 

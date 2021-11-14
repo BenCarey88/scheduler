@@ -97,9 +97,7 @@ class TaskTreeTest(unittest.TestCase):
 
         self.tree_root = TaskRoot.from_directory(self.temp_task_dir)
         self.tree_dict["categories"].update(
-            OrderedDict([
-                ("Test", OrderedDict())
-            ])
+            OrderedDict([("Test", OrderedDict())])
         )
         self.assertEqual(
             self.tree_root.to_dict(),

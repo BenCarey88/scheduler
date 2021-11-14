@@ -2,31 +2,36 @@
 
 from collections import OrderedDict
 
-from ._base_edit import BaseDiffEdit, BaseEdit, SelfInverseSimpleEdit
-from .composite_edit import CompositeEdit
-from .ordered_dict_edit import EditOperation, OrderedDictEdit
+from ._base_edit import SelfInverseSimpleEdit
+from ._composite_edit import CompositeEdit
+from ._ordered_dict_edit import OrderedDictOp, OrderedDictEdit
 
 
 class BaseTreeEdit(CompositeEdit):
-    """Object representing an edit that can be called on a tree item."""
+    """Edit that can be called on a tree item."""
 
     def __init__(self, tree_item, diff_dict, op_type, register_edit=True):
         """Initialise base tree edit.
 
         Args:
-            diff_dict (OrderedDict): diff dict 
+            tree_item (BaseTreeItem): the tree item this edit is being run on.
+            diff_dict (OrderedDict): a dictionary representing modifications
+                to the tree item's child dict. How to interpret this dictionary
+                depends on the operation type.
+            operation_type (OrderedDictOp): The type of edit operation to do.
+            register_edit (bool): whether or not to register this edit.
         """
         ordered_dict_edit = OrderedDictEdit(
             tree_item._children,
             diff_dict,
             op_type,
-            register_edit=False
+            register_edit=False,
         )
-        if op_type == EditOperation.RENAME:
+        if op_type == OrderedDictOp.RENAME:
             name_change_edit = SelfInverseSimpleEdit(
                 tree_item,
-                self._rename,
-                register_edit=False
+                run_func=self._rename,
+                register_edit=False,
             )
             super(BaseTreeEdit, self).__init__(
                 [tree_item, tree_item._children]
@@ -40,154 +45,197 @@ class BaseTreeEdit(CompositeEdit):
                 register_edit=register_edit,
             )
 
-    def _rename(self, tree_item):
-        """Additional renaming edit for tree name."""
-        for name, new_name in self.diff_dict.items():
-            child = tree_item._children.get(name)
+    def _rename(self, tree_item, inverse):
+        """Additional renaming edit for tree name child.
+
+        Args:
+            tree_item (BaseTreeItem): tree item whose child we're renaming.
+            inverse (bool): flag for if this function is being run as an
+                inverse or not.
+        """
+        for name_tuple in self.diff_dict.items():
+            original_name = name_tuple[1] if inverse else name_tuple[0]
+            new_name = name_tuple[0] if inverse else name_tuple[1]
+            child = tree_item._children.get(original_name)
             if child:
                 child._name = new_name
 
-    # def _run(self, tree_items):
-    #     """Run this edit on a tree item.
 
-    #     This method just applies an OrderedDictEdit to the tree's child
-    #     (this class is a 'friend' of BaseTreeItem, hence why it can access
-    #     the 'private' _children and _name variables).
-
-    #     We also add additional logic to the RENAME operation to ensure that
-    #     renaming a tree in its parent's child_dict will also alter the child
-    #     item's name attribute.
-
-    #     Args:
-    #         tree_item (BaseTreeItem): tree item whose child dict is being
-    #             edited.
-    #     """
-    #     super(BaseTreeEdit, self)._run(
-    #         ([tree_item._children], {})
-    #     )
-
-
-#     def _run(self, tree_item):
-#         """Run this edit on a tree item.
-
-#         This method just applies an OrderedDictEdit to the tree's child
-#         (this class is a 'friend' of BaseTreeItem, hence why it can access
-#         the 'private' _children and _name variables).
-
-#         We also add additional logic to the RENAME operation to ensure that
-#         renaming a tree in its parent's child_dict will also alter the child
-#         item's name attribute.
-
-#         Args:
-#             tree_item (BaseTreeItem): tree item whose child dict is being
-#                 edited.
-#         """
-#         ordered_dict = tree_item._children
-#         if self.operation_type == EditOperation.RENAME:
-#             for name, new_name in self.diff_dict.items():
-#                 child = ordered_dict.get(name)
-#                 if child:
-#                     child._name = new_name
-
-#         super(BaseTreeEdit, self)._run(ordered_dict)
-
-
-class TreeAddChildrenEdit(BaseTreeEdit):
+class AddChildrenEdit(BaseTreeEdit):
     """Tree edit for adding children."""
 
     def __init__(self, tree_item, children_to_add, register_edit=True):
         """Initialise edit item.
 
         Args:
-            children_to_add (OrderedDict(str, BaseTreeItem)): dict of children
-                to add, keyed by names.
+            tree_item (BaseTreeItem): the tree item this edit is being run on.
+            children_to_add (dict(str, BaseTreeItem)): dict of children
+                to add, keyed by names. This can be ordered or not, depending
+                on whether we care which is added first.
             register_edit (bool): whether or not to register this edit.
         """
-        super(TreeAddChildrenEdit, self).__init__(
-            diff_dict=children_to_add,
-            op_type=EditOperation.ADD,
+        super(AddChildrenEdit, self).__init__(
+            tree_item=tree_item,
+            diff_dict=OrderedDict(children_to_add),
+            op_type=OrderedDictOp.ADD,
             register_edit=register_edit,
         )
 
+        self._name = "AddChildren ({0})".format(tree_item.name)
+        self._description = "Add children to {1}: [{0}]".format(
+            ",".join(list(children_to_add.keys())),
+            tree_item.path
+        )
 
-class TreeRemoveChildrenEdit(BaseTreeEdit):
-    """Tree edit for removing children."""
 
-    def __init__(self, children_to_remove, register_edit=True):
+class InsertChildrenEdit(BaseTreeEdit):
+    """Tree edit for adding children."""
+
+    def __init__(self, tree_item, children_to_insert, register_edit=True):
         """Initialise edit item.
 
         Args:
-            children_to_remove (OrderedDict(str, None)): list of names of
-                children to remove.
+            tree_item (BaseTreeItem): the tree item this edit is being run on.
+            children_to_insert (dict(str, tuple(index, BaseTreeItem))):
+                dict representing children to insert and where to insert them.
+                This can be ordered or not, depending on whether we care which
+                is inserted first.
             register_edit (bool): whether or not to register this edit.
         """
-        super(TreeRemoveChildrenEdit, self).__init__(
-            diff_dict=OrderedDict(
-                [(name, None) for name in children_to_remove]
-            ),
-            op_type=EditOperation.REMOVE,
+        super(InsertChildrenEdit, self).__init__(
+            tree_item=tree_item,
+            diff_dict=OrderedDict(children_to_insert),
+            op_type=OrderedDictOp.INSERT,
             register_edit=register_edit,
         )
 
-# TODO: getting slightly messy running these on top of eachother
-# maybe better to treat the inverse diff dict as part of the base edit and
-# then treat each of these as separate BaseEdit derived classes?
-# or should we literally have every edit operation is a separate class?
-# would mean the as_inverse method needs some work since it can't just use
-# the same class any more, but presumably we could pass in the class to it
-# too and not make it a class method?
-# Also means we can decide on case by case basis which derives from
-# OrderedDict edit
-# BUUUUT: it means that the current quite nice setup for BaseTreeEdit where
-# it inherits from ALL the OrderedDictEdits doesn't work, which is
-# annoying.
-#
-# OR (/and) a nicer structure is to change the base class from:
-#           __call__  -->  _run
-# to:
-#           __call__ --> _run_and_register --> _run
-# then can just implement the _run method and not have to worry about the
-# annoying super calls
-# OH DAMMIT just remembered though that the register NEEDS to be passed the
-# same arguments as _run in order to save the _args and _kwargs properly,
-# so may end up with the same issue?
-class TaskEdit(BaseEdit):
-    """Object representing an edit on a task tree item."""
-
-    def _run(self, task_item, *args, **kwargs):
-        """Run this edit on a task item.
-
-        The formats of the associated diff dicts are described below.
-
-        Args:
-            task_item (TaskItem or None): task tree item whose child dict
-                is being edited.
-
-        diff_dict formats:
-            CHANGE_TASK_TYPE: {new_type: None} - change task type to new type.
-            ADD: {date: dict} - update task history dict to add the new dict
-                at the given date. The dict should have a status key and
-                optionally a comments key.
-        """
-        ordered_dict = task_item.history.dict
-
-        if self.operation_type == EditOperation.CHANGE_TASK_TYPE:
-            old_task_type = task_item.type
-            if self.inverse_diff_dict is None:
-                self.inverse_diff_dict = OrderedDict([old_task_type, None])
-            task_item.type = self.diff_dict.keys()[0]
-
-        elif self.operation_type == EditOperation.ADD:
-            for date, _dict in self.diff_dict.items():
-                status = _dict["status"]
-
-        kwargs["ordered_dict"] = ordered_dict
-        super(TaskEdit, self)._run(
-            *args,
-            task_item=task_item,
-            **kwargs,
+        self._name = "InsertChildren ({0})".format(tree_item.name)
+        self._description = (
+            "Insert children to {0}: [{1}]".format(
+                tree_item.path,
+                ",".join([
+                    "(" + key + " --> " + value[0] + ")"
+                    for key, value in children_to_insert.items()
+                ])
+            )
         )
 
 
-# TODO: Make CompositeEdit class
-# probably just use several sub-edits and make sure each is set to register=False
+class RemoveChildrenEdit(BaseTreeEdit):
+    """Tree edit for removing children."""
+
+    def __init__(self, tree_item, children_to_remove, register_edit=True):
+        """Initialise edit item.
+
+        Args:
+            tree_item (BaseTreeItem): the tree item this edit is being run on.
+            children_to_remove (list(str)): list of names of children to
+                remove.
+            register_edit (bool): whether or not to register this edit.
+        """
+        super(RemoveChildrenEdit, self).__init__(
+            tree_item=tree_item,
+            diff_dict=OrderedDict(
+                [(name, None) for name in children_to_remove]
+            ),
+            op_type=OrderedDictOp.REMOVE,
+            register_edit=register_edit,
+        )
+
+        self._name = "RemoveChildren ({0})".format(tree_item.name)
+        self._description = "Remove children from {1}: [{0}]".format(
+            ",".join(children_to_remove),
+            tree_item.path
+        )
+
+
+class RenameChildrenEdit(BaseTreeEdit):
+    """Tree edit for renaming children."""
+
+    def __init__(self, tree_item, children_to_rename, register_edit=True):
+        """Initialise edit item.
+
+        Args:
+            tree_item (BaseTreeItem): the tree item this edit is being run on.
+            children_to_remove (dict(str, str)): dict of old names of children
+                and new ones to replace them with.
+            register_edit (bool): whether or not to register this edit.
+        """
+        super(RenameChildrenEdit, self).__init__(
+            tree_item=tree_item,
+            diff_dict=OrderedDict(children_to_rename),
+            op_type=OrderedDictOp.RENAME,
+            register_edit=register_edit,
+        )
+
+        self._name = "RenameChildren ({0})".format(tree_item.name)
+        self._description = (
+            "Rename children of {0}: [{1}]".format(
+                tree_item.path,
+                ",".join([
+                    "(" + key + " --> " + value + ")"
+                    for key, value in children_to_rename.items()
+                ])
+            )
+        )    
+
+
+class ModifyChildrenEdit(BaseTreeEdit):
+    """Tree edit for swapping children of given names with new children."""
+
+    def __init__(self, tree_item, children_to_modify, register_edit=True):
+        """Initialise edit item.
+
+        Args:
+            tree_item (BaseTreeItem): the tree item this edit is being run on.
+            children_to_modify (dict(str, BaseTreeItem)): dict of names of
+                children and new tree items to replace them with.
+            register_edit (bool): whether or not to register this edit.
+        """
+        super(ModifyChildrenEdit, self).__init__(
+            tree_item=tree_item,
+            diff_dict=OrderedDict(children_to_modify),
+            op_type=OrderedDictOp.MODIFY,
+            register_edit=register_edit,
+        )
+
+        self._name = "ModifyChildren ({0})".format(tree_item.name)
+        self._description = (
+            "Modify children of {0}: [{1}]".format(
+                tree_item.path,
+                ",".join(list(children_to_modify.keys()))
+            )
+        )
+
+
+class MoveChildrenEdit(BaseTreeEdit):
+    """Tree edit for moving positions of children."""
+
+    def __init__(self, tree_item, children_to_move, register_edit=True):
+        """Initialise edit item.
+
+        Args:
+            tree_item (BaseTreeItem): the tree item this edit is being run on.
+            children_to_move (dict(str, int)): dict of names of children to
+                move and new positions to move them to. This can be ordered or
+                not, depending on whether we care about which child is moved
+                first.
+            register_edit (bool): whether or not to register this edit.
+        """
+        super(MoveChildrenEdit, self).__init__(
+            tree_item=tree_item,
+            diff_dict=OrderedDict(children_to_move),
+            op_type=OrderedDictOp.MOVE,
+            register_edit=register_edit,
+        )
+
+        self._name = "MoveChildren ({0})".format(tree_item.name)
+        self._description = (
+            "Move children of {0}: [{1}]".format(
+                tree_item.path,
+                ",".join([
+                    "(" + key + " --> " + value[0] + ")"
+                    for key, value in children_to_move.items()
+                ])
+            )
+        )

@@ -5,7 +5,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from uuid import uuid4
 
-from scheduler.api.edit.tree_edit import BaseTreeEdit, EditOperation
+from scheduler.api.edit.tree_edit import BaseTreeEdit, OrderedDictOp
 
 from .exceptions import (
     ChildNameError,
@@ -72,7 +72,7 @@ class BaseTreeItem(ABC):
                 raise DuplicateChildNameError(parent.name, new_name)
             name_edit = BaseTreeEdit(
                 diff_dict=OrderedDict([(self.name, new_name)]),
-                op_type=EditOperation.RENAME,
+                op_type=OrderedDictOp.RENAME,
                 register_edit=self._register_edits,
             )
             name_edit(parent)
@@ -149,7 +149,7 @@ class BaseTreeItem(ABC):
         child = child_type(name, parent=self, **kwargs)
         add_child_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(name, child)]),
-            op_type=EditOperation.ADD,
+            op_type=OrderedDictOp.ADD,
             register_edit=self._register_edits,
         )
         add_child_edit(self)
@@ -210,7 +210,7 @@ class BaseTreeItem(ABC):
             )
         add_child_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(child.name, child)]),
-            op_type=EditOperation.ADD,
+            op_type=OrderedDictOp.ADD,
             register_edit=self._register_edits,
         )
         add_child_edit(self)
@@ -247,7 +247,7 @@ class BaseTreeItem(ABC):
             )
         insert_child_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(child.name, (index, child))]),
-            op_type=EditOperation.INSERT,
+            op_type=OrderedDictOp.INSERT,
             register_edit=self._register_edits,
         )
         insert_child_edit(self)
@@ -282,7 +282,7 @@ class BaseTreeItem(ABC):
             )
         replace_child_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(name, new_child)]),
-            op_type=EditOperation.MODIFY,
+            op_type=OrderedDictOp.MODIFY,
             register_edit=self._register_edits,
         )
         replace_child_edit(self)
@@ -347,7 +347,7 @@ class BaseTreeItem(ABC):
         if name in self._children.keys():
             remove_child_edit = BaseTreeEdit(
                 diff_dict=OrderedDict([(name, None)]),
-                op_type=EditOperation.REMOVE,
+                op_type=OrderedDictOp.REMOVE,
                 register_edit=self._register_edits,
             )
             remove_child_edit(self)
@@ -361,7 +361,7 @@ class BaseTreeItem(ABC):
         names = [name for name in names if name in self._children.keys()]
         remove_children_edit = BaseTreeEdit(
             diff_dict=OrderedDict([(name, None) for name in names]),
-            op_type=EditOperation.REMOVE,
+            op_type=OrderedDictOp.REMOVE,
             register_edit=self._register_edits,
         )
         remove_children_edit(self)

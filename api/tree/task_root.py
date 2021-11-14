@@ -9,7 +9,7 @@ from .task_category import TaskCategory
 
 
 class TaskRoot(TaskCategory):
-    """Object representing all the task data for the scheduler."""
+    """Root item for all task data for the scheduler."""
 
     TREE_FILE_MARKER = "root.info"
     CATEGORIES_KEY = "categories"

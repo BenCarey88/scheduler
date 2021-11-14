@@ -5,7 +5,7 @@ from functools import partial
 import json
 import os
 
-from scheduler.api.edit.tree_edit import BaseTreeEdit, EditOperation
+from scheduler.api.edit.tree_edit import BaseTreeEdit, OrderedDictOp
 
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
@@ -247,17 +247,17 @@ class TaskHistory(object):
         """
         return bool(self.dict)
 
-    def update(self, date_time, status, comment=None):
-        """Update task history and status.
+    # def update(self, date_time, status, comment=None):
+    #     """Update task history and status.
 
-        Args:
-            date (datetime.datetime): datetime object to update task with.
-            status (TaskStatus): status to update task with.
-            comment (str): comment to add to history if needed.
-        """
-        date = date_time.date()
-        date_entry = self.dict.setdefault(date, dict())
-        date_entry["status"] = status
-        if comment:
-            comments = date_entry.setdefault("comments", OrderedDict())
-            comments[date_time] = comment
+    #     Args:
+    #         date (datetime.datetime): datetime object to update task with.
+    #         status (TaskStatus): status to update task with.
+    #         comment (str): comment to add to history if needed.
+    #     """
+    #     date = date_time.date()
+    #     date_entry = self.dict.setdefault(date, dict())
+    #     date_entry["status"] = status
+    #     if comment:
+    #         comments = date_entry.setdefault("comments", OrderedDict())
+    #         comments[date_time] = comment

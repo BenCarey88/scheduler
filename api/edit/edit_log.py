@@ -5,7 +5,10 @@ from contextlib import contextmanager
 
 
 class EditLog(object):
-    """Log of user edits made in tool."""
+    """Log of user edits made in tool.
+    
+    Friend Classes: [BaseEdit]
+    """
 
     def __init__(self):
         """Initialise edit log.
@@ -65,7 +68,7 @@ class EditLog(object):
                 edit = self._log.pop()
             except IndexError:
                 return False
-            edit.undo()
+            edit._undo()
             self._undo_log.append(edit)
             return True
 
@@ -80,7 +83,7 @@ class EditLog(object):
                 edit = self._undo_log.pop()
             except IndexError:
                 return False
-            edit.redo()
+            edit._redo()
             self._log.append(edit)
             return True
 

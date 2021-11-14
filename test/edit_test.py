@@ -3,7 +3,7 @@
 from collections import OrderedDict
 import unittest
 
-from api.edit.tree_edit import BaseTreeEdit, EditOperation, OrderedDictEdit
+from api.edit.tree_edit import BaseTreeEdit, OrderedDictOp, OrderedDictEdit
 from api.tree._base_tree_item import BaseTreeItem
 from api.tree.task import Task
 
@@ -26,7 +26,7 @@ class OrderedDictEditTest(unittest.TestCase):
         """Test add operation."""
         edit = OrderedDictEdit(
             OrderedDict([("z", "Z")]),
-            EditOperation.ADD
+            OrderedDictOp.ADD
         )
         edit._run(self.ordered_dict)
         self.assertEqual(
@@ -49,7 +49,7 @@ class OrderedDictEditTest(unittest.TestCase):
         """Test insert operation."""
         edit = OrderedDictEdit(
             OrderedDict([("z", (2, "Z"))]),
-            EditOperation.INSERT
+            OrderedDictOp.INSERT
         )
         edit._run(self.ordered_dict)
         self.assertEqual(
@@ -72,7 +72,7 @@ class OrderedDictEditTest(unittest.TestCase):
         """Test remove operation."""
         edit = OrderedDictEdit(
             OrderedDict([("b", None), ("d", None)]),
-            EditOperation.REMOVE
+            OrderedDictOp.REMOVE
         )
         edit._run(self.ordered_dict)
         self.assertEqual(
@@ -92,7 +92,7 @@ class OrderedDictEditTest(unittest.TestCase):
         """Test rename operation."""
         edit = OrderedDictEdit(
             OrderedDict([("a", "z"), ("b", "y")]),
-            EditOperation.RENAME
+            OrderedDictOp.RENAME
         )
         edit._run(self.ordered_dict)
         self.assertEqual(
@@ -114,7 +114,7 @@ class OrderedDictEditTest(unittest.TestCase):
         """Test modify operation."""
         edit = OrderedDictEdit(
             OrderedDict([("c", "Z"), ("a", "Y")]),
-            EditOperation.MODIFY
+            OrderedDictOp.MODIFY
         )
         edit._run(self.ordered_dict)
         self.assertEqual(
@@ -136,7 +136,7 @@ class OrderedDictEditTest(unittest.TestCase):
         """Test move operation."""
         edit = OrderedDictEdit(
             OrderedDict([("b", 2), ("d", 1), ("c", 3)]),
-            EditOperation.MOVE
+            OrderedDictOp.MOVE
         )
         edit._run(self.ordered_dict)
         self.assertEqual(
@@ -175,7 +175,7 @@ class BaseTreeEditTest(unittest.TestCase):
         """Test rename operation."""
         edit = BaseTreeEdit(
             OrderedDict([("child1", "new_name")]),
-            EditOperation.RENAME
+            OrderedDictOp.RENAME
         )
         edit._run(self.tree_item)
         self.assertEqual(
@@ -212,7 +212,7 @@ class TaskEditTest(unittest.TestCase):
     #     """Test Update History."""
     #     edit = BaseTreeEdit(
     #         OrderedDict([("child1", "new_name")]),
-    #         EditOperation.RENAME
+    #         OrderedDictOp.RENAME
     #     )
     #     edit._run(self.tree_item)
     #     self.assertEqual(

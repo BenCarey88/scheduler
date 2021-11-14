@@ -1,8 +1,12 @@
-"""Tree model."""
+"""Task tree model."""
+
+import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import Task
+from scheduler.api.tree.task import TaskStatus
+
+from scheduler.ui import constants
 from ._base_tree_model import BaseTreeModel
 
 
@@ -56,7 +60,67 @@ class TaskModel(BaseTreeModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if index.column() == 1 and role == QtCore.Qt.DisplayRole:
-            item = index.internalPointer()
-            return item.status
+        item = index.internalPointer()
+        if item:
+            if index.column() == 0:
+                if role == QtCore.Qt.ItemDataRole.ForegroundRole:
+                    return constants.TASK_STATUS_COLORS.get(
+                        item.status
+                    )
+                if role == QtCore.Qt.ItemDataRole.FontRole:
+                    if (item.status == TaskStatus.COMPLETE
+                            or item.status == TaskStatus.IN_PROGRESS):
+                        font = QtGui.QFont()
+                        font.setBold(True)
+                        return font
+            if index.column() == 1:
+                if role == QtCore.Qt.ItemDataRole.CheckStateRole:
+                    return constants.TASK_STATUS_CHECK_STATES.get(
+                        item.status
+                    )
         return super(TaskModel, self).data(index, role)
+
+    def setData(self, index, value, role):
+        """Set data at given index to given value.
+
+        Implementing this method allows the tree model to be editable.
+
+        Args:
+            index (QtCore.QModelIndex): index of item we're setting data for.
+            value (QtCore.QVariant): value to set for data.
+            role (QtCore.Qt.Role): role we want to set data for.
+
+        Returns:
+            (bool): True if setting data was successful, else False.
+        """
+        if index.column() == 1 and role == QtCore.Qt.CheckStateRole:
+            if not index.isValid():
+                return False
+            task_item = index.internalPointer()
+            if not task_item:
+                return False
+            status = TaskStatus.NEXT_STATUS.get(task_item.status)
+            task_item.update_task(status, datetime.datetime.now())
+            self.dataChanged.emit(index, index)
+            return True
+        return super(TaskModel, self).setData(index, value, role)
+
+    def flags(self, index):
+        """Get flags for given item item.
+
+        Args:
+            index (QtCore.QModelIndex): index of item item.
+
+        Returns:
+            (QtCore.Qt.Flag): Qt flags for item.
+        """
+        if not index.isValid():
+            return QtCore.Qt.NoItemFlags
+        if index.column() == 1:
+            return (
+                QtCore.Qt.ItemFlag.ItemIsEnabled |
+                QtCore.Qt.ItemFlag.ItemIsSelectable |
+                QtCore.Qt.ItemFlag.ItemIsEditable |
+                QtCore.Qt.ItemFlag.ItemIsUserCheckable
+            )
+        return super(TaskModel, self).flags(index)

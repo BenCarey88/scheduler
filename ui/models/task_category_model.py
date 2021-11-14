@@ -1,9 +1,11 @@
-"""Tree model."""
+"""Task category tree model for outliner."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree import filters
 from ._base_tree_model import BaseTreeModel
+
+from scheduler.ui import constants
 
 
 class TaskCategoryModel(BaseTreeModel):
@@ -51,14 +53,44 @@ class TaskCategoryModel(BaseTreeModel):
         if index.column() == 0:
             if role == QtCore.Qt.CheckStateRole:
                 item = index.internalPointer()
-                return not self.tree_manager.is_selected_for_filtering(item)
+                return (
+                    0 if self.tree_manager.is_selected_for_filtering(item)
+                    else 2
+                )
             if role == QtCore.Qt.ItemDataRole.ForegroundRole:
                 item = index.internalPointer()
                 if self.tree_manager.is_filtered_out(item):
-                    return QtGui.QColor(150, 150, 150)
+                    return constants.INACTIVE_TEXT_COLOR
                 else:
-                    return QtGui.QColor(0, 0, 0)
+                    return constants.BASE_TEXT_COLOR
         return super(TaskCategoryModel, self).data(index, role)
+
+    def setData(self, index, value, role):
+        """Set data at given index to given value.
+
+        Implementing this method allows the tree model to be editable.
+
+        Args:
+            index (QtCore.QModelIndex): index of item we're setting data for.
+            value (QtCore.QVariant): value to set for data.
+            role (QtCore.Qt.Role): role we want to set data for.
+
+        Returns:
+            (bool): True if setting data was successful, else False.
+        """
+        if index.column() == 0 and role == QtCore.Qt.CheckStateRole:
+            if not index.isValid():
+                return False
+            item = index.internalPointer()
+            if not item:
+                return False
+            if self.tree_manager.is_selected_for_filtering(item):
+                self.tree_manager.unfilter_item(item)
+            else:
+                self.tree_manager.filter_item(item)
+            self.dataChanged.emit(index, index)
+            return True
+        return super(TaskCategoryModel, self).setData(index, value, role)
 
     def flags(self, index):
         """Get flags for given item item.
@@ -87,30 +119,3 @@ class TaskCategoryModel(BaseTreeModel):
                 QtCore.Qt.ItemFlag.ItemIsUserCheckable
             )
         return super(TaskCategoryModel, self).flags(index)
-
-    def setData(self, index, value, role):
-        """Set data at given index to given value.
-
-        Implementing this method allows the tree model to be editable.
-
-        Args:
-            index (QtCore.QModelIndex): index of item we're setting data for.
-            value (QtCore.QVariant): value to set for data.
-            role (QtCore.Qt.Role): role we want to set data for.
-
-        Returns:
-            (bool): True if setting data was successful, else False.
-        """
-        if index.column() == 0 and role == QtCore.Qt.CheckStateRole:
-            if not index.isValid():
-                return False
-            item = index.internalPointer()
-            if not item:
-                return False
-            if self.tree_manager.is_selected_for_filtering(item):
-                self.tree_manager.unfilter_item(item)
-            else:
-                self.tree_manager.filter_item(item)
-            self.dataChanged.emit(index, index)
-            return True
-        return super(TaskCategoryModel, self).setData(index, value, role)

@@ -26,7 +26,7 @@ class TaskWidget(QtWidgets.QTreeView):
         self.tab = tab
 
         # setup model and delegate
-        self.setItemDelegate(TaskDelegate(self))
+        # self.setItemDelegate(TaskDelegate(self))
         self.setFrameStyle(self.Shape.NoFrame)
         model = TaskModel(task_item, tab.tree_manager, parent)
         self.setModel(model)

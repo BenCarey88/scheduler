@@ -8,7 +8,6 @@ is being filtered for in the current tab.
 Data for each tree item is maintained via its unique id.
 """
 
-
 from scheduler.api.tree.filters import RemoveChildrenById
 
 

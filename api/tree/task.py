@@ -27,6 +27,12 @@ class TaskStatus():
     IN_PROGRESS = "In Progress"
     COMPLETE = "Complete"
 
+    NEXT_STATUS = {
+        UNSTARTED: IN_PROGRESS,
+        IN_PROGRESS: COMPLETE,
+        COMPLETE: UNSTARTED
+    }
+
 
 class Task(BaseTreeItem):
     """Class representing a generic task."""
@@ -103,7 +109,8 @@ class Task(BaseTreeItem):
             comment (str): comment to add to history if needed.
         """
         if date_time is None:
-            date_time = datetime.datetime.now().replace(microsecond=0)
+            date_time = datetime.datetime.now()
+        date_time = date_time.replace(microsecond=0)
         UpdateTaskHistoryEdit.create_and_run(
             self,
             date_time,

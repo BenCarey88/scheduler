@@ -2,18 +2,17 @@
 QLineEdit {
     background-color: white;
 }
-QTreeView::item:hover {
-    background: lightgray;
 
+/* QTreeView::item:hover {
+    background: lightgray;
 }
 QTreeView::item:selected {
-    color: black;
     background-color: lightskyblue;
     border: 1px solid #bfcde4;
 }
 QTreeView {
     show-decoration-selected: 0;
-}
+} */
 
 QTreeView::branch:open:has-children:!has-siblings {
     image: url(../icons/search.png);

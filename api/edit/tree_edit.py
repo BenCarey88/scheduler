@@ -2,9 +2,8 @@
 
 from collections import OrderedDict
 
-from ._base_edit import SelfInverseSimpleEdit
-from ._composite_edit import CompositeEdit
-from ._ordered_dict_edit import OrderedDictOp, OrderedDictEdit
+from ._core_edits import CompositeEdit, SelfInverseSimpleEdit
+from ._ordered_dict_edit import OrderedDictEdit, OrderedDictOp
 
 
 class BaseTreeEdit(CompositeEdit):
@@ -28,19 +27,18 @@ class BaseTreeEdit(CompositeEdit):
             register_edit=False,
         )
         if op_type == OrderedDictOp.RENAME:
+            self.diff_dict = diff_dict
             name_change_edit = SelfInverseSimpleEdit(
                 tree_item,
                 run_func=self._rename,
                 register_edit=False,
             )
             super(BaseTreeEdit, self).__init__(
-                [tree_item, tree_item._children]
                 [name_change_edit, ordered_dict_edit],
                 register_edit=register_edit,
             )
         else:
             super(BaseTreeEdit, self).__init__(
-                [tree_item._children]
                 [ordered_dict_edit],
                 register_edit=register_edit,
             )
@@ -158,7 +156,7 @@ class RenameChildrenEdit(BaseTreeEdit):
         Args:
             tree_item (BaseTreeItem): the tree item this edit is being run on.
             children_to_remove (dict(str, str)): dict of old names of children
-                and new ones to replace them with.
+                and new ones to replace them with. Can be ordered or not.
             register_edit (bool): whether or not to register this edit.
         """
         super(RenameChildrenEdit, self).__init__(
@@ -189,7 +187,8 @@ class ModifyChildrenEdit(BaseTreeEdit):
         Args:
             tree_item (BaseTreeItem): the tree item this edit is being run on.
             children_to_modify (dict(str, BaseTreeItem)): dict of names of
-                children and new tree items to replace them with.
+                children and new tree items to replace them with. Can be
+                ordered or not.
             register_edit (bool): whether or not to register this edit.
         """
         super(ModifyChildrenEdit, self).__init__(
@@ -219,7 +218,7 @@ class MoveChildrenEdit(BaseTreeEdit):
             children_to_move (dict(str, int)): dict of names of children to
                 move and new positions to move them to. This can be ordered or
                 not, depending on whether we care about which child is moved
-                first.
+                first. Can be ordered or not.
             register_edit (bool): whether or not to register this edit.
         """
         super(MoveChildrenEdit, self).__init__(
@@ -234,7 +233,7 @@ class MoveChildrenEdit(BaseTreeEdit):
             "Move children of {0}: [{1}]".format(
                 tree_item.path,
                 ",".join([
-                    "(" + key + " --> " + value[0] + ")"
+                    "(" + key + " --> " + value + ")"
                     for key, value in children_to_move.items()
                 ])
             )

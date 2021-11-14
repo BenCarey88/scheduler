@@ -2,7 +2,11 @@
 
 import unittest
 
-from .edit_test import OrderedDictEditTest, BaseTreeEditTest
+from .ordered_dict_edit_test import (
+    OrderedDictEditTest,
+    OrderedDictRecursiveEditTest
+)
+from .tree_edit_test import BaseTreeEditTest, TaskEditTest
 from .tree_test import TaskTreeTest
 
 

@@ -1,11 +1,15 @@
 """Task class."""
 
 from collections import OrderedDict
+import datetime
 from functools import partial
 import json
 import os
 
-from scheduler.api.edit.tree_edit import BaseTreeEdit, OrderedDictOp
+from scheduler.api.edit.task_edit import (
+    ChangeTaskTypeEdit,
+    UpdateTaskHistoryEdit
+)
 
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
@@ -53,7 +57,7 @@ class Task(BaseTreeItem):
         super(Task, self).__init__(name, parent)
         self.type = task_type or TaskType.GENERAL
         self.status = status or TaskStatus.UNSTARTED
-        self.history = history or TaskHistory()
+        self.history = history if history is not None else TaskHistory()
         self.allowed_child_types = [Task]
 
         # new attribute and method names for convenience
@@ -89,16 +93,24 @@ class Task(BaseTreeItem):
         """
         return self._children
 
-    def update_task(self, date_time, status, comment=None):
+    def update_task(self, status, date_time=None, comment=None):
         """Update task history and status.
 
         Args:
-            date (datetime.datetime): datetime object to update task with.
             status (TaskStatus): status to update task with.
+            date (datetime.datetimeor None): datetime object to update task
+                history with.
             comment (str): comment to add to history if needed.
         """
-        self.status = status
-        self.history.update(date_time, status, comment)
+        if date_time is None:
+            date_time = datetime.datetime.now().replace(microsecond=0)
+        UpdateTaskHistoryEdit.create_and_run(
+            self,
+            date_time,
+            status,
+            comment,
+            register_edit=self._register_edits,
+        )
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.
@@ -230,6 +242,9 @@ class TaskHistory(object):
     }
     """
 
+    STATUS_KEY = "status"
+    COMMENTS_KEY = "comments"
+
     def __init__(self, history_dict=None):
         """Initialise task history object.
 
@@ -246,18 +261,3 @@ class TaskHistory(object):
             (bool): False if dictionary is empty, else True.
         """
         return bool(self.dict)
-
-    # def update(self, date_time, status, comment=None):
-    #     """Update task history and status.
-
-    #     Args:
-    #         date (datetime.datetime): datetime object to update task with.
-    #         status (TaskStatus): status to update task with.
-    #         comment (str): comment to add to history if needed.
-    #     """
-    #     date = date_time.date()
-    #     date_entry = self.dict.setdefault(date, dict())
-    #     date_entry["status"] = status
-    #     if comment:
-    #         comments = date_entry.setdefault("comments", OrderedDict())
-    #         comments[date_time] = comment

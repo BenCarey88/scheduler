@@ -5,7 +5,14 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from uuid import uuid4
 
-from scheduler.api.edit.tree_edit import BaseTreeEdit, OrderedDictOp
+from scheduler.api.edit.tree_edit import (
+    AddChildrenEdit,
+    InsertChildrenEdit,
+    ModifyChildrenEdit,
+    MoveChildrenEdit,
+    RemoveChildrenEdit,
+    RenameChildrenEdit,
+)
 
 from .exceptions import (
     ChildNameError,
@@ -28,17 +35,6 @@ class BaseTreeItem(ABC):
         self._name = name
         self.parent = parent
         self._children = OrderedDict()
-        # TODO: delete this entire attribute? As we're now using the EDIT_LOG
-        # lock to decide whether or not to add edits. Unless we want to be
-        # able to lock for individual treed items? if can think of reason for
-        # that then we should keep it, otherwise can delete it from here and
-        # probably delete register_edit arg from edit objects.
-        #
-        # if want to keep, we need: on construction, register_edits is True if
-        # parent attr is true, AND add parent setter (and hence getter) to
-        # set it true if parents is true when setting parent, ie. anything
-        # that gets added to an editable tree is now user undoable - effectively
-        # I think we'd want undoability to be a property of the whole tree
         self._register_edits = True
         self.id = uuid4()
         # base class must be overridden, has no allowed child types.
@@ -70,12 +66,11 @@ class BaseTreeItem(ABC):
         if parent:
             if parent.get_child(new_name):
                 raise DuplicateChildNameError(parent.name, new_name)
-            name_edit = BaseTreeEdit(
-                diff_dict=OrderedDict([(self.name, new_name)]),
-                op_type=OrderedDictOp.RENAME,
+            RenameChildrenEdit.create_and_run(
+                self,
+                {self.name: new_name},
                 register_edit=self._register_edits,
             )
-            name_edit(parent)
 
     @contextmanager
     def filter_children(self, filters):
@@ -147,12 +142,11 @@ class BaseTreeItem(ABC):
         if child_type not in self.allowed_child_types:
             raise UnallowedChildType(self.__class__, child_type)
         child = child_type(name, parent=self, **kwargs)
-        add_child_edit = BaseTreeEdit(
-            diff_dict=OrderedDict([(name, child)]),
-            op_type=OrderedDictOp.ADD,
+        AddChildrenEdit.create_and_run(
+            self,
+            {name: child},
             register_edit=self._register_edits,
         )
-        add_child_edit(self)
         return child
 
     def create_new_child(
@@ -208,12 +202,11 @@ class BaseTreeItem(ABC):
                     child.name, child.parent.name, self.name
                 )
             )
-        add_child_edit = BaseTreeEdit(
-            diff_dict=OrderedDict([(child.name, child)]),
-            op_type=OrderedDictOp.ADD,
+        AddChildrenEdit.create_and_run(
+            self,
+            {child.name: child},
             register_edit=self._register_edits,
         )
-        add_child_edit(self)
 
     # TODO: task, category and root versions of this and the below
     # although also TODO: look at when these versions are used. They're neat
@@ -245,12 +238,11 @@ class BaseTreeItem(ABC):
                     child.name, child.parent.name, self.name
                 )
             )
-        insert_child_edit = BaseTreeEdit(
-            diff_dict=OrderedDict([(child.name, (index, child))]),
-            op_type=OrderedDictOp.INSERT,
+        InsertChildrenEdit.create_and_run(
+            self,
+            {child.name (index, child)},
             register_edit=self._register_edits,
         )
-        insert_child_edit(self)
 
     def replace_child(self, name, new_child):
         """Replace child at given name with new_child.
@@ -280,12 +272,11 @@ class BaseTreeItem(ABC):
                     new_child.name, new_child.parent.name, self.name
                 )
             )
-        replace_child_edit = BaseTreeEdit(
-            diff_dict=OrderedDict([(name, new_child)]),
-            op_type=OrderedDictOp.MODIFY,
+        ModifyChildrenEdit.create_and_run(
+            self,
+            {name: new_child},
             register_edit=self._register_edits,
         )
-        replace_child_edit(self)
 
     def create_sibling(self, name, **kwargs):
         """Create sibling item for self.
@@ -345,12 +336,11 @@ class BaseTreeItem(ABC):
             name (str): name of child item to remove.
         """
         if name in self._children.keys():
-            remove_child_edit = BaseTreeEdit(
-                diff_dict=OrderedDict([(name, None)]),
-                op_type=OrderedDictOp.REMOVE,
+            RemoveChildrenEdit.create_and_run(
+                self,
+                [name],
                 register_edit=self._register_edits,
             )
-            remove_child_edit(self)
 
     def remove_children(self, names):
         """Remove existing children from this item's children dict.
@@ -359,12 +349,11 @@ class BaseTreeItem(ABC):
             name (list(str)): name of child items to remove.
         """
         names = [name for name in names if name in self._children.keys()]
-        remove_children_edit = BaseTreeEdit(
-            diff_dict=OrderedDict([(name, None) for name in names]),
-            op_type=OrderedDictOp.REMOVE,
+        RemoveChildrenEdit.create_and_run(
+            self,
+            names,
             register_edit=self._register_edits,
         )
-        remove_children_edit(self)
 
     def change_child_tree_type(self, child_name, new_tree_class):
         """Attempt to change child tree class to a different tree class.

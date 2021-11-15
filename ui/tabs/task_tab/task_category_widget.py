@@ -43,7 +43,7 @@ class TaskCategoryWidget(QtWidgets.QWidget):
 
         # set font and size properties
         font = self.line_edit.font()
-        if recursive_depth == 0:
+        if isinstance(task_item, TaskCategory):
             font.setBold(True)
         font.setPointSize(12 - recursive_depth)
         self.line_edit.setFont(font)

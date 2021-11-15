@@ -9,7 +9,20 @@ Data for each tree item is maintained via its unique id.
 """
 
 from scheduler.api.tree.filters import RemoveChildrenById
+from scheduler.ui.constants import TASK_STATUS_CHECK_STATES
 
+
+# TODO: I think the current plan is to massively extend this class so that
+# most/all of the task operations done through the ui go through this class.
+# In service of this we should split this out into a separate tree_manager
+# directory, make a main tree manager class in it (defined in the __init__
+# or in another module and imported into the __init__) and then have that
+# own a separate filter_manager attribute that is effectively this class.
+# (Or maybe it could subclass the filter manager?)
+# basically there's gonna be a whole lot of functions (potentially a
+# reimplementation of almost everything from BaseTreeItem and its subclasses??)
+# so I want to spread it out if possible.
+# QUESTION: should we still do that extension? very much an open q.
 
 class TreeManager(object):
     """Tree manager class to maintain ui attributes for each tree item.

@@ -87,6 +87,30 @@ class EditLog(object):
             self._log.append(edit)
             return True
 
+    def get_log_text(self, long=True):
+        """Get string representation of all edits in edit log.
+
+        Args:
+            long (bool): if True, we get the descriptions of each edit as well
+                at their names.
+
+        Returns:
+            (str): edit log text.
+        """
+        edit_strings = []
+        title = "\n--------\nEDIT LOG\n--------\n\n"
+        if not self._log:
+            return "{0}[EMPTY]\n\n".format(title)
+        for edit in self._log:
+            edit_string = edit.name
+            if long:
+                edit_string += "\n\t{0}".format(edit.description)
+            edit_strings.append(edit_string)
+        return "{0}{1}\n--------\n\n".format(
+            title,
+            "\n\n".join(edit_strings)
+        )
+
 
 EDIT_LOG = EditLog()
 
@@ -104,3 +128,13 @@ def undo():
 def redo():
     """Run redo on edit log singleton."""
     EDIT_LOG.redo()
+
+
+def print_edit_log(long=True):
+    """Print out edit log, for easy debugging.
+
+    Args:
+        long (bool): if True, we print the descriptions of each edit as well
+            at their names.
+    """
+    print (EDIT_LOG.get_log_text(long))

@@ -3,6 +3,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree import filters
+from scheduler.api.tree.task import Task, TaskType
+from scheduler.api.tree.task_category import TaskCategory
 from ._base_tree_model import BaseTreeModel
 
 from scheduler.ui import constants
@@ -51,18 +53,26 @@ class TaskCategoryModel(BaseTreeModel):
         if not index.isValid():
             return QtCore.QVariant()
         if index.column() == 0:
-            if role == QtCore.Qt.CheckStateRole:
+            if role == QtCore.Qt.ItemDataRole.CheckStateRole:
                 item = index.internalPointer()
-                return (
-                    0 if self.tree_manager.is_selected_for_filtering(item)
-                    else 2
-                )
+                if item:
+                    return not self.tree_manager.is_selected_for_filtering(item)
             if role == QtCore.Qt.ItemDataRole.ForegroundRole:
                 item = index.internalPointer()
-                if self.tree_manager.is_filtered_out(item):
+                if item and self.tree_manager.is_filtered_out(item):
                     return constants.INACTIVE_TEXT_COLOR
-                else:
-                    return constants.BASE_TEXT_COLOR
+            if role == QtCore.Qt.ItemDataRole.FontRole:
+                item = index.internalPointer()
+                if item:
+                    if isinstance(item, TaskCategory):
+                        font = QtGui.QFont()
+                        font.setBold(True)
+                        return font
+                    if (isinstance(item, Task)
+                            and item.type == TaskType.ROUTINE):
+                        font = QtGui.QFont()
+                        font.setItalic(True)
+                        return font
         return super(TaskCategoryModel, self).data(index, role)
 
     def setData(self, index, value, role):

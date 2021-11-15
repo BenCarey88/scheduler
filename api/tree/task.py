@@ -61,17 +61,26 @@ class Task(BaseTreeItem):
             history (TaskHistory or None): task history, if exists.
         """
         super(Task, self).__init__(name, parent)
+        # self._type = task_type or TaskType.GENERAL
+        # self._status = status or TaskStatus.UNSTARTED
         self.type = task_type or TaskType.GENERAL
         self.status = status or TaskStatus.UNSTARTED
         self.history = history if history is not None else TaskHistory()
         self.allowed_child_types = [Task]
 
         # new attribute and method names for convenience
-        self.create_subtask = self.create_child
+        self.create_subtask = partial(
+            self.create_child,
+            #task_type=self.type
+        )
         self.create_new_subtask = partial(
             self.create_new_child,
-            default_name="subtask"
+            default_name="subtask",
+            #task_type=self.type,
         )
+        # TODO: task type stuff getting messy - if this attribute remains a
+        # thing, we should ensure that any child added through add_child has
+        # the same type.
         self.add_subtask = self.add_child
         self.create_sibling_task = self.create_sibling
         self.create_new_sibling_task = partial(
@@ -99,6 +108,73 @@ class Task(BaseTreeItem):
         """
         return self._children
 
+    # # TODO: should routine be subclass? If so will need to think about what
+    # # that means for the rest of the code.
+    # # TODO: need to work out how the following code will work with undo/redo
+    # # for the most part I expect it will only effect things between sessions
+    # # but should have a plan for it.
+    # @property
+    # def status(self):
+    #     """Get task status.
+
+    #     Implementing this as a getter allows us to reset status in the case of
+    #     routines, which are time based.
+
+    #     Returns:
+    #         (TaskStatus): current status.
+    #     """
+    #     if self.type == TaskType.ROUTINE:
+    #         date_completed = self.history.last_completed.date()
+    #         current_date = datetime.datetime.now().date()
+    #         if date_completed != current_date:
+    #             # TODO: should this update the task history too?
+    #             # probably not but really these statuses are not ideal
+    #             # for routines. Ultimately I do think routines need their
+    #             # own subclass, which may mean TaskTypes become unneeded.
+    #             self._status = TaskStatus.UNSTARTED
+    #     return self._status
+
+    # # TODO: do we need this? Currently status seter is used by edit class,
+    # # but that's a friend so is free to use _status, and other classes
+    # # shouldn't be setting this directly anyway.
+    # # does allow to set recursively though which we probably want down
+    # # the line.
+    # @status.setter
+    # def status(self, value):
+    #     """Set task status.
+
+    #     Args:
+    #         (TaskStatus): new status value.
+    #     """
+    #     self._status = value
+
+    # @property
+    # def type(self):
+    #     """Get task type.
+
+    #     Returns:
+    #         (TaskType): current status.
+    #     """
+    #     return self._type
+
+    # @type.setter
+    # def type(self, value):
+    #     """Set task type.
+
+    #     Also update type for all parents and children.
+
+    #     Args:
+    #         (TaskType): new type value.
+    #     """
+    #     self._type = value
+    #     parent = self.parent
+    #     while isinstance(parent, Task) and parent.type != value:
+    #         parent._type = value
+    #         parent = parent.parent
+    #     for subtask in self.get_all_subtasks():
+    #         if subtask.type != value:
+    #             subtask.type = value
+
     def update_task(self, status, date_time=None, comment=None):
         """Update task history and status.
 
@@ -118,6 +194,14 @@ class Task(BaseTreeItem):
             comment,
             register_edit=self._register_edits,
         )
+
+    def change_task_type(self, new_type):
+        """Change task type to new type.
+
+        Args:
+            new_type (TaskType): new type to change to.
+        """
+        ChangeTaskTypeEdit.create_and_run(self, new_type, self._register_edits)
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.
@@ -268,3 +352,15 @@ class TaskHistory(object):
             (bool): False if dictionary is empty, else True.
         """
         return bool(self.dict)
+
+    def last_completed(self):
+        """Get date that this task was last completed.
+
+        This is used in the case of routines.
+
+        Returns:
+            (datetime.datetime): date of last completion.
+        """
+        for date, status in reversed(self.dict.items()):
+            if status == TaskStatus.COMPLETE:
+                return date

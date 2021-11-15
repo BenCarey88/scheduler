@@ -6,7 +6,12 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants
-from scheduler.api.edit.edit_log import open_edit_registry, redo, undo
+from scheduler.api.edit.edit_log import (
+    open_edit_registry,
+    print_edit_log,
+    redo,
+    undo,
+)
 from scheduler.api.tree.task_root import TaskRoot
 
 from .tabs.task_tab import TaskTab
@@ -28,7 +33,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             constants.SCHEDULER_TASKS_DIRECTORY
         )
         open_edit_registry()
-        # self.tree_root.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
 
@@ -96,6 +100,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
                 self.undo()
             elif event.key() == QtCore.Qt.Key_Y:
                 self.redo()
+            # for debugging:
+            elif event.key() == QtCore.Qt.Key_P:
+                print_edit_log(long=True)
 
         elif modifiers == (QtCore.Qt.ControlModifier|QtCore.Qt.ShiftModifier):
             if event.key() == QtCore.Qt.Key_Z:
@@ -142,5 +149,5 @@ def run_application():
     app = QtWidgets.QApplication(sys.argv)
     set_style(app)
     window = SchedulerWindow()
-    window.show()
+    window.showMaximized()
     app.exec_()

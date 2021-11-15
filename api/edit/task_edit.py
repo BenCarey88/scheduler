@@ -29,8 +29,8 @@ class ChangeTaskTypeEdit(SelfInverseSimpleEdit):
         self._name = "ChangeTaskType ({0})".format(task_item.name)
         self._description = "Change task type of {0} ({1} --> {2})".format(
             task_item.path,
-            self.original_type,
-            self.new_type,
+            orig_type,
+            new_type,
         )
 
 
@@ -84,4 +84,10 @@ class UpdateTaskHistoryEdit(CompositeEdit):
         super(UpdateTaskHistoryEdit, self).__init__(
             [change_status_edit, history_edit],
             register_edit=register_edit,
+        )
+        self._name = "UpdateTaskHistory ({0})".format(task_item.name)
+        self._description = "Update task status of {0} ({1} --> {2})".format(
+            task_item.path,
+            orig_status,
+            new_status,
         )

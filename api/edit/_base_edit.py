@@ -35,7 +35,7 @@ class BaseEdit(object):
         self._registered = False
         self._has_been_done = False
         self._name = "Unnamed Edit"
-        self._description = "Unnamed Edit Description"
+        self._description = ""
 
     @classmethod
     def create_and_run(cls, *args, **kwargs):
@@ -123,7 +123,7 @@ class BaseEdit(object):
         return self._name
 
     @property
-    def desrciption(self):
+    def description(self):
         """Get description of edit to be used in edit log descriptions.
 
         Returns:

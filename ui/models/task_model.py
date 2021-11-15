@@ -60,21 +60,25 @@ class TaskModel(BaseTreeModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        item = index.internalPointer()
-        if item:
-            if index.column() == 0:
-                if role == QtCore.Qt.ItemDataRole.ForegroundRole:
+        if index.column() == 0:
+            if role == QtCore.Qt.ItemDataRole.ForegroundRole:
+                item = index.internalPointer()
+                if item:
                     return constants.TASK_STATUS_COLORS.get(
                         item.status
                     )
-                if role == QtCore.Qt.ItemDataRole.FontRole:
+            if role == QtCore.Qt.ItemDataRole.FontRole:
+                item = index.internalPointer()
+                if item:
                     if (item.status == TaskStatus.COMPLETE
                             or item.status == TaskStatus.IN_PROGRESS):
                         font = QtGui.QFont()
                         font.setBold(True)
                         return font
-            if index.column() == 1:
-                if role == QtCore.Qt.ItemDataRole.CheckStateRole:
+        if index.column() == 1:
+            if role == QtCore.Qt.ItemDataRole.CheckStateRole:
+                item = index.internalPointer()
+                if item:
                     return constants.TASK_STATUS_CHECK_STATES.get(
                         item.status
                     )

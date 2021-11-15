@@ -134,7 +134,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             return QtCore.QVariant()
         if index.column() == 0 and role == QtCore.Qt.ItemDataRole.DisplayRole:
             item = index.internalPointer()
-            return item.name
+            if item:
+                return item.name
         return QtCore.QVariant()
         # return self.get_item_role(item, role)
 

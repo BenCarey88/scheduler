@@ -72,26 +72,6 @@ class BaseTreeItem(ABC):
                 register_edit=self._register_edits,
             )
 
-    @contextmanager
-    def filter_children(self, filters):
-        """Contextmanager to filter _children dict temporarily.
-
-        This uses the child filters defined in the filters module.
-
-        Args:
-            filters (list(BaseFilter)): types of filtering required.
-        """
-        _children = self._children
-        try:
-            for child_filter in filters:
-                self._children = child_filter.filter_function(
-                    self._children,
-                    self
-                )
-            yield
-        finally:
-            self._children = _children
-
     @property
     def path_list(self):
         """Get path to self from root tree item as list.
@@ -113,12 +93,33 @@ class BaseTreeItem(ABC):
         Returns:
             (str): path with names of all ancestors.
         """
-        return "|".join(self.path_list)
+        return "/".join(self.path_list)
+
+    @contextmanager
+    def filter_children(self, filters):
+        """Contextmanager to filter _children dict temporarily.
+
+        This uses the child filters defined in the filters module.
+
+        Args:
+            filters (list(BaseFilter)): types of filtering required.
+        """
+        _children = self._children
+        try:
+            for child_filter in filters:
+                self._children = child_filter.filter_function(
+                    self._children,
+                    self
+                )
+            yield
+        finally:
+            self._children = _children
 
     def create_child(
             self,
             name,
             child_type=None,
+            index=None,
             **kwargs):
         """Create child item and add to children dict.
 
@@ -126,10 +127,13 @@ class BaseTreeItem(ABC):
             name (str): name of child.
             child_type (class or None): class to use for child init. If None,
                 use current class.
+            index (int or None): if given, insert child at given index, else
+                add at end of _children dict.
             **kwargs: kwargs to be passed to child init.
 
         Raises:
-            (DuplicateChildNameError): if a child with given name already exists.
+            (DuplicateChildNameError): if a child with given name already
+                exists.
             (UnallowedChildType): if the child_type is not allowed.
 
         Returns:
@@ -142,9 +146,13 @@ class BaseTreeItem(ABC):
         if child_type not in self.allowed_child_types:
             raise UnallowedChildType(self.__class__, child_type)
         child = child_type(name, parent=self, **kwargs)
-        AddChildrenEdit.create_and_run(
+        if index is None:
+            index = len(self._children)
+        if index > len(self._children):
+            raise IndexError("Index given is larger than number of children.")
+        InsertChildrenEdit.create_and_run(
             self,
-            {name: child},
+            {name: (index, child)},
             register_edit=self._register_edits,
         )
         return child
@@ -153,6 +161,7 @@ class BaseTreeItem(ABC):
             self,
             default_name="child",
             child_type=None,
+            index=None,
             **kwargs):
         """Create a new child with a default name.
 
@@ -164,6 +173,8 @@ class BaseTreeItem(ABC):
                 the number).
             child_type (class or None): class to use for child init. If None,
                 use current class.
+            index (int or None): if given, insert child at given index, else
+                add at end of _children dict.
             **kwargs: kwargs to be passed to child init.
 
         Returns:
@@ -176,17 +187,21 @@ class BaseTreeItem(ABC):
         return self.create_child(
             default_name + str(suffix).zfill(3),
             child_type,
+            index=index,
             **kwargs
         )
 
-    def add_child(self, child):
+    def add_child(self, child, index=None):
         """Add an existing child to this item's children dict.
 
         Args:
             child (BaseTreeItem): child item to add.
+            index (int or None): if given, insert child at given index, else
+                add at end of _children dict.
 
         Raises:
-            (DuplicateChildNameError): if a child with given name already exists.
+            (DuplicateChildNameError): if a child with given name already
+                exists.
             (MultipleParentsError): if the child has a different tree item as
                 a parent.
         """
@@ -202,45 +217,98 @@ class BaseTreeItem(ABC):
                     child.name, child.parent.name, self.name
                 )
             )
-        AddChildrenEdit.create_and_run(
+        if index is None:
+            index = len(self._children)
+        if index > len(self._children):
+            raise IndexError("Index given is larger than number of children.")
+        InsertChildrenEdit.create_and_run(
             self,
-            {child.name: child},
+            {child.name: (index, child)},
             register_edit=self._register_edits,
         )
 
-    # TODO: task, category and root versions of this and the below
-    # although also TODO: look at when these versions are used. They're neat
-    # but also really frustrating to keep up to date, is there an argument
-    # for deprecating at least most of them?
-    # also TODO: neaten up repeated code between this and the add_child
-    # methods. OR: better still add this all as part of add_child code
-    def insert_child(self, child, index):
-        """Insert existing child to this item's children dict at given index.
+    def create_sibling(self, name, index=None, **kwargs):
+        """Create sibling item for self.
 
         Args:
-            child (BaseTreeItem): child item to insert.
-            index (int): index to insert at.
+            name (str): the name of the sibling.
+            index (int or None): if given, insert sibling at given index, else
+                add at end of _children dict.
+            **kwargs: kwargs to be passed to sibling init.
 
-        Raises:
-            (DuplicateChildNameError): if a child with given name already exists.
-            (MultipleParentsError): if the child has a different tree item as
-                a parent.
+        Returns:
+            (BaseTreeItem or None): newly created sibling, if one could be
+                created, else None. In subclasses, this will use the type
+                of the subclass.
         """
-        if child.name in self._children:
-            raise DuplicateChildNameError(self.name, child.name)
-        if type(child) not in self.allowed_child_types:
-            raise UnallowedChildType(self.__class__, type(child))
-        if not child.parent:
-            child.parent = self
-        if child.parent != self:
-            raise MultipleParentsError(
-                "child {0} has incorrect parent: {1} instead of {2}".format(
-                    child.name, child.parent.name, self.name
-                )
+        if not self.parent:
+            return None
+        return self.parent.create_child(
+            name,
+            child_type=self.__class__,
+            index=index,
+            **kwargs
+        )
+
+    def create_new_sibling(self, default_name="sibling", index=None, **kwargs):
+        """Create sibling item for self.
+
+        Args:
+            default_name (str): the default name to use (before appending
+                the number).
+            index (int or None): if given, insert sibling at given index, else
+                add at end of _children dict.
+            **kwargs: kwargs to be passed to sibling init.
+
+        Returns:
+            (BaseTreeItem or None): newly created sibling, if one could be
+                created, else None. In subclasses, this will use the type
+                of the subclass.
+        """
+        if not self.parent:
+            return None
+        return self.parent.create_new_child(
+            default_name,
+            child_type=self.__class__,
+            index=index,
+            **kwargs
+        )
+
+    def add_sibling(self, sibling, index=None):
+        """Add sibling item for self.
+
+        Args:
+            sibling (BaseTreeItem): the sibling to add.
+            index (int or None): if given, insert sibling at given index, else
+                add at end of _children dict.
+        """
+        if not self.parent:
+            return
+        self.parent.add_child(sibling, index=index)
+
+    def remove_child(self, name):
+        """Remove an existing child from this item's children dict.
+
+        Args:
+            name (str): name of child item to remove.
+        """
+        if name in self._children.keys():
+            RemoveChildrenEdit.create_and_run(
+                self,
+                [name],
+                register_edit=self._register_edits,
             )
-        InsertChildrenEdit.create_and_run(
+
+    def remove_children(self, names):
+        """Remove existing children from this item's children dict.
+
+        Args:
+            name (list(str)): name of child items to remove.
+        """
+        names = [name for name in names if name in self._children.keys()]
+        RemoveChildrenEdit.create_and_run(
             self,
-            {child.name (index, child)},
+            names,
             register_edit=self._register_edits,
         )
 
@@ -275,83 +343,6 @@ class BaseTreeItem(ABC):
         ModifyChildrenEdit.create_and_run(
             self,
             {name: new_child},
-            register_edit=self._register_edits,
-        )
-
-    def create_sibling(self, name, **kwargs):
-        """Create sibling item for self.
-
-        Args:
-            name (str): the name of the sibling.
-            **kwargs: kwargs to be passed to sibling init.
-
-        Returns:
-            (BaseTreeItem or None): newly created sibling, if one could be
-                created, else None. In subclasses, this will use the type
-                of the subclass.
-        """
-        if not self.parent:
-            return None
-        return self.parent.create_child(
-            name,
-            child_type=self.__class__,
-            **kwargs
-        )
-
-    def create_new_sibling(self, default_name="sibling", **kwargs):
-        """Create sibling item for self.
-
-        Args:
-            default_name (str): the default name to use (before appending
-                the number).
-            **kwargs: kwargs to be passed to sibling init.
-
-        Returns:
-            (BaseTreeItem or None): newly created sibling, if one could be
-                created, else None. In subclasses, this will use the type
-                of the subclass.
-        """
-        if not self.parent:
-            return None
-        return self.parent.create_new_child(
-            default_name,
-            child_type=self.__class__,
-            **kwargs
-        )
-
-    def add_sibling(self, sibling):
-        """Add sibling item for self.
-
-        Args:
-            sibling (BaseTreeItem): the sibling to add.
-        """
-        if not self.parent:
-            return
-        self.parent.add_child(sibling)
-
-    def remove_child(self, name):
-        """Remove an existing child from this item's children dict.
-
-        Args:
-            name (str): name of child item to remove.
-        """
-        if name in self._children.keys():
-            RemoveChildrenEdit.create_and_run(
-                self,
-                [name],
-                register_edit=self._register_edits,
-            )
-
-    def remove_children(self, names):
-        """Remove existing children from this item's children dict.
-
-        Args:
-            name (list(str)): name of child items to remove.
-        """
-        names = [name for name in names if name in self._children.keys()]
-        RemoveChildrenEdit.create_and_run(
-            self,
-            names,
             register_edit=self._register_edits,
         )
 
@@ -459,9 +450,3 @@ class BaseTreeItem(ABC):
             (bool): True if this is a leaf, else False.
         """
         return not bool(self._children)
-
-    def open_edit_registry(self):
-        """Set all children editable so that users can undo and redo edits."""
-        self._register_edits = True
-        for child in self.get_all_children():
-            child.open_edit_registry()

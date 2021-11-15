@@ -112,7 +112,7 @@ class InsertChildrenEdit(BaseTreeEdit):
             "Insert children to {0}: [{1}]".format(
                 tree_item.path,
                 ",".join([
-                    "(" + key + " --> " + value[0] + ")"
+                    "(" + key + " --> " + str(value[0]) + ")"
                     for key, value in children_to_insert.items()
                 ])
             )
@@ -233,7 +233,7 @@ class MoveChildrenEdit(BaseTreeEdit):
             "Move children of {0}: [{1}]".format(
                 tree_item.path,
                 ",".join([
-                    "(" + key + " --> " + value + ")"
+                    "(" + key + " --> " + str(value) + ")"
                     for key, value in children_to_move.items()
                 ])
             )

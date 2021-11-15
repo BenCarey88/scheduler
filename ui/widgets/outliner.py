@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import Task
+from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.task_root import TaskRoot
 from scheduler.ui.models.task_category_model import TaskCategoryModel
@@ -163,12 +163,20 @@ class Outliner(QtWidgets.QTreeView):
                     self.MODEL_UPDATED_SIGNAL.emit()
 
         elif modifiers == QtCore.Qt.ControlModifier:
-            # ctrl+plus: add new child
+            # ctrl+plus: add new task
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 current_item = self._get_current_item()
-                if (current_item 
+                if (current_item
                         and type(current_item) in [TaskCategory, TaskRoot]):
                     current_item.create_new_task()
+                    self.update()
+                    self.MODEL_UPDATED_SIGNAL.emit()
+            # ctrl+asterisk: add new subcategory
+            if event.key() in (QtCore.Qt.Key_Asterisk, QtCore.Qt.Key_8):
+                current_item = self._get_current_item()
+                if (current_item
+                        and type(current_item) in [TaskCategory, TaskRoot]):
+                    current_item.create_new_subcategory()
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+del: force remove item
@@ -180,6 +188,20 @@ class Outliner(QtWidgets.QTreeView):
                     # note we reset model rather than update here
                     # as we don't want to keep selection
                     self.reset_view()
+                    self.MODEL_UPDATED_SIGNAL.emit()
+            # ctrl+r: switch task to routine
+            if event.key() == QtCore.Qt.Key_R:
+                current_item = self._get_current_item()
+                if current_item and isinstance(current_item, Task):
+                    current_item.change_task_type(TaskType.ROUTINE)
+                    self.update()
+                    self.MODEL_UPDATED_SIGNAL.emit()
+            # ctrl+g: switch task to general
+            if event.key() == QtCore.Qt.Key_G:
+                current_item = self._get_current_item()
+                if current_item and isinstance(current_item, Task):
+                    current_item.change_task_type(TaskType.GENERAL)
+                    self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
 
         elif modifiers == QtCore.Qt.ShiftModifier:

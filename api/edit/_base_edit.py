@@ -107,7 +107,7 @@ class BaseEdit(object):
         """Redo the edit function."""
         if self._has_been_done:
             raise EditError(
-                "Can't call redo on edit that's not been undone"
+                "Can't call redo on edit that's not been undone."
             )
         self._run()
         self._has_been_done = True
@@ -118,7 +118,8 @@ class BaseEdit(object):
         
         Returns:
             (str): name of edit. This should be reimplemented in any subclasses
-                that clients will actually call directly.
+                that clients will actually call directly (or they can just
+                redefine self._name).
         """
         return self._name
 
@@ -128,6 +129,7 @@ class BaseEdit(object):
 
         Returns:
             (str): description of edit. This should be reimplemented in any
-                subclasses that clients will actually call directly.
+                subclasses that clients will actually call directly (or they
+                can just redefine self._description).
         """
         return self._description

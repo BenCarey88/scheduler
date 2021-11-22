@@ -120,12 +120,16 @@ class TaskCategoryModel(BaseTreeModel):
                 return (
                     QtCore.Qt.ItemFlag.ItemIsSelectable |
                     QtCore.Qt.ItemFlag.ItemIsEditable |
-                    QtCore.Qt.ItemFlag.ItemIsUserCheckable
+                    QtCore.Qt.ItemFlag.ItemIsUserCheckable |
+                    QtCore.Qt.ItemFlag.ItemIsDragEnabled |
+                    QtCore.Qt.ItemFlag.ItemIsDropEnabled
                 )
             return (
                 QtCore.Qt.ItemFlag.ItemIsEnabled |
                 QtCore.Qt.ItemFlag.ItemIsSelectable |
                 QtCore.Qt.ItemFlag.ItemIsEditable |
-                QtCore.Qt.ItemFlag.ItemIsUserCheckable
+                QtCore.Qt.ItemFlag.ItemIsUserCheckable |
+                QtCore.Qt.ItemFlag.ItemIsDragEnabled |
+                QtCore.Qt.ItemFlag.ItemIsDropEnabled
             )
         return super(TaskCategoryModel, self).flags(index)

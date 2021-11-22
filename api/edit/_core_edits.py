@@ -63,7 +63,11 @@ class SelfInverseSimpleEdit(SimpleEdit):
 class CompositeEdit(BaseEdit):
     """Edit made up of a combination of other edit types."""
 
-    def __init__(self, edits_list, register_edit=True):
+    def __init__(
+            self,
+            edits_list,
+            reverse_order_for_inverse=True,
+            register_edit=True):
         """Initialize composite edit.
 
         The edits passed to the edits_list must have their register flag
@@ -71,6 +75,8 @@ class CompositeEdit(BaseEdit):
 
         Args:
             edits_list (list(BaseEdit)): list of edits to compose.
+            inverse_order (bool): if True, we reverse the order of the edits
+                for the inverse.
             reigster_edit (bool): whether or not to register this edit.
         """
         super(CompositeEdit, self).__init__(register_edit)
@@ -82,6 +88,7 @@ class CompositeEdit(BaseEdit):
                     "been run."
                 )
         self.edits_list = edits_list
+        self.reverse_order_for_inverse = reverse_order_for_inverse
 
     def _run(self):
         """Run each edit in turn."""
@@ -90,5 +97,9 @@ class CompositeEdit(BaseEdit):
 
     def _inverse_run(self):
         """Run in each inverse edit in reverse order or edits_list."""
-        for edit in reversed(self.edits_list):
+        if self.reverse_order_for_inverse:
+            inverse_edits_list = reversed(self.edits_list)
+        else:
+            inverse_edits_list = self.edits_list
+        for edit in inverse_edits_list:
             edit._inverse_run()

@@ -28,16 +28,19 @@ class Outliner(QtWidgets.QTreeView):
         """
         super(Outliner, self).__init__(parent)
 
+        self.tree_manager = tree_manager
         self.root = tree_root
-        self._model = TaskCategoryModel(self.root, tree_manager, self)
-        self._model.dataChanged.connect(
-            self.MODEL_UPDATED_SIGNAL.emit
-        )
+
+        self._model = TaskCategoryModel(self.root, self.tree_manager, self)
         self._model.dataChanged.connect(
             self.update
         )
+        self._model.dataChanged.connect(
+            self.MODEL_UPDATED_SIGNAL.emit
+        )
+        self.setModel(self._model)
 
-        self.reset_view()
+        self.reset_view(False)
         self.setHeaderHidden(True)
         self.header().setStretchLastSection(False)
         self.header().setSectionResizeMode(
@@ -45,15 +48,21 @@ class Outliner(QtWidgets.QTreeView):
         )
         self.header().resizeSection(1, 1)
         self.setItemsExpandable(False)
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
+        self.setDragEnabled(True)
+        self.setDropIndicatorShown(True)
+        self.viewport().setAcceptDrops(True)
+
         self.allow_key_events = True
 
-        # self.setSelectionMode(
-        #     QtWidgets.QAbstractItemView.SelectionMode.MultiSelection
-        # )
+        self.selectionModel().currentChanged.connect(
+            self.CURRENT_CHANGED_SIGNAL.emit
+        )
         self.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
         )
 
+    # TODO: rename update in all views, as it conflicts with standard qt function
     def update(self):
         """Update view to pick up changes in model."""
         self.reset_view(keep_selection=True)
@@ -95,19 +104,19 @@ class Outliner(QtWidgets.QTreeView):
             selected_items = self._get_selected_items()
             current_item = self._get_current_item()
 
-        # force update of model by calling setModel
-        old_selection_model = self.selectionModel()
-        self.setModel(self._model)
-        del old_selection_model
-        self.selectionModel().currentChanged.connect(
-            self.CURRENT_CHANGED_SIGNAL.emit
-        )
+        # TODO: This is just for debugging, remove later
+        dodgy_parents = self.root.get_descendants_with_incorrect_parents()
+        if dodgy_parents:
+            print (dodgy_parents)
+
         # force update of view by calling expandAll
+        # TODO: Maybe when we've renamed the update function this can call the
+        # original update method?
         self.expandAll()
 
         for item in selected_items:
             item_row = item.index()
-            if not item_row:
+            if item_row is None:
                 continue
             index = self._model.createIndex(
                 item_row,
@@ -122,7 +131,7 @@ class Outliner(QtWidgets.QTreeView):
             )
         if current_item:
             item_row = current_item.index()
-            if item_row:
+            if item_row is not None:
                 index = self._model.createIndex(
                     item_row,
                     0,
@@ -166,13 +175,13 @@ class Outliner(QtWidgets.QTreeView):
             # ctrl+plus: add new task
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 current_item = self._get_current_item()
-                if (current_item
-                        and type(current_item) in [TaskCategory, TaskRoot]):
-                    current_item.create_new_task()
-                    self.update()
-                    self.MODEL_UPDATED_SIGNAL.emit()
+                if current_item:
+                    if isinstance(current_item, (TaskCategory, TaskRoot)):
+                        current_item.create_new_task()
+                        self.update()
+                        self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+asterisk: add new subcategory
-            if event.key() in (QtCore.Qt.Key_Asterisk, QtCore.Qt.Key_8):
+            elif event.key() in (QtCore.Qt.Key_Asterisk, QtCore.Qt.Key_8):
                 current_item = self._get_current_item()
                 if (current_item
                         and type(current_item) in [TaskCategory, TaskRoot]):
@@ -180,7 +189,7 @@ class Outliner(QtWidgets.QTreeView):
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+del: force remove item
-            if event.key() == QtCore.Qt.Key_Delete:
+            elif event.key() == QtCore.Qt.Key_Delete:
                 selected_items = self._get_selected_items()
                 if selected_items:
                     for item in selected_items:
@@ -190,14 +199,14 @@ class Outliner(QtWidgets.QTreeView):
                     self.reset_view()
                     self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+r: switch task to routine
-            if event.key() == QtCore.Qt.Key_R:
+            elif event.key() == QtCore.Qt.Key_R:
                 current_item = self._get_current_item()
                 if current_item and isinstance(current_item, Task):
                     current_item.change_task_type(TaskType.ROUTINE)
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+g: switch task to general
-            if event.key() == QtCore.Qt.Key_G:
+            elif event.key() == QtCore.Qt.Key_G:
                 current_item = self._get_current_item()
                 if current_item and isinstance(current_item, Task):
                     current_item.change_task_type(TaskType.GENERAL)

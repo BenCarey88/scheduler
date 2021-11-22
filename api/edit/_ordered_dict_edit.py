@@ -228,6 +228,15 @@ class OrderedDictEdit(BaseEdit):
             if index < 0 or index > len(ordered_dict):
                 return
             new_value = value_tuple[1]
+            # TODO: Question: is it safer to allow indexes of > len(ordered_dict)
+            # or leave it up to clients of this edit to ensure that they don't give
+            # indexes that high.
+            # further q, is it safer to raise errors in edit classes when edit can't be
+            # performed? Or at least, maybe we should return false? Then there could be
+            # something done with composite edits where we raise an error/don't do
+            # the edit if one of the subedits can't be done.
+            # But then there's still q of what to do if part of edit can be done. So
+            # maybe the error is easiest.
             if index == len(ordered_dict):
                 ordered_dict[key] = new_value
             else:

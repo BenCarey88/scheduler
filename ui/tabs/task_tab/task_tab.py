@@ -30,8 +30,9 @@ class TaskTab(BaseTab):
         )
         self.task_widget_tree = OrderedDict()
         self.category_widget_tree = OrderedDict()
-        self._active_task_path = None
+        self._active_task_id = None
         self.selected_subtask_item = None
+        self.selected_task_item = None
         self._fill_main_view()
         self._fill_scroll_area()
 
@@ -47,11 +48,11 @@ class TaskTab(BaseTab):
         """
         scroll_value = self.scroll_area.verticalScrollBar().value()
         _selected_subtask_item = None
-        _active_task_path = None
+        _active_task_id = None
         if self.selected_subtask_item:
             _selected_subtask_item = self.selected_subtask_item
-        if self._active_task_path:
-            _active_task_path = self._active_task_path
+        if self._active_task_id:
+            _active_task_id = self._active_task_id
 
         self.task_widget_tree = OrderedDict()
         self.category_widget_tree = OrderedDict()
@@ -59,8 +60,8 @@ class TaskTab(BaseTab):
         self._fill_main_view()
         self._fill_scroll_area(scroll_value)
 
-        if _active_task_path and _selected_subtask_item:
-            self._active_task_path = _active_task_path
+        if _active_task_id and _selected_subtask_item:
+            self._active_task_id = _active_task_id
             self.selected_subtask_item = _selected_subtask_item
             if self.active_task_widget:
                 self.active_task_widget.select_subtask_item()
@@ -106,7 +107,7 @@ class TaskTab(BaseTab):
         if scroll_value:
             self.scroll_area.verticalScrollBar().setValue(scroll_value)
 
-    def switch_active_task_widget(self, task_item_path, new_index, old_index):
+    def switch_active_task_widget(self, task_item_id, new_index, old_index):
         """Change active task widget to new one.
 
         This is called whenever an item from a task widget is selected.
@@ -117,14 +118,13 @@ class TaskTab(BaseTab):
         as attributes can result in trying to access a deleted widget.
 
         Args:
-            task_item_path (str): path of task whose widget we should set
-                as active.
+            task_item_id (str): id of task whose widget we should set active.
             new_index (QtCore.QModelIndex): index of new task model item.
             old_index (QtCore.QModelIndex): index of old task model item.
         """
         if self.active_task_widget:
             self.active_task_widget.selectionModel().clearSelection()
-        self._active_task_path = task_item_path
+        self._active_task_id = task_item_id
         selected_subtask_item = new_index.internalPointer()
         if selected_subtask_item:
             self.selected_subtask_item  = selected_subtask_item
@@ -136,8 +136,23 @@ class TaskTab(BaseTab):
         Returns:
             (TaskWidget or None): active task widget.
         """
-        if self._active_task_path:
-            return self.task_widget_tree.get(self._active_task_path, None)
+        if self._active_task_id:
+            return self.task_widget_tree.get(self._active_task_id, None)
+        return None
+
+    # TODO: change name to task_header_widget
+    @property
+    def active_category_widget(self):
+        """Get active task category (or top-level task) widget.
+
+        Returns:
+            (TaskWidget or None): active task/task category widget.
+        """
+        if self.selected_task_item:
+            return self.category_widget_tree.get(
+                self.selected_task_item.id,
+                None,
+            )
         return None
 
     def scroll_to_task(self, new_index, old_index):
@@ -193,6 +208,13 @@ class TaskTab(BaseTab):
                 if self.selected_subtask_item:
                     self.selected_subtask_item.create_new_subtask()
                     self.update()
+                elif self.selected_task_item:
+                    self.selected_task_item.create_new_subtask()
+                    self.update()
+                    # Ignore dodgy naming, active cat widget can be a top-level task
+                    task_widget = self.active_category_widget
+                    if task_widget:
+                        task_widget.setFocus(True)
             # ctrl+del: force remove item
             if event.key() == QtCore.Qt.Key_Delete:
                 if self.selected_subtask_item:

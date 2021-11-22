@@ -39,6 +39,7 @@ class TaskCategoryWidget(QtWidgets.QWidget):
         self.outer_layout.addLayout(self.inner_layout)
         self.line_edit = QtWidgets.QLineEdit(self.task_item.name)
         self.line_edit.setFrame(False)
+        self.line_edit.installEventFilter(self)
         self.inner_layout.addWidget(self.line_edit)
 
         # set font and size properties
@@ -94,3 +95,18 @@ class TaskCategoryWidget(QtWidgets.QWidget):
             self.tab.MODEL_UPDATED_SIGNAL.emit()
         except Exception:
             self.line_edit.setText(self.task_item.name)
+
+    def eventFilter(self, object, event):
+        """Event filter for when object is clicked.
+
+        Args:
+            object (QtCore.QObject): QObject that event is happening on.
+            event (QtCore.QEvent): event that is happening.
+        """
+        if object == self.line_edit and event.type() == QtCore.QEvent.FocusIn:
+            if isinstance(self.task_item, Task):
+                self.tab.selected_subtask_item = None
+                self.tab.selected_task_item = self.task_item
+        if object == self.line_edit and event.type() == QtCore.QEvent.FocusOut:
+            self.tab.selected_task_item = None
+        return False

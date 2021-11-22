@@ -25,6 +25,8 @@ from .exceptions import (
 class BaseTreeItem(ABC):
     """Base class representing a tree item."""
 
+    TREE_PATH_SEPARATOR = "/"
+
     def __init__(self, name, parent=None):
         """Initialise tree item class.
 
@@ -39,6 +41,21 @@ class BaseTreeItem(ABC):
         self.id = uuid4()
         # base class must be overridden, has no allowed child types.
         self.allowed_child_types = []
+
+    # TODO: this is only here so it can be accessed in the drag-drop stuff to find
+    # the root of any model bc we're into the super-hacky just get something that
+    # works stage of release1. We can probably remove this function (and maybe
+    # replace some of that functionality with the tree manager?)
+    @property
+    def root(self):
+        """Get root of tree.
+
+        Returns:
+            (TaskRoot): root tree item.
+        """
+        if self.parent:
+            return self.parent.root
+        return self
 
     @property
     def name(self):
@@ -67,7 +84,7 @@ class BaseTreeItem(ABC):
             if parent.get_child(new_name):
                 raise DuplicateChildNameError(parent.name, new_name)
             RenameChildrenEdit.create_and_run(
-                self,
+                parent,
                 {self.name: new_name},
                 register_edit=self._register_edits,
             )
@@ -93,7 +110,7 @@ class BaseTreeItem(ABC):
         Returns:
             (str): path with names of all ancestors.
         """
-        return "/".join(self.path_list)
+        return self.TREE_PATH_SEPARATOR.join(self.path_list)
 
     @contextmanager
     def filter_children(self, filters):
@@ -450,3 +467,58 @@ class BaseTreeItem(ABC):
             (bool): True if this is a leaf, else False.
         """
         return not bool(self._children)
+
+    def is_ancestor(self, other_tree_item):
+        """Check if this item is an ancestor of another item.
+
+        Args:
+            other_tree_item (BaseTreeItem): other tree item to compare to.
+
+        Returns:
+            (bool): True if this is an ancestor of other_tree_item.
+        """
+        return other_tree_item.path.startswith(self.path)
+
+    def get_descendants_with_incorrect_parents(
+            self,
+            parent=None,
+            incorrect_children_list=None,
+            check_self=False):
+        """Find any descendants with missing / incorrect parents.
+
+        Useful for debugging purposes.
+
+        Args:
+            check_self (bool): if True, check if this has correct parent too.
+            parent (BaseTreeItem): parent to check against, if one exists.
+            incorrect_children_list (list): list of children with missing
+                or incorrect parents.
+
+        Returns:
+            (list(str)): list of names of descendents with missing or incorrect
+                parents.
+        """
+        if incorrect_children_list is None:
+            incorrect_children_list = []
+        if check_self and self.parent != parent:
+            incorrect_children_list.append(self.name)
+        for child in self.get_all_children():
+            child.get_descendants_with_incorrect_parents(
+                parent=self,
+                incorrect_children_list=incorrect_children_list,
+                check_self=True,
+            )
+        return incorrect_children_list
+
+    def print(self, include_children=True, depth=0):
+        """Print tree item, for debugging purposes.
+
+        Args:
+            include_children (bool): if True, print descendants as well.
+            depth (int): recursive depth of function, usedd to determine
+                indentation.
+        """
+        print (depth * "    ", self.name)
+        if include_children:
+            for child in self.get_all_children():
+                child.print(True, depth + 1)

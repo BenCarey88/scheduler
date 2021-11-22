@@ -106,7 +106,7 @@ class EditLog(object):
             if long:
                 edit_string += "\n\t{0}".format(edit.description)
             edit_strings.append(edit_string)
-        return "{0}{1}\n--------\n\n".format(
+        return "{0}{1}\n\n--------\n\n".format(
             title,
             "\n\n".join(edit_strings)
         )
@@ -137,4 +137,4 @@ def print_edit_log(long=True):
         long (bool): if True, we print the descriptions of each edit as well
             at their names.
     """
-    print (EDIT_LOG.get_log_text(long))
+    print (EDIT_LOG.get_log_text(long=long))

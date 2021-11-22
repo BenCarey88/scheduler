@@ -38,10 +38,13 @@ class TaskWidget(QtWidgets.QTreeView):
         self.setMaximumHeight(height + 50)
         self.setHeaderHidden(True)
         self.setItemsExpandable(False)
-        
-        self.setSelectionMode(
-            QtWidgets.QAbstractItemView.SelectionMode.MultiSelection
-        )
+
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
+        # self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.setDragEnabled(True)
+        self.setDropIndicatorShown(True)
+        self.viewport().setAcceptDrops(True)
+
         header = self.header()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)

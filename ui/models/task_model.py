@@ -4,7 +4,7 @@ import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import TaskStatus
+from scheduler.api.tree.task import TaskStatus, TaskType
 
 from scheduler.ui import constants
 from ._base_tree_model import BaseTreeModel
@@ -75,6 +75,12 @@ class TaskModel(BaseTreeModel):
                         font = QtGui.QFont()
                         font.setBold(True)
                         return font
+            if role == QtCore.Qt.ItemDataRole.FontRole:
+                item = index.internalPointer()
+                if item.type == TaskType.ROUTINE:
+                    font = QtGui.QFont()
+                    font.setItalic(True)
+                    return font
         if index.column() == 1:
             if role == QtCore.Qt.ItemDataRole.CheckStateRole:
                 item = index.internalPointer()
@@ -103,6 +109,7 @@ class TaskModel(BaseTreeModel):
             task_item = index.internalPointer()
             if not task_item:
                 return False
+            # TODO: this should be property of task item rather than TaskStatus
             status = TaskStatus.NEXT_STATUS.get(task_item.status)
             task_item.update_task(status, datetime.datetime.now())
             self.dataChanged.emit(index, index)
@@ -121,6 +128,8 @@ class TaskModel(BaseTreeModel):
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
         if index.column() == 1:
+            # TODO: work out how to create a selection of base flags
+            # and then just add/remove some for each model subclass
             return (
                 QtCore.Qt.ItemFlag.ItemIsEnabled |
                 QtCore.Qt.ItemFlag.ItemIsSelectable |

@@ -20,31 +20,61 @@ class BaseTreeEdit(CompositeEdit):
             operation_type (OrderedDictOp): The type of edit operation to do.
             register_edit (bool): whether or not to register this edit.
         """
+        self.diff_dict = diff_dict
         ordered_dict_edit = OrderedDictEdit(
             tree_item._children,
             diff_dict,
             op_type,
             register_edit=False,
         )
+        edit_list = [ordered_dict_edit]
+        # TODO: Is there a nicer way to do composite edits than needing this
+        # reverse order flag? Eg. is there a way to build these edits so that
+        # the order doesn't matter?
+        reverse_order_for_inverse = True
+
         if op_type == OrderedDictOp.RENAME:
-            self.diff_dict = diff_dict
             name_change_edit = SelfInverseSimpleEdit(
                 tree_item,
                 run_func=self._rename,
                 register_edit=False,
             )
-            super(BaseTreeEdit, self).__init__(
-                [name_change_edit, ordered_dict_edit],
-                register_edit=register_edit,
+            edit_list = [name_change_edit, ordered_dict_edit]
+            # Name change needs to be done before dict change both times
+            reverse_order_for_inverse = False
+
+        elif op_type == OrderedDictOp.REMOVE:
+            remove_parent_edit = SelfInverseSimpleEdit(
+                tree_item,
+                run_func=self._remove,
+                register_edit=False,
             )
-        else:
-            super(BaseTreeEdit, self).__init__(
-                [ordered_dict_edit],
-                register_edit=register_edit,
+            # Order is important here: need to remove parent first
+            edit_list = [remove_parent_edit, ordered_dict_edit]
+
+        elif op_type in [OrderedDictOp.ADD, OrderedDictOp.INSERT]:
+            add_parent_edit = SelfInverseSimpleEdit(
+                tree_item,
+                run_func=self._add_or_insert,
+                register_edit=False,
             )
+            # Order is important here: need to add it to dict first
+            edit_list = [ordered_dict_edit, add_parent_edit]
+
+        super(BaseTreeEdit, self).__init__(
+            edit_list,
+            reverse_order_for_inverse=reverse_order_for_inverse,
+            register_edit=register_edit,
+        )
 
     def _rename(self, tree_item, inverse):
         """Additional renaming edit for tree name child.
+
+        This changes the child's name attribute. Notice that due to the
+        implementation of this, it's important that it's run BEFORE the
+        ordered dict rename edit, as otherwise, the child will have the
+        new name and won't be found by tree_item.get_child(). The same
+        is true of the inverse of this function.
 
         Args:
             tree_item (BaseTreeItem): tree item whose child we're renaming.
@@ -54,9 +84,45 @@ class BaseTreeEdit(CompositeEdit):
         for name_tuple in self.diff_dict.items():
             original_name = name_tuple[1] if inverse else name_tuple[0]
             new_name = name_tuple[0] if inverse else name_tuple[1]
-            child = tree_item._children.get(original_name)
+            child = tree_item.get_child(original_name)
             if child:
                 child._name = new_name
+
+    def _remove(self, tree_item, inverse):
+        """Additional remove edit for removing tree child.
+
+        This removes/readds the child's parent attribute.
+
+        Args:
+            tree_item (BaseTreeItem): tree item whose child we're renaming.
+            inverse (bool): flag for if this function is being run as an
+                inverse or not.
+        """
+        for name in self.diff_dict.keys():
+            child = tree_item.get_child(name)
+            if child:
+                if inverse:
+                    child.parent = tree_item
+                else:
+                    child.parent = None
+
+    def _add_or_insert(self, tree_item, inverse):
+        """Additional remove edit for adding/inserting tree child.
+
+        This adds/removes the child's parent attribute.
+
+        Args:
+            tree_item (BaseTreeItem): tree item whose child we're renaming.
+            inverse (bool): flag for if this function is being run as an
+                inverse or not.
+        """
+        for name in self.diff_dict.keys():
+            child = tree_item.get_child(name)
+            if child:
+                if inverse:
+                    child.parent = None
+                else:
+                    child.parent = tree_item
 
 
 class AddChildrenEdit(BaseTreeEdit):
@@ -112,7 +178,7 @@ class InsertChildrenEdit(BaseTreeEdit):
             "Insert children to {0}: [{1}]".format(
                 tree_item.path,
                 ",".join([
-                    "(" + key + " --> " + str(value[0]) + ")"
+                    "(" + key + " --> index " + str(value[0]) + ")"
                     for key, value in children_to_insert.items()
                 ])
             )
@@ -236,5 +302,53 @@ class MoveChildrenEdit(BaseTreeEdit):
                     "(" + key + " --> " + str(value) + ")"
                     for key, value in children_to_move.items()
                 ])
+            )
+        )
+
+
+class MoveTreeItemEdit(CompositeEdit):
+    """Tree edit for moving a tree item under another parent."""
+
+    def __init__(self, tree_item, new_parent, index, register_edit=True):
+        """Initialise edit item.
+
+        This edit assumes that it is legal for tree_item to be a child of
+        new_parent, ie. that tree_item is in new_parent's allowed_child_types.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to move.
+            new_parent (BaseTreeItem): new parent to move under.
+            index (int): index to add child at.
+            register_edit (bool): whether or not to register this edit.
+        """
+        insert_child_edit = InsertChildrenEdit(
+            new_parent,
+            {tree_item.name: (index, tree_item)},
+            register_edit=False,
+        )
+        if not tree_item.parent:
+            super(MoveTreeItemEdit, self).__init__(
+                [insert_child_edit],
+                register_edit=register_edit,
+            )
+        else:
+            remove_child_edit = RemoveChildrenEdit(
+                tree_item.parent,
+                [tree_item.name],
+                register_edit=False,
+            )
+            super(MoveTreeItemEdit, self).__init__(
+                [remove_child_edit, insert_child_edit],
+                register_edit=register_edit,
+            )
+
+        self._name = "MoveTreeItem ({0})".format(tree_item.name)
+        self._description = (
+            "Move tree item {0} --> {1} (at child index {2})".format(
+                tree_item.path,
+                tree_item.TREE_PATH_SEPARATOR.join(
+                    [new_parent.path, tree_item.name]
+                ),
+                index
             )
         )

@@ -223,7 +223,7 @@ class TaskCategory(BaseTreeItem):
         category = cls(name, parent)
         subcategories = json_dict.get(cls.CATEGORIES_KEY, {})
         for subcategory_name, subcategory_dict in subcategories.items():
-            subcategory = cls.from_dict(
+            subcategory = TaskCategory.from_dict(
                 subcategory_dict,
                 subcategory_name,
                 category

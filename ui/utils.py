@@ -42,3 +42,13 @@ def launch_message_dialog(message, informative_text=None, parent=None):
         message_dialog.StandardButton.Yes | message_dialog.StandardButton.No
     )
     return (message_dialog.exec() == message_dialog.StandardButton.Yes)
+
+
+# # TODO: implement this in ui utils (and change module name to ui_utils?)
+# def get_item(index):
+#     """Return item stored in the index."""
+#     if index.isValid():
+#         return index.internalPointer()
+#     else:
+#         return None
+

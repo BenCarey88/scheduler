@@ -2,6 +2,14 @@
 
 import os
 
-ROOT_USER_DIR = os.path.expanduser("~")
-MY_PKGS_USER_DIR = os.path.join(ROOT_USER_DIR, "my-pkgs-data")
-SCHEDULER_USER_DIR = os.path.joins(MY_PKGS_USER_DIR, "scheduler")
+SCHEDULER_FILES_DIR = os.path.normpath(
+    "/users/benca/OneDrive/Documents/pkgs-data/scheduler"
+)
+USER_PREFS_FILE = os.path.join(
+    SCHEDULER_FILES_DIR, "user_prefs.json"
+)
+
+# this should be found from user prefs ideally
+SCHEDULER_TASKS_DIRECTORY = os.path.normpath(
+    "/users/benca/OneDrive/Documents/Admin/scheduler/tasks"
+)

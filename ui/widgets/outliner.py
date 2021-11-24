@@ -109,6 +109,17 @@ class Outliner(QtWidgets.QTreeView):
         if dodgy_parents:
             print (dodgy_parents)
 
+        # TODO: afaik this is currently only needed for adding siblings to
+        # top-level category - I think we should be able to avoid resetting
+        # the model every time, so should try to remove this in future.
+        self._model = TaskCategoryModel(self.root, self.tree_manager, self)
+        self._model.dataChanged.connect(
+            self.update
+        )
+        self._model.dataChanged.connect(
+            self.MODEL_UPDATED_SIGNAL.emit
+        )
+        self.setModel(self._model)
         # force update of view by calling expandAll
         # TODO: Maybe when we've renamed the update function this can call the
         # original update method?

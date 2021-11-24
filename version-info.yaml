@@ -1,4 +1,7 @@
 
+1.0.2:
+    Fix for bug with saving TaskHistory edits
+
 1.0.1:
     Fixed bug with adding sibling categories in outliner
 

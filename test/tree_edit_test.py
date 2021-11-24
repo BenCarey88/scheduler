@@ -82,10 +82,10 @@ class TaskEditTest(unittest.TestCase):
         self.assertEqual(
             self.task_item.history.dict,
             create_ordered_dict_from_tuples([
-                (date_time.date(), [
+                (str(date_time.date()), [
                     ("status", TaskStatus.IN_PROGRESS),
                     ("comments", [
-                        (date_time.time(), "TESTING")
+                        (str(date_time.time()), "TESTING")
                     ])
                 ])
             ])

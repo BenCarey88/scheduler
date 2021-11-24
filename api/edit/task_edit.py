@@ -63,7 +63,12 @@ class UpdateTaskHistoryEdit(CompositeEdit):
         )
 
         history = task_item.history
-        date = date_time.date()
+        date = str(date_time.date())
+        # TODO: decide if this conversion of datetime to string belongs here
+        # or in task_history class. Task history class is probably better but
+        # found the function a faff to write - what we really want is a way to
+        # copy the dict and iterate through it to convert all date_times to
+        # strings but ignore everything else (and vice versa for other way)
         diff_dict = OrderedDict({
             date: OrderedDict({
                 history.STATUS_KEY: new_status
@@ -71,12 +76,12 @@ class UpdateTaskHistoryEdit(CompositeEdit):
         })
         if comment:
             diff_dict[date][history.COMMENTS_KEY] = OrderedDict({
-                date_time.time(): comment
+                str(date_time.time()): comment
             })
         history_edit = OrderedDictEdit(
             ordered_dict=history.dict,
             diff_dict=diff_dict,
-            op_type=OrderedDictOp.ADD,
+            op_type=OrderedDictOp.ADD_OR_MODIFY,
             recursive=True,
             register_edit=False,
         )

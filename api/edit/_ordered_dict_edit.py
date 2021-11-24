@@ -15,6 +15,8 @@ class OrderedDictOp(object):
     RENAME = "Rename"
     MODIFY = "Modify"
     MOVE = "Move"
+    ADD_OR_MODIFY = "Add_Or_Modify"
+    REMOVE_OR_MODIFY = "Remove_Or_Modify"
 
     _INVERSES = {
         ADD: REMOVE,
@@ -23,6 +25,8 @@ class OrderedDictOp(object):
         RENAME: RENAME,
         MODIFY: MODIFY,
         MOVE: MOVE,
+        ADD_OR_MODIFY: REMOVE_OR_MODIFY,
+        REMOVE_OR_MODIFY: ADD_OR_MODIFY,
     }
 
     @classmethod
@@ -71,6 +75,9 @@ class OrderedDictEdit(BaseEdit):
             RENAME: {old_key: new_key}            - rename given keys
             MODIFY: {old_key: new_value}          - add new values at old keys
             MOVE:   {old_key: new_index}          - move key to given index
+
+            ADD_OR_MODIFY {key: value}            - add new values at keys
+            REMOVE_OR_MODIFY {key: value or None} - change/remove value at keys
 
         recursive diff_dicts:
             ADD:    if key already exists, check next level and retry
@@ -189,6 +196,15 @@ class OrderedDictEdit(BaseEdit):
                     self._modify(key, value, ordered_dict, inverse_diff_dict)
                 elif operation_type == OrderedDictOp.MOVE:
                     self._move(key, value, ordered_dict, inverse_diff_dict)
+
+                elif operation_type == OrderedDictOp.ADD_OR_MODIFY:
+                    self._add_or_modify(
+                        key, value, ordered_dict, inverse_diff_dict
+                    )
+                elif operation_type == OrderedDictOp.REMOVE_OR_MODIFY:
+                    self._remove_or_modify(
+                        key, value, ordered_dict, inverse_diff_dict
+                    )
 
     @staticmethod
     def _add(key, value, ordered_dict, inverse_diff_dict=None):
@@ -340,6 +356,61 @@ class OrderedDictEdit(BaseEdit):
                     if i == index:
                         ordered_dict[key] = value
                     ordered_dict[k] = v
+
+    # TODO: add some tests for these composite ones, haven't considered all
+    # cases so I don't know if could hit some issues with the inverses for
+    # certain recursive scenarios - but seems to work for task history :)
+    @staticmethod
+    def _add_or_modify(key, value, ordered_dict, inverse_diff_dict=None):
+        """Add given key to dict if doesn't exist or modify existing key.
+
+        Args:
+            key (variant): key to add in modify.
+            value (variant): value for key.
+            ordered_dict (OrderedDict): ordered dict we're editing.
+            inverse_diff_dict (OrderedDict or None): if given, add to this to
+                define inverse operation.
+        """
+        if key in ordered_dict:
+            OrderedDictEdit._modify(
+                key,
+                value,
+                ordered_dict,
+                inverse_diff_dict
+            )
+        else:
+            OrderedDictEdit._add(
+                key,
+                value,
+                ordered_dict,
+                inverse_diff_dict
+            )
+
+    @staticmethod
+    def _remove_or_modify(key, value, ordered_dict, inverse_diff_dict=None):
+        """Remove existing key from dict if value is None, else modify key.
+
+        Args:
+            key (variant): key to add in modify.
+            value (variant): value for key.
+            ordered_dict (OrderedDict): ordered dict we're editing.
+            inverse_diff_dict (OrderedDict or None): if given, add to this to
+                define inverse operation.
+        """
+        if value is None:
+            OrderedDictEdit._remove(
+                key,
+                value,
+                ordered_dict,
+                inverse_diff_dict
+            )
+        else:
+            OrderedDictEdit._modify(
+                key,
+                value,
+                ordered_dict,
+                inverse_diff_dict
+            )
 
     def _inverse_run(self):
         """Run inverse operation to undo edit.

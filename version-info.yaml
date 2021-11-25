@@ -1,6 +1,6 @@
 
 1.0.2:
-    Fix for bug with saving TaskHistory edits
+    Fix for TaskHistory bug and Routine TaskStatus bug
 
 1.0.1:
     Fixed bug with adding sibling categories in outliner

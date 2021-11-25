@@ -10,6 +10,7 @@ from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit
 )
+from scheduler.api import utils
 
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
@@ -123,7 +124,8 @@ class Task(BaseTreeItem):
         Returns:
             (TaskStatus): current status.
         """
-        if self.type == TaskType.ROUTINE:
+        if (self.type == TaskType.ROUTINE 
+                and self._status == TaskStatus.COMPLETE):
             last_completed = self.history.last_completed
             if last_completed:
                 date_completed = self.history.last_completed.date()
@@ -377,6 +379,7 @@ class TaskHistory(object):
         Returns:
             (datetime.datetime or None): date of last completion, if exists.
         """
-        for date, status in reversed(self.dict.items()):
-            if status == TaskStatus.COMPLETE:
-                return date
+        for date, subdict in reversed(self.dict.items()):
+            if subdict.get(self.STATUS_KEY) == TaskStatus.COMPLETE:
+                return utils.get_date_from_string(date)
+        return None

@@ -116,18 +116,18 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def undo(self):
         """Undo last action."""
-        undo()
-        self.update()
+        if undo():
+            self.update()
 
     def redo(self):
         """Redo last action."""
-        redo()
-        self.update()
+        if redo():
+            self.update()
 
     def update(self):
         """Update current tab and outliner."""
         self.tabs_widget.currentWidget().update()
-        self.tabs_widget.currentWidget().outliner.update()
+        self.outliner_stack.currentWidget().update()
 
 
 def set_style(app):

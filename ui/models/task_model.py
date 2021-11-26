@@ -1,7 +1,5 @@
 """Task tree model."""
 
-import datetime
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import TaskStatus, TaskType
@@ -110,8 +108,7 @@ class TaskModel(BaseTreeModel):
             if not task_item:
                 return False
             # TODO: this should be property of task item rather than TaskStatus
-            status = TaskStatus.NEXT_STATUS.get(task_item.status)
-            task_item.update_task(status, datetime.datetime.now())
+            task_item.update_task()
             self.dataChanged.emit(index, index)
             return True
         return super(TaskModel, self).setData(index, value, role)

@@ -17,28 +17,31 @@ class TaskCategoryModel(BaseTreeModel):
     up to the first task items under each category but not show any subtasks.
     """
 
-    def __init__(self, root_category, tree_manager, parent=None):
+    def __init__(
+            self,
+            root_category,
+            tree_manager,
+            hide_filtered_items=False,
+            parent=None):
         """Initialise task category tree model.
 
         Args:
             root_category (TaskRoot): task root tree item.
             tree_manager (TreeManager): tree manager item.
+            hide_filtered_items (bool): if True, use the child_filter from the
+                tree manager to filter out all items whose checkboxes are
+                deselected in the outliner.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
+        child_filters=[filters.NoSubtasks()]
+        if hide_filtered_items:
+            child_filters.append(tree_manager.child_filter)
         super(TaskCategoryModel, self).__init__(
             root_category,
             tree_manager,
             parent=parent,
-            filters=[filters.NoSubtasks()]
+            filters=child_filters
         )
-
-    def columnCount(self, index):
-        """Get number of columns of given item
-        
-        Returns:
-            (int): number of columns.
-        """
-        return 2
 
     def data(self, index, role):
         """Get data for given item item and role.
@@ -94,10 +97,17 @@ class TaskCategoryModel(BaseTreeModel):
             item = index.internalPointer()
             if not item:
                 return False
-            if self.tree_manager.is_selected_for_filtering(item):
-                self.tree_manager.unfilter_item(item)
+            modifiers = QtWidgets.QApplication.keyboardModifiers()
+            if modifiers == QtCore.Qt.KeyboardModifier.ControlModifier:
+                if self.tree_manager.siblings_are_selected_for_filtering(item):
+                    self.tree_manager.unfilter_siblings(item)
+                else:
+                    self.tree_manager.filter_siblings(item)
             else:
-                self.tree_manager.filter_item(item)
+                if self.tree_manager.is_selected_for_filtering(item):
+                    self.tree_manager.unfilter_item(item)
+                else:
+                    self.tree_manager.filter_item(item)
             self.dataChanged.emit(index, index)
             return True
         return super(TaskCategoryModel, self).setData(index, value, role)

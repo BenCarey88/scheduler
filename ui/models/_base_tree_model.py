@@ -10,7 +10,7 @@ from scheduler.api.tree.exceptions import DuplicateChildNameError
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
-    def __init__(self, tree_root, tree_manager, parent=None, filters=None):
+    def __init__(self, tree_root, tree_manager, filters=None, parent=None):
         """Initialise base tree model.
 
         Args:
@@ -19,10 +19,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 parent of those children for easier calculations.
             tree_manager (TreeManager): tree manager item, used to manage the
                 ui specific attributes of the tree.
-            parent (QtWidgets.QWidget or None): QWidget that this models.
             filters (list(scheduler.api.tree.filters.BaseFilter)): filters
                 for reducing number of children in model. These will be added
                 to the filter from the tree_manager.
+            parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         # TODO: down the line is there an argument that everything should be
         # managed through the tree manager? ie. every other ui class should
@@ -134,7 +134,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if index.column() == 0 and role == QtCore.Qt.ItemDataRole.DisplayRole:
+        if (index.column() == 0 and 
+                (role == QtCore.Qt.ItemDataRole.DisplayRole or
+                 role == QtCore.Qt.ItemDataRole.EditRole)):
             item = index.internalPointer()
             if item:
                 return item.name

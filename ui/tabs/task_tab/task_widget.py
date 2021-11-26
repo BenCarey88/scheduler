@@ -7,6 +7,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.ui.models.task_model import TaskModel
 
 
+TASK_DELEGATE_HEIGHT = 20
+
+
 class TaskWidget(QtWidgets.QTreeView):
     """Task Tree Widget.
 
@@ -26,18 +29,32 @@ class TaskWidget(QtWidgets.QTreeView):
         self.tab = tab
 
         # setup model and delegate
-        # self.setItemDelegate(TaskDelegate(self))
-        self.setFrameStyle(self.Shape.NoFrame)
+        self.setItemDelegate(TaskDelegate(self))
         model = TaskModel(task_item, tab.tree_manager, parent)
         self.setModel(model)
         self.expandAll()
         model.dataChanged.connect(self.tab.update)
 
-        height = task_item.num_descendants() * 25
-        self.setMinimumHeight(height + 50)
-        self.setMaximumHeight(height + 50)
+        height = task_item.num_descendants() * TASK_DELEGATE_HEIGHT
+        self.setFixedHeight(height + 5)
         self.setHeaderHidden(True)
+
+        # Remove expand decorations and border
         self.setItemsExpandable(False)
+        self.setStyleSheet(
+            """
+            QTreeView::branch { border-image: url(none.png); }
+            QTreeView {border: none;}
+            """
+        )
+
+        # Turn off scrollbar policy or we get flashing scrollbars on update
+        self.setVerticalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
 
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
         # self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
@@ -89,121 +106,159 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
         """Initialise task delegate item."""
         super(TaskDelegate, self).__init__(parent)
 
-    @staticmethod
-    def _get_plus_button_rect(option):
-        """Get QRect for area where plus button should be.
+    def sizeHint(self, option, index):
+        """Get size hint for this item.
 
         Args:
-            option (QtWidgets.QStyleOptionViewItem): style options object
-                for current item being painted.
-
-        Returns:
-            (QtCore.QRect): QRect for the plus button.
-        """
-        return QtCore.QRect(
-            option.rect.left() + option.rect.width() - 30,
-            option.rect.top(),
-            30,
-            option.rect.height()
-        )
-
-    @staticmethod
-    def _get_minus_button_rect(option):
-        """Get QRect for area where minus button should be.
-
-        Args:
-            option (QtWidgets.QStyleOptionViewItem): style options object
-                for current item being painted.
-
-        Returns:
-            (QtCore.QRect): QRect for the minus button.
-        """
-        return QtCore.QRect(
-            option.rect.left() + option.rect.width() - 70,
-            option.rect.top(),
-            30,
-            option.rect.height()
-        )
-
-    @staticmethod
-    def _get_button_flags(option):
-        """Get Qt state flags for painted buttons.
-
-        Args:
-            option (QtWidgets.QStyleOptionViewItem): style options object
-                for current item being painted.
-
-        Returns:
-            (QtWidgets.QStyle.StateFlag): Qt state flag.
-        """
-        if option.state:
-            state = (
-                QtWidgets.QStyle.StateFlag.State_Enabled |
-                QtWidgets.QStyle.StateFlag.State_MouseOver
-            )
-        else:
-            state = (
-                QtWidgets.QStyle.StateFlag.State_Enabled |
-                QtWidgets.QStyle.StateFlag.State_None
-            )
-        return state
-
-    def paint(self, painter, option, index):
-        """Override paint method for custom rendering.
-
-        Args:
-            painter (QtGui.QPainter): painter object.
             option (QtWidgets.QStyleOptionViewItem): style options object.
-            index (QtCore.QModelIndex): index of item we're painting.
+            index (QtCore.QModelIndex): index of item.
+
+        Returns:
+            (QtCore.QSize): size hint.
         """
-        if index.column() != 1:
-            return super(TaskDelegate, self).paint(painter, option, index)
+        return QtCore.QSize(0, TASK_DELEGATE_HEIGHT)
 
-        plus_button = QtWidgets.QStyleOptionButton()
-        plus_button.rect = self._get_plus_button_rect(option)
-        plus_button.text = '+'
-        plus_button.state = self._get_button_flags(option)
-        QtWidgets.QApplication.style().drawControl(
-            QtWidgets.QStyle.ControlElement.CE_PushButton,
-            plus_button,
-            painter
-        )
+    def createEditor(self, parent, option, index):
+        """Create editor widget for edit role.
 
-        minus_button = QtWidgets.QStyleOptionButton()
-        minus_button.rect = self._get_minus_button_rect(option)
-        minus_button.text = '-'
-        minus_button.state = self._get_button_flags(option)
-        QtWidgets.QApplication.style().drawControl(
-            QtWidgets.QStyle.ControlElement.CE_PushButton,
-            minus_button,
-            painter
-        )
-
-    def editorEvent(self, event, model, option, index):
-        """Edit model based on user input.
+        Overridding the default purely because this makes the line-edit
+        cover the whole row which I like better.
+        TODO: add same for outliner (and maybe move this to a BaseDelegate
+        class that we can inherit from).
 
         Args:
-            event (QtCore.QEvent): the qt event.
-            model (QtCore.QAbstractItemModel) the model to be updated.
+            parent (QtWidgets.QWidget): parent widget.
             option (QtWidgets.QStyleOptionViewItem): style options object.
             index (QtCore.QModelIndex) index of the edited item.
+
+        Returns:
+            (QtWidgets.QWidget): editor widget.
         """
-        if not index.isValid():
-            return
-        task_item = index.internalPointer()
-        if task_item and index.column() == 1:
-            plus_button_rect = self._get_plus_button_rect(option)
-            minus_button_rect = self._get_minus_button_rect(option)
-            try:
-                pos = event.pos()
-            except AttributeError:
-                pos = None
-            if pos and plus_button_rect.contains(pos):
-                task_item.create_new_subtask()
-                model.dataChanged.emit(index, index)
-                return True
-            elif pos and minus_button_rect.contains(pos):
-                task_item.parent.remove_child(task_item.name)
-                model.dataChanged.emit(index, index)
-                return True
-        return super().editorEvent(event, model, option, index)
+        if index.isValid():
+            if index.column() == 0:
+                item = index.internalPointer()
+                if item:
+                    print (item.name)
+                    editor = QtWidgets.QLineEdit(parent)
+                    editor.setText(item.name)
+                    return editor
+        return super().createEditor(parent, option, index)
+
+    # @staticmethod
+    # def _get_plus_button_rect(option):
+    #     """Get QRect for area where plus button should be.
+
+    #     Args:
+    #         option (QtWidgets.QStyleOptionViewItem): style options object
+    #             for current item being painted.
+
+    #     Returns:
+    #         (QtCore.QRect): QRect for the plus button.
+    #     """
+    #     return QtCore.QRect(
+    #         option.rect.left() + option.rect.width() - 30,
+    #         option.rect.top(),
+    #         30,
+    #         option.rect.height()
+    #     )
+
+    # @staticmethod
+    # def _get_minus_button_rect(option):
+    #     """Get QRect for area where minus button should be.
+
+    #     Args:
+    #         option (QtWidgets.QStyleOptionViewItem): style options object
+    #             for current item being painted.
+
+    #     Returns:
+    #         (QtCore.QRect): QRect for the minus button.
+    #     """
+    #     return QtCore.QRect(
+    #         option.rect.left() + option.rect.width() - 70,
+    #         option.rect.top(),
+    #         30,
+    #         option.rect.height()
+    #     )
+
+    # @staticmethod
+    # def _get_button_flags(option):
+    #     """Get Qt state flags for painted buttons.
+
+    #     Args:
+    #         option (QtWidgets.QStyleOptionViewItem): style options object
+    #             for current item being painted.
+
+    #     Returns:
+    #         (QtWidgets.QStyle.StateFlag): Qt state flag.
+    #     """
+    #     if option.state:
+    #         state = (
+    #             QtWidgets.QStyle.StateFlag.State_Enabled |
+    #             QtWidgets.QStyle.StateFlag.State_MouseOver
+    #         )
+    #     else:
+    #         state = (
+    #             QtWidgets.QStyle.StateFlag.State_Enabled |
+    #             QtWidgets.QStyle.StateFlag.State_None
+    #         )
+    #     return state
+
+    # def paint(self, painter, option, index):
+    #     """Override paint method for custom rendering.
+
+    #     Args:
+    #         painter (QtGui.QPainter): painter object.
+    #         option (QtWidgets.QStyleOptionViewItem): style options object.
+    #         index (QtCore.QModelIndex): index of item we're painting.
+    #     """
+    #     if index.column() != 1:
+    #         return super(TaskDelegate, self).paint(painter, option, index)
+
+    #     plus_button = QtWidgets.QStyleOptionButton()
+    #     plus_button.rect = self._get_plus_button_rect(option)
+    #     plus_button.text = '+'
+    #     plus_button.state = self._get_button_flags(option)
+    #     QtWidgets.QApplication.style().drawControl(
+    #         QtWidgets.QStyle.ControlElement.CE_PushButton,
+    #         plus_button,
+    #         painter
+    #     )
+
+    #     minus_button = QtWidgets.QStyleOptionButton()
+    #     minus_button.rect = self._get_minus_button_rect(option)
+    #     minus_button.text = '-'
+    #     minus_button.state = self._get_button_flags(option)
+    #     QtWidgets.QApplication.style().drawControl(
+    #         QtWidgets.QStyle.ControlElement.CE_PushButton,
+    #         minus_button,
+    #         painter
+    #     )
+
+    # def editorEvent(self, event, model, option, index):
+    #     """Edit model based on user input.
+
+    #     Args:
+    #         event (QtCore.QEvent): the qt event.
+    #         model (QtCore.QAbstractItemModel) the model to be updated.
+    #         option (QtWidgets.QStyleOptionViewItem): style options object.
+    #         index (QtCore.QModelIndex) index of the edited item.
+    #     """
+    #     if not index.isValid():
+    #         return
+    #     task_item = index.internalPointer()
+    #     if task_item and index.column() == 1:
+    #         plus_button_rect = self._get_plus_button_rect(option)
+    #         minus_button_rect = self._get_minus_button_rect(option)
+    #         try:
+    #             pos = event.pos()
+    #         except AttributeError:
+    #             pos = None
+    #         if pos and plus_button_rect.contains(pos):
+    #             task_item.create_new_subtask()
+    #             model.dataChanged.emit(index, index)
+    #             return True
+    #         elif pos and minus_button_rect.contains(pos):
+    #             task_item.parent.remove_child(task_item.name)
+    #             model.dataChanged.emit(index, index)
+    #             return True
+    #     return super().editorEvent(event, model, option, index)

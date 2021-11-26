@@ -76,7 +76,7 @@ class OrderedDictEdit(BaseEdit):
             MODIFY: {old_key: new_value}          - add new values at old keys
             MOVE:   {old_key: new_index}          - move key to given index
 
-            ADD_OR_MODIFY {key: value}            - add new values at keys
+            ADD_OR_MODIFY    {key: value}         - add new values at keys
             REMOVE_OR_MODIFY {key: value or None} - change/remove value at keys
 
         recursive diff_dicts:

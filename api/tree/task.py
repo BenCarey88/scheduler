@@ -28,12 +28,6 @@ class TaskStatus():
     IN_PROGRESS = "In Progress"
     COMPLETE = "Complete"
 
-    NEXT_STATUS = {
-        UNSTARTED: IN_PROGRESS,
-        IN_PROGRESS: COMPLETE,
-        COMPLETE: UNSTARTED
-    }
-
 
 class Task(BaseTreeItem):
     """Class representing a generic task."""
@@ -64,29 +58,33 @@ class Task(BaseTreeItem):
         super(Task, self).__init__(name, parent)
         self._type = task_type or TaskType.GENERAL
         self._status = status or TaskStatus.UNSTARTED
-        # self.type = task_type or TaskType.GENERAL
-        # self.status = status or TaskStatus.UNSTARTED
         self.history = history if history is not None else TaskHistory()
         self.allowed_child_types = [Task]
 
         # new attribute and method names for convenience
+        # TODO: it's a faff to keep adding these redefinitions
+        # remove all the ones that aren't necessary.
         self.create_subtask = partial(
             self.create_child,
-            #task_type=self.type
+            task_type=self.type
         )
         self.create_new_subtask = partial(
             self.create_new_child,
             default_name="subtask",
-            #task_type=self.type,
+            task_type=self.type,
         )
         # TODO: task type stuff getting messy - if this attribute remains a
         # thing, we should ensure that any child added through add_child has
         # the same type.
         self.add_subtask = self.add_child
-        self.create_sibling_task = self.create_sibling
+        self.create_sibling_task = partial(
+            self.create_sibling,
+            task_type=self.type,
+        )
         self.create_new_sibling_task = partial(
             self.create_new_sibling,
-            default_name = "task"
+            default_name = "task",
+            task_type=self.type,
         )
         self.add_sibling_task = self.add_sibling
         self.remove_subtask = self.remove_child
@@ -187,15 +185,28 @@ class Task(BaseTreeItem):
         """
         return isinstance(self.parent, Task)
 
-    def update_task(self, status, date_time=None, comment=None):
+    def update_task(self, status=None, date_time=None, comment=None):
         """Update task history and status.
 
         Args:
-            status (TaskStatus): status to update task with.
+            status (TaskStatus or None): status to update task with. If None
+                given, we calculate the next one.
             date (datetime.datetimeor None): datetime object to update task
                 history with.
             comment (str): comment to add to history if needed.
         """
+        if status is None:
+            current_status = self.status
+            if current_status == TaskStatus.UNSTARTED:
+                if self.type == TaskType.ROUTINE:
+                    status = TaskStatus.COMPLETE
+                else:
+                    status = TaskStatus.IN_PROGRESS
+            elif current_status == TaskStatus.IN_PROGRESS:
+                status = TaskStatus.COMPLETE
+            elif current_status == TaskStatus.COMPLETE:
+                status = TaskStatus.UNSTARTED
+
         if date_time is None:
             date_time = datetime.datetime.now()
         date_time = date_time.replace(microsecond=0)

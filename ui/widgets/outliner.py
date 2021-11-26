@@ -30,15 +30,8 @@ class Outliner(QtWidgets.QTreeView):
 
         self.tree_manager = tree_manager
         self.root = tree_root
-
-        self._model = TaskCategoryModel(self.root, self.tree_manager, self)
-        self._model.dataChanged.connect(
-            self.update
-        )
-        self._model.dataChanged.connect(
-            self.MODEL_UPDATED_SIGNAL.emit
-        )
-        self.setModel(self._model)
+        self._allow_key_events = True
+        self._hide_filtered_items = False
 
         self.reset_view(False)
         self.setHeaderHidden(True)
@@ -47,20 +40,14 @@ class Outliner(QtWidgets.QTreeView):
             0, QtWidgets.QHeaderView.ResizeMode.Stretch
         )
         self.header().resizeSection(1, 1)
-        self.setItemsExpandable(False)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
         self.setDragEnabled(True)
         self.setDropIndicatorShown(True)
         self.viewport().setAcceptDrops(True)
 
-        self.allow_key_events = True
-
-        self.selectionModel().currentChanged.connect(
-            self.CURRENT_CHANGED_SIGNAL.emit
-        )
-        self.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
-        )
+        # self.setSelectionBehavior(
+        #     QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
+        # )
 
     # TODO: rename update in all views, as it conflicts with standard qt function
     def update(self):
@@ -112,7 +99,13 @@ class Outliner(QtWidgets.QTreeView):
         # TODO: afaik this is currently only needed for adding siblings to
         # top-level category - I think we should be able to avoid resetting
         # the model every time, so should try to remove this in future.
-        self._model = TaskCategoryModel(self.root, self.tree_manager, self)
+        # BUT will need to add in an update filters function.
+        self._model = TaskCategoryModel(
+            self.root,
+            self.tree_manager,
+            hide_filtered_items=self._hide_filtered_items,
+            parent=self
+        )
         self._model.dataChanged.connect(
             self.update
         )
@@ -120,6 +113,9 @@ class Outliner(QtWidgets.QTreeView):
             self.MODEL_UPDATED_SIGNAL.emit
         )
         self.setModel(self._model)
+        self.selectionModel().currentChanged.connect(
+            self.CURRENT_CHANGED_SIGNAL.emit
+        )
         # force update of view by calling expandAll
         # TODO: Maybe when we've renamed the update function this can call the
         # original update method?
@@ -160,7 +156,7 @@ class Outliner(QtWidgets.QTreeView):
         Args:
             event (PySide.QtGui.QKeyEvent): The event.
         """
-        if not self.allow_key_events:
+        if not self._allow_key_events:
             return
         modifiers = event.modifiers()
 
@@ -223,6 +219,11 @@ class Outliner(QtWidgets.QTreeView):
                     current_item.change_task_type(TaskType.GENERAL)
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
+            # ctrl+h: hide or unhide filtered items in outliner
+            elif event.key() == QtCore.Qt.Key_H:
+                self._hide_filtered_items = not self._hide_filtered_items
+                self.update()
+                self.MODEL_UPDATED_SIGNAL.emit()
 
         elif modifiers == QtCore.Qt.ShiftModifier:
             if event.key() == QtCore.Qt.Key_Tab:

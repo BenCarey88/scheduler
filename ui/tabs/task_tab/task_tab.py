@@ -33,6 +33,7 @@ class TaskTab(BaseTab):
         self._active_task_id = None
         self.selected_subtask_item = None
         self.selected_task_item = None
+        self._scroll_value = None
         self._fill_main_view()
         self._fill_scroll_area()
 
@@ -65,6 +66,9 @@ class TaskTab(BaseTab):
             self.selected_subtask_item = _selected_subtask_item
             if self.active_task_widget:
                 self.active_task_widget.select_subtask_item()
+        if self._scroll_value is not None:
+            print (self._scroll_value)
+            self.scroll_area.verticalScrollBar().setValue(self._scroll_value)
 
     def _fill_main_view(self):
         """Fill main task view from tree root.
@@ -76,11 +80,16 @@ class TaskTab(BaseTab):
         self.main_view_layout = QtWidgets.QVBoxLayout()
         self.main_view.setLayout(self.main_view_layout)
 
+        # TODO: add numbers here as constants
         minimum_height = 0
         child_filter = self.tree_manager.child_filter
         child_filters = [child_filter] if child_filter else []
         with self.tree_root.filter_children(child_filters):
-            for category in self.tree_root.get_all_children():
+            child_list = self.tree_root.get_all_children()
+            for i, category in enumerate(child_list):
+                if i:
+                    self.main_view_layout.addSpacing(40)
+                    minimum_height += 40
                 widget = TaskCategoryWidget(
                     category,
                     tab=self,
@@ -164,10 +173,7 @@ class TaskTab(BaseTab):
             old_index (QtCore.QModelIndex): index of old task or category (not
                 used, just passed in by the signal that calls this method).
         """
-        # TODO: make neater:
-        # For now we're just hardcoding that clicking the second column in the
-        # outliner causes the scrolling behaviour.
-        if new_index.column() != 1:
+        if not new_index.isValid():
             return
         tree_item = new_index.internalPointer()
         if not tree_item:
@@ -176,6 +182,8 @@ class TaskTab(BaseTab):
         if not widget:
             return
         point = widget.mapTo(self.scroll_area, QtCore.QPoint(0,0))
+        # TODO: this doesn't seem to update correctly when application undo is
+        # called.
         self.scroll_area.verticalScrollBar().setValue(
             point.y() + self.scroll_area.verticalScrollBar().value()
         )

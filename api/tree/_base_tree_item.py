@@ -42,6 +42,14 @@ class BaseTreeItem(ABC):
         # base class must be overridden, has no allowed child types.
         self.allowed_child_types = []
 
+    def __eq__(self, tree_item):
+        """Check if this item is equal to another item.
+
+        Returns:
+            (bool): whether the items are equal.
+        """
+        return self.id == tree_item.id
+
     # TODO: this is only here so it can be accessed in the drag-drop stuff to find
     # the root of any model bc we're into the super-hacky just get something that
     # works stage of release1. We can probably remove this function (and maybe
@@ -410,7 +418,7 @@ class BaseTreeItem(ABC):
             index (int): index of child.
 
         Returns:
-            (Task or None): child, if one of that index exits.
+            (BaseTreeItem or None): child, if one of that index exits.
         """
         if 0 <= index < len(self._children):
             return list(self._children.values())[index]
@@ -420,9 +428,22 @@ class BaseTreeItem(ABC):
         """Get all children of this item.
 
         Returns:
-            (list(Task)): list of all children.
+            (list(BaseTreeItem)): list of all children.
         """
         return list(self._children.values())
+
+    def get_all_siblings(self):
+        """Get all siblings of this item.
+
+        Returns:
+            (list(BaseTreeItem)): list of sibling items of this item.
+        """
+        if self.parent:
+            return [
+                child
+                for child in self.parent.get_all_children()
+                if child != self
+            ]
 
     def num_children(self):
         """Get number of children of this item.
@@ -454,11 +475,10 @@ class BaseTreeItem(ABC):
         """
         if not self.parent:
             return None
-        else:
-            try:
-                return self.parent.get_all_children().index(self)
-            except ValueError:
-                return None
+        try:
+            return self.parent.get_all_children().index(self)
+        except ValueError:
+            return None
 
     def is_leaf(self):
         """Return whether or not this item is a leaf (ie has no children).

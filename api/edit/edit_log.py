@@ -121,13 +121,21 @@ def open_edit_registry():
 
 
 def undo():
-    """Run undo on edit log singleton."""
-    EDIT_LOG.undo()
+    """Run undo on edit log singleton.
+    
+    Returns:
+        (bool): whether or not undo was performed.
+    """
+    return EDIT_LOG.undo()
 
 
 def redo():
-    """Run redo on edit log singleton."""
-    EDIT_LOG.redo()
+    """Run redo on edit log singleton.
+
+    Returns:
+        (bool): whether or not redo was performed.
+    """
+    return EDIT_LOG.redo()
 
 
 def print_edit_log(long=True):

@@ -97,6 +97,8 @@ class TreeManager(object):
     def is_selected_for_filtering(self, tree_item):
         """Check if the given tree item has been selected for filtering.
 
+        If this is True, its checkbox should be deselected in the ui.
+
         Args:
             tree_item (BaseTreeItem): tree item to query.
 
@@ -108,6 +110,21 @@ class TreeManager(object):
             self.IS_SELECTED_FOR_FILTERING,
             False
         )
+
+    def siblings_are_selected_for_filtering(self, tree_item):
+        """Check if all this tree_item's siblings are selected for filtering.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to query.
+
+        Returns:
+            (bool): whether or not the item's siblings are all selected for
+                filtering.
+        """
+        return all([
+            self.is_selected_for_filtering(sibling)
+            for sibling in tree_item.get_all_siblings()
+        ])
 
     def filter_item(self, tree_item, from_user_selection=True):
         """Add tree item to filter list.
@@ -143,7 +160,7 @@ class TreeManager(object):
             if parent_item and self.is_filtered_out(parent_item):
                 return
 
-        # if given item is selected for filtering, can't unfilter so return
+        # if given item is selected for filtering, we can't unfilter, so return
         if self.is_selected_for_filtering(tree_item):
             return
 
@@ -151,6 +168,24 @@ class TreeManager(object):
         self._filtered_items.discard(tree_item.id)
         for child in tree_item.get_all_children():
             self.unfilter_item(child, from_user_selection=False)
+
+    def filter_siblings(self, tree_item):
+        """Add all siblings of tree item to filter list.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to filter out.
+        """
+        for sibling in tree_item.get_all_siblings():
+            self.filter_item(sibling)
+
+    def unfilter_siblings(self, tree_item):
+        """Remove all sibling tree items from filter list.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to unfilter.
+        """
+        for sibling in tree_item.get_all_siblings():
+            self.unfilter_item(sibling)
 
     @property
     def child_filter(self):

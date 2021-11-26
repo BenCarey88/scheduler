@@ -8,7 +8,7 @@ from scheduler.api.tree.task_category import TaskCategory
 from .task_widget import TaskWidget
 
 
-class TaskCategoryWidget(QtWidgets.QWidget):
+class TaskCategoryWidget(QtWidgets.QFrame):
     """Task category widget.
 
     This widget holds a line edit with the name of the current category,
@@ -43,13 +43,20 @@ class TaskCategoryWidget(QtWidgets.QWidget):
         self.inner_layout.addWidget(self.line_edit)
 
         # set font and size properties
+        # TODO: make some constants for these guys 
+        # (maybe in separate file in this directory)
         font = self.line_edit.font()
         if isinstance(task_item, TaskCategory):
             font.setBold(True)
         font.setPointSize(12 - recursive_depth)
         self.line_edit.setFont(font)
         self.line_edit.setMinimumHeight(14 - recursive_depth)
-        self._height = 60
+        self._height = 50
+
+        # Set border properties
+        # TODO: set this and above via task tab stylesheet
+        self.setStyleSheet("border: 1px dotted grey")
+        self.line_edit.setStyleSheet("border: none")
 
         self.line_edit.editingFinished.connect(
             self.on_editing_finished
@@ -58,6 +65,7 @@ class TaskCategoryWidget(QtWidgets.QWidget):
         if type(task_item) == TaskCategory:
             child_filter = self.tab.tree_manager.child_filter
             child_filters = [child_filter] if child_filter else []
+            # TODO: this should probably be done by tree manager
             with task_item.filter_children(child_filters):
                 for child in task_item.get_all_children():
                     # TODO: naming is dodgy: the top level tasks are actually

@@ -1,7 +1,15 @@
 
+/* SUGGESTION:
+make separate stylesheets for each tab and outliner widget - gives more control.
+*/
+
 QLineEdit {
     background-color: white;
 }
+
+/* QFrame {
+    border: 1px dotted grey;
+} */
 
 /* QTreeView::item:hover {
     background: lightgray;
@@ -14,7 +22,7 @@ QTreeView {
     show-decoration-selected: 0;
 } */
 
-QTreeView::branch:open:has-children:!has-siblings {
+/* QTreeView::branch:open:has-children:!has-siblings {
     image: url(../icons/search.png);
 }
 QTreeView::branch:closed:has-children:!has-siblings {
@@ -25,4 +33,4 @@ QTreeView::branch:open:has-children {
 }
 QTreeView::branch:closed:has-children {
     image: url(../icons/search.png);
-}
+} */

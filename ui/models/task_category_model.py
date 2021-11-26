@@ -34,7 +34,7 @@ class TaskCategoryModel(BaseTreeModel):
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         child_filters=[filters.NoSubtasks()]
-        if hide_filtered_items:
+        if hide_filtered_items and tree_manager.child_filter:
             child_filters.append(tree_manager.child_filter)
         super(TaskCategoryModel, self).__init__(
             root_category,

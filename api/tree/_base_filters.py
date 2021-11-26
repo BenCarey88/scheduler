@@ -10,6 +10,26 @@ class BaseFilter(object):
         return child_dict
 
 
+class NoFilter(object):
+    """Filter that does nothing."""
+
+    def __bool__(self):
+        """Override bool operator to return False.
+        
+        Returns:
+            (bool): False (to reflect that this is an 'empty' filter).
+        """
+        return False
+
+    def __nonzero__(self):
+        """Override bool operator to return False (Python 2.x)
+        
+        Returns:
+            (bool): False (to reflect that this is an 'empty' filter).
+        """
+        return False
+
+
 class FullPrune(BaseFilter):
     """Filter to remove all children."""
     def filter_function(self, child_dict, item):

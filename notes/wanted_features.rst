@@ -2,6 +2,9 @@
 Tasks
 =====
 
+small
+-----
+-   Don't reset expanded status for outliner on update
 
 larger
 ------

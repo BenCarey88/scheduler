@@ -8,8 +8,7 @@ is being filtered for in the current tab.
 Data for each tree item is maintained via its unique id.
 """
 
-from scheduler.api.tree.filters import RemoveChildrenById
-from scheduler.ui.constants import TASK_STATUS_CHECK_STATES
+from scheduler.api.tree.filters import NoFilter, RemoveChildrenById
 
 
 # TODO: I think the current plan is to massively extend this class so that
@@ -192,8 +191,8 @@ class TreeManager(object):
         """Get filter to filter children by id.
 
         Returns:
-            (RemoveChildrenById or None): filter if any filtering needed.
+            (BaseFilter): filter to filter children with.
         """
         if self._filtered_items:
             return RemoveChildrenById(list(self._filtered_items))
-        return None
+        return NoFilter()

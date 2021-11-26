@@ -381,6 +381,14 @@ class TaskHistory(object):
         """
         return bool(self.dict)
 
+    def __nonzero__(self):
+        """Override bool operator (python 2.x).
+
+        Returns:
+            (bool): False if dictionary is empty, else True.
+        """
+        return bool(self.dict)
+
     @property
     def last_completed(self):
         """Get date that this task was last completed.

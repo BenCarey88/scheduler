@@ -1,4 +1,13 @@
 
+1.0.3:
+    Multiple small features for task tab and outliner:
+        - Jump to section when click on task in outliner
+        - Remove huge gaps in tasks view
+        - Routines no longer have in_progress status option
+        - Routine siblings & kids automatically have routine status
+        - Ctrl+click on outliner filter to filter all siblings
+        - Ctrl+h in outliner to hide/unhide filtered items
+
 1.0.2:
     Fix for TaskHistory bug and Routine TaskStatus bug
 

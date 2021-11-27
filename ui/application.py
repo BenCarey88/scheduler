@@ -135,7 +135,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        print ("AUTOSAVING")
         self.tree_root.write(api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY)
 
     def closeEvent(self, event):
@@ -144,6 +143,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the close event.
         """
+        self.tree_root.write(api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY)
         if edit_log.unsaved_edits():
             result = custom_message_dialog(
                 "Unsaved Changes",

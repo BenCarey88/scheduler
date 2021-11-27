@@ -54,14 +54,6 @@ class TaskRoot(TaskCategory):
         """
         return self._children
 
-    def reset(self):
-        for _, child in self._categories.items():
-            for name, grandchild in child._children.items():
-                grandchild_copy = grandchild.from_dict(
-                    grandchild.to_dict(), name, child
-                )
-                child._children[name] = grandchild_copy
-
     def set_directory_path(self, directory_path):
         """Change directory path to read/write from/to.
 
@@ -148,13 +140,20 @@ class TaskRoot(TaskCategory):
             register_edit=self._register_edits,
         )
 
-    def write(self):
-        """Write data to directory tree."""
-        if not self._directory_path:
+    def write(self, directory_path=None):
+        """Write data to directory tree.
+
+        Args:
+            directory_path (str or None): path to directory, if we want to
+                write to a different one. Otherwise we use the one set as
+                self._directory_path.
+        """
+        directory_path = directory_path or self._directory_path
+        if not directory_path:
             raise TaskFileError(
                 "Directory path has not been set on task root."
             )
-        super(TaskRoot, self).write(self._directory_path)
+        super(TaskRoot, self).write(directory_path)
 
     @classmethod
     def from_directory(cls, directory_path):

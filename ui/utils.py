@@ -1,9 +1,8 @@
 """Ui utility functions."""
 
+from contextlib import contextmanager
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
-from contextlib import contextmanager
 
 
 @contextmanager
@@ -22,8 +21,8 @@ def suppress_signals(*QObjects_list):
         obj.blockSignals(previous_state[obj])
 
 
-def launch_message_dialog(message, informative_text=None, parent=None):
-    """Launch simple message dialog.
+def simple_message_dialog(message, informative_text=None, parent=None):
+    """Launch simple message dialog with just yes, no options.
 
     Args:
         message (str): main message to display in message dialog.
@@ -42,6 +41,32 @@ def launch_message_dialog(message, informative_text=None, parent=None):
         message_dialog.StandardButton.Yes | message_dialog.StandardButton.No
     )
     return (message_dialog.exec() == message_dialog.StandardButton.Yes)
+
+
+def custom_message_dialog(
+        message,
+        buttons,
+        informative_text=None,
+        parent=None):
+    """Launch message dialog with custom buttons.
+
+    Args:
+        message (str): main message to display in message dialog.
+        buttons (list(QtWidgets.QMessageBox.StandardButton)): buttons to use.
+        informative_text (str): optional additional message to display in
+            dialog.
+        Parent (QWidget or None): Qt widget to act as parent for dialog.
+
+    Returns:
+        (QtWidgets.QMessageBox.StandardButton): which button was executed.
+    """
+    message_dialog = QtWidgets.QMessageBox(parent)
+    message_dialog.setText(message)
+    if informative_text:
+        message_dialog.setInformativeText(informative_text)
+    for button in buttons:
+        message_dialog.addButton(button)
+    return message_dialog.exec()
 
 
 # # TODO: implement this in ui utils (and change module name to ui_utils?)

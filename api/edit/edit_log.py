@@ -20,11 +20,32 @@ class EditLog(object):
             _registration_locked (bool): toggle to tell if the log is currently
                 being modified. This allows us to ensure we don't re-add
                 functions to the log when they're being used to undo or redo.
+            _unsaved_changes (bool): whether or not all changes made have been
+                saved. The edit log will automatically mark any new changes as
+                unsaved - it is up to clients of the log to tell it that these
+                changes have been saved.
         """
         self._log = []
         self._undo_log = []
         self._registration_locked = True
-        self._current_edit = None
+        # TODO: does _unsaved_changes belong here? I think it sort of does but
+        # arguably since saving is implemented by application it belongs there?
+        # bit confusing to have it take care of marking unsaved but need
+        # clients to take care of marking it saved. Although it is much easier
+        # to keep track of here.
+        self._unsaved_changes = False
+
+    def mark_as_saved(self):
+        """Tell edit log that the changes have been saved."""
+        self._unsaved_changes = False
+
+    def unsaved_edits(self):
+        """Check whether edit log has any unsaved edits.
+
+        Returns:
+            (bool): whether or not log has any unsaved edits.
+        """
+        return self._unsaved_changes
 
     def open_registry(self):
         """Open edit registry so edits can be added."""
@@ -56,6 +77,7 @@ class EditLog(object):
         if self._undo_log:
             self._undo_log = []
         self._log.append(edit)
+        self._unsaved_changes = True
 
     def undo(self):
         """Undo most recent edit.
@@ -70,6 +92,7 @@ class EditLog(object):
                 return False
             edit._undo()
             self._undo_log.append(edit)
+            self._unsaved_changes = True
             return True
 
     def redo(self):
@@ -85,6 +108,7 @@ class EditLog(object):
                 return False
             edit._redo()
             self._log.append(edit)
+            self._unsaved_changes = True
             return True
 
     def get_log_text(self, long=True):
@@ -112,6 +136,11 @@ class EditLog(object):
         )
 
 
+# TODO: Now we have so many of these functions, is this still the best way to
+# use the edit log singleton? In theory we could initialise it in the
+# application, but remember that the singleton is also needed in the edit
+# classes, so that may be a ball-ache - would still def need to be a singleton
+# (because fuck passing the edit_log as an argument to each edit)
 EDIT_LOG = EditLog()
 
 
@@ -136,6 +165,20 @@ def redo():
         (bool): whether or not redo was performed.
     """
     return EDIT_LOG.redo()
+
+
+def mark_edits_as_saved():
+    """Tell edit log that all changes have been saved."""
+    EDIT_LOG.mark_as_saved()
+
+
+def unsaved_edits():
+    """Check if the edit log has any unsaved changes.
+
+    Returns:
+        (bool): whether or not there are any unsaved edits.
+    """
+    return EDIT_LOG.unsaved_edits()
 
 
 def print_edit_log(long=True):

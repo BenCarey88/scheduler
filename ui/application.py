@@ -5,19 +5,16 @@ import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api import constants
-from scheduler.api.edit.edit_log import (
-    open_edit_registry,
-    print_edit_log,
-    redo,
-    undo,
-)
+from scheduler.api import constants as api_constants
+from scheduler.api.edit import edit_log
 from scheduler.api.tree.task_root import TaskRoot
 
+from .constants import CANCEL_BUTTON, NO_BUTTON, TIMER_INTERVAL, YES_BUTTON
 from .tabs.task_tab import TaskTab
 from .tabs.timetable_tab import TimetableTab
 from .tabs.suggestions_tab import SuggestionsTab
 from .models.tree_manager import TreeManager
+from .utils import custom_message_dialog
 from .widgets.outliner import Outliner
 
 
@@ -30,11 +27,12 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
         self.tree_root = TaskRoot.from_directory(
-            constants.SCHEDULER_TASKS_DIRECTORY
+            api_constants.SCHEDULER_TASKS_DIRECTORY
         )
-        open_edit_registry()
+        edit_log.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
+        self.startTimer(TIMER_INTERVAL)
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
@@ -96,13 +94,14 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         if modifiers == QtCore.Qt.ControlModifier:
             if event.key() == QtCore.Qt.Key_S:
                 self.save()
+                edit_log.mark_edits_as_saved()
             elif event.key() == QtCore.Qt.Key_Z:
                 self.undo()
             elif event.key() == QtCore.Qt.Key_Y:
                 self.redo()
             # for debugging:
             elif event.key() == QtCore.Qt.Key_P:
-                print_edit_log(long=True)
+                edit_log.print_edit_log(long=True)
 
         elif modifiers == (QtCore.Qt.ControlModifier|QtCore.Qt.ShiftModifier):
             if event.key() == QtCore.Qt.Key_Z:
@@ -113,21 +112,53 @@ class SchedulerWindow(QtWidgets.QMainWindow):
     def save(self):
         """Save scheduler data."""
         self.tree_root.write()
+        edit_log.mark_edits_as_saved()
 
     def undo(self):
         """Undo last action."""
-        if undo():
+        if edit_log.undo():
             self.update()
 
     def redo(self):
         """Redo last action."""
-        if redo():
+        if edit_log.redo():
             self.update()
 
     def update(self):
         """Update current tab and outliner."""
         self.tabs_widget.currentWidget().update()
         self.outliner_stack.currentWidget().update()
+
+    def timerEvent(self, event):
+        """Called every timer_interval. Used to make autosaves.
+
+        Args:
+            event (QtCore.QEvent): the timer event.
+        """
+        print ("AUTOSAVING")
+        self.tree_root.write(api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY)
+
+    def closeEvent(self, event):
+        """Called on closing: prompt user to save changes if not done yet.
+
+        Args:
+            event (QtCore.QEvent): the close event.
+        """
+        if edit_log.unsaved_edits():
+            result = custom_message_dialog(
+                "Unsaved Changes",
+                buttons=[YES_BUTTON, NO_BUTTON, CANCEL_BUTTON],
+                informative_text=(
+                    "There are unsaved changes. Save before closing?"
+                )
+            )
+            if result == CANCEL_BUTTON:
+                event.ignore()
+                return
+            if result == YES_BUTTON:
+                self.save()
+            event.accept()
+        super(SchedulerWindow, self).closeEvent(event)
 
 
 def set_style(app):

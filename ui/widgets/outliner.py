@@ -1,12 +1,14 @@
 """Task Outliner Panel."""
 
+from functools import partial
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.task_root import TaskRoot
 from scheduler.ui.models.task_category_model import TaskCategoryModel
-from scheduler.ui.utils import launch_message_dialog
+from scheduler.ui.utils import simple_message_dialog
 
 
 class Outliner(QtWidgets.QTreeView):
@@ -45,6 +47,9 @@ class Outliner(QtWidgets.QTreeView):
         self.setDropIndicatorShown(True)
         self.viewport().setAcceptDrops(True)
 
+        self.expanded.connect(partial(self.mark_item_expanded, value=True))
+        self.collapsed.connect(partial(self.mark_item_expanded, value=False))
+
         # self.setSelectionBehavior(
         #     QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
         # )
@@ -77,6 +82,33 @@ class Outliner(QtWidgets.QTreeView):
             if self.currentIndex().isValid()
             else None
         )
+
+    def _expand_item(self, index):
+        """Recursively expand item at given index.
+
+        This only expands items marked as expanded in the tree_manager.
+
+        Args:
+            index (QtCore.QModelIndex): index of item to expand.
+        """
+        if not index.isValid():
+            return
+        item = index.internalPointer()
+        if not isinstance(item, TaskCategory):
+            return
+        if self.tree_manager.is_expanded(item):
+            self.setExpanded(index, True)
+            for i in range(item.num_children()):
+                child_index = self._model.index(i, 0, index)
+                self._expand_item(child_index)
+        else:
+            self.setExpanded(index, False)
+
+    def expand_items(self):
+        """Expand all items marked as expanded in tree_manager."""#
+        for i in range(self.root.num_children()):
+            child_index = self._model.index(i, 0, QtCore.QModelIndex())
+            self._expand_item(child_index)
 
     def reset_view(self, keep_selection=False):
         """Reset view.
@@ -119,7 +151,7 @@ class Outliner(QtWidgets.QTreeView):
         # force update of view by calling expandAll
         # TODO: Maybe when we've renamed the update function this can call the
         # original update method?
-        self.expandAll()
+        self.expand_items()
 
         for item in selected_items:
             item_row = item.index()
@@ -150,6 +182,20 @@ class Outliner(QtWidgets.QTreeView):
                         self.selectionModel().SelectionFlag.Current
                     )
 
+    def mark_item_expanded(self, index, value):
+        """Mark item as expanded in tree manager.
+        
+        This is called whenever an item is collapsed/expanded in the view.
+
+        Args:
+            index (QtCore.QModelIndex): index of item.
+            value (bool): whether or not the item should be expanded.
+        """
+        if index.isValid():
+            item = index.internalPointer()
+            if item:
+                self.tree_manager.expand_item(item, value)
+
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
 
@@ -165,7 +211,7 @@ class Outliner(QtWidgets.QTreeView):
             if event.key() == QtCore.Qt.Key_Delete:
                 selected_items = self._get_selected_items()
                 if selected_items:
-                    continue_deletion = launch_message_dialog(
+                    continue_deletion = simple_message_dialog(
                         "Delete the following items?",
                         "\n".join([item.name for item in selected_items]),
                         parent=self

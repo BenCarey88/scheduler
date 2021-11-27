@@ -35,9 +35,12 @@ class TreeManager(object):
         IS_FILTERED_OUT (bool): whether or not the item should be filtered out
             of the tree (either because the user selected to filter it out, or
             because one of its ancestors has been selected to be filtered out).
+        IS_EXPANDED (bool): whether or not the given item is expanded in the
+            outliner.
     """
     IS_SELECTED_FOR_FILTERING = "is_selected_for_filtering"
     IS_FILTERED_OUT = "is_filtered_out"
+    IS_EXPANDED = "is_expanded"
 
     def __init__(self):
         """Initialise tree manager. Note that this class actually has no
@@ -125,6 +128,21 @@ class TreeManager(object):
             for sibling in tree_item.get_all_siblings()
         ])
 
+    def is_expanded(self, tree_item):
+        """Check if the given tree item has been expanded in the outliner.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to query.
+
+        Returns:
+            (bool): whether or not the given item is expanded.
+        """
+        return self.get_attribute(
+            tree_item,
+            self.IS_EXPANDED,
+            True
+        )
+
     def filter_item(self, tree_item, from_user_selection=True):
         """Add tree item to filter list.
 
@@ -185,6 +203,16 @@ class TreeManager(object):
         """
         for sibling in tree_item.get_all_siblings():
             self.unfilter_item(sibling)
+
+    def expand_item(self, tree_item, value):
+        """Mark item as collapsed/expanded in the outliner.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to expand or collapse.
+            value (bool): the value to mark it as (True means expanded, False
+                means collapsed).
+        """
+        self.set_attribute(tree_item, self.IS_EXPANDED, value)
 
     @property
     def child_filter(self):

@@ -7,7 +7,7 @@ from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory, TaskFilter
 
 from scheduler.ui.tabs.base_tab import BaseTab
-from scheduler.ui.utils import launch_message_dialog, suppress_signals
+from scheduler.ui.utils import simple_message_dialog, suppress_signals
 from .task_category_widget import TaskCategoryWidget
 
 class TaskTab(BaseTab):
@@ -200,7 +200,7 @@ class TaskTab(BaseTab):
             # del: remove item
             if event.key() == QtCore.Qt.Key_Delete:
                 if self.selected_subtask_item:
-                    continue_deletion = launch_message_dialog(
+                    continue_deletion = simple_message_dialog(
                         "Delete {0}?".format(self.selected_subtask_item.name),
                         parent=self
                     )

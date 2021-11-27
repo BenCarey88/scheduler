@@ -1,4 +1,8 @@
 
+1.0.4:
+    - Autosave and prompt when closing
+    - Expanded status persists in outliner
+
 1.0.3:
     Multiple small features for task tab and outliner:
         - Jump to section when click on task in outliner

@@ -67,7 +67,7 @@ class TaskTab(BaseTab):
             if self.active_task_widget:
                 self.active_task_widget.select_subtask_item()
         if self._scroll_value is not None:
-            print (self._scroll_value)
+            # TODO: fix this bit
             self.scroll_area.verticalScrollBar().setValue(self._scroll_value)
 
     def _fill_main_view(self):
@@ -188,6 +188,8 @@ class TaskTab(BaseTab):
             point.y() + self.scroll_area.verticalScrollBar().value()
         )
 
+    # TODO: These are almost all for the current task widget right?
+    # so those should probably just be implemented there
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
 
@@ -224,7 +226,7 @@ class TaskTab(BaseTab):
                     if task_widget:
                         task_widget.setFocus(True)
             # ctrl+del: force remove item
-            if event.key() == QtCore.Qt.Key_Delete:
+            elif event.key() == QtCore.Qt.Key_Delete:
                 if self.selected_subtask_item:
                     self.selected_subtask_item.parent.remove_child(
                         self.selected_subtask_item.name

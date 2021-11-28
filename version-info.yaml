@@ -1,7 +1,8 @@
 
-next:
+1.0.5:
+    - Ctrl+up/down for moving item index in tree
     - Added edit log index for saving purposes
-    - ctrl + up/down for moving item index in tree
+    - Removed ctrl+g, use ctrl+r as toggle instead
 
 1.0.4:
     - Autosave and prompt when closing

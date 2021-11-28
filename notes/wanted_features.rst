@@ -4,13 +4,11 @@ Tasks
 
 small
 -----
-(/) Ctrl+Up/Down to move item up/down
 -   Ctrl+tab(+shift) (or left/right) to go up or down a level
 -   Fix drag+drop to allow dropping between items
 -   Set top level task as part of task tree rather than separate widget
         (or allow it to accept drop events)
 -   Ctrl+T to turn something from a task to a category and vice versa
-(/) Remove Ctrl+G and make Ctrl+R a toggle instead
 
 
 larger

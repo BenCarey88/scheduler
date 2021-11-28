@@ -259,7 +259,10 @@ class TaskCategory(BaseTreeItem):
 
         tmp_dir = None
         if os.path.exists(directory_path):
-            tmp_dir = tempfile.mkdtemp(dir=os.path.dirname(directory_path))
+            tmp_dir = tempfile.mkdtemp(
+                suffix="{0}_backup_".format(os.path.basename(directory_path)),
+                dir=os.path.dirname(directory_path),
+            )
             shutil.move(directory_path, tmp_dir)
         os.mkdir(directory_path)
         task_category_file = os.path.join(

@@ -98,11 +98,11 @@ class Outliner(QtWidgets.QTreeView):
             return
         if self.tree_manager.is_expanded(item):
             self.setExpanded(index, True)
-            for i in range(item.num_children()):
-                child_index = self._model.index(i, 0, index)
-                self._expand_item(child_index)
         else:
             self.setExpanded(index, False)
+        for i in range(item.num_children()):
+            child_index = self._model.index(i, 0, index)
+            self._expand_item(child_index)
 
     def expand_items(self):
         """Expand all items marked as expanded in tree_manager."""#
@@ -241,6 +241,26 @@ class Outliner(QtWidgets.QTreeView):
                     current_item.create_new_subcategory()
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
+            # ctrl+up: move task up an index
+            elif event.key() == QtCore.Qt.Key_Up:
+                current_item = self._get_current_item()
+                if current_item:
+                    index = current_item.index()
+                    if index is not None:
+                        current_item.move(index - 1)
+                        self.update()
+                        self.MODEL_UPDATED_SIGNAL.emit()
+                        return
+            # ctrl+down: move task down an index
+            elif event.key() == QtCore.Qt.Key_Down:
+                current_item = self._get_current_item()
+                if current_item:
+                    index = current_item.index()
+                    if index is not None:
+                        current_item.move(index + 1)
+                        self.update()
+                        self.MODEL_UPDATED_SIGNAL.emit()
+                        return
             # ctrl+del: force remove item
             elif event.key() == QtCore.Qt.Key_Delete:
                 selected_items = self._get_selected_items()
@@ -255,19 +275,20 @@ class Outliner(QtWidgets.QTreeView):
             elif event.key() == QtCore.Qt.Key_R:
                 current_item = self._get_current_item()
                 if current_item and isinstance(current_item, Task):
-                    current_item.change_task_type(TaskType.ROUTINE)
-                    self.update()
-                    self.MODEL_UPDATED_SIGNAL.emit()
-            # ctrl+g: switch task to general
-            elif event.key() == QtCore.Qt.Key_G:
-                current_item = self._get_current_item()
-                if current_item and isinstance(current_item, Task):
-                    current_item.change_task_type(TaskType.GENERAL)
+                    if current_item.type == TaskType.ROUTINE:
+                        current_item.change_task_type(TaskType.GENERAL)
+                    elif current_item.type == TaskType.GENERAL:
+                        current_item.change_task_type(TaskType.ROUTINE)
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+h: hide or unhide filtered items in outliner
             elif event.key() == QtCore.Qt.Key_H:
                 self._hide_filtered_items = not self._hide_filtered_items
+                self.update()
+                self.MODEL_UPDATED_SIGNAL.emit()
+            # ctrl+e: auto-collapse and expand based on filter-status
+            elif event.key() == QtCore.Qt.Key_E:
+                self.tree_manager.set_expanded_from_filtered(self.root)
                 self.update()
                 self.MODEL_UPDATED_SIGNAL.emit()
 

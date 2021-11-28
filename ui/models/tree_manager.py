@@ -214,6 +214,21 @@ class TreeManager(object):
         """
         self.set_attribute(tree_item, self.IS_EXPANDED, value)
 
+    def set_expanded_from_filtered(self, item):
+        """Set filtered items as collapsed and unfiltered as expanded.
+
+        Args:
+            item (BaseTreeItem): tree item to set from.
+        """
+        # TODO: was there a reason we didn't pass tree root to tree_manager?
+        # feels like it would be useful to have
+        if self.is_filtered_out(item):
+            self.expand_item(item, False)
+        else:
+            self.expand_item(item, True)
+            for child in item.get_all_children():
+                self.set_expanded_from_filtered(child)
+
     @property
     def child_filter(self):
         """Get filter to filter children by id.

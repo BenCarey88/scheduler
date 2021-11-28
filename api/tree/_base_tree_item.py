@@ -371,6 +371,24 @@ class BaseTreeItem(ABC):
             register_edit=self._register_edits,
         )
 
+    def move(self, new_index):
+        """Move this item to new index in parent's _children dict.
+
+        Args:
+            new_index (int): new index to move to.
+        """
+        if not self.parent:
+            return
+        if new_index >= self.parent.num_children() or new_index < 0:
+            return
+        if new_index == self.index():
+            return
+        MoveChildrenEdit.create_and_run(
+            self.parent,
+            {self.name: new_index},
+            register_edit=self._register_edits,
+        )
+
     def change_child_tree_type(self, child_name, new_tree_class):
         """Attempt to change child tree class to a different tree class.
 

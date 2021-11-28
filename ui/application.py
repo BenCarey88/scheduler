@@ -32,6 +32,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         edit_log.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
+        self.saved_edit_id = edit_log.current_edit_id()
+        self.autosaved_edit_id = edit_log.current_edit_id()
         self.startTimer(TIMER_INTERVAL)
 
     def setup_tabs(self):
@@ -70,12 +72,12 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """Setup the menu actions."""
         menu_bar = self.menuBar()
         self.setMenuBar(menu_bar)
-        
+
         file_menu = QtWidgets.QMenu("File", menu_bar)
         menu_bar.addMenu(file_menu)
         save_action = file_menu.addAction("Save")
         save_action.triggered.connect(self.save)
-        
+
         edit_menu = QtWidgets.QMenu("Edit", menu_bar)
         menu_bar.addMenu(edit_menu)
         undo_action = edit_menu.addAction("Undo")
@@ -94,7 +96,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         if modifiers == QtCore.Qt.ControlModifier:
             if event.key() == QtCore.Qt.Key_S:
                 self.save()
-                edit_log.mark_edits_as_saved()
             elif event.key() == QtCore.Qt.Key_Z:
                 self.undo()
             elif event.key() == QtCore.Qt.Key_Y:
@@ -111,8 +112,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def save(self):
         """Save scheduler data."""
-        self.tree_root.write()
-        edit_log.mark_edits_as_saved()
+        if self.saved_edit_id != edit_log.current_edit_id():
+            self.tree_root.write()
+            self.saved_edit_id = edit_log.current_edit_id()
 
     def undo(self):
         """Undo last action."""
@@ -129,13 +131,21 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tabs_widget.currentWidget().update()
         self.outliner_stack.currentWidget().update()
 
+    def _autosave(self):
+        """Autosave backup file if needed."""
+        if self.autosaved_edit_id != edit_log.current_edit_id():
+            self.tree_root.write(
+                api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY
+            )
+            self.autosaved_edit_id = edit_log.current_edit_id()
+
     def timerEvent(self, event):
         """Called every timer_interval. Used to make autosaves.
 
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        self.tree_root.write(api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY)
+        self._autosave()
 
     def closeEvent(self, event):
         """Called on closing: prompt user to save changes if not done yet.
@@ -143,8 +153,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the close event.
         """
-        self.tree_root.write(api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY)
-        if edit_log.unsaved_edits():
+        self._autosave()
+        if self.saved_edit_id != edit_log.current_edit_id():
             result = custom_message_dialog(
                 "Unsaved Changes",
                 buttons=[YES_BUTTON, NO_BUTTON, CANCEL_BUTTON],
@@ -156,7 +166,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
                 event.ignore()
                 return
             if result == YES_BUTTON:
-                self.save()
+                self.tree_root.write()
             event.accept()
         super(SchedulerWindow, self).closeEvent(event)
 

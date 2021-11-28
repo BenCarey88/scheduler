@@ -98,6 +98,50 @@ class TaskWidget(QtWidgets.QTreeView):
                     )
                     self.setFocus()
 
+    def _get_current_item(self):
+        """Get current tree item.
+
+        Returns:
+            (BaseTreeItem or None): current tree item, if there is one.
+        """
+        return (
+            self.currentIndex().internalPointer()
+            if self.currentIndex().isValid()
+            else None
+        )
+
+    def keyPressEvent(self, event):
+        """Reimplement key event to add hotkeys.
+
+        Args:
+            event (PySide.QtGui.QKeyEvent): The event.
+        """
+        modifiers = event.modifiers()
+
+        if modifiers == QtCore.Qt.ControlModifier:
+            # ctrl+down: move task down an index
+            if event.key() == QtCore.Qt.Key_Up:
+                current_item = self._get_current_item()
+                if current_item:
+                    index = current_item.index()
+                    if index is not None:
+                        current_item.move(index - 1)
+                        self.tab.update()
+                        #self.setFocus()
+                        return
+            # ctrl+down: move task down an index
+            if event.key() == QtCore.Qt.Key_Down:
+                current_item = self._get_current_item()
+                if current_item:
+                    index = current_item.index()
+                    if index is not None:
+                        current_item.move(index + 1)
+                        self.tab.update()
+                        #self.setFocus()
+                        return
+
+        super(TaskWidget, self).keyPressEvent(event)
+
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for task widget tree."""
@@ -138,7 +182,6 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
             if index.column() == 0:
                 item = index.internalPointer()
                 if item:
-                    print (item.name)
                     editor = QtWidgets.QLineEdit(parent)
                     editor.setText(item.name)
                     return editor

@@ -1,5 +1,7 @@
 """Base edit class, containing edits that can be added to the edit log."""
 
+from uuid import uuid4
+
 from .edit_log import EDIT_LOG
 
 
@@ -30,12 +32,15 @@ class BaseEdit(object):
                 hence can be run/redone).
             _name (str): name to use for edit in edit log.
             _description (str): description to use for edit in edit log.
+            _id (str): id of edit, used to compare to other edits, and used as
+                an index in edit_log.
         """
         self._register_edit = register_edit
         self._registered = False
         self._has_been_done = False
         self._name = "Unnamed Edit"
         self._description = ""
+        self._id = uuid4()
 
     @classmethod
     def create_and_run(cls, *args, **kwargs):
@@ -111,6 +116,15 @@ class BaseEdit(object):
             )
         self._run()
         self._has_been_done = True
+
+    @property
+    def id(self):
+        """Get id of edit, to be used as an index in the edit log.
+
+        Returns:
+            (str): edit id.
+        """
+        return self._id
 
     @property
     def name(self):

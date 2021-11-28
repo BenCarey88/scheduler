@@ -1,4 +1,8 @@
 
+next:
+    - Added edit log index for saving purposes
+    - ctrl + up/down for moving item index in tree
+
 1.0.4:
     - Autosave and prompt when closing
     - Expanded status persists in outliner

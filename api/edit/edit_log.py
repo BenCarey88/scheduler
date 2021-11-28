@@ -20,32 +20,19 @@ class EditLog(object):
             _registration_locked (bool): toggle to tell if the log is currently
                 being modified. This allows us to ensure we don't re-add
                 functions to the log when they're being used to undo or redo.
-            _unsaved_changes (bool): whether or not all changes made have been
-                saved. The edit log will automatically mark any new changes as
-                unsaved - it is up to clients of the log to tell it that these
-                changes have been saved.
         """
         self._log = []
         self._undo_log = []
         self._registration_locked = True
-        # TODO: does _unsaved_changes belong here? I think it sort of does but
-        # arguably since saving is implemented by application it belongs there?
-        # bit confusing to have it take care of marking unsaved but need
-        # clients to take care of marking it saved. Although it is much easier
-        # to keep track of here.
-        self._unsaved_changes = False
 
-    def mark_as_saved(self):
-        """Tell edit log that the changes have been saved."""
-        self._unsaved_changes = False
-
-    def unsaved_edits(self):
-        """Check whether edit log has any unsaved edits.
+    def get_current_edit_id(self):
+        """Get id of most recent edit.
 
         Returns:
-            (bool): whether or not log has any unsaved edits.
+            (str): id of most recent edit.
         """
-        return self._unsaved_changes
+        if self._log:
+            return self._log[-1].id
 
     def open_registry(self):
         """Open edit registry so edits can be added."""
@@ -167,18 +154,13 @@ def redo():
     return EDIT_LOG.redo()
 
 
-def mark_edits_as_saved():
-    """Tell edit log that all changes have been saved."""
-    EDIT_LOG.mark_as_saved()
-
-
-def unsaved_edits():
-    """Check if the edit log has any unsaved changes.
+def current_edit_id():
+    """Get id of most recent edit.
 
     Returns:
-        (bool): whether or not there are any unsaved edits.
+        (str): id of most recent edit.
     """
-    return EDIT_LOG.unsaved_edits()
+    return EDIT_LOG.get_current_edit_id()
 
 
 def print_edit_log(long=True):

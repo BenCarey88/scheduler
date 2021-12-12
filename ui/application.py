@@ -10,11 +10,12 @@ from scheduler.api.edit import edit_log
 from scheduler.api.tree.task_root import TaskRoot
 
 from .constants import CANCEL_BUTTON, NO_BUTTON, TIMER_INTERVAL, YES_BUTTON
+from .tabs.notes_tab import NotesTab
 from .tabs.task_tab import TaskTab
 from .tabs.timetable_tab import TimetableTab
 from .tabs.suggestions_tab import SuggestionsTab
 from .models.tree_manager import TreeManager
-from .utils import custom_message_dialog
+from .utils import custom_message_dialog, set_style
 from .widgets.outliner import Outliner
 
 
@@ -47,13 +48,27 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         splitter.addWidget(self.outliner_stack)
         splitter.addWidget(self.tabs_widget)
 
-        self.create_tab_and_outliner("Tasks", TaskTab)
-        self.create_tab_and_outliner("Timetable", TimetableTab)
-        self.create_tab_and_outliner("Suggestions", SuggestionsTab)
+        self.tasks_tab = self.create_tab_and_outliner(
+            "Tasks",
+            TaskTab
+        )
+        self.timetable_tab = self.create_tab_and_outliner(
+            "Timetable",
+            TimetableTab
+        )
+        self.suggestions_tab = self.create_tab_and_outliner(
+            "Suggestions",
+            SuggestionsTab
+        )
+        self.notes_tab = self.create_tab_and_outliner(
+            "Notes",
+            NotesTab
+        )
 
         self.tabs_widget.currentChanged.connect(
             self.outliner_stack.setCurrentIndex
         )
+        self.tabs_widget.setCurrentIndex(1)
 
     def create_tab_and_outliner(self, tab_name, tab_class):
         """Create tab and outliner combo for given tab_type.
@@ -61,12 +76,16 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             tab_name (str): name to use for tab.
             tab_class (class): BaseTab subclass to use for class.
+
+        Returns:
+            (QtWidgets.QTabWidget): the tab widgter.
         """
         tab_tree_manager = TreeManager()
         outliner = Outliner(self.tree_root, tab_tree_manager)
         self.outliner_stack.addWidget(outliner)
         tab = tab_class(self.tree_root, tab_tree_manager, outliner)
         self.tabs_widget.addTab(tab, tab_name)
+        return tab
 
     def setup_menu(self):
         """Setup the menu actions."""
@@ -115,6 +134,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         if self.saved_edit_id != edit_log.current_edit_id():
             self.tree_root.write()
             self.saved_edit_id = edit_log.current_edit_id()
+        self.notes_tab.save()
 
     def undo(self):
         """Undo last action."""
@@ -167,28 +187,15 @@ class SchedulerWindow(QtWidgets.QMainWindow):
                 return
             if result == YES_BUTTON:
                 self.tree_root.write()
+                self.notes_tab.save()
             event.accept()
         super(SchedulerWindow, self).closeEvent(event)
-
-
-def set_style(app):
-    """Set style from style/stylesheet.qss on app.
-
-    Args:
-        app (QtWidgets.QApplication): Qt Application.
-    """
-    stylesheet_path = os.path.join(
-        os.path.dirname(__file__), "style", "stylesheet.qss"
-    )
-    with open(stylesheet_path, "r") as stylesheet_file:
-        stylesheet = stylesheet_file.read()
-    app.setStyleSheet(stylesheet)
 
 
 def run_application():
     """Open application window."""
     app = QtWidgets.QApplication(sys.argv)
-    set_style(app)
+    set_style(app, "stylesheet.qss")
     window = SchedulerWindow()
     window.showMaximized()
     app.exec_()

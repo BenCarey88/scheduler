@@ -14,6 +14,7 @@ SCHEDULER_DIRECTORY = os.path.normpath(
     "/users/benca/OneDrive/Documents/Admin/scheduler"
 )
 SCHEDULER_TASKS_DIRECTORY = os.path.join(SCHEDULER_DIRECTORY, "tasks")
+SCHEDULER_NOTES_FILE = os.path.join(SCHEDULER_DIRECTORY, "notes.txt")
 
 SCHEDULER_AUTOSAVES_DIRECTORY = os.path.join(SCHEDULER_DIRECTORY, "_autosaves")
 SCHEDULER_TASKS_AUTOSAVES_DIRECTORY = os.path.join(

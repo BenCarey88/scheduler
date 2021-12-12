@@ -3,6 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.tabs.base_tab import BaseTab
+from scheduler.ui import utils
 
 from . timetable_model import TimetableModel
 
@@ -24,32 +25,54 @@ class TimetableTab(BaseTab):
             outliner,
             parent=parent
         )
-        self.table = TimeTableView()
-        self.table.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding,
-            QtWidgets.QSizePolicy.Expanding
-        )
+        self.table = TimetableView()
         self.outer_layout.addWidget(self.table)
 
     def update(self):
         pass
 
 
-class TimeTableView(QtWidgets.QTableView):
+class TimetableView(QtWidgets.QTableView):
     """Timetable view widget."""
 
     def __init__(self, parent=None):
         """Initialise task delegate item."""
-        super(TimeTableView, self).__init__(parent)
+        super(TimetableView, self).__init__(parent)
         self.setModel(TimetableModel(self))
+        self.setItemDelegate(TimetableDelegate(self))
+        #self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeMode.Fixed
+        )
+        self.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeMode.Fixed
+        )
+        self.resize_table()
+        utils.set_style(self, "timetable.qss")
+
+    def resize_table(self):
+        self.resizeRowsToContents()
+        self.resizeColumnsToContents()
+
+    def resizeEvent(self, event):
+        super(TimetableView, self).resizeEvent(event)
+        self.resize_table()
+
+    def row_count(self):
+        return self.model().rowCount(QtCore.QModelIndex())
+
+    def column_count(self):
+        return self.model().columnCount(QtCore.QModelIndex())
 
 
-class TaskDelegate(QtWidgets.QStyledItemDelegate):
-    """Task Delegate for task widget tree."""
+class TimetableDelegate(QtWidgets.QStyledItemDelegate):
+    """Task Delegate for timetable."""
 
-    def __init__(self, parent=None):
+    def __init__(self, table, parent=None):
         """Initialise task delegate item."""
-        super(TaskDelegate, self).__init__(parent)
+        super(TimetableDelegate, self).__init__(parent)
+        self.table = table
 
     def sizeHint(self, option, index):
         """Get size hint for this item.
@@ -61,7 +84,14 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtCore.QSize): size hint.
         """
-        
+        num_rows = 12
+        table_size = self.table.viewport().size()
+        line_width = 1
+        rows = self.table.row_count() or 1
+        cols = self.table.column_count() or 1
+        width = (table_size.width() - (line_width * (cols - 1))) / cols
+        height = (table_size.height() -  (line_width * (rows - 1))) / num_rows
+        return QtCore.QSize(width, height)
 
     def createEditor(self, parent, option, index):
         """Create editor widget for edit role.
@@ -79,11 +109,5 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtWidgets.QWidget): editor widget.
         """
-        if index.isValid():
-            if index.column() == 0:
-                item = index.internalPointer()
-                if item:
-                    editor = QtWidgets.QLineEdit(parent)
-                    editor.setText(item.name)
-                    return editor
         return super().createEditor(parent, option, index)
+

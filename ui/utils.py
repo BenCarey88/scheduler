@@ -1,6 +1,7 @@
 """Ui utility functions."""
 
 from contextlib import contextmanager
+import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -67,6 +68,24 @@ def custom_message_dialog(
     for button in buttons:
         message_dialog.addButton(button)
     return message_dialog.exec()
+
+
+def set_style(widget, stylesheet_filename):
+    """Set style from stylesheet.qss file on widget.
+
+    Args:
+        stylesheet_filename (str): name of stylesheet file under
+            scheduler/ui/style directory. Can be in a subdirectory.
+        widget (QtWidgets.QWidget): Qt widget to set style on.
+    """
+    stylesheet_path = os.path.join(
+        os.path.dirname(__file__),
+        "style",
+        os.path.normpath(stylesheet_filename)
+    )
+    with open(stylesheet_path, "r") as stylesheet_file:
+        stylesheet = stylesheet_file.read()
+    widget.setStyleSheet(stylesheet)
 
 
 # # TODO: implement this in ui utils (and change module name to ui_utils?)

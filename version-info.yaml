@@ -1,4 +1,7 @@
 
+temp:
+    Used for testing new versions. Includes notes tab.
+
 1.0.5:
     - Ctrl+up/down for moving item index in tree
     - Added edit log index for saving purposes

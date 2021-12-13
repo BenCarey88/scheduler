@@ -64,7 +64,6 @@ class EditLog(object):
         if self._undo_log:
             self._undo_log = []
         self._log.append(edit)
-        self._unsaved_changes = True
 
     def undo(self):
         """Undo most recent edit.
@@ -79,7 +78,6 @@ class EditLog(object):
                 return False
             edit._undo()
             self._undo_log.append(edit)
-            self._unsaved_changes = True
             return True
 
     def redo(self):
@@ -95,7 +93,6 @@ class EditLog(object):
                 return False
             edit._redo()
             self._log.append(edit)
-            self._unsaved_changes = True
             return True
 
     def get_log_text(self, long=True):

@@ -75,8 +75,8 @@ class CompositeEdit(BaseEdit):
 
         Args:
             edits_list (list(BaseEdit)): list of edits to compose.
-            inverse_order (bool): if True, we reverse the order of the edits
-                for the inverse.
+            reverse_order_for_inverse (bool): if True, we reverse the order
+                of the edits for the inverse.
             reigster_edit (bool): whether or not to register this edit.
         """
         super(CompositeEdit, self).__init__(register_edit)

@@ -3,6 +3,13 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
+# temporarily create data here - 
+class TimetableDataBlock(object):
+    def __init__(self, time_start, time_end):
+        self.time_start = time_start
+        self.time_end = time_end
+
+
 class TimetableModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
@@ -18,6 +25,24 @@ class TimetableModel(QtCore.QAbstractItemModel):
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(TimetableModel, self).__init__(parent)
+        # temporarily create data here
+        # something like this should probably exist in api instead
+        self.data = []
+        self.num_rows = int(
+            (self.DAY_END - self.DAY_START) / self.TIME_INTERVAL
+        )
+        self.num_cols = len(self.WEEKDAYS)
+        for row in range(self.num_rows):
+            self.data.append([])
+            hour_float = self.DAY_START + self.TIME_INTERVAL * row
+            for col in range(self.num_cols):
+                self.data[row].append(
+                    TimetableDataBlock(
+                        hour_float, hour_float + self.TIME_INTERVAL
+                    )
+                )
+        #self.data = [TimetableDayData() for col in range(self.num_cols)]
+        #self.data[3].add_event(10, 11.5)
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -30,7 +55,12 @@ class TimetableModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.QModelIndex): child QModelIndex.
         """
-        return QtCore.QModelIndex()
+        return self.createIndex(
+            row,
+            column,
+            # self.data[column] 
+            self.data[row][column]
+        )
 
     def parent(self, index):
         """Get index of parent item of given child.
@@ -52,7 +82,8 @@ class TimetableModel(QtCore.QAbstractItemModel):
         Returns:
             (int): number of children.
         """
-        return (self.DAY_END - self.DAY_START) / self.TIME_INTERVAL
+        # return 1
+        return self.num_rows
 
     def columnCount(self, index):
         """Get number of columns of given item.
@@ -62,7 +93,7 @@ class TimetableModel(QtCore.QAbstractItemModel):
         Returns:
             (int): number of columns.
         """
-        return len(self.WEEKDAYS)
+        return self.num_cols
 
     def data(self, index, role):
         """Get data for given item item and role.
@@ -98,7 +129,10 @@ class TimetableModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.Qt.Flag): Qt flags for item.
         """
-        return QtCore.Qt.ItemFlag.ItemIsEnabled
+        return (
+            QtCore.Qt.ItemFlag.ItemIsEnabled # | 
+            # QtCore.Qt.ItemFlag.ItemIsSelectable
+        )
 
     @staticmethod
     def convert_to_time(hour_float):
@@ -128,10 +162,16 @@ class TimetableModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.QVariant): header data.
         """
-        if role == QtCore.Qt.DisplayRole:
+        if role == QtCore.Qt.ItemDataRole.DisplayRole:
             if orientation == QtCore.Qt.Horizontal:
                 return self.WEEKDAYS[section]
             else:
                 hour_float = self.DAY_START + self.TIME_INTERVAL * section
                 return self.convert_to_time(hour_float)
+        if role == QtCore.Qt.ItemDataRole.TextAlignmentRole:
+            if orientation == QtCore.Qt.Vertical:
+                return (
+                    QtCore.Qt.AlignmentFlag.AlignTop |
+                    QtCore.Qt.AlignmentFlag.AlignHCenter
+                )
         return QtCore.QVariant()

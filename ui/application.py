@@ -27,6 +27,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         super(SchedulerWindow, self).__init__(*args, **kwargs)
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
+
         self.tree_root = TaskRoot.from_directory(
             api_constants.SCHEDULER_TASKS_DIRECTORY
         )

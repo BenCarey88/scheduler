@@ -39,7 +39,7 @@ class TimetableTab(BaseTab):
             outliner,
             parent=parent
         )
-        self.table = TimetableView()
+        self.table = TimetableView(tree_root, tree_manager)
         self.outer_layout.addWidget(self.table)
 
     def update(self):
@@ -56,10 +56,12 @@ class TimetableView(QtWidgets.QTableView):
     TIME_INTERVAL = 1
     SELCECTION_TIME_STEP = 0.25
 
-    def __init__(self, parent=None):
+    def __init__(self, tree_root, tree_manager, parent=None):
         """Initialise task delegate item."""
         super(TimetableView, self).__init__(parent)
 
+        self.tree_root = tree_root
+        self.tree_manager = tree_manager
         self.selected_rect = None
 
         test_events = [
@@ -350,7 +352,9 @@ class TimetableView(QtWidgets.QTableView):
                 event_editor = AddEventDialog(
                     self.time_from_pos(y_top),
                     self.time_from_pos(y_top + height),
-                    self.selected_rect[5]
+                    self.selected_rect[5],
+                    self.tree_root,
+                    self.tree_manager,
                 )
                 if event_editor.exec():
                     self.timetable_events[day].add_event(

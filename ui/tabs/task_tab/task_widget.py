@@ -30,7 +30,7 @@ class TaskWidget(QtWidgets.QTreeView):
 
         # setup model and delegate
         self.setItemDelegate(TaskDelegate(self))
-        model = TaskModel(task_item, tab.tree_manager, parent)
+        model = TaskModel(task_item, tab.tree_manager, parent=parent)
         self.setModel(model)
         self.expandAll()
         model.dataChanged.connect(self.tab.update)

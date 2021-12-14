@@ -14,7 +14,7 @@ class TaskModel(BaseTreeModel):
     This model is intended to be used in the main panel of the Task Tab.
     """
 
-    def __init__(self, root_task, tree_manager, parent=None):
+    def __init__(self, root_task, tree_manager, num_cols=2, parent=None):
         """Initialise task tree model.
 
         Args:
@@ -22,6 +22,7 @@ class TaskModel(BaseTreeModel):
             tree_manager (TreeManager): tree manager item.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
+        self.num_cols = num_cols
         super(TaskModel, self).__init__(root_task, tree_manager, parent=parent)
 
     @property
@@ -44,7 +45,7 @@ class TaskModel(BaseTreeModel):
         Returns:
             (int): number of columns.
         """
-        return 2
+        return self.num_cols
 
     def data(self, index, role):
         """Get data for given item item and role.

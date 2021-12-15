@@ -13,13 +13,28 @@ from scheduler.ui.widgets.outliner import Outliner
 class AddEventDialog(QtWidgets.QDialog):
     def __init__(
             self,
-            start_time,
-            end_time,
-            date,
             tree_root,
             tree_manager,
+            day_data,
+            event_item,
+            as_editor=False,
             parent=None):
+        """
+        Args:
+            ...
+            as_editor (bool): whether or not we're editing an existing event,
+                or adding a new one.
+            ...
+        """
         super(AddEventDialog, self).__init__(parent)
+
+        self._event_item = event_item
+        date = event_item.date
+        start_time = event_item.start_time
+        end_time = event_item.end_time
+        self.day_data = day_data
+
+        accept_button_text = "Edit Event" if as_editor else "Add Event"
 
         utils.set_style(self, "timetable_event_widget.qss")
 
@@ -94,13 +109,20 @@ class AddEventDialog(QtWidgets.QDialog):
         self.tab_widget.addTab(task_selection_tab, "Add Task")
 
         task_label = QtWidgets.QLabel("")
-        self.task_combo_box = TaskViewComboBox(task_label)
+        self.task_combo_box = TaskViewComboBox(
+            tree_root,
+            tree_manager,
+            task_label,
+            event_item.tree_item,
+            event_item.category_item
+        )
         category_label = QtWidgets.QLabel("")
         self.outliner_combo_box = OutlinerComboBox(
             tree_root,
             tree_manager,
             category_label,
             self.task_combo_box,
+            event_item.category_item
         )
         task_selection_layout.addStretch()
         task_selection_layout.addWidget(category_label)
@@ -117,8 +139,12 @@ class AddEventDialog(QtWidgets.QDialog):
 
         event_category_label = QtWidgets.QLabel("Category")
         self.event_category_line_edit = QtWidgets.QLineEdit()
+        if event_item.category:
+            self.event_category_line_edit.setText(event_item.category)
         event_name_label = QtWidgets.QLabel("Name")
         self.event_name_line_edit = QtWidgets.QLineEdit()
+        if event_item.name:
+            self.event_name_line_edit.setText(event_item.name)
         event_layout.addStretch()
         event_layout.addWidget(event_category_label)
         event_layout.addWidget(self.event_category_line_edit)
@@ -129,13 +155,17 @@ class AddEventDialog(QtWidgets.QDialog):
 
         main_layout.addSpacing(10)
 
-        self.add_event_button = QtWidgets.QPushButton("Add Event")
-        main_layout.addWidget(self.add_event_button)
+        buttons_layout = QtWidgets.QHBoxLayout()
+        if as_editor:
+            self.delete_button = QtWidgets.QPushButton("Delete Event")
+            buttons_layout.addWidget(self.delete_button)
+            self.delete_button.clicked.connect(self.delete_event)
+        self.accept_button = QtWidgets.QPushButton(accept_button_text)
+        buttons_layout.addWidget(self.accept_button)
+        self.accept_button.clicked.connect(self.accept_and_close)
+
+        main_layout.addLayout(buttons_layout)
         main_layout.addStretch()
-        self.add_event_button.clicked.connect(self.accept_and_close)
-        self.add_event_button.setFocusPolicy(
-            QtCore.Qt.FocusPolicy.NoFocus
-        )
 
         # TODO: will be nicer to have one (or maybe both) of the two
         # treeviews as a widget on the RHS
@@ -162,7 +192,7 @@ class AddEventDialog(QtWidgets.QDialog):
                 return self.outliner_combo_box.selected_task_item.name
             return ""
         else:
-            return self.event_category_line_edit.currentText()
+            return self.event_category_line_edit.text()
 
     @property
     def name(self):
@@ -171,22 +201,41 @@ class AddEventDialog(QtWidgets.QDialog):
                 return self.task_combo_box.selected_task_item.name
             return ""
         else:
-            return self.event_name_line_edit.currentText()
+            return self.event_name_line_edit.text()
+
+    @property
+    def timetable_event(self):
+        return self._event_item
 
     def accept_and_close(self):
+        self._event_item.set_time(self.start_time, self.end_time)
+        if (self.tab_widget.currentIndex() == 0 
+                and self.task_combo_box.selected_task_item):
+            self._event_item.set_tree_item(
+                self.task_combo_box.selected_task_item
+            )
+        else:
+            self._event_item.set_category(self.category)
+            self._event_item.set_name(self.name)
         self.accept()
+        self.close()
+
+    def delete_event(self):
+        self.day_data.events.remove(self._event_item)
+        self.reject()
         self.close()
 
 
 class TreeComboBox(QtWidgets.QComboBox):
     # Thanks to http://qt.shoutwiki.com/wiki/Implementing_QTreeView_in_QComboBox_using_Qt-_Part_2
 
-    def __init__(self, label, parent=None):
+    def __init__(self, label, tree_item=None, parent=None):
         super(TreeComboBox, self).__init__(parent=parent)
         self.label = label
         self.skip_next_hide = False
         self.selected_task_item = None
         self.setEnabled(False)
+        self.tree_item = tree_item
 
     def setup(self, model, tree_view, root):
         self.setEnabled(True)
@@ -194,6 +243,22 @@ class TreeComboBox(QtWidgets.QComboBox):
         self.setView(tree_view)
         self.view().viewport().installEventFilter(self)
         self.root = root
+        if self.tree_item:
+            item_row = self.tree_item.index()
+            if item_row is not None:
+                index = model.createIndex(
+                    item_row,
+                    0,
+                    self.tree_item
+                )
+                self.view().setCurrentIndex(index)
+                self.setRootModelIndex(index.parent())
+                self.setCurrentIndex(index.row())
+                try:
+                    full_text = self.tree_item.path[len(self.root.path):]
+                    self.label.setText(full_text)
+                except IndexError:
+                    pass
 
     def eventFilter(self, object, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress
@@ -227,18 +292,21 @@ class TreeComboBox(QtWidgets.QComboBox):
 
 
 class OutlinerComboBox(TreeComboBox):
+    # TODO: disable drag drop in this case of outliner
     def __init__(
             self,
             tree_root,
             tree_manager,
             label,
             task_combobox,
+            tree_item=None,
             parent=None):
         self.tree_manager = tree_manager
         outliner = Outliner(tree_root, tree_manager)
         model = TaskCategoryModel(tree_root, tree_manager)
         super(OutlinerComboBox, self).__init__(
             label,
+            tree_item,
             parent=parent
         )
         self.setup(model, outliner, tree_root)
@@ -258,9 +326,26 @@ class OutlinerComboBox(TreeComboBox):
 
 
 class TaskViewComboBox(TreeComboBox):
-    def __init__(self, label, parent=None):
+    def __init__(
+            self,
+            tree_root,
+            tree_manager,
+            label,
+            task_item=None,
+            task_category_item=None,
+            parent=None):
         super(TaskViewComboBox, self).__init__(
             label,
+            task_item,
             parent=parent
         )
-        self.setEnabled(False)
+        if task_item and task_category_item:
+            self.setEnabled(True)
+            model = TaskModel(
+                task_category_item,
+                tree_manager,
+                num_cols=1,
+            )
+            tree_view = QtWidgets.QTreeView()
+            tree_view.setModel(model)
+            self.setup(model, tree_view, task_category_item)

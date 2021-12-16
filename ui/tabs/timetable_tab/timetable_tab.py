@@ -443,26 +443,21 @@ class TimetableView(QtWidgets.QTableView):
             y_pos_change = self.round_height_to_time_step(
                 y_pos - self.selected_timetable_event_orig_mouse_pos.y()
             )
-            if y_pos_change != 0:
-                time_change = self.time_range_from_height(y_pos_change)
-                new_start = (
-                    self.selected_timetable_event_orig_start + time_change
+            time_change = self.time_range_from_height(y_pos_change)
+            new_start = (
+                self.selected_timetable_event_orig_start + time_change
+            )
+            new_end = (
+                self.selected_timetable_event_orig_end + time_change
+            )
+            if new_start != self.selected_timetable_event.start_time:
+                self.selected_timetable_event_is_moving = True
+                self.selected_timetable_event.change_time(
+                    new_start,
+                    new_end
                 )
-                new_end = (
-                    self.selected_timetable_event_orig_end + time_change
-                )
-                if new_start != self.selected_timetable_event.start_time:
-                    self.selected_timetable_event_is_moving = True
-                    self.selected_timetable_event.change_time(
-                        new_start,
-                        new_end
-                    )
                 update_view_port = True
 
-            x_pos = event.pos().x()
-            x_pos_change = (
-                x_pos - self.selected_timetable_event_orig_mouse_pos.x()
-            )
             mouse_col = self.get_column_from_mouse_pos(event.pos())
             event_col = self.selected_timetable_event.column
             if mouse_col is not None and mouse_col != event_col:
@@ -546,12 +541,15 @@ class TimetableDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtCore.QSize): size hint.
         """
+        # TODO set num_rows as constant? and call it something more
+        # explicit, like num_visible_rows or num_rows_on_screen
         num_rows = 12
         table_size = self.table.viewport().size()
         line_width = 1
         rows = self.table.row_count() or 1
         cols = self.table.column_count() or 1
         width = (table_size.width() - (line_width * (cols - 1))) / cols
+        # TODO: why does the expression below use rows AND num_rows?
         height = (table_size.height() -  (line_width * (rows - 1))) / num_rows
         return QtCore.QSize(width, height)
 

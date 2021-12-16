@@ -183,6 +183,7 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
                 item = index.internalPointer()
                 if item:
                     editor = QtWidgets.QLineEdit(parent)
+                    # TODO: is this needed since sets text from model anyway?
                     editor.setText(item.name)
                     return editor
         return super().createEditor(parent, option, index)

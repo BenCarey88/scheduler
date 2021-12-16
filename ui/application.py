@@ -10,10 +10,13 @@ from scheduler.api.edit import edit_log
 from scheduler.api.tree.task_root import TaskRoot
 
 from .constants import CANCEL_BUTTON, NO_BUTTON, TIMER_INTERVAL, YES_BUTTON
+
 from .tabs.notes_tab import NotesTab
 from .tabs.task_tab import TaskTab
 from .tabs.timetable_tab import TimetableTab
+from .tabs.tracker_tab import TrackerTab
 from .tabs.suggestions_tab import SuggestionsTab
+
 from .models.tree_manager import TreeManager
 from .utils import custom_message_dialog, set_style
 from .widgets.outliner import Outliner
@@ -57,6 +60,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             "Timetable",
             TimetableTab
         )
+        self.tracker_tab = self.create_tab_and_outliner(
+            "Tracker",
+            TrackerTab
+        )
         self.suggestions_tab = self.create_tab_and_outliner(
             "Suggestions",
             SuggestionsTab
@@ -69,7 +76,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tabs_widget.currentChanged.connect(
             self.outliner_stack.setCurrentIndex
         )
-        self.tabs_widget.setCurrentIndex(1)
+        self.tabs_widget.setCurrentIndex(2)
 
     def create_tab_and_outliner(self, tab_name, tab_class):
         """Create tab and outliner combo for given tab_type.

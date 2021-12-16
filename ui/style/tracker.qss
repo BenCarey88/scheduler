@@ -1,0 +1,15 @@
+QHeaderView::section {
+    background-color: white;
+    border-top: 0px;
+    border-left: 0px;
+    border-right: 1px solid lightgray;
+    border-bottom: 1px solid lightgray;
+}
+
+QTableCornerButton::section{
+    background-color: white;
+    border-top: 0px;
+    border-left: 0px;
+    border-right: 1px solid lightgray;
+    border-bottom: 1px solid lightgray;
+}

@@ -493,23 +493,31 @@ class TimetableView(QtWidgets.QTableView):
                     new_event
                 )
                 if event_editor.exec():
-                    self.timetable_events[day].add_event(
+                    timetable_event = event_editor.timetable_event
+                    col = timetable_event.column
+                    self.timetable_events[col].add_event(
                         event_editor.timetable_event
                     )
             self.selected_rect = None
             self.viewport().update()
         elif self.selected_timetable_event:
             if not self.selected_timetable_event_is_moving:
+                orig_col = self.selected_timetable_event.column
                 event_editor = AddEventDialog(
                     self.tree_root,
                     self.tree_manager,
-                    self.timetable_events[
-                        self.selected_timetable_event.column
-                    ],
+                    self.timetable_events[orig_col],
                     self.selected_timetable_event,
                     as_editor=True,
                 )
-                event_editor.exec()
+                if event_editor.exec():
+                    timetable_event = event_editor.timetable_event
+                    col = timetable_event.column
+                    # TODO: either this logic should live ineditor with delete_event
+                    # or delete_event should live outside editor, along with this
+                    if col != orig_col:
+                        self.timetable_events[orig_col].events.remove(timetable_event)
+                        self.timetable_events[col].events.append(timetable_event)
             self.selected_timetable_event = None
             self.selected_timetable_event_is_moving = False
             self.selected_timetable_event_orig_mouse_pos = None

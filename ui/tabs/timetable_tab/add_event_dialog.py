@@ -1,3 +1,6 @@
+#TODO: rename as just EventDialog
+
+from datetime import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from api.tree.task import Task
@@ -5,6 +8,7 @@ from scheduler.api import tree
 
 from scheduler.api.tree.task import Task
 from scheduler.ui import utils
+from scheduler.ui.models.full_task_tree_model import FullTaskTreeModel
 from scheduler.ui.models.task_category_model import TaskCategoryModel
 from scheduler.ui.models.task_model import TaskModel
 from scheduler.ui.widgets.outliner import Outliner
@@ -109,28 +113,35 @@ class AddEventDialog(QtWidgets.QDialog):
         self.tab_widget.addTab(task_selection_tab, "Add Task")
 
         task_label = QtWidgets.QLabel("")
-        self.task_combo_box = TaskViewComboBox(
+        self.task_combo_box = TaskTreeComboBox(
             tree_root,
             tree_manager,
             task_label,
             event_item.tree_item,
-            event_item.category_item
         )
-        category_label = QtWidgets.QLabel("")
-        self.outliner_combo_box = OutlinerComboBox(
-            tree_root,
-            tree_manager,
-            category_label,
-            self.task_combo_box,
-            event_item.category_item
-        )
-        task_selection_layout.addStretch()
-        task_selection_layout.addWidget(category_label)
-        task_selection_layout.addWidget(self.outliner_combo_box)
+        # self.task_combo_box = TaskViewComboBox(
+        #     tree_root,
+        #     tree_manager,
+        #     task_label,
+        #     event_item.tree_item,
+        #     event_item.category_item
+        # )
+        # category_label = QtWidgets.QLabel("")
+        # self.outliner_combo_box = OutlinerComboBox(
+        #     tree_root,
+        #     tree_manager,
+        #     category_label,
+        #     self.task_combo_box,
+        #     event_item.category_item
+        # )
         task_selection_layout.addStretch()
         task_selection_layout.addWidget(task_label)
         task_selection_layout.addWidget(self.task_combo_box)
         task_selection_layout.addStretch()
+        # task_selection_layout.addStretch()
+        # task_selection_layout.addWidget(task_label)
+        # task_selection_layout.addWidget(self.task_combo_box)
+        # task_selection_layout.addStretch()
 
         event_tab = QtWidgets.QWidget()
         event_layout = QtWidgets.QVBoxLayout()
@@ -178,6 +189,11 @@ class AddEventDialog(QtWidgets.QDialog):
         return qtime.hour() + qtime.minute() / 60
 
     @property
+    def date(self):
+        date = self.cb_date.date()
+        return datetime(date.year(), date.month(), date.day())
+
+    @property
     def start_time(self):
         return self.qtime_to_float(self.time_editors["Start"].time())
 
@@ -187,12 +203,9 @@ class AddEventDialog(QtWidgets.QDialog):
 
     @property
     def category(self):
-        if self.tab_widget.currentIndex() == 0:
-            if self.outliner_combo_box.selected_task_item:
-                return self.outliner_combo_box.selected_task_item.name
-            return ""
-        else:
+        if self.tab_widget.currentIndex() == 1:
             return self.event_category_line_edit.text()
+        return ""
 
     @property
     def name(self):
@@ -209,6 +222,7 @@ class AddEventDialog(QtWidgets.QDialog):
 
     def accept_and_close(self):
         self._event_item.set_time(self.start_time, self.end_time)
+        self._event_item.set_date(self.date)
         if (self.tab_widget.currentIndex() == 0 
                 and self.task_combo_box.selected_task_item):
             self._event_item.set_tree_item(
@@ -291,61 +305,83 @@ class TreeComboBox(QtWidgets.QComboBox):
                     self.label.setText(full_text)
 
 
-class OutlinerComboBox(TreeComboBox):
-    # TODO: disable drag drop in this case of outliner
+class TaskTreeComboBox(TreeComboBox):
     def __init__(
             self,
             tree_root,
             tree_manager,
             label,
-            task_combobox,
             tree_item=None,
             parent=None):
-        self.tree_manager = tree_manager
-        outliner = Outliner(tree_root, tree_manager)
-        model = TaskCategoryModel(tree_root, tree_manager)
-        super(OutlinerComboBox, self).__init__(
+        model = FullTaskTreeModel(tree_root, tree_manager)
+        tree_view = QtWidgets.QTreeView()
+        tree_view.setModel(model)
+        super(TaskTreeComboBox, self).__init__(
             label,
             tree_item,
             parent=parent
         )
-        self.setup(model, outliner, tree_root)
-        self.task_combobox = task_combobox
-        self.currentIndexChanged.connect(self.setup_task_combobox)
-
-    def setup_task_combobox(self, index):
-        if isinstance(self.selected_task_item, Task):
-            model = TaskModel(
-                self.selected_task_item,
-                self.tree_manager,
-                num_cols=1,
-            )
-            tree_view = QtWidgets.QTreeView()
-            tree_view.setModel(model)
-            self.task_combobox.setup(model, tree_view, self.selected_task_item)
+        self.setup(model, tree_view, tree_root)
 
 
-class TaskViewComboBox(TreeComboBox):
-    def __init__(
-            self,
-            tree_root,
-            tree_manager,
-            label,
-            task_item=None,
-            task_category_item=None,
-            parent=None):
-        super(TaskViewComboBox, self).__init__(
-            label,
-            task_item,
-            parent=parent
-        )
-        if task_item and task_category_item:
-            self.setEnabled(True)
-            model = TaskModel(
-                task_category_item,
-                tree_manager,
-                num_cols=1,
-            )
-            tree_view = QtWidgets.QTreeView()
-            tree_view.setModel(model)
-            self.setup(model, tree_view, task_category_item)
+# TODO: create archive directory for old code snippets that we want to save in
+# this repo
+
+# class OutlinerComboBox(TreeComboBox):
+#     # TODO: disable drag drop in this case of outliner
+#     def __init__(
+#             self,
+#             tree_root,
+#             tree_manager,
+#             label,
+#             task_combobox,
+#             tree_item=None,
+#             parent=None):
+#         self.tree_manager = tree_manager
+#         outliner = Outliner(tree_root, tree_manager)
+#         model = TaskCategoryModel(tree_root, tree_manager)
+#         super(OutlinerComboBox, self).__init__(
+#             label,
+#             tree_item,
+#             parent=parent
+#         )
+#         self.setup(model, outliner, tree_root)
+#         self.task_combobox = task_combobox
+#         self.currentIndexChanged.connect(self.setup_task_combobox)
+
+#     def setup_task_combobox(self, index):
+#         if isinstance(self.selected_task_item, Task):
+#             model = TaskModel(
+#                 self.selected_task_item,
+#                 self.tree_manager,
+#                 num_cols=1,
+#             )
+#             tree_view = QtWidgets.QTreeView()
+#             tree_view.setModel(model)
+#             self.task_combobox.setup(model, tree_view, self.selected_task_item)
+
+
+# class TaskViewComboBox(TreeComboBox):
+#     def __init__(
+#             self,
+#             tree_root,
+#             tree_manager,
+#             label,
+#             task_item=None,
+#             task_category_item=None,
+#             parent=None):
+#         super(TaskViewComboBox, self).__init__(
+#             label,
+#             task_item,
+#             parent=parent
+#         )
+#         if task_item and task_category_item:
+#             self.setEnabled(True)
+#             model = TaskModel(
+#                 task_category_item,
+#                 tree_manager,
+#                 num_cols=1,
+#             )
+#             tree_view = QtWidgets.QTreeView()
+#             tree_view.setModel(model)
+#             self.setup(model, tree_view, task_category_item)

@@ -10,7 +10,7 @@ from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit
 )
-from scheduler.api import utils
+from scheduler.api.common.date_time import DateTime
 
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
@@ -177,6 +177,21 @@ class Task(BaseTreeItem):
             if subtask.type != value:
                 subtask.type = value
 
+    # TODO: I made what I now feel was a pretty big ballsup with my
+    # classifications, and at the moment everything I've made a top-level
+    # task should I think be a bottom-level category, so I should make a
+    # new function here to reflect that once I've refactored.
+    def top_level_task(self):
+        """Get top level task that this task is a subtask of.
+
+        Returns:
+            (Task): top level task item.
+        """
+        top_level_task = self
+        while isinstance(top_level_task.parent, Task):
+            top_level_task = top_level_task.parent
+        return top_level_task
+
     def is_subtask(self):
         """Check whether this task is a subtask of some other task.
 
@@ -304,7 +319,7 @@ class Task(BaseTreeItem):
         """
         if not os.path.isdir(os.path.dirname(file_path)):
             raise TaskFileError(
-                "Task file directory {0} does not exist".format(
+                "Task file {0} does not exist".format(
                     file_path
                 )
             )
@@ -400,5 +415,5 @@ class TaskHistory(object):
         """
         for date, subdict in reversed(self.dict.items()):
             if subdict.get(self.STATUS_KEY) == TaskStatus.COMPLETE:
-                return utils.get_date_from_string(date)
+                return DateTime.date_from_string(date)
         return None

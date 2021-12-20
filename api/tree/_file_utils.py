@@ -47,7 +47,7 @@ def check_directory_can_be_written_to(
 
     Raises:
         (TreeFileError): if directory can't be written to and raise_error
-            is TrueTrue.
+            is True.
 
     Returns:
         (bool): whether or not directory path can be written to.

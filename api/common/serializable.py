@@ -5,6 +5,8 @@ from abc import ABC, abstractclassmethod, abstractmethod
 from collections import OrderedDict
 import json
 import os
+import shutil
+import tempfile
 
 
 class FileError(Exception):
@@ -22,15 +24,18 @@ class SaveType():
             data can be stored in special files, defined below in the
             SerializableFileTypes struct.
         EITHER:     can be read/written to/from a file or a directory.
-        NONE:       cannot be saved to a file or directory. This is used for
+        NESTED:     cannot be saved to a file or directory. This is used for
             classes that can only be written to a dictionary and read from a
-            dictionary, and are generally saved as a subdict in another
-            serialized class's json file.
+            dictionary, and will be saved as a subdict in another serialized
+            class's json file.
     """
     FILE = "File"
     DIRECTORY = "Directory"
     EITHER = "Either"
-    NONE = "None"
+    NESTED = "Nested"
+
+    _FILE_TYPES = [FILE, EITHER]
+    _DIR_TYPES = [DIRECTORY, EITHER]
 
 
 class SerializableFileTypes():
@@ -49,6 +54,7 @@ class SerializableFileTypes():
         INFO:   optional json formatted file representing any additional info
             required for deserialization of a directory.
     """
+    # TODO: use these in subclasses - make .infos in task classes json format
     JSON = ".json"
     MARKER= ".marker"
     ORDER = ".order"
@@ -57,26 +63,126 @@ class SerializableFileTypes():
 
 # TODO: use this in task classes
 class Serializable(ABC):
-    """Base class for dictionary and file/directory serialization."""
+    """Base class for dictionary and file/directory serialization.
 
-    __SAVE_TYPE__ = SaveType.FILE
-    __DIR_MARKER__ = None
+    All subclasses make use of these two class variables:
+
+        _SAVE_TYPE (SaveType): the type of save that this serialization uses
+            (see SaveType struct above)
+        _DICT_TYPE (type): the type of dict that this class can be serialized
+            to (can be dict or OrderedDict)
+
+    Additionally, the following global variables are defined to help with
+    directory reading and writing (and so only need to overridden in subclasses
+    with a save type of 'Directory' or 'Either'):
+
+        _MARKER_FILE (str): name of marker file in this directory, that
+            designates the directory as a serialized class. This can be the
+            the same as the info_file or order_file, if they exist.
+        _INFO_FILE (str or None): name of file that gives additional info
+            about class, if one exists.
+        _ORDER_FILE (str or None):  name of file that determines order of
+            of subdirs and files in the directory, if one exists.
+        _SUBDIR_KEY (str or None): string used to key dict/list of subdir
+            class items. This should be used in the to_dict and from_dict
+            methods too. It is also used to determine if this class can
+            read/write subdirs when serializaing as a directory.
+        _SUBDIR_CLASS (class or None): class to use for serializing /
+            deserializing subdirectories in the given directory. If None, use
+            this class.
+        _SUBDIR_DICT_TYPE (type): type to store deserialized subdirectory
+            classes in (should be dict or OrderedDict).
+        _FILE_KEY (str): string used to key dict/list of file class items.
+            This should be used in the to_dict and from_dict methods too.
+            It is also used to determine if this class can read/write files
+            when serializaing as a directory.
+        _FILE_CLASS (class or None): class to use for serializing /
+            deserializing files in the given directory. If None, use this
+            class.
+        _FILE_DICT_TYPE (type): type to store deserialized file classes in
+            (should be dict or OrderedDict).
+    """
+    _SAVE_TYPE = SaveType.FILE
+    _DICT_TYPE = dict
+
+    _MARKER_FILE = None
+    _INFO_FILE = None
+    _ORDER_FILE = None
+
+    _SUBDIR_KEY = None
+    _SUBDIR_CLASS = None
+    _SUBDIR_DICT_TYPE = dict
+
+    _FILE_KEY = None
+    _FILE_CLASS = None
+    _FILE_DICT_TYPE = dict
+
+    @classmethod
+    def _file_class(cls):
+        """Get class used to read files in directory deserialization.
+
+        Returns:
+            (class): class used for file serialization/deserialization.
+        """
+        return cls._FILE_CLASS or cls
+
+    @classmethod
+    def _subdir_class(cls):
+        """Get class used to read subdirs in directory deserialization.
+
+        Returns:
+            (class): class used for subdir serialization/deserialization.
+        """
+        return cls._SUBDIR_CLASS or cls
+
+    def __init__(self):
+        """Initialize serializable item."""
+        if self._SAVE_TYPE not in SaveType._DIR_TYPES:
+            return
+
+        # directory error checks
+        if not self._MARKER_FILE:
+            raise FileError(
+                "Directory writing not possible without a defined "
+                "_MARKER_FILE attribute"
+            )
+        if not (self._SUBDIR_KEY or self._FILE_KEY):
+            raise FileError(
+                "Directory writing not possible without a defined "
+                "_SUBDIR_KEY or _FILE_KEY attribute"
+            )
+        if (self._SUBDIR_KEY and
+                self._subdir_class()._SAVE_TYPE not in SaveType._DIR_TYPES):
+            raise FileError(
+                "_subdir_class() must have a directory save type"
+            )
+        if (self._FILE_KEY and
+                self._file_class()._SAVE_TYPE not in SaveType._FILE_TYPES):
+            raise FileError(
+                "_file_class() must have a file save type"
+            )
+        if (self._FILE_KEY == self._SUBDIR_KEY and
+                self._FILE_DICT_TYPE != self._SUBDIR_DICT_TYPE):
+            raise FileError(
+                "If file key and subdir key are the same, their dict "
+                "types must be too"
+            )
+
+    ### Dict Read/Write ###
+    # These must be reimplemented in subclasses
+    @abstractclassmethod
+    def from_dict(cls, dictionary):
+        """Virtual method to initialise class from dictionary"""
+        pass
 
     @abstractmethod
     def to_dict(self):
         """Virtual method to create dict from file."""
         pass
 
-    @abstractclassmethod
-    def from_dict(cls, dictionary):
-        """Virtual method to initialise class from dictionary"""
-        pass
-
-    # TODO: should we raise errors here on failed read? Or add to a logger?
-    # whatever we do should also be applied to the tree._file_utils as well.
-    # if we raise errors, remember to add to docstirng.
+    ### File Read/Write ###
     @staticmethod
-    def read_json_file(file_path, as_ordered_dict=False):
+    def _read_json_file(file_path, as_ordered_dict=False):
         """Read json dict from file_path.
 
         Args:
@@ -86,6 +192,9 @@ class Serializable(ABC):
         Returns:
             (dict or OrderedDict): json dictionary.
         """
+        # TODO: should we raise errors here on failed read? Or add to a logger?
+        # whatever we do should also be applied to tree._file_utils as well.
+        # if we raise errors, remember to add to docstirng.
         if not os.path.isfile(file_path):
             raise FileError(
                 "File {0} does not exist".format(file_path)
@@ -102,36 +211,8 @@ class Serializable(ABC):
                     file_path
                 )
             )
-
-    # TODO: since we're making .info a required standard here, we should make
-    # it a constant and inherit it in subclasses.
-    def to_file(self, file_path):
-        """Serialize class as json file.
-
-        Args:
-            file_path (str): path to the json file. This should be a .json
-                file in most cases, or a .info file for the additional
-                info file sometimes required in directory serialization.
-        """
-        if self.__SAVE_TYPE__ not in [SaveType.FILE, SaveType.EITHER]:
-            raise FileError(
-                "{0} has save type '{1}', so can't be saved to a file".format(
-                    str(self), self.__SAVE_TYPE__
-                )
-            )
-        if not os.path.isdir(os.path.dirname(file_path)):
-            raise FileError(
-                "File directory {0} does not exist".format(file_path)
-            )
-        if os.path.splitext(file_path)[-1] not in [".json", ".info"]:
-            raise FileError(
-                "File path {0} is not a json.".format(file_path)
-            )
-        with open(file_path, 'w') as f:
-            json.dump(self.to_dict(), f, indent=4)
-
     @classmethod
-    def from_file(cls, file_path, use_ordered_dict=False):
+    def from_file(cls, file_path):
         """Initialise class from json file.
 
         Args:
@@ -142,31 +223,57 @@ class Serializable(ABC):
         Returns:
             (Serializable): class instance.
         """
-        if cls.__SAVE_TYPE__ not in [SaveType.FILE, SaveType.EITHER]:
+        if cls._SAVE_TYPE not in SaveType._FILE_TYPES:
             raise FileError(
                 "{0} has save type '{1}', so can't be read from a file".format(
-                    str(cls), cls.__SAVE_TYPE__
+                    str(cls), cls._SAVE_TYPE
                 )
             )
-        json_dict = cls.read_json_file(file_path, use_ordered_dict)
+        json_dict = cls._read_json_file(
+            file_path,
+            use_ordered_dict=(cls._DICT_TYPE==OrderedDict)
+        )
         return cls.from_dict(json_dict)
 
+    def to_file(self, file_path):
+        """Serialize class as json file.
+
+        Args:
+            file_path (str): path to the json file. This should be a .json
+                file in most cases, or a .info file for the additional
+                info file sometimes required in directory serialization.
+        """
+        if self._SAVE_TYPE not in SaveType._DIR_TYPES:
+            raise FileError(
+                "{0} has save type '{1}', so can't be saved to a file".format(
+                    str(self), self._SAVE_TYPE
+                )
+            )
+        if not os.path.isdir(os.path.dirname(file_path)):
+            raise FileError(
+                "File directory {0} does not exist".format(file_path)
+            )
+        if os.path.splitext(file_path)[-1] not in [".json"]:
+            raise FileError(
+                "File path {0} is not a json.".format(file_path)
+            )
+        with open(file_path, 'w') as file_:
+            json.dump(self.to_dict(), file_, indent=4)
+
+    ### Directory utils ###
     @staticmethod
-    def is_serialized_directory(directory_path, marker_file):
+    def _is_serialize_directory(directory_path, marker_file):
         """Check if directory represents a serialized class.
 
         Args:
             directory_path (str): path to directory.
-            marker_file (str or None): name of marker file in this directory,
-                that designates the directory as a serialized class, or None.
-                If None, we fail instantly.
+            marker_file (str): name of marker file in this directory, that
+                designates the directory as a serialized class.
 
         Returns:
             (bool) whether or not directory path represents a valid directory
                 that can be deserialized.
         """
-        if not marker_file:
-            return False
         if os.path.isdir(directory_path):
             marker_file_path = os.path.join(
                 directory_path,
@@ -176,234 +283,256 @@ class Serializable(ABC):
                 return True
         return False
 
-    # TODO: make info files in tasks directories into json formatting
+    # TODO: should this raise_error flag be the norm in this repo?
     @classmethod
-    def read_directory(
+    def _check_directory_can_be_written_to(
             cls,
             directory_path,
-            marker_file,
-            subdir_class_key,
-            file_class_key,
-            subdir_class=None,
-            file_class=None,
-            subdir_class_type=dict,
-            file_class_type=dict,
-            return_type=dict,
-            info_file=None,
-            order_file=None):
-        """Get dict from directory path.
+            raise_error=True):
+        """Check if directory path can be written to.
 
-        This is used for classes that contain dictionaries or lists of
-        subclasses. The base implementation assumes that all files will
-        represent one type of class, and all subdirectories will represent
-        another (potentially different) type of class.
-
-        Additional dictionary data may be stored in a given info file, which
-        can be read with the read_info_file method. In the base class this
-        is assumed to just be a json file with an ordering of files and
-        subdirectories from this directory.
+        A directory path can have a serializable written to it so long as the
+        following criteria are met:
+            - the _SAVE_TYPE of this class is a directory one.
+            - the path's parent directory exists.
+            - the path is not a file.
+            - the path either doesn't currently exist, or it exists and is
+                already a serialized directory, so can be overwritten.
 
         Args:
-            directory_path (str): path to directory.
-            marker_file (str): name of marker file in this directory, that
-                designates the directory as a serialized class. This can be
-                the same as the info_file or order_file.
-            subdir_class_key (str): string used to key dict/list of subdir
-                class items.
-            file_class_key (str): string used to key dict/list of file class
-                class items.
-            subdir_class (class or None): class to use for subdirectories. If
-                None, use cls.
-            file_class (class or None): class to use for json files in
-                directory. If None, use cls.
-            subdir_class_type (type): type to use for subdir class - standardly
-                this should be dict, OrderedDict or list.
-            file_class_type (type): type to use for file class - standardly
-                this should be dict, OrderedDict or list.
-            return_type (type): type to use for file class - dict or
-                OrderedDict
-            info_file (str or None): name of file that gives additional info
-                about class, if one exists.
-            order_file (str or None): name of file that determines order of
-                of subdirs and files in the directory.
+            directory_path (str): path to directory we want to write.
+            raise_error (bool): if True, raise error on failure.
+
+        Raises:
+            (FileError): if directory can't be written to.
+
+        Returns:
+            (bool): whether or not directory path can be written to.
+        """
+        if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
+            raise FileError(
+                "{0} has save type '{1}', so can't be saved to a dir".format(
+                    str(cls), cls._SAVE_TYPE
+                )
+            )
+        if not os.path.isdir(os.path.dirname(directory_path)):
+            if raise_error:
+                raise FileError(
+                    "Directory {0} has no parent dir and so cannot "
+                    "be created".format(directory_path)
+                )
+            return False
+        if os.path.isfile(directory_path):
+            if raise_error:
+                raise FileError(
+                    "Directory {0} is a file".format(directory_path)
+                )
+            return False
+        marker_file = cls._MARKER_FILE
+        if (marker_file and
+                os.path.exists(directory_path) and
+                not cls._is_serialize_directory(directory_path, marker_file)):
+            if raise_error:
+                raise FileError(
+                    "Directory {0} already exists and is not a serialized "
+                    "directory - cannot overwrite".format(directory_path)
+                )
+            return False
+        return True
+
+    ### Directory Read/Write ###
+    @classmethod
+    def _read_directory(cls, directory_path):
+        """Get dict from directory path.
+
+        This is used for classes that contain dictionaries of subclasses.
+        This assumes that all files will represent one type of class, and
+        all subdirectories will represent another (potentially different)
+        type of class.
+
+        Additional dictionary data may be stored in the info file, and an
+        ordering of the files and subdirs in the directory, if needed, can
+        be stored in the order file.
+
+        Args:
+            (dict): directory class to read from.
 
         Returns:
             (dict): dictonary defined by directory.
         """
-        subdir_class = subdir_class or cls
-        file_class = file_class or cls
-        if not cls.is_serialized_directory(directory_path, marker_file):
+        subdir_class = cls._subdir_class()
+        file_class = cls._file_class()
+        if not cls._is_serialize_directory(directory_path, cls._MARKER_FILE):
             raise FileError(
                 "Directory path {0} is not a serialized class "
                 "directory".format(directory_path)
             )
 
-        return_dict = return_type()
-        if info_file:
-            info_file_path = os.path.join(directory_path, info_file)
-            return_dict = cls.read_json_file(
+        # read info file if given
+        return_dict = cls._DICT_TYPE()
+        if cls._INFO_FILE:
+            info_file_path = os.path.join(directory_path, cls._INFO_FILE)
+            return_dict = cls._read_json_file(
                 info_file_path,
-                as_ordered_dict=(return_type==OrderedDict)
+                as_ordered_dict=(cls._DICT_TYPE==OrderedDict)
             )
 
-        if order_file:
-            order_file_path = os.path.join(directory_path, order_file)
-            order = cls.read_json_file(order_file_path)
+        # get order from order file if given
+        if cls._ORDER_FILE:
+            order_file_path = os.path.join(directory_path, cls._ORDER_FILE)
+            order = cls._read_json_file(order_file_path)
             if not isinstance(order, list):
                 raise FileError(
                     "Order file {0} is not formatted as a json list".format(
                         order_file_path
                     )
                 )
-            for name in order:
-                if not name:
-                    # ignore empty strings
-                    continue
-                path = os.path.join(directory_path, name)
-                if cls.is_serialized_directory(path, subdir_class.__DIRECTORY_MARKER__):
-                    subcategory = TaskCategory.from_directory(path, category_item)
-                    category_item.add_subcategory(subcategory)
-                elif (os.path.isfile("{0}.json".format(path))):
-                    task = Task.from_file("{0}.json".format(path), category_item)
-                    category_item.add_task(task)
+        else:
+            # remove file formatting from each name in dir
+            order = [
+                os.path.splitext(name)[0]
+                for name in os.listdir(directory_path)
+            ]
+
+        # fill dicts of nested classes represented by files and subdirs
+        subdir_dict = cls._SUBDIR_DICT_TYPE()
+        file_dict = cls._FILE_DICT_TYPE()
+        if cls._SUBDIR_KEY == cls._FILE_KEY:
+            file_dict = subdir_dict
+        for name in order:
+            if not name:
+                # ignore empty strings
+                continue
+            path = os.path.join(directory_path, name)
+            subdir_marker = subdir_class._MARKER_FILE
+            if (cls._SUBDIR_KEY
+                    and subdir_marker
+                    and cls._is_serialize_directory(path, subdir_marker)):
+                subdir_item_dict = subdir_class._read_directory(path)
+                subdir_dict[name] = subdir_item_dict
+            elif cls._FILE_KEY and os.path.isfile("{0}.json".format(path)):
+                file_item_dict = file_class._read_directory(
+                    "{0}.json".format(path)
+                )
+                file_dict[name] = file_item_dict
+
+        # add file and subdir classes to dict
+        if cls._SUBDIR_KEY:
+            return_dict[cls._SUBDIR_KEY] = subdir_dict
+        if cls._FILE_KEY and cls._FILE_KEY != cls._SUBDIR_KEY:
+            return_dict[cls._FILE_KEY] = file_dict
 
         return return_dict
 
-    # def write(self, directory_path):
-    #     """Write data to directory tree.
-
-    #     The structure is:
-    #         category_tree_dir:
-    #             subcategory_1_tree_dir:
-    #             subcategory_2_tree_dir:
-    #             task_1.json
-    #             task_2.json
-    #             TREE_FILE_MARKER
-
-    #     The TREE_FILE_MARKER file saves the official ordering as this
-    #     will be lost in the directory.
-
-    #     Args:
-    #         directory_path (str): path to directory to write to.
-    #     """
-    #     (
-    #         directory_path,
-    #         self.TREE_FILE_MARKER
-    #     )
-
-    #     tmp_dir = None
-    #     if os.path.exists(directory_path):
-    #         tmp_dir = tempfile.mkdtemp(
-    #             suffix="{0}_backup_".format(os.path.basename(directory_path)),
-    #             dir=os.path.dirname(directory_path),
-    #         )
-    #         shutil.move(directory_path, tmp_dir)
-    #     os.mkdir(directory_path)
-    #     task_category_file = os.path.join(
-    #         directory_path,
-    #         self.TREE_FILE_MARKER
-    #     )
-    #     with open(task_category_file, "w") as file_:
-    #         file_.write(
-    #             "\n".join([child.name for child in self.get_all_children()])
-    #         )
-
-    #     for subcategory in self.get_all_subcategories():
-    #         subcategory_directory = os.path.join(
-    #             directory_path,
-    #             subcategory.name
-    #         )
-    #         subcategory.write(subcategory_directory)
-
-    #     for task in self.get_all_tasks():
-    #         task_file = os.path.join(
-    #             directory_path,
-    #             "{0}.json".format(task.name)
-    #         )
-    #         task.write(task_file)
-
-    #     if tmp_dir:
-    #         shutil.rmtree(tmp_dir)
-
-    # @classmethod
-    # def from_directory(
-    #         cls,
-    #         directory_path,
-    #         parent=None):
-    #     """Create TaskCategory object from category directory.
-
-    #     Args:
-    #         directory_path (str): path to category directory.
-    #         parent (TaskCategory or None): parent item.
-
-    #     Raises:
-    #         (TaskFileError): if the directory doesn't exist or isn't a task
-    #             directory (ie. doesn't have a TREE_FILE_MARKER)
-
-    #     Returns:
-    #         (TaskCategory): TaskCategory object populated with categories from
-    #             directory tree.
-    #     """
-    #     if not is_tree_directory(directory_path, cls.TREE_FILE_MARKER):
-    #         raise TaskFileError(
-    #             "Directory {0} is not a valid task root directory".format(
-    #                 directory_path
-    #             )
-    #         )
-    #     category_name = os.path.basename(directory_path)
-    #     category_item = cls(name=category_name, parent=parent)
-
-    #     task_category_file = os.path.join(directory_path, cls.TREE_FILE_MARKER)
-    #     with open(task_category_file, "r") as file_:
-    #         child_order = file_.read().split("\n")
-
-    #     for name in child_order:
-    #         if not name:
-    #             # ignore empty strings
-    #             continue
-    #         path = os.path.join(directory_path, name)
-    #         if is_tree_directory(path, TaskCategory.TREE_FILE_MARKER):
-    #             subcategory = TaskCategory.from_directory(path, category_item)
-    #             category_item.add_subcategory(subcategory)
-    #         elif (os.path.isfile("{0}.json".format(path))):
-    #             task = Task.from_file("{0}.json".format(path), category_item)
-    #             category_item.add_task(task)
-
-    #     return category_item
-
-    def write(self, path):
-        """Write to path.
+    @classmethod
+    def from_directory(cls, directory_path):
+        """Initialise class from directory.
 
         Args:
-            path (str): file or directory path to write to.
-        """
-        if self.__SAVE_TYPE__ == SaveType.FILE:
-            self.to_file(path)
-        elif self.__SAVE_TYPE__ == SaveType.DIRECTORY:
-            self.to_directory(path)
-        elif self.__SAVE_TYPE__ == SaveType.EITHER:
-            # assume that path is a file if it has an extension
-            if os.path.splitext(path)[1]:
-                self.to_file(path)
-            else:
-                os.path.to_directory(path)
-        raise FileError(
-            "{0} has save type '{1}', so can't be saved to a file "
-            "or directory".format(str(self), self.__SAVE_TYPE__)
-        )
+            directory_path (str): directory to read from.
 
+        Returns:
+            (Serializable): class instance.
+        """
+        if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
+            raise FileError(
+                "{0} has save type '{1}', so can't be read from a dir".format(
+                    str(cls), cls._SAVE_TYPE
+                )
+            )
+
+    @classmethod
+    def _dict_to_directory(cls, directory_path, dict_repr):
+        """Write dictionary representation of class to directory path.
+
+        This is a class method because it doesn't require any internal data
+        (all data is provided by the dictionary). Therefore, it can be called
+        on nested file classes or subirectory classes within the to_directory
+        method.
+
+        Args:
+            directory_path (str): directory to write to.
+            dict_repr (dict or OrderedDict): dictionary representing class.
+        """
+        cls._check_directory_can_be_written_to(directory_path)
+
+        # backup prev directory
+        tmp_dir = None
+        if os.path.exists(directory_path):
+            tmp_dir = tempfile.mkdtemp(
+                suffix="{0}_backup_".format(os.path.basename(directory_path)),
+                dir=os.path.dirname(directory_path),
+            )
+            shutil.move(directory_path, tmp_dir)
+        os.mkdir(directory_path)
+
+        # marker file
+        marker_file = os.path.join(directory_path, cls._MARKER_FILE)
+        open(marker_file, "w+")
+
+        # order file
+        file_items = dict_repr.get(cls._FILE_KEY, {})
+        subdir_items = dict_repr.get(cls._SUBDIR_KEY, {})
+        if cls._ORDER_FILE:
+            order_file = os.path.join(directory_path, cls._ORDER_FILE)
+            order = list(set(file_items.keys() + subdir_items.keys()))
+            with open(order_file, "w") as file_:
+                json.dump(order, file_, indent=4)
+
+        # info file
+        if cls._INFO_FILE:
+            info_file = os.path.join(directory_path, cls._INFO_FILE)
+            info_dict = cls._DICT_TYPE()
+            for key, subdict in dict_repr.items():
+                if key not in [cls._SUBDIR_KEY, cls._FILE_KEY]:
+                    info_dict[key] = subdict
+            with open(info_file, "w+") as file_:
+                json.dump(info_dict, file_, indent=4)
+
+        # files
+        for file_item_key, file_item_dict in file_items.items():
+            file_name = "{0}.json".format(file_item_key)
+            file_path = os.path.join(directory_path, file_name)
+            with open(file_path, "w+") as file_:
+                json.dump(file_item_dict, file_, indent=4)
+
+        # subdirs
+        for subdir_item_key, subdir_item_dict in subdir_items:
+            subdir_path = os.path.join(directory_path, subdir_item_key)
+            cls._subdir_class()._dict_to_directory(
+                subdir_path,
+                subdir_item_dict
+            )
+
+        # remove tmp_dir
+        if tmp_dir:
+            shutil.rmtree(tmp_dir)
+
+    def to_directory(self, directory_path):
+        """Write class to directory path.
+
+        Args:
+            directory_path (str): directory to write to.
+        """
+        dict_repr = self.to_dict()
+        self._dict_to_directory(directory_path, dict_repr)
+
+    ### General Read/Write ###
     @classmethod
     def read(cls, path):
         """Read class from path.
 
         Args:
             path (str): file or directory to read from.
+
+        Returns:
+            (Serializable): class instance.
         """
-        if cls.__SAVE_TYPE__ == SaveType.FILE:
+        if cls._SAVE_TYPE == SaveType.FILE:
             return cls.from_file(path)
-        elif cls.__SAVE_TYPE__ == SaveType.DIRECTORY:
+        elif cls._SAVE_TYPE == SaveType.DIRECTORY:
             return cls.from_directory(path)
-        elif cls.__SAVE_TYPE__ == SaveType.EITHER:
+        elif cls._SAVE_TYPE == SaveType.EITHER:
             if os.path.isfile(path):
                 return cls.from_file(path)
             elif os.path.isdir(path):
@@ -413,5 +542,26 @@ class Serializable(ABC):
             )
         raise FileError(
             "{0} has save type '{1}', so can't be read from a file "
-            "or directory".format(str(cls), cls.__SAVE_TYPE__)
+            "or directory".format(str(cls), cls._SAVE_TYPE)
+        )
+
+    def write(self, path):
+        """Write to path.
+
+        Args:
+            path (str): file or directory path to write to.
+        """
+        if self._SAVE_TYPE == SaveType.FILE:
+            self.to_file(path)
+        elif self._SAVE_TYPE == SaveType.DIRECTORY:
+            self.to_directory(path)
+        elif self._SAVE_TYPE == SaveType.EITHER:
+            # assume that path is a file if it has an extension
+            if os.path.splitext(path)[1]:
+                self.to_file(path)
+            else:
+                os.path.to_directory(path)
+        raise FileError(
+            "{0} has save type '{1}', so can't be saved to a file "
+            "or directory".format(str(self), self._SAVE_TYPE)
         )

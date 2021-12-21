@@ -68,7 +68,7 @@ class DateTime(datetime):
             "%H:%M:%S.%f"
         )
 
-    def datetime_string(self):
+    def string(self):
         """Get string representing date_time.
 
         Returns:

@@ -1,0 +1,2 @@
+
+* add in loggers everywhere

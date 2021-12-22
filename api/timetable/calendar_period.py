@@ -1,5 +1,6 @@
 """Classes representing a time period of calendar data."""
 
+from typing import OrderedDict
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.common.serializable import (
     SaveType,
@@ -14,14 +15,25 @@ class CalendarDay(Serializable):
     
     CALENDAR_ITEMS_KEY = "calendar_items"
 
-    def __init__(self, scheduled_items=None):
+    def __init__(self, date, scheduled_items=None):
         """Initialise calendar day object.
-        
+
         Args:
+            date (Date): date object.
             scheduled_items (list(CalendarItem) or None): scheduled items for
                 that day, if any exist.
         """
         self._scheduled_items = scheduled_items or []
+        self._date = date
+
+    @property
+    def name(self):
+        """Get name of day class, to use when saving.
+
+        Args:
+            name (str): name of class instance.
+        """
+        return self._date.title_string()
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -61,6 +73,7 @@ class CalendarWeek(Serializable):
     _MARKER_FILE = "week{0}".format(SerializableFileTypes.MARKER)
     _FILE_KEY = "days"
     _FILE_CLASS = CalendarDay
+    DAYS_KEY = _FILE_KEY
 
     def __init__(self, calendar, days=None):
         """Initialise calendar week object.
@@ -73,8 +86,14 @@ class CalendarWeek(Serializable):
         self.calendar = calendar
         self._days = []
 
-    def change_starting_day(self, date):
-        """Change starting day to day from current start to given date."""
+    @property
+    def name(self):
+        """Get name of week class, to use when saving.
+
+        Args:
+            name (str): name of class instance.
+        """
+        return self._date.title_string()
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -82,6 +101,11 @@ class CalendarWeek(Serializable):
         Returns:
             (dict): dictionary representation.
         """
+        return {
+            self.DAYS_KEY: {
+                day.name : day.to_dict() for day in self._days
+            }
+        }
 
     @classmethod
     def from_dict(cls, dict_repr):

@@ -54,7 +54,7 @@ class CalendarItem(Serializable):
         """Get start time.
 
         Returns:
-            (datetime.time): start time.
+            (Time): start time.
         """
         return self._start_datetime.time()
 
@@ -63,7 +63,7 @@ class CalendarItem(Serializable):
         """Get end time.
 
         Returns:
-            (datetime.time): end time.
+            (Time): end time.
         """
         return self._end_datetime.time()
 
@@ -73,9 +73,9 @@ class CalendarItem(Serializable):
         """Get date of item.
 
         Returns:
-            (DateTime): date.
+            (Date): date.
         """
-        return self._start_datetime
+        return self._start_datetime.date()
 
     @property
     def type(self):

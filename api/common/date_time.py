@@ -49,6 +49,9 @@ class BaseDateTimeWrapper(object):
     def string(self):
         """Get string representation of class instance.
 
+        This should be the same format as the string used by the from_string
+        classmethod.
+
         Returns:
             (str): string representation of class instance.
         """

@@ -15,7 +15,7 @@ class CalendarDay(Serializable):
     
     CALENDAR_ITEMS_KEY = "calendar_items"
 
-    def __init__(self, date, scheduled_items=None):
+    def __init__(self, month_obj, date, scheduled_items=None):
         """Initialise calendar day object.
 
         Args:
@@ -23,8 +23,9 @@ class CalendarDay(Serializable):
             scheduled_items (list(CalendarItem) or None): scheduled items for
                 that day, if any exist.
         """
-        self._scheduled_items = scheduled_items or []
+        super(CalendarDay, self).__init__(month_obj)
         self._date = date
+        self._scheduled_items = scheduled_items or []
 
     @property
     def name(self):
@@ -48,11 +49,13 @@ class CalendarDay(Serializable):
         }
 
     @classmethod
-    def from_dict(cls, dict_repr):
+    def from_dict(cls, dict_repr, name, parent):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
+            name (str): name of calendar day.
+            parent (CalendarWeek): calendar week parent item.
 
         Returns:
             (CalendarDay): calendar item object.
@@ -75,16 +78,21 @@ class CalendarWeek(Serializable):
     _FILE_CLASS = CalendarDay
     DAYS_KEY = _FILE_KEY
 
-    def __init__(self, calendar, days=None):
+    def __init__(self, month_obj, start_date, length=7, days=None):
         """Initialise calendar week object.
 
         Args:
-            calendar (Calendar): calendar object.
+            month_obj (CalendarMonth): calendar month parent item.
             days (list(CalendarDay) or None): list of calendar day objects,
                 if they already exist.
+            start_date (date_time.Date): starting date of week.
+            length (int): length of week (in case we want to restrict it to
+                fit into a month). Defaults to 7.
         """
-        self.calendar = calendar
-        self._days = []
+        super(CalendarWeek, self).__init__(month_obj)
+        self._start_date = start_date
+        self._length = length
+        self._days = days or []
 
     @property
     def name(self):
@@ -127,13 +135,17 @@ class CalendarMonth(Serializable):
     _SUBDIR_KEY = "weeks"
     _SUBDIR_CLASS = CalendarWeek
 
-    def __init__(self, days=None):
+    def __init__(self, year_obj, month, days=None):
         """Initialise calendar month object.
         
         Args:
+            year_obj (CalendarYear): the calendar year parent item.
+            month (int): the month number.
             days (list(CalendarDay) or None): list of calendar day
                 objects, if they already exist.
         """
+        super(CalendarMonth, self).__init__(year_obj)
+        self._month = month
         self._days = days or []
 
 
@@ -144,12 +156,15 @@ class CalendarYear(Serializable):
     _SUBDIR_KEY = "months"
     _SUBDIR_CLASS = CalendarMonth
 
-    def __init__(self, months=None):
+    def __init__(self, calendar_obj, year, months=None):
         """Initialise calendar year object.
 
         Args:
+            calendar_obj (Calendar): the calendar parent item.
+            year (int): the year number.
             months (list(CalendarMonth) or None): list of calendar month
                 objects, if they already exist.
         """
+        super(CalendarYear, self).__init__(calendar_obj)
+        self._year = year
         self._months = months or []
-

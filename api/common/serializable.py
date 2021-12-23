@@ -65,6 +65,9 @@ class SerializableFileTypes():
 class Serializable(ABC):
     """Base class for dictionary and file/directory serialization.
 
+    The serializable class performs serialization through nested
+    dictionaries, usually representing tree-like structures.
+
     All subclasses make use of these two class variables:
 
         _SAVE_TYPE (SaveType): the type of save that this serialization uses
@@ -135,8 +138,19 @@ class Serializable(ABC):
         """
         return cls._SUBDIR_CLASS or cls
 
-    def __init__(self):
-        """Initialize serializable item."""
+    # TODO: add id to base class?
+    def __init__(self, parent=None):
+        """Initialize serializable item.
+
+        Since the serialization process is done through nested dicts, it is
+        assumed that most Serializable classes will have some concept of a
+        parent object, so this is passed as a parameter to the base class.
+
+        Args:
+            parent (Serializable or None): class that this one is nested under
+                in the full serialized dictionary, if it's not a root item.
+        """
+        self._parent = parent
         if self._SAVE_TYPE not in SaveType._DIR_TYPES:
             return
 
@@ -171,8 +185,17 @@ class Serializable(ABC):
     ### Dict Read/Write ###
     # These must be reimplemented in subclasses
     @abstractclassmethod
-    def from_dict(cls, dictionary):
-        """Virtual method to initialise class from dictionary"""
+    def from_dict(cls, dictionary, name=None, parent=None):
+        """Virtual method to initialise class from dictionary.
+
+        Args:
+            dictionary (dict or OrderedDict): the dictionary we're using to
+                deserialize the class.
+            name (str or None): name that keys this dict in the full dictionary
+                that we're deserializing, if it's not a root item.
+            parent (Serializable or None): class that this one is nested under
+                in the full serialized dictionary, if it's not a root item.
+        """
         pass
 
     @abstractmethod
@@ -211,14 +234,17 @@ class Serializable(ABC):
                     file_path
                 )
             )
+
     @classmethod
-    def from_file(cls, file_path):
+    def from_file(cls, file_path, name=None, parent=None):
         """Initialise class from json file.
 
         Args:
             file_path (str): path to file to initialise from.
-            use_ordered_dict (bool): whether to load json as dict or
-                OrderedDict.
+            name (str or None): name that keys this dict in the full dictionary
+                that we're deserializing, if it's not a root item.
+            parent (Serializable or None): class that this one is nested under
+                in the full serialized dictionary, if it's not a root item.
 
         Returns:
             (Serializable): class instance.
@@ -233,7 +259,7 @@ class Serializable(ABC):
             file_path,
             use_ordered_dict=(cls._DICT_TYPE==OrderedDict)
         )
-        return cls.from_dict(json_dict)
+        return cls.from_dict(json_dict, name, parent)
 
     def to_file(self, file_path):
         """Serialize class as json file.
@@ -425,11 +451,15 @@ class Serializable(ABC):
         return return_dict
 
     @classmethod
-    def from_directory(cls, directory_path):
+    def from_directory(cls, directory_path, name=None, parent=None):
         """Initialise class from directory.
 
         Args:
             directory_path (str): directory to read from.
+            name (str or None): name that keys this dict in the full dictionary
+                that we're deserializing, if it's not a root item.
+            parent (Serializable or None): class that this one is nested under
+                in the full serialized dictionary, if it's not a root item.
 
         Returns:
             (Serializable): class instance.
@@ -440,6 +470,8 @@ class Serializable(ABC):
                     str(cls), cls._SAVE_TYPE
                 )
             )
+        serialized_dict = cls._read_directory(directory_path)
+        return cls.from_dict(serialized_dict, name, parent)
 
     @classmethod
     def _dict_to_directory(cls, directory_path, dict_repr):
@@ -504,7 +536,7 @@ class Serializable(ABC):
                 subdir_item_dict
             )
 
-        # remove tmp_dir
+        # remove backup
         if tmp_dir:
             shutil.rmtree(tmp_dir)
 
@@ -519,24 +551,28 @@ class Serializable(ABC):
 
     ### General Read/Write ###
     @classmethod
-    def read(cls, path):
+    def read(cls, path, name=None, parent=None):
         """Read class from path.
 
         Args:
             path (str): file or directory to read from.
+            name (str or None): name that keys this dict in the full dictionary
+                that we're deserializing, if it's not a root item.
+            parent (Serializable or None): class that this one is nested under
+                in the full serialized dictionary, if it's not a root item.
 
         Returns:
             (Serializable): class instance.
         """
         if cls._SAVE_TYPE == SaveType.FILE:
-            return cls.from_file(path)
+            return cls.from_file(path, name, parent)
         elif cls._SAVE_TYPE == SaveType.DIRECTORY:
-            return cls.from_directory(path)
+            return cls.from_directory(path, name, parent)
         elif cls._SAVE_TYPE == SaveType.EITHER:
             if os.path.isfile(path):
-                return cls.from_file(path)
+                return cls.from_file(path, name, parent)
             elif os.path.isdir(path):
-                return cls.from_directory(path)
+                return cls.from_directory(path, name, parent)
             raise FileError(
                 "Path {0} is neither a file nor a directory".format(path)
             )

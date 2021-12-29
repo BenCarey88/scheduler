@@ -8,6 +8,8 @@ import os
 import shutil
 import tempfile
 
+from .date_time import BaseDateTimeWrapper
+
 
 class SerializationError(Exception):
     """Exception class for serialization errors."""
@@ -84,9 +86,16 @@ class BaseSerializable(ABC):
     def from_dict(cls, dictionary, *args, **kwargs):
         """Virtual method to initialise class from dictionary.
 
+        The from_file, from_directory and read methods all include generic args
+        and kwargs, which will be passed directly to this method. So apart from
+        the first argument, those methods will have the same arguments as this
+        one.
+
         Args:
             dictionary (dict or OrderedDict): the dictionary we're using to
                 deserialize the class.
+            args (list): additional arguments.
+            kwargs (dict): additional keyword arguments.
         """
         pass
 
@@ -137,6 +146,8 @@ class BaseSerializable(ABC):
 
         Args:
             file_path (str): path to file to initialise from.
+            args (list): additional arguments to pass to from_dict.
+            kwargs (dict): additional keyword arguments to pass to from_dict.
 
         Returns:
             (BaseSerializable): class instance.
@@ -185,6 +196,8 @@ class BaseSerializable(ABC):
 
         Args:
             directory_path (str): directory to read from.
+            args (list): additional arguments to pass to from_dict.
+            kwargs (dict): additional keyword arguments to pass to from_dict.
 
         Returns:
             (BaseSerializable): class instance.
@@ -199,6 +212,8 @@ class BaseSerializable(ABC):
 
         Args:
             directory_path (str): directory to write to.
+            args (list): additional arguments to pass to from_dict.
+            kwargs (dict): additional keyword arguments to pass to from_dict.
         """
         raise NotImplementedError(
             "to_directory needs to be reimplemented in subclasses that "
@@ -248,7 +263,7 @@ class BaseSerializable(ABC):
             if os.path.splitext(path)[1]:
                 self.to_file(path)
             else:
-                os.path.to_directory(path)
+                self.to_directory(path)
         raise SerializationError(
             "{0} has save type '{1}', so can't be saved to a file "
             "or directory".format(str(self), self._SAVE_TYPE)
@@ -322,107 +337,44 @@ class NestedSerializable(BaseSerializable):
         """
         return cls._SUBDIR_CLASS or cls
 
-    # TODO: add id to base class?
-    def __init__(self, parent=None):
-        """Initialize serializable item.
+    ### Directory utils ###
+    @classmethod
+    def _run_directory_checks(cls):
+        """Run error checks on directory-serializable subclass.
 
-        Since this serialization process is done through nested dicts, it is
-        assumed that most NestedSerializable classes will have some concept of
-        a parent object, so this is passed as a parameter to the base class.
-
-        Args:
-            parent (NestedSerializable or None): class that this one is nested under
-                in the full serialized dictionary, if it's not a root item.
+        This checks whether the global class attrs have been defined correctly.
         """
-        self._parent = parent
-        if self._SAVE_TYPE not in SaveType._DIR_TYPES:
+        if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
             return
 
         # directory error checks
-        if not self._MARKER_FILE:
+        if not cls._MARKER_FILE:
             raise SerializationError(
                 "Directory writing not possible without a defined "
                 "_MARKER_FILE attribute"
             )
-        if not (self._SUBDIR_KEY or self._FILE_KEY):
+        if not (cls._SUBDIR_KEY or cls._FILE_KEY):
             raise SerializationError(
                 "Directory writing not possible without a defined "
                 "_SUBDIR_KEY or _FILE_KEY attribute"
             )
-        if (self._SUBDIR_KEY and
-                self._subdir_class()._SAVE_TYPE not in SaveType._DIR_TYPES):
+        if (cls._SUBDIR_KEY and
+                cls._subdir_class()._SAVE_TYPE not in SaveType._DIR_TYPES):
             raise SerializationError(
                 "_subdir_class() must have a directory save type"
             )
-        if (self._FILE_KEY and
-                self._file_class()._SAVE_TYPE not in SaveType._FILE_TYPES):
+        if (cls._FILE_KEY and
+                cls._file_class()._SAVE_TYPE not in SaveType._FILE_TYPES):
             raise SerializationError(
                 "_file_class() must have a file save type"
             )
-        if (self._FILE_KEY == self._SUBDIR_KEY and
-                self._FILE_DICT_TYPE != self._SUBDIR_DICT_TYPE):
+        if (cls._FILE_KEY == cls._SUBDIR_KEY and
+                cls._FILE_DICT_TYPE != cls._SUBDIR_DICT_TYPE):
             raise SerializationError(
                 "If file key and subdir key are the same, their dict "
                 "types must be too"
             )
 
-    ### Dict Read ###
-    @abstractclassmethod
-    def from_dict(cls, dictionary, name=None, parent=None):
-        """Virtual method to initialise class from dictionary.
-
-        Args:
-            dictionary (dict or OrderedDict): the dictionary we're using to
-                deserialize the class.
-            name (str or None): name that keys this dict in the full dictionary
-                that we're deserializing, if it's not a root item.
-            parent (BaseSerializable or None): class that this one is nested
-                under in the full serialized dictionary, if it's not a root
-                item.
-        """
-        pass
-
-    ### File Read ###
-    @classmethod
-    def from_file(cls, file_path, name=None, parent=None):
-        """Initialise class from json file.
-
-        Args:
-            file_path (str): path to file to initialise from.
-            name (str or None): name that keys this dict in the full dictionary
-                that we're deserializing, if it's not a root item.
-            parent (BaseSerializable or None): class that this one is nested
-                under in the full serialized dictionary, if it's not a root
-                item.
-
-        Returns:
-            (NestedSerializable): class instance.
-        """
-        return super(NestedSerializable, cls).from_file(
-            file_path,
-            name,
-            parent
-        )
-
-    ### General Read ###
-    @classmethod
-    def read(cls, path, name=None, parent=None):
-        """Read class from path.
-
-        Args:
-            path (str): file or directory to read from.
-            name (str or None): name that keys this dict in the full dictionary
-                that we're deserializing, if it's not a root item.
-            parent (BaseSerializable or None): class that this one is nested
-                under in the full serialized dictionary, if it's not a root
-                item.
-
-        Returns:
-            (NestedSerializable): class instance.
-        """
-        return super(NestedSerializable, cls).read(path, name, parent)
-
-    ### Directory utils ###
     @staticmethod
     def _is_serialize_directory(directory_path, marker_file):
         """Check if directory represents a serialized class.
@@ -587,20 +539,16 @@ class NestedSerializable(BaseSerializable):
         return return_dict
 
     @classmethod
-    def from_directory(cls, directory_path, name=None, parent=None):
+    def from_directory(cls, directory_path, *args, **kwargs):
         """Initialise class from directory.
 
         Args:
             directory_path (str): directory to read from.
-            name (str or None): name that keys this dict in the full dictionary
-                that we're deserializing, if it's not a root item.
-            parent (NestedSerializable or None): class that this one is nested
-                under in the full serialized dictionary, if it's not a root
-                item.
 
         Returns:
             (NestedSerializable): class instance.
         """
+        cls._run_directory_checks()
         if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
             raise SerializationError(
                 "{0} has save type '{1}', so can't be read from a dir".format(
@@ -608,7 +556,7 @@ class NestedSerializable(BaseSerializable):
                 )
             )
         serialized_dict = cls._read_directory(directory_path)
-        return cls.from_dict(serialized_dict, name, parent)
+        return cls.from_dict(serialized_dict, *args, **kwargs)
 
     @classmethod
     def _dict_to_directory(cls, directory_path, dict_repr):
@@ -683,5 +631,6 @@ class NestedSerializable(BaseSerializable):
         Args:
             directory_path (str): directory to write to.
         """
+        self._run_directory_checks()
         dict_repr = self.to_dict()
         self._dict_to_directory(directory_path, dict_repr)

@@ -137,8 +137,9 @@ class TimeDelta(object):
             _timedelta=-self._timedelta_obj
         )
 
-    def get_num_days(self):
-        """Get num days.
+    @property
+    def days(self):
+        """Get number of days in time delta.
 
         Note that this can only be called when the _years and _months attrs
         are 0. If they're greater than 0, we can't calculate the days, so an
@@ -193,6 +194,7 @@ class BaseDateTimeWrapper(object):
                 datetime object that this is wrapped around.
         """
         self._datetime_obj = datetime_obj
+        self.__le__ = 
 
     @classmethod
     def weekday_string_from_int(cls, weekday, short=True):
@@ -274,8 +276,66 @@ class BaseDateTimeWrapper(object):
 
         Args:
             date_time (BaseDateTimeWrapper): object to check equality with.
+
+        Returns:
+            (bool): whether this equals date_time.
         """
         return self._datetime_obj == date_time._datetime_obj
+
+    def __ne__(self, date_time):
+        """Check if this is equal to another date time object.
+
+        Args:
+            date_time (BaseDateTimeWrapper): object to check equality with.
+
+        Returns:
+            (bool): whether this does not equal date_time.
+        """
+        return self._datetime_obj != date_time._datetime_obj
+
+    def __lt__(self, date_time):
+        """Compare to other date time.
+
+        Args:
+            date_time (BaseDateTimeWrapper): object to compare to.
+
+        Returns:
+            (bool): whether this is less than date_time.
+        """
+        return self._datetime_obj < date_time._datetime_obj
+
+    def __gt__(self, date_time):
+        """Compare to other date time.
+
+        Args:
+            date_time (BaseDateTimeWrapper): object to compare to.
+
+        Returns:
+            (bool): whether this is greater than date_time.
+        """
+        return self._datetime_obj > date_time._datetime_obj
+
+    def __le__(self, date_time):
+        """Compare to other date time.
+
+        Args:
+            date_time (BaseDateTimeWrapper): object to compare to.
+
+        Returns:
+            (bool): whether this is less than or equal to date_time.
+        """
+        return self._datetime_obj <= date_time._datetime_obj
+
+    def __ge__(self, date_time):
+        """Compare to other date time.
+
+        Args:
+            date_time (BaseDateTimeWrapper): object to compare to.
+
+        Returns:
+            (bool): whether this is greater than or equal to date_time.
+        """
+        return self._datetime_obj >= date_time._datetime_obj
 
     def __hash__(self):
         """Hash this object using the datetime_obj hash.

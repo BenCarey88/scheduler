@@ -158,22 +158,16 @@ class CalendarItem(NestedSerializable):
         return dict_repr
 
     @classmethod
-    def from_dict(cls, dict_repr, _name=None, parent=None):
+    def from_dict(cls, dict_repr, calendar):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
-            _name (str or None): name of item. Passed for consistency with
-                other nested serializable items - it's not used in this case,
-                since the serialized calendar stores calendar items as a list
-                rather than a dict.
-            parent (CalendarDay or None): calendar day parent item.
+            calendar (Calendar): root calendar object.
 
         Returns:
-            (CalendarItem or None): calendar item, or None if can't be
-                initialised.
+            (CalendarItem or None): calendar item, if can be initialised.
         """
-        calendar = parent.calendar
         start = dict_repr.get(cls.START_KEY)
         end = dict_repr.get(cls.END_KEY)
         type_ = dict_repr.get(cls.TYPE_KEY)

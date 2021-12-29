@@ -1,8 +1,9 @@
 """Calendar item class."""
 
 from api.common.date_time import DateTime
-from scheduler.api.common.serializable import SaveType, Serializable
+from scheduler.api.common.serializable import NestedSerializable, SaveType
 from scheduler.api.tree.task import Task
+from scheduler.api.tree.task_root import TaskRoot
 
 
 class CalendarItemType():
@@ -11,7 +12,7 @@ class CalendarItemType():
     EVENT = "event"
 
 
-class CalendarItem(Serializable):
+class CalendarItem(NestedSerializable):
     """Calendar item class representing a scheduled task or event."""
     _SAVE_TYPE = SaveType.NESTED
 
@@ -24,6 +25,7 @@ class CalendarItem(Serializable):
 
     def __init__(
             self,
+            calendar,
             start,
             end,
             item_type=CalendarItemType.TASK,
@@ -33,6 +35,7 @@ class CalendarItem(Serializable):
         """Initialise item.
 
         Args:
+            calendar (Calendar): calendar class instance.
             start (DateTime): start date time.
             end (DateTime): end date time.
             item_type (CalendarItemType): type of scheduled item.
@@ -42,6 +45,8 @@ class CalendarItem(Serializable):
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
         """
+        self._calendar = calendar
+        self._task_root = calendar.task_root
         self._start_datetime = start
         self._end_datetime = end
         self._type = item_type
@@ -153,26 +158,35 @@ class CalendarItem(Serializable):
         return dict_repr
 
     @classmethod
-    def from_dict(cls, dict_repr):
+    def from_dict(cls, dict_repr, _name=None, parent=None):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
+            _name (str or None): name of item. Passed for consistency with
+                other nested serializable items - it's not used in this case,
+                since the serialized calendar stores calendar items as a list
+                rather than a dict.
+            parent (CalendarDay or None): calendar day parent item.
 
         Returns:
             (CalendarItem or None): calendar item, or None if can't be
                 initialised.
         """
+        calendar = parent.calendar
         start = dict_repr.get(cls.START_KEY)
         end = dict_repr.get(cls.END_KEY)
         type_ = dict_repr.get(cls.TYPE_KEY)
         if not (start and end and type_):
             return None
-        tree_item = dict_repr.get(cls.TREE_ITEM_KEY)
+        tree_item = calendar.task_root.get_item_at_path(
+            dict_repr.get(cls.TREE_ITEM_KEY)
+        )
         category = dict_repr.get(cls.CATEGORY_KEY)
         name = dict_repr.get(cls.NAME_KEY)
 
         return cls(
+            calendar,
             start,
             end,
             type_,

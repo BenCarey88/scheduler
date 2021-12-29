@@ -3,13 +3,15 @@
 from contextlib import contextmanager
 
 from scheduler.api.common.date_time import DateTime
+from scheduler.api.common.serializable import NestedSerializable
 
 
 class Calendar(object):
 
-    def __init__(self):
+    def __init__(self, task_root):
         """Initialise calendar class."""
-        self._days = {}
+        self.task_root = task_root
+        self._years = {}
 
     def get_calendar_day(date):
         """Get calendar day data for given date.
@@ -41,11 +43,4 @@ class Calendar(object):
 
     @classmethod    
     def from_dict(cls):
-        pass
-
-    def to_directory(self):
-        pass
-
-    @classmethod
-    def from_directory(cls):
         pass

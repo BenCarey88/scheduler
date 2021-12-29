@@ -1,10 +1,158 @@
 """Wrapper around datetime classes for easier interaction."""
 
+import calendar
 import datetime
+import math
 
 
 class DateTimeError(Exception):
     """Exception class for datetime related errors."""
+
+
+class TimeDelta(object):
+    """Wrapper around datetime.timedelta class.
+
+    We implement two additions to the datetime.timedelta usage:
+        - datetime.timedelta doesn't allow month or year values since these can
+            represent varying amounts of time. We implement these by storing
+            them as extra attributes which we only interpret depending on the
+            during addition/subtraction with a Date, Time or DateTime object.
+        - datetime.timedelta classes can only be added to datetime or date
+            objects. We allow adding to time objects too and just ignoring the
+            date part of the timedelta.
+    """
+    def __init__(
+            self,
+            years=0,
+            months=0,
+            weeks=0,
+            days=0,
+            hours=0,
+            minutes=0,
+            seconds=0,
+            _timedelta=None):
+        """Initialise timedelta object representing a difference in date/time.
+
+        Args:
+            years (int): number of years.
+            months (int): number of months.
+            weeks (int): number of weeks.
+            days (int): number of days.
+            hours (int): number of hours.
+            minutes (int): number of minutes.
+            seconds (int): number of seconds.
+            _timedelta (datetime.timedelta or None): datetime obj to initialise
+                from directly.
+        """
+        self._years = years
+        self._months = months
+        if _timedelta is not None:
+            if isinstance(_timedelta, datetime.timedelta):
+                self._timedelta_obj = _timedelta
+            else:
+                raise DateTimeError(
+                    "_timedelta param in TimeDelta __init__ must be None or a "
+                    "datetime.timedelta object."
+                )
+        else:
+            self._timedelta_obj = datetime.timedelta(
+                weeks=weeks,
+                days=days,
+                hours=hours,
+                minutes=minutes,
+                seconds=seconds
+            )
+
+    def __add__(self, timedelta_or_datetime):
+        """Add this to another timedelta, or to a BaseDateTimeWrapper object.
+
+        Args:
+            timedelta_or_datetime (TimeDelta, datetime.timedelta,
+            or BaseDateTimeWrapper):
+                time delta to add, or wrapped datetime object that we're adding
+                this to.
+
+        Returns:
+            (TimeDelta or BaseDateTimeWrapper): modified timedelta, or modified
+                datetime object.
+        """
+        if isinstance(timedelta_or_datetime, datetime.timedelta):
+            return TimeDelta(
+                years=self._years,
+                months=self._months,
+                _timedelta=(self._timedelta_obj + timedelta_or_datetime)
+            )
+        if isinstance(timedelta_or_datetime, TimeDelta):
+            return TimeDelta(
+                years=(self._years + timedelta_or_datetime._years),
+                months=(self._months + timedelta_or_datetime._months), 
+                _timedelta=(
+                    self._timedelta_obj + timedelta_or_datetime._timedelta_obj
+                )
+            )
+        if isinstance(timedelta_or_datetime, BaseDateTimeWrapper):
+            # use BaseDateTimeWrapper __add__
+            return timedelta_or_datetime + self
+        raise DateTimeError(
+            "Supported args to TimeDelta addition are: TimeDelta, "
+            "datetime.timedelta or BaseDateTimeWrapper."
+        )
+
+    def __sub__(self, timedelta):
+        """Subtract another timedelta from this.
+
+        Args:
+            timedelta_or_datetime (TimeDelta or  datetime.timedelta):
+                time delta to subtract.
+
+        Returns:
+            (TimeDelta): modified timedelta.
+        """
+        if isinstance(timedelta, datetime.timedelta):
+            return TimeDelta(
+                years=self._years,
+                months=self._months,
+                _timedelta=(self._timedelta_obj - timedelta)
+            )
+        if isinstance(timedelta, TimeDelta):
+            return TimeDelta(
+                years=(self._years - timedelta._years),
+                months=(self._months - timedelta._months),
+                _timedelta=self._timedelta_obj - timedelta._timedelta_obj
+            )
+        raise DateTimeError(
+            "Supported args to TimeDelta subtraction are: TimeDelta or "
+            "datetime.timedelta."
+        )
+
+    def __neg__(self):
+        """Get negation of timedelta.
+
+        Returns:
+            (TimeDelta): negative of time delta.
+        """
+        return TimeDelta(
+            years=-self._years,
+            months=-self._months,
+            _timedelta=-self._timedelta_obj
+        )
+
+    def get_num_days(self):
+        """Get num days.
+
+        Note that this can only be called when the _years and _months attrs
+        are 0. If they're greater than 0, we can't calculate the days, so an
+        error is raised.
+
+        Returns:
+            (int): days of timedelta object.
+        """
+        if self._years or self._months:
+            raise DateTimeError(
+                "Can only get number of days from a TimeDelta class without "
+                "a year or month attribute."
+            )
+        return self._timedelta_obj.days
 
 
 class BaseDateTimeWrapper(object):
@@ -46,6 +194,147 @@ class BaseDateTimeWrapper(object):
         """
         self._datetime_obj = datetime_obj
 
+    @classmethod
+    def weekday_string_from_int(cls, weekday, short=True):
+        """Get weekday string from integer representing weekday.
+
+        Args:
+            weekday (int): integer representing weekday.
+            short (bool): if True, just return the three letter name.
+
+        Returns:
+            (str): weekday string.
+        """
+        weekday_string = cls.WEEKDAYS[weekday]
+        return weekday_string[:3] if short else weekday_string
+
+    @classmethod
+    def weekday_int_from_string(cls, weekday_string):
+        """Get string representing weekday.
+
+        Args:
+            weekday_string (str): string representing weekday (short or long).
+
+        Returns:
+            (int): integer value of that weekday.
+        """
+        for i, weekday in enumerate(cls.WEEKDAYS):
+            if weekday.startswith(weekday_string):
+                return i
+        raise DateTimeError(
+            "String {0} cannot be converted to weekday".format(weekday_string)
+        )
+
+    @classmethod
+    def month_string_from_int(cls, month, short=True):
+        """Get string representing month.
+
+        Args:
+            month (int): integer representing month.
+            short (bool): if True, just return the three letter name.
+
+        Returns:
+            (str): month string.
+        """
+        month_string = cls.MONTHS[month]
+        return month_string[:3] if short else month_string
+
+    @classmethod
+    def month_int_from_string(cls, month_string):
+        """Get string representing month.
+
+        Args:
+            month_string (str): string representing month (short or long).
+
+        Returns:
+            (int): integer value of that month.
+        """
+        for i, month in enumerate(cls.MONTHS):
+            if month.startswith(month_string):
+                return i
+        raise DateTimeError(
+            "String {0} cannot be converted to month".format(month_string)
+        )
+
+    @staticmethod
+    def month_range(year, month):
+        """Reimplement python calendar module monthrange function.
+
+        Args:
+            year (int): year to check.
+            month (int): month to check.
+
+        Returns:
+            (int): number of days in given month on given year.
+        """
+        return calendar.monthrange(year, month)
+
+    def __eq__(self, date_time):
+        """Check if this is equal to another date time object.
+
+        Args:
+            date_time (BaseDateTimeWrapper): object to check equality with.
+        """
+        return self._datetime_obj == date_time._datetime_obj
+
+    def __hash__(self):
+        """Hash this object using the datetime_obj hash.
+
+        Returns:
+            (int): the object hash.
+        """
+        return hash(self._datetime_obj)
+
+    def __add__(self, time_delta):
+        """Add time_delta to date_time object.
+
+        Args:
+            time_delta (TimeDelta or datetime.timedelta): time delta to add.
+
+        Returns:
+            (BaseDateTimeWrapper): return value is implemented in the subclasses.
+        """
+        if not isinstance(time_delta, (TimeDelta, datetime.timedelta)):
+            raise DateTimeError(
+                "DateTime addition requires TimeDelta or "
+                "datetime.timedelta object."
+            )
+
+    def __sub__(self, timedelta_or_datetime):
+        """Subtract time_delta from date_time object.
+
+        Note that there's a potential for ambiguity here when subtracting a
+        datetime object: if, say, we add TimeDelta(months=1) to a given date
+        in october, and then subtract that date from the result, we'll end
+        up with TimeDelta(days=31), which is not always the same thing. This
+        ambiguity must be kept in mind whenever using the __sub__ method on
+        two date_time objects.
+
+        Args:
+            timedelta_or_datetime (TimeDelta or datetime.timedelta or
+                BaseDateTimeWrapper): time delta or date time to subtract.
+
+        Returns:
+            (BaseDateTimeWrapper or TimeDelta): return value is implemented in
+                the subclasses.
+        """
+        accepted_classes = (
+            TimeDelta,
+            datetime.timedelta,
+            self.__class__,
+            self._datetime_obj.__class__
+        )
+        if not isinstance(timedelta_or_datetime, accepted_classes):
+            raise DateTimeError(
+                "DateTime __sub__ requires one of the following arguments: "
+                "TimeDelta, datetime.timedelta, {0}, {1}".format(
+                    self.__class__,
+                    self._datetime_obj.__class__
+                )
+            )
+
+    # TODO: add a bunch of args to string method for subclasses, and add
+    # corresponding args in from_string methods
     def string(self):
         """Get string representation of class instance.
 
@@ -73,7 +362,13 @@ class Date(BaseDateTimeWrapper):
                 be used by clients.
         """
         if _date is not None:
-            self._datetime_obj = _date
+            if isinstance(_date, datetime.date):
+                self._datetime_obj = _date
+            else:
+                raise DateTimeError(
+                    "_date param in Date __init__ must be None or a "
+                    "datetime.date object."
+                )
         elif all(x is not None for x in (year, month, day)):
             self._datetime_obj = datetime.date(year, month, day)
         else:
@@ -108,29 +403,99 @@ class Date(BaseDateTimeWrapper):
         """
         return cls(_date=datetime.datetime.now().date())
 
+    def __add__(self, time_delta):
+        """Add time_delta to date object.
+
+        Args:
+            time_delta (TimeDelta or datetime.timedelta): time delta to add.
+
+        Returns:
+            (Date): modified date object.
+        """
+        super(Date, self).__add__(time_delta)
+        if isinstance(time_delta, datetime.timedelta):
+            return Date(
+                _date=(self._datetime_obj + time_delta)
+            )
+        elif isinstance(time_delta, TimeDelta):
+            date = self._datetime_obj
+            # calculate years and months first.
+            if time_delta._months or time_delta._years:
+                month_total = self.month + time_delta._months
+                new_month = (month_total - 1) % 12 + 1
+                additional_years = math.floor((month_total - 1)/12)
+                new_year = self.year + time_delta._years + additional_years
+                date = datetime.date(new_year, new_month, self.day)
+            # and now add rest of datetime.
+            return Date(
+                _date=(date + time_delta._timedelta_obj)
+            )
+
+    def __sub__(self, timedelta_or_date):
+        """Subtract time_delta or date from date object.
+
+        See base class docstring for explanation of ambiguity in this method's
+        result.
+
+        Args:
+            timedelta_or_date (TimeDelta, datetime.timedelta, datetime.date,
+                or Date): time delta or date to subtract.
+
+        Returns:
+            (Date or TimeDelta): modified Date object, if subtracting a
+                timedelta, or new timedelta, if subtracting another date.
+        """
+        super(Date, self).__add__(timedelta_or_date)
+        if isinstance(timedelta_or_date, (TimeDelta, datetime.timedelta)):
+            return self + (-timedelta_or_date)
+        elif isinstance(timedelta_or_date, datetime.date):
+            return TimeDelta(
+                _timedelta=(
+                    self._datetime_obj - timedelta_or_date
+                )
+            )
+        elif isinstance(timedelta_or_date, Date):
+            return TimeDelta(
+                _timedelta=(
+                    self._datetime_obj - timedelta_or_date._datetime_obj
+                )
+            )
+
+    @property
     def year(self):
         """Get year.
 
         Returns:
             (int): year of date object.
         """
-        return self._datetime_obj.year()
+        return self._datetime_obj.year
 
+    @property
     def month(self):
         """Get month.
 
         Returns:
             (int): month of date object.
         """
-        return self._datetime_obj.month()
+        return self._datetime_obj.month
 
+    @property
     def day(self):
         """Get day.
 
         Returns:
-            (int): self._datetime_obj.day()
+            (int): day of date object.
         """
-        return self._datetime_obj.day()
+        return self._datetime_obj.day
+
+    @property
+    def weekday(self):
+        """Get weekday.
+
+        Returns:
+            (int): integerr from 0 to 6 representing weekday.
+        """
+        return self._datetime_obj.weekday()
 
     def weekday_string(self, short=True):
         """Get string representing weekday.
@@ -141,8 +506,7 @@ class Date(BaseDateTimeWrapper):
         Returns:
             (str): weekday string.
         """
-        weekday_string = self.WEEKDAYS[self.weekday()]
-        return weekday_string[:3] if short else weekday_string
+        return self.weekday_string_from_int(self.weekday)
 
     def month_string(self, short=True):
         """Get string representing month.
@@ -153,8 +517,7 @@ class Date(BaseDateTimeWrapper):
         Returns:
             (str): month string.
         """
-        month_string = self.MONTHS[self.month()]
-        return month_string[:3] if short else month_string
+        return self.month_string_from_int(self.month)
 
     def ordinal_string(self):
         """Get day ordinal (eg. 1st, 2nd 3rd etc.).
@@ -162,7 +525,7 @@ class Date(BaseDateTimeWrapper):
         Returns:
             (str): day ordinal.
         """
-        day = self.day()
+        day = self.day
         if day == 1:
             return "1st"
         if day == 2:
@@ -170,29 +533,6 @@ class Date(BaseDateTimeWrapper):
         if day == 3:
             return "3rd"
         return "{0}th"
-
-    def title_string(self, long=False):
-        """Get string representing day and date, used for headers.
-
-        This is of the form "Mon 1st", or "Mon 1st Jan 2000".
-
-        Args:
-            short (bool): if True, add date and year as well.
-
-        Returns:
-            (str): day string.
-        """
-        string = "{0} {1}".format(
-            self.weekday_string(),
-            self.ordinal_string()
-        )
-        if long:
-            string = "{0} {1} {2}".format(
-                string,
-                self.month_string(),
-                self.year()
-            )
-        return string
 
 
 class Time(BaseDateTimeWrapper):
@@ -210,8 +550,15 @@ class Time(BaseDateTimeWrapper):
                 be used by clients.
         """
         if _time is not None:
-            self._datetime_obj = _time
-        self._datetime_obj = datetime.time(hour, minute, second)
+            if isinstance(_time, datetime.Time):
+                self._datetime_obj = _time
+            else:
+                raise DateTimeError(
+                    "_time param in Time __init__ must be None or a "
+                    "datetime.time object."
+                )
+        else:
+            self._datetime_obj = datetime.time(hour, minute, second)
 
     @classmethod
     def from_string(cls, time_str):
@@ -239,39 +586,83 @@ class Time(BaseDateTimeWrapper):
         """
         return cls(_time=datetime.datetime.now().time())
 
+    def __add__(self, time_delta):
+        """Add time_delta to date object.
+
+        Args:
+            time_delta (TimeDelta or datetime.timedelta): time delta to add.
+
+        Returns:
+            (Date): modified date object.
+        """
+        super(Date, self).__add__(time_delta)
+        temp_datetime = datetime.datetime.combine(
+            datetime.date(1,1,1),
+            self._datetime_obj
+        )
+        if isinstance(time_delta, datetime.timedelta):
+            temp_datetime += time_delta
+        elif isinstance(time_delta, Time):
+            temp_datetime += time_delta._timedelta_obj
+        return Time(_time=temp_datetime.time())
+
+    def __sub__(self, timedelta_or_time):
+        """Subtract time_delta or time from time object.
+
+        Args:
+            timedelta_or_time (TimeDelta, datetime.timedelta, datetime.time,
+                or Time): time delta or time to subtract.
+
+        Returns:
+            (Time or TimeDelta): modified Time object, if subtracting a
+                timedelta, or new timedelta, if subtracting another time.
+        """
+        super(Time, self).__add__(timedelta_or_time)
+        if isinstance(timedelta_or_time, (TimeDelta, datetime.timedelta)):
+            return self + (-timedelta_or_time)
+        temp_date = datetime.date(1,1,1),
+        temp_datetime = datetime.datetime.combine(
+            temp_date,
+            self._datetime_obj
+        )
+        if isinstance(timedelta_or_time, datetime.time):
+            time_delta = temp_datetime - datetime.datetime.combine(
+                temp_date,
+                timedelta_or_time
+            )
+        elif isinstance(timedelta_or_time, Time):
+            time_delta = temp_datetime - datetime.datetime.combine(
+                temp_date,
+                timedelta_or_time._datetime_obj
+            )
+        return TimeDelta(_timedelta=time_delta)
+
+    @property
     def hour(self):
         """Get hour.
 
         Returns:
             (int): hour of time object.
         """
-        return self._datetime_obj.hour()
+        return self._datetime_obj.hour
 
+    @property
     def minute(self):
         """Get minute.
 
         Returns:
             (int): minute of time object.
         """
-        return self._datetime_obj.minute()
+        return self._datetime_obj.minute
 
+    @property
     def second(self):
         """Get second.
 
         Returns:
             (int): second of time object.
         """
-        return self._datetime_obj.second()
-
-    def title_string(self):
-        """Get hour and minute string, used for titles.
-
-        This is of the form "10:30".
-
-        Returns:
-            (str) title describing hours and minutes.
-        """
-        return "{0}:{1}".format(self.hour(), self.minute())
+        return self._datetime_obj.second
 
 
 class DateTime(Date, Time):
@@ -299,11 +690,17 @@ class DateTime(Date, Time):
             hour (int): hour to pass to time or datetime init.
             minute (int): minute to pass to time or datetime init.
             second (int): second to pass to time or datetime init.
-            _datetime (datetime.datetime): datetime obj to initialise from
-                directly.
+            _datetime (datetime.datetime or None): datetime obj to initialise
+                from directly.
         """
-        if _datetime:
-            self._datetime_obj = _datetime
+        if _datetime is not None:
+            if isinstance(_datetime(datetime.datetime)):
+                self._datetime_obj = _datetime
+            else:
+                raise DateTimeError(
+                    "_datetime param in DateTime __init__ must be None or a "
+                    "datetime.datetime object."
+                )
         elif all(x is not None for x in (year, month, day)):
             self._datetime_obj = datetime.datetime(
                 year,
@@ -362,6 +759,72 @@ class DateTime(Date, Time):
         """
         return cls(_datetime=datetime.datetime.now())
 
+    def __add__(self, time_delta):
+        """Add time_delta to datetime object.
+
+        Args:
+            time_delta (TimeDelta or datetime.timedelta): time delta to add.
+
+        Returns:
+            (DateTime): modified date time object.
+        """
+        super(Date, self).__add__(time_delta)
+        if isinstance(time_delta, datetime.timedelta):
+            return DateTime(
+                _datetime=(self._datetime_obj + time_delta)
+            )
+        else:
+            _datetime = self._datetime_obj
+            # calculate years and months first.
+            if time_delta._months or time_delta._years:
+                month_total = self.month + time_delta._months
+                new_month = (month_total - 1) % 12 + 1
+                additional_years = math.floor((month_total - 1)/12)
+                new_year = self.year + time_delta._years + additional_years
+                datetime = datetime.datetime(
+                    new_year,
+                    new_month,
+                    self.day,
+                    self.hour,
+                    self.minute,
+                    self.second
+                )
+            # and now add rest of timedelta.
+            return DateTime(
+                _datetime=(_datetime + time_delta._timedelta_obj)
+            )
+
+    def __sub__(self, timedelta_or_datetime):
+        """Subtract time_delta or date_time from date object.
+
+        See base class docstring for explanation of ambiguity in this method's
+        result.
+
+        Args:
+            timedelta_or_datetime (TimeDelta, datetime.timedelta,
+                datetime.datetime or DateTime): time delta or date to subtract.
+
+        Returns:
+            (DateTime or TimeDelta): modified DateTime object, if
+                subtracting a timedelta, or new timedelta, if subtracting
+                another date.
+        """
+        super(Date, self).__add__(timedelta_or_datetime)
+        if isinstance(timedelta_or_datetime, (TimeDelta, datetime.timedelta)):
+            return self + (-timedelta_or_datetime)
+        elif isinstance(timedelta_or_datetime, datetime.datetime):
+            return TimeDelta(
+                _timedelta=(
+                    self._datetime_obj - timedelta_or_datetime
+                )
+            )
+        elif isinstance(timedelta_or_datetime, DateTime):
+            return TimeDelta(
+                _timedelta=(
+                    self._datetime_obj - timedelta_or_datetime._datetime_obj
+                )
+            )
+
     def date(self):
         """Get Date object.
 
@@ -393,14 +856,3 @@ class DateTime(Date, Time):
             (str): time string.
         """
         return self.time().string()
-
-    def title_string(self, long=False):
-        """Get title string for use in headers etc.
-
-        Args:
-            (str): string to use for titles.
-        """
-        return "{0} {1}".format(
-            self.date().title_string(long=True),
-            self.time().title_string()
-        )

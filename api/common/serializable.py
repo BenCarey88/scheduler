@@ -9,8 +9,8 @@ import shutil
 import tempfile
 
 
-class FileError(Exception):
-    """Exception class for file related errors."""
+class SerializationError(Exception):
+    """Exception class for serialization errors."""
 
 
 class SaveType():
@@ -61,12 +61,12 @@ class SerializableFileTypes():
     INFO = ".info"
 
 
-# TODO: use this in task classes
-class Serializable(ABC):
+class BaseSerializable(ABC):
     """Base class for dictionary and file/directory serialization.
 
-    The serializable class performs serialization through nested
-    dictionaries, usually representing tree-like structures.
+    This is for classes that can be serialized to/deserialized from
+    dictionaries, which in turn can be saved to/read from either files
+    or directories.
 
     All subclasses make use of these two class variables:
 
@@ -74,10 +74,197 @@ class Serializable(ABC):
             (see SaveType struct above)
         _DICT_TYPE (type): the type of dict that this class can be serialized
             to (can be dict or OrderedDict)
+    """
+    _SAVE_TYPE = SaveType.FILE
+    _DICT_TYPE = dict
 
-    Additionally, the following global variables are defined to help with
-    directory reading and writing (and so only need to overridden in subclasses
-    with a save type of 'Directory' or 'Either'):
+    ### Dict Read/Write ###
+    # These must be reimplemented in subclasses
+    @abstractclassmethod
+    def from_dict(cls, dictionary, *args, **kwargs):
+        """Virtual method to initialise class from dictionary.
+
+        Args:
+            dictionary (dict or OrderedDict): the dictionary we're using to
+                deserialize the class.
+        """
+        pass
+
+    @abstractmethod
+    def to_dict(self):
+        """Virtual method to create dict from class.
+
+        Returns:
+            (dict or OrderedDict): Serialized dictionary.
+        """
+        pass
+
+    ### File Read/Write ###
+    @staticmethod
+    def _read_json_file(file_path, as_ordered_dict=False):
+        """Read json dict from file_path.
+
+        Args:
+            file_path (str): path to file to read from.
+            as_ordered_dict (bool): whether to return dict or OrderedDict.
+
+        Returns:
+            (dict or OrderedDict): json dictionary.
+        """
+        # TODO: should we raise errors here on failed read? Or add to a logger?
+        # whatever we do should also be applied to tree._file_utils as well.
+        # if we raise errors, remember to add to docstring.
+        if not os.path.isfile(file_path):
+            raise SerializationError(
+                "File {0} does not exist".format(file_path)
+            )
+        with open(file_path, "r") as file_:
+            file_text = file_.read()
+        try:
+            if as_ordered_dict:
+                return json.loads(file_text, object_pairs_hook=OrderedDict)
+            return json.load(file_text)
+        except json.JSONDecodeError:
+            raise SerializationError(
+                "File {0} is incorrectly formatted for json load".format(
+                    file_path
+                )
+            )
+
+    @classmethod
+    def from_file(cls, file_path, *args, **kwargs):
+        """Initialise class from json file.
+
+        Args:
+            file_path (str): path to file to initialise from.
+
+        Returns:
+            (BaseSerializable): class instance.
+        """
+        if cls._SAVE_TYPE not in SaveType._FILE_TYPES:
+            raise SerializationError(
+                "{0} has save type '{1}', so can't be read from a file".format(
+                    str(cls), cls._SAVE_TYPE
+                )
+            )
+        json_dict = cls._read_json_file(
+            file_path,
+            use_ordered_dict=(cls._DICT_TYPE==OrderedDict)
+        )
+        return cls.from_dict(json_dict, *args, **kwargs)
+
+    def to_file(self, file_path):
+        """Serialize class as json file.
+
+        Args:
+            file_path (str): path to the json file. This should be a .json
+                file in most cases, or a .info file for the additional
+                info file sometimes required in directory serialization.
+        """
+        if self._SAVE_TYPE not in SaveType._DIR_TYPES:
+            raise SerializationError(
+                "{0} has save type '{1}', so can't be saved to a file".format(
+                    str(self), self._SAVE_TYPE
+                )
+            )
+        if not os.path.isdir(os.path.dirname(file_path)):
+            raise SerializationError(
+                "File directory {0} does not exist".format(file_path)
+            )
+        if os.path.splitext(file_path)[-1] not in [".json"]:
+            raise SerializationError(
+                "File path {0} is not a json.".format(file_path)
+            )
+        with open(file_path, 'w') as file_:
+            json.dump(self.to_dict(), file_, indent=4)
+
+    ### Directory Read/Write ###
+    @classmethod
+    def from_directory(cls, directory_path, *args, **kwargs):
+        """Initialise class from directory.
+
+        Args:
+            directory_path (str): directory to read from.
+
+        Returns:
+            (BaseSerializable): class instance.
+        """
+        raise NotImplementedError(
+            "from_directory needs to be reimplemented in subclasses that "
+            "permit directory deserialization."
+        )
+
+    def to_directory(self, directory_path):
+        """Write class to directory path.
+
+        Args:
+            directory_path (str): directory to write to.
+        """
+        raise NotImplementedError(
+            "to_directory needs to be reimplemented in subclasses that "
+            "permit directory serialization."
+        )
+
+    ### General Read/Write ###
+    @classmethod
+    def read(cls, path, *args, **kwargs):
+        """Read class from path.
+
+        Args:
+            path (str): file or directory to read from.
+
+        Returns:
+            (BaseSerializable): class instance.
+        """
+        if cls._SAVE_TYPE == SaveType.FILE:
+            return cls.from_file(path, *args, **kwargs)
+        elif cls._SAVE_TYPE == SaveType.DIRECTORY:
+            return cls.from_directory(path, *args, **kwargs)
+        elif cls._SAVE_TYPE == SaveType.EITHER:
+            if os.path.isfile(path):
+                return cls.from_file(path, *args, **kwargs)
+            elif os.path.isdir(path):
+                return cls.from_directory(path, *args, **kwargs)
+            raise SerializationError(
+                "Path {0} is neither a file nor a directory".format(path)
+            )
+        raise SerializationError(
+            "{0} has save type '{1}', so can't be read from a file "
+            "or directory".format(str(cls), cls._SAVE_TYPE)
+        )
+
+    def write(self, path):
+        """Write to path.
+
+        Args:
+            path (str): file or directory path to write to.
+        """
+        if self._SAVE_TYPE == SaveType.FILE:
+            self.to_file(path)
+        elif self._SAVE_TYPE == SaveType.DIRECTORY:
+            self.to_directory(path)
+        elif self._SAVE_TYPE == SaveType.EITHER:
+            # assume that path is a file if it has an extension
+            if os.path.splitext(path)[1]:
+                self.to_file(path)
+            else:
+                os.path.to_directory(path)
+        raise SerializationError(
+            "{0} has save type '{1}', so can't be saved to a file "
+            "or directory".format(str(self), self._SAVE_TYPE)
+        )
+
+
+# TODO: use this in task classes
+class NestedSerializable(BaseSerializable):
+    """Serializable class for nested structures.
+
+    This class performs serialization through nested dictionaries, usually
+    representing tree-like structures.
+
+    The following global variables are defined to help with directory reading
+    and writing (and so only need to overridden in subclasses with a save type
+    of 'Directory' or 'Either'):
 
         _MARKER_FILE (str): name of marker file in this directory, that
             designates the directory as a serialized class. This can be the
@@ -105,9 +292,6 @@ class Serializable(ABC):
         _FILE_DICT_TYPE (type): type to store deserialized file classes in
             (should be dict or OrderedDict).
     """
-    _SAVE_TYPE = SaveType.FILE
-    _DICT_TYPE = dict
-
     _MARKER_FILE = None
     _INFO_FILE = None
     _ORDER_FILE = None
@@ -142,12 +326,12 @@ class Serializable(ABC):
     def __init__(self, parent=None):
         """Initialize serializable item.
 
-        Since the serialization process is done through nested dicts, it is
-        assumed that most Serializable classes will have some concept of a
-        parent object, so this is passed as a parameter to the base class.
+        Since this serialization process is done through nested dicts, it is
+        assumed that most NestedSerializable classes will have some concept of
+        a parent object, so this is passed as a parameter to the base class.
 
         Args:
-            parent (Serializable or None): class that this one is nested under
+            parent (NestedSerializable or None): class that this one is nested under
                 in the full serialized dictionary, if it's not a root item.
         """
         self._parent = parent
@@ -156,34 +340,33 @@ class Serializable(ABC):
 
         # directory error checks
         if not self._MARKER_FILE:
-            raise FileError(
+            raise SerializationError(
                 "Directory writing not possible without a defined "
                 "_MARKER_FILE attribute"
             )
         if not (self._SUBDIR_KEY or self._FILE_KEY):
-            raise FileError(
+            raise SerializationError(
                 "Directory writing not possible without a defined "
                 "_SUBDIR_KEY or _FILE_KEY attribute"
             )
         if (self._SUBDIR_KEY and
                 self._subdir_class()._SAVE_TYPE not in SaveType._DIR_TYPES):
-            raise FileError(
+            raise SerializationError(
                 "_subdir_class() must have a directory save type"
             )
         if (self._FILE_KEY and
                 self._file_class()._SAVE_TYPE not in SaveType._FILE_TYPES):
-            raise FileError(
+            raise SerializationError(
                 "_file_class() must have a file save type"
             )
         if (self._FILE_KEY == self._SUBDIR_KEY and
                 self._FILE_DICT_TYPE != self._SUBDIR_DICT_TYPE):
-            raise FileError(
+            raise SerializationError(
                 "If file key and subdir key are the same, their dict "
                 "types must be too"
             )
 
-    ### Dict Read/Write ###
-    # These must be reimplemented in subclasses
+    ### Dict Read ###
     @abstractclassmethod
     def from_dict(cls, dictionary, name=None, parent=None):
         """Virtual method to initialise class from dictionary.
@@ -193,48 +376,13 @@ class Serializable(ABC):
                 deserialize the class.
             name (str or None): name that keys this dict in the full dictionary
                 that we're deserializing, if it's not a root item.
-            parent (Serializable or None): class that this one is nested under
-                in the full serialized dictionary, if it's not a root item.
+            parent (BaseSerializable or None): class that this one is nested
+                under in the full serialized dictionary, if it's not a root
+                item.
         """
         pass
 
-    @abstractmethod
-    def to_dict(self):
-        """Virtual method to create dict from file."""
-        pass
-
-    ### File Read/Write ###
-    @staticmethod
-    def _read_json_file(file_path, as_ordered_dict=False):
-        """Read json dict from file_path.
-
-        Args:
-            file_path (str): path to file to read from.
-            as_ordered_dict (bool): whether to return dict or OrderedDict.
-
-        Returns:
-            (dict or OrderedDict): json dictionary.
-        """
-        # TODO: should we raise errors here on failed read? Or add to a logger?
-        # whatever we do should also be applied to tree._file_utils as well.
-        # if we raise errors, remember to add to docstirng.
-        if not os.path.isfile(file_path):
-            raise FileError(
-                "File {0} does not exist".format(file_path)
-            )
-        with open(file_path, "r") as file_:
-            file_text = file_.read()
-        try:
-            if as_ordered_dict:
-                return json.loads(file_text, object_pairs_hook=OrderedDict)
-            return json.load(file_text)
-        except json.JSONDecodeError:
-            raise FileError(
-                "File {0} is incorrectly formatted for json load".format(
-                    file_path
-                )
-            )
-
+    ### File Read ###
     @classmethod
     def from_file(cls, file_path, name=None, parent=None):
         """Initialise class from json file.
@@ -243,48 +391,36 @@ class Serializable(ABC):
             file_path (str): path to file to initialise from.
             name (str or None): name that keys this dict in the full dictionary
                 that we're deserializing, if it's not a root item.
-            parent (Serializable or None): class that this one is nested under
-                in the full serialized dictionary, if it's not a root item.
+            parent (BaseSerializable or None): class that this one is nested
+                under in the full serialized dictionary, if it's not a root
+                item.
 
         Returns:
-            (Serializable): class instance.
+            (NestedSerializable): class instance.
         """
-        if cls._SAVE_TYPE not in SaveType._FILE_TYPES:
-            raise FileError(
-                "{0} has save type '{1}', so can't be read from a file".format(
-                    str(cls), cls._SAVE_TYPE
-                )
-            )
-        json_dict = cls._read_json_file(
+        return super(NestedSerializable, cls).from_file(
             file_path,
-            use_ordered_dict=(cls._DICT_TYPE==OrderedDict)
+            name,
+            parent
         )
-        return cls.from_dict(json_dict, name, parent)
 
-    def to_file(self, file_path):
-        """Serialize class as json file.
+    ### General Read ###
+    @classmethod
+    def read(cls, path, name=None, parent=None):
+        """Read class from path.
 
         Args:
-            file_path (str): path to the json file. This should be a .json
-                file in most cases, or a .info file for the additional
-                info file sometimes required in directory serialization.
+            path (str): file or directory to read from.
+            name (str or None): name that keys this dict in the full dictionary
+                that we're deserializing, if it's not a root item.
+            parent (BaseSerializable or None): class that this one is nested
+                under in the full serialized dictionary, if it's not a root
+                item.
+
+        Returns:
+            (NestedSerializable): class instance.
         """
-        if self._SAVE_TYPE not in SaveType._DIR_TYPES:
-            raise FileError(
-                "{0} has save type '{1}', so can't be saved to a file".format(
-                    str(self), self._SAVE_TYPE
-                )
-            )
-        if not os.path.isdir(os.path.dirname(file_path)):
-            raise FileError(
-                "File directory {0} does not exist".format(file_path)
-            )
-        if os.path.splitext(file_path)[-1] not in [".json"]:
-            raise FileError(
-                "File path {0} is not a json.".format(file_path)
-            )
-        with open(file_path, 'w') as file_:
-            json.dump(self.to_dict(), file_, indent=4)
+        return super(NestedSerializable, cls).read(path, name, parent)
 
     ### Directory utils ###
     @staticmethod
@@ -317,8 +453,8 @@ class Serializable(ABC):
             raise_error=True):
         """Check if directory path can be written to.
 
-        A directory path can have a serializable written to it so long as the
-        following criteria are met:
+        A directory path can have a nested serializable written to it so long
+        as the following criteria are met:
             - the _SAVE_TYPE of this class is a directory one.
             - the path's parent directory exists.
             - the path is not a file.
@@ -330,27 +466,27 @@ class Serializable(ABC):
             raise_error (bool): if True, raise error on failure.
 
         Raises:
-            (FileError): if directory can't be written to.
+            (SerializationError): if directory can't be written to.
 
         Returns:
             (bool): whether or not directory path can be written to.
         """
         if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
-            raise FileError(
+            raise SerializationError(
                 "{0} has save type '{1}', so can't be saved to a dir".format(
                     str(cls), cls._SAVE_TYPE
                 )
             )
         if not os.path.isdir(os.path.dirname(directory_path)):
             if raise_error:
-                raise FileError(
+                raise SerializationError(
                     "Directory {0} has no parent dir and so cannot "
                     "be created".format(directory_path)
                 )
             return False
         if os.path.isfile(directory_path):
             if raise_error:
-                raise FileError(
+                raise SerializationError(
                     "Directory {0} is a file".format(directory_path)
                 )
             return False
@@ -359,7 +495,7 @@ class Serializable(ABC):
                 os.path.exists(directory_path) and
                 not cls._is_serialize_directory(directory_path, marker_file)):
             if raise_error:
-                raise FileError(
+                raise SerializationError(
                     "Directory {0} already exists and is not a serialized "
                     "directory - cannot overwrite".format(directory_path)
                 )
@@ -389,7 +525,7 @@ class Serializable(ABC):
         subdir_class = cls._subdir_class()
         file_class = cls._file_class()
         if not cls._is_serialize_directory(directory_path, cls._MARKER_FILE):
-            raise FileError(
+            raise SerializationError(
                 "Directory path {0} is not a serialized class "
                 "directory".format(directory_path)
             )
@@ -408,7 +544,7 @@ class Serializable(ABC):
             order_file_path = os.path.join(directory_path, cls._ORDER_FILE)
             order = cls._read_json_file(order_file_path)
             if not isinstance(order, list):
-                raise FileError(
+                raise SerializationError(
                     "Order file {0} is not formatted as a json list".format(
                         order_file_path
                     )
@@ -437,7 +573,7 @@ class Serializable(ABC):
                 subdir_item_dict = subdir_class._read_directory(path)
                 subdir_dict[name] = subdir_item_dict
             elif cls._FILE_KEY and os.path.isfile("{0}.json".format(path)):
-                file_item_dict = file_class._read_directory(
+                file_item_dict = file_class._read_json_file(
                     "{0}.json".format(path)
                 )
                 file_dict[name] = file_item_dict
@@ -458,14 +594,15 @@ class Serializable(ABC):
             directory_path (str): directory to read from.
             name (str or None): name that keys this dict in the full dictionary
                 that we're deserializing, if it's not a root item.
-            parent (Serializable or None): class that this one is nested under
-                in the full serialized dictionary, if it's not a root item.
+            parent (NestedSerializable or None): class that this one is nested
+                under in the full serialized dictionary, if it's not a root
+                item.
 
         Returns:
-            (Serializable): class instance.
+            (NestedSerializable): class instance.
         """
         if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
-            raise FileError(
+            raise SerializationError(
                 "{0} has save type '{1}', so can't be read from a dir".format(
                     str(cls), cls._SAVE_TYPE
                 )
@@ -548,56 +685,3 @@ class Serializable(ABC):
         """
         dict_repr = self.to_dict()
         self._dict_to_directory(directory_path, dict_repr)
-
-    ### General Read/Write ###
-    @classmethod
-    def read(cls, path, name=None, parent=None):
-        """Read class from path.
-
-        Args:
-            path (str): file or directory to read from.
-            name (str or None): name that keys this dict in the full dictionary
-                that we're deserializing, if it's not a root item.
-            parent (Serializable or None): class that this one is nested under
-                in the full serialized dictionary, if it's not a root item.
-
-        Returns:
-            (Serializable): class instance.
-        """
-        if cls._SAVE_TYPE == SaveType.FILE:
-            return cls.from_file(path, name, parent)
-        elif cls._SAVE_TYPE == SaveType.DIRECTORY:
-            return cls.from_directory(path, name, parent)
-        elif cls._SAVE_TYPE == SaveType.EITHER:
-            if os.path.isfile(path):
-                return cls.from_file(path, name, parent)
-            elif os.path.isdir(path):
-                return cls.from_directory(path, name, parent)
-            raise FileError(
-                "Path {0} is neither a file nor a directory".format(path)
-            )
-        raise FileError(
-            "{0} has save type '{1}', so can't be read from a file "
-            "or directory".format(str(cls), cls._SAVE_TYPE)
-        )
-
-    def write(self, path):
-        """Write to path.
-
-        Args:
-            path (str): file or directory path to write to.
-        """
-        if self._SAVE_TYPE == SaveType.FILE:
-            self.to_file(path)
-        elif self._SAVE_TYPE == SaveType.DIRECTORY:
-            self.to_directory(path)
-        elif self._SAVE_TYPE == SaveType.EITHER:
-            # assume that path is a file if it has an extension
-            if os.path.splitext(path)[1]:
-                self.to_file(path)
-            else:
-                os.path.to_directory(path)
-        raise FileError(
-            "{0} has save type '{1}', so can't be saved to a file "
-            "or directory".format(str(self), self._SAVE_TYPE)
-        )

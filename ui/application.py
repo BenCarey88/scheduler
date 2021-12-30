@@ -6,6 +6,9 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants as api_constants
+from scheduler.api.common.date_time import Date
+from scheduler.api.timetable.calendar import Calendar
+from scheduler.api.timetable.calendar_period import CalendarDay
 from scheduler.api.edit import edit_log
 from scheduler.api.tree.task_root import TaskRoot
 
@@ -34,6 +37,17 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tree_root = TaskRoot.from_directory(
             api_constants.SCHEDULER_TASKS_DIRECTORY
         )
+
+        self.calendar = Calendar.from_directory(
+            api_constants.SCHEDULER_CALENDAR_DIRECTORY,
+            self.tree_root
+        )
+        # self.calendar._add_day(
+        #     CalendarDay(self.calendar, Date(2022, 1, 1))
+        # )
+        print (self.calendar.to_dict())
+        self.calendar.write(api_constants.SCHEDULER_CALENDAR_DIRECTORY)
+
         edit_log.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()

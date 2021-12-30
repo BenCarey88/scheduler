@@ -121,7 +121,6 @@ class BaseSerializable(ABC):
             (dict or OrderedDict): json dictionary.
         """
         # TODO: should we raise errors here on failed read? Or add to a logger?
-        # whatever we do should also be applied to tree._file_utils as well.
         # if we raise errors, remember to add to docstring.
         if not os.path.isfile(file_path):
             raise SerializationError(
@@ -132,7 +131,7 @@ class BaseSerializable(ABC):
         try:
             if as_ordered_dict:
                 return json.loads(file_text, object_pairs_hook=OrderedDict)
-            return json.load(file_text)
+            return json.loads(file_text)
         except json.JSONDecodeError:
             raise SerializationError(
                 "File {0} is incorrectly formatted for json load".format(
@@ -227,6 +226,8 @@ class BaseSerializable(ABC):
 
         Args:
             path (str): file or directory to read from.
+            args (list): additional arguments to pass to from_dict.
+            kwargs (dict): additional keyword arguments to pass to from_dict.
 
         Returns:
             (BaseSerializable): class instance.
@@ -264,10 +265,11 @@ class BaseSerializable(ABC):
                 self.to_file(path)
             else:
                 self.to_directory(path)
-        raise SerializationError(
-            "{0} has save type '{1}', so can't be saved to a file "
-            "or directory".format(str(self), self._SAVE_TYPE)
-        )
+        else:
+            raise SerializationError(
+                "{0} has save type '{1}', so can't be saved to a file "
+                "or directory".format(str(self), self._SAVE_TYPE)
+            )
 
 
 # TODO: use this in task classes
@@ -614,7 +616,7 @@ class NestedSerializable(BaseSerializable):
                 json.dump(file_item_dict, file_, indent=4)
 
         # subdirs
-        for subdir_item_key, subdir_item_dict in subdir_items:
+        for subdir_item_key, subdir_item_dict in subdir_items.items():
             subdir_path = os.path.join(directory_path, subdir_item_key)
             cls._subdir_class()._dict_to_directory(
                 subdir_path,

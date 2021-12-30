@@ -44,6 +44,7 @@ class Calendar(NestedSerializable):
         Returns:
             (CalendarDay): calendar day object.
         """
+        print ("Getting day {0}".format(date.string()))
         return self._days.setdefault(
             date,
             CalendarDay(self, date)
@@ -73,13 +74,17 @@ class Calendar(NestedSerializable):
         Returns:
             (CalendaryYear): calendar year object.
         """
-        return self._months.setdefault(
+        return self._years.setdefault(
             year,
             CalendarYear(self, year)
         )
 
     def _add_day(self, calendar_day):
         """Add calendar day to calendar days dict.
+
+        This should only be used during deserialization of the class from a
+        dict. Otherwise we just fill these dicts with the setdefault methods
+        above.
 
         Args:
             calendar_day (CalendarDay): calendar day object.
@@ -95,6 +100,10 @@ class Calendar(NestedSerializable):
 
     def _add_month(self, calendar_month):
         """Add calendar month to calendar months dict.
+
+        This should only be used during deserialization of the class from a
+        dict. Otherwise we just fill these dicts with the setdefault methods
+        above.
 
         Args:
             calendar_month (CalendarMonth): calendar month object.
@@ -114,6 +123,10 @@ class Calendar(NestedSerializable):
 
     def _add_year(self, calendar_year):
         """Add calendar year to calendar year dict.
+
+        This should only be used during deserialization of the class from a
+        dict. Otherwise we just fill these dicts with the setdefault methods
+        above.
 
         Args:
             calendar_year (CalendarMonth): calendar year object.
@@ -147,10 +160,8 @@ class Calendar(NestedSerializable):
     def to_dict(self):
         """Serialize class as dict.
 
-        Note that there is a large amount of redundancy in the attributes
-        stored by the various calendar classes to allow easy access of things.
-        Hence we only serialize the year objects here and leave the subclasses
-        to do the remaining serialization.
+        Note that we only serialize the year objects here and leave the
+        subclasses to do the remaining serialization.
 
         Returns:
             (dict): nested json dict representing calendar object and its

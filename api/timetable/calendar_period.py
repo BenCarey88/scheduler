@@ -5,6 +5,7 @@ from scheduler.api.common.date_time import (
     BaseDateTimeWrapper,
     Date,
     DateTime,
+    DateTimeError,
     TimeDelta
 )
 from scheduler.api.common.serializable import (
@@ -23,9 +24,9 @@ class BaseCalendarPeriod(NestedSerializable):
     of various blocks of calendar data.
 
     These store attributes to a parent class and a dict of child classes, but
-    these are implemented rather than filled during __init__ - this is to aid
-    deserialization and ensure that all the calendar dicts have been filled
-    before these relationships are created.
+    the child classes are implemented as properties rather than filled during
+    __init__ - this is to aid deserialization and ensure that all the calendar
+    dicts have been filled before these relationships are created.
     """
     def __init__(self, calendar):
         """Initialise class.
@@ -51,31 +52,30 @@ class CalendarDay(BaseCalendarPeriod):
     _KEY_TYPE = Date
     CALENDAR_ITEMS_KEY = "calendar_items"
 
-    def __init__(self, calendar, date):
+    def __init__(self, calendar, date, calendar_month=None):
         """Initialise calendar day object.
 
         Args:
             calendar (Calendar): calendar root item.
             date (Date): date object.
+            calendar_month (CalendarMonth or None): calendar month object.
         """
         super(CalendarDay, self).__init__(calendar)
         self._date = date
         self._scheduled_items = []
-        self.__calendar_month = None
+        self._calendar_month = calendar_month or self.calendar.get_month(
+            date.year,
+            date.month
+        )
 
     @property
-    def _calendar_month(self):
-        """Get calendar month object of this day.
+    def name(self):
+        """Get name of day class, to use in serialization.
 
-        Returns:
-            (CalendarMonth): calendar month object.
+        Args:
+            name (str): name of class instance.
         """
-        if not self.__calendar_month:
-            self.__calendar_month = self.calendar.get_month(
-                self._date.year,
-                self._date.month
-            )
-        return self.__calendar_month
+        return self._date.string()
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -83,6 +83,8 @@ class CalendarDay(BaseCalendarPeriod):
         Returns:
             (dict): dictionary representation.
         """
+        if not self._scheduled_items:
+            return {}
         return {
             self.CALENDAR_ITEMS_KEY: [
                 item.to_dict() for item in self._scheduled_items
@@ -90,20 +92,28 @@ class CalendarDay(BaseCalendarPeriod):
         }
 
     @classmethod
-    def from_dict(cls, dict_repr, calendar, day_name):
+    def from_dict(cls, dict_repr, calendar, calendar_month, day_name):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
             calendar (Calendar): root calendar item.
+            calendar_month (CalendarMonth): calendar month parent object.
             day_name (str): name of calendar day. This is the date string,
                 used to key the calendar in the week dictionary.
 
         Returns:
-            (CalendarDay): calendar day object.
+            (CalendarDay or None): calendar day object, if can be initialized
+                (ie. if it can be deserialized and belongs in calendar_month).
         """
-        date = Date.from_string(day_name)
-        calendar_day = cls(date, calendar)
+        try:
+            date = Date.from_string(day_name)
+        except DateTimeError:
+            return None
+        if (date.month != calendar_month._month
+                or date.year != calendar_month._year):
+            return None
+        calendar_day = cls(calendar, date, calendar_month)
 
         scheduled_items_list = dict_repr.get(cls.CALENDAR_ITEMS_KEY, [])
         scheduled_items = [
@@ -127,7 +137,11 @@ class CalendarWeek(BaseCalendarPeriod):
     _FILE_CLASS = CalendarDay
     DAYS_KEY = _FILE_KEY
 
-    def __init__(self, calendar, start_date, length=Date.NUM_WEEKDAYS):
+    def __init__(
+            self,
+            calendar,
+            start_date,
+            length=Date.NUM_WEEKDAYS):
         """Initialise calendar week object.
 
         Args:
@@ -177,6 +191,7 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return self._start_date + TimeDelta(days=self._length-1)
 
+    # TODO: maybe replace with just week 1, week 2 etc. and sim. for day name?
     @property
     def name(self):
         """Get name of week class, to use in serialization.
@@ -184,7 +199,7 @@ class CalendarWeek(BaseCalendarPeriod):
         Args:
             name (str): name of class instance.
         """
-        return "{0}-{1}".format(
+        return "{0} to {1}".format(
             self.start_date.string(),
             self.end_date.string()
         )
@@ -195,36 +210,51 @@ class CalendarWeek(BaseCalendarPeriod):
         Returns:
             (dict): dictionary representation.
         """
-        return {
-            self.DAYS_KEY: {
-                day.name: day.to_dict()
-                for day in self._days.values()
-            }
-        }
+        days_dict = {}
+        for day in self._calendar_days.values():
+            day_dict = day.to_dict()
+            if day_dict:
+                days_dict[day.name] = day_dict
+        if days_dict:
+            return {self.DAYS_KEY: days_dict}
+        return {}
 
     @classmethod
-    def from_dict(cls, dict_repr, calendar, week_name):
+    def from_dict(cls, dict_repr, calendar, calendar_month, week_name):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
             calendar (Calendar): calendar class.
             week_name (str): week string.
+            calendar_month (CalendarMonth or None): calendar month of days
+                in week (note that week that gets decoded from dict should
+                always be within a month so we don't need to pass multiple
+                months here.)
 
         Returns:
-            (CalendarWeek): calendar week object.
+            (CalendarWeek or None): calendar week object, or None if can't
+                be initialized.
         """
-        start_date_string, end_date_string = week_name.split("-")
-        start_date = Date.from_string(start_date_string)
-        end_date = Date.from_string(end_date_string)
+        try:
+            start_date_string, end_date_string = week_name.split(" to ")
+            start_date = Date.from_string(start_date_string)
+            end_date = Date.from_string(end_date_string)
+        except (DateTimeError, ValueError):
+            return None
         length = (end_date - start_date).days + 1
         calendar_week = cls(calendar, start_date, length)
 
         weeks_dict = dict_repr.get(cls.DAYS_KEY, {})
         for day_name, day_dict in weeks_dict.items():
-            calendar._add_day(
-                CalendarDay.from_dict(day_dict, calendar, day_name)
+            calendar_day = CalendarDay.from_dict(
+                day_dict,
+                calendar,
+                calendar_month,
+                day_name,
             )
+            if calendar_day:
+                calendar._add_day(calendar_day)
         return calendar_week
 
 
@@ -236,22 +266,25 @@ class CalendarMonth(BaseCalendarPeriod):
     _SUBDIR_CLASS = CalendarWeek
     WEEKS_KEY = _SUBDIR_KEY
 
-    def __init__(self, calendar, year, month):
+    def __init__(self, calendar, year, month, calendar_year=None):
         """Initialise calendar month object.
 
         Args:
             calendar (Calendar): calendar root item.
             year (int): the year number.
             month (int): the month number.
+            calendar_year (CalendarYear or None): calendar year object.
         """
         super(CalendarMonth, self).__init__(calendar)
         self._year = year
         self._month = month
-        self._start_date = Date(self._year, self._month, 1)
-        self._length = Date.month_range(self._month, self._year)
+        self._start_date = Date(year, month, 1)
+        self._length = Date.num_days_in_month(year, month)
         self._end_date = self._start_date + TimeDelta(days=self._length-1)
+        self._calendar_year = calendar_year or self.calendar.get_year(
+            self._year
+        )
         self.__calendar_days = None
-        self.__calendar_year = None
 
     @property
     def _calendar_days(self):
@@ -267,17 +300,6 @@ class CalendarMonth(BaseCalendarPeriod):
                 day = self.calendar.get_day(date)
                 self.__calendar_days[date] = day
         return self.__calendar_days
-
-    @property
-    def _calendar_year(self):
-        """Get calendar year object for this month.
-
-        Returns:
-            (CalendarYear): calendar year object.
-        """
-        if not self.__calendar_year:
-            self.__calendar_year = self.calendar.get_year(self._date.year)
-        return self.__calendar_year
 
     def get_calendar_weeks(self, starting_day=0):
         """Get calendar weeks list.
@@ -297,7 +319,7 @@ class CalendarMonth(BaseCalendarPeriod):
             length = Date.NUM_WEEKDAYS
             if date.weekday != starting_day:
                 # beginning of month, restrict length til next start day
-                length = (starting_day - date.weekday) % Date.NUM_WEEKDAYS + 1
+                length = (starting_day - date.weekday) % Date.NUM_WEEKDAYS
             elif (self._end_date - date).days + 1 < Date.NUM_WEEKDAYS:
                 # end of month, restrict length til end of month
                 length = (self._end_date - date).days + 1
@@ -321,34 +343,49 @@ class CalendarMonth(BaseCalendarPeriod):
             (dict): nested json dict representing calendar object and its
                 contained calendar period objects.
         """
-        return {
-            self.WEEKS_KEY: {
-                week.name: week.to_dict()
-                for week in self.get_calendar_weeks().values()
-            }
-        }
+        weeks_dict = {}
+        for week in self.get_calendar_weeks():
+            week_dict = week.to_dict()
+            if week_dict:
+                weeks_dict[week.name] = week_dict
+        if weeks_dict:
+            return {self.WEEKS_KEY: weeks_dict}
+        return {}
 
     @classmethod
-    def from_dict(cls, dict_repr, calendar, year, month_name):
+    def from_dict(cls, dict_repr, calendar, calendar_year, month_name):
         """Initialise calendar month from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
             calendar (Calendar): calendar class.
-            year (int): year number
+            calendar_year (CalendarYear): calendar year object.
             month_name (str): month string.
 
         Returns:
-            (CalendarMonth): calendar year instance.
+            (CalendarMonth or None): calendar year instance.
         """
-        month = Date.month_int_from_string(month_name)
-        calendar_month = cls(calendar, month)
+        try:
+            month = Date.month_int_from_string(month_name)
+        except DateTimeError:
+            return None
+        calendar_month = cls(
+            calendar,
+            calendar_year._year,
+            month,
+            calendar_year
+        )
         weeks_dict = dict_repr.get(cls.WEEKS_KEY, {})
         for week_name, week_dict in weeks_dict.items():
             # Note that we don't need to do anything with this, we're just
-            # calling the week's from dict method so it can add the days to
+            # calling the week's from_dict method so it can add the days to
             # the calendar
-            CalendarWeek.from_dict(week_dict, calendar, week_name)
+            CalendarWeek.from_dict(
+                week_dict,
+                calendar,
+                calendar_month,
+                week_name
+            )
         return calendar_month
 
 
@@ -382,8 +419,8 @@ class CalendarYear(BaseCalendarPeriod):
         if not self.__calendar_months:
             self.__calendar_months = {}
             for i in range(self._length):
-                month = self.calendar.get_month(self._year, i)
-                self.__calendar_months[i] = month
+                month = self.calendar.get_month(self._year, i+1)
+                self.__calendar_months[i+1] = month
         return self.__calendar_months
 
     @property
@@ -402,12 +439,14 @@ class CalendarYear(BaseCalendarPeriod):
             (dict): nested json dict representing calendar year object and its
                 contained calendar month objects.
         """
-        return {
-            self.MONTHS_KEY: {
-                month.name: month.to_dict()
-                for month in self._calendar_months.values()
-            }
-        }
+        months_dict = {}
+        for month in self._calendar_months.values():
+            month_dict = month.to_dict()
+            if month_dict:
+                months_dict[month.name] = month_dict
+        if months_dict:
+            return {self.MONTHS_KEY: months_dict}
+        return {}
 
     @classmethod
     def from_dict(cls, dict_repr, calendar, year_name):
@@ -419,13 +458,21 @@ class CalendarYear(BaseCalendarPeriod):
             year_name (str): year string.
 
         Returns:
-            (CalendarYear): calendar year instance.
+            (CalendarYear or None): calendar year instance.
         """
-        year = int(year_name)
+        try:
+            year = int(year_name)
+        except ValueError:
+            return None
         calendar_year = cls(calendar, year)
         months_dict = dict_repr.get(cls.MONTHS_KEY, {})
         for month_name, month_dict in months_dict.items():
-            calendar._add_month(
-                CalendarMonth.from_dict(month_dict, calendar, year, month_name)
+            calendar_month = CalendarMonth.from_dict(
+                month_dict,
+                calendar,
+                calendar_year,
+                month_name
             )
+            if calendar_month:
+                calendar._add_month(calendar_month)
         return calendar_year

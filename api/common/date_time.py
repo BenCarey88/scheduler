@@ -194,7 +194,6 @@ class BaseDateTimeWrapper(object):
                 datetime object that this is wrapped around.
         """
         self._datetime_obj = datetime_obj
-        self.__le__ = 
 
     @classmethod
     def weekday_string_from_int(cls, weekday, short=True):
@@ -238,7 +237,7 @@ class BaseDateTimeWrapper(object):
         Returns:
             (str): month string.
         """
-        month_string = cls.MONTHS[month]
+        month_string = cls.MONTHS[month - 1]
         return month_string[:3] if short else month_string
 
     @classmethod
@@ -253,13 +252,13 @@ class BaseDateTimeWrapper(object):
         """
         for i, month in enumerate(cls.MONTHS):
             if month.startswith(month_string):
-                return i
+                return i + 1
         raise DateTimeError(
             "String {0} cannot be converted to month".format(month_string)
         )
 
     @staticmethod
-    def month_range(year, month):
+    def num_days_in_month(year, month):
         """Reimplement python calendar module monthrange function.
 
         Args:
@@ -269,7 +268,7 @@ class BaseDateTimeWrapper(object):
         Returns:
             (int): number of days in given month on given year.
         """
-        return calendar.monthrange(year, month)
+        return calendar.monthrange(year, month)[1]
 
     def __eq__(self, date_time):
         """Check if this is equal to another date time object.
@@ -505,7 +504,7 @@ class Date(BaseDateTimeWrapper):
             (Date or TimeDelta): modified Date object, if subtracting a
                 timedelta, or new timedelta, if subtracting another date.
         """
-        super(Date, self).__add__(timedelta_or_date)
+        super(Date, self).__sub__(timedelta_or_date)
         if isinstance(timedelta_or_date, (TimeDelta, datetime.timedelta)):
             return self + (-timedelta_or_date)
         elif isinstance(timedelta_or_date, datetime.date):
@@ -841,7 +840,7 @@ class DateTime(Date, Time):
                 new_month = (month_total - 1) % 12 + 1
                 additional_years = math.floor((month_total - 1)/12)
                 new_year = self.year + time_delta._years + additional_years
-                datetime = datetime.datetime(
+                _datetime = datetime.datetime(
                     new_year,
                     new_month,
                     self.day,
@@ -869,7 +868,7 @@ class DateTime(Date, Time):
                 subtracting a timedelta, or new timedelta, if subtracting
                 another date.
         """
-        super(Date, self).__add__(timedelta_or_datetime)
+        super(Date, self).__sub__(timedelta_or_datetime)
         if isinstance(timedelta_or_datetime, (TimeDelta, datetime.timedelta)):
             return self + (-timedelta_or_datetime)
         elif isinstance(timedelta_or_datetime, datetime.datetime):

@@ -44,7 +44,12 @@ class Calendar(NestedSerializable):
         Returns:
             (CalendarDay): calendar day object.
         """
-        print ("Getting day {0}".format(date.string()))
+        if not isinstance(date, Date):
+            raise CalendarError(
+                "Calendar get_day method requires date input, not {0}".format(
+                    str(type(date))
+                )
+            )
         return self._days.setdefault(
             date,
             CalendarDay(self, date)
@@ -60,6 +65,11 @@ class Calendar(NestedSerializable):
         Returns:
             (CalendarMonth): calendar month object.
         """
+        if not isinstance(year, int) or not isinstance(month, int):
+            raise CalendarError(
+                "Calendar get_month method requires two int inputs, not "
+                "({0}, {1})".format(str(type(year)), str(type(month)))
+            )
         return self._months.setdefault(
             (year, month),
             CalendarMonth(self, year, month)
@@ -74,6 +84,12 @@ class Calendar(NestedSerializable):
         Returns:
             (CalendaryYear): calendar year object.
         """
+        if not isinstance(year, int):
+            raise CalendarError(
+                "Calendar get_year method requires int input, not {0}".format(
+                    str(type(year))
+                )
+            )
         return self._years.setdefault(
             year,
             CalendarYear(self, year)

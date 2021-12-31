@@ -20,19 +20,38 @@ class EditLog(object):
             _registration_locked (bool): toggle to tell if the log is currently
                 being modified. This allows us to ensure we don't re-add
                 functions to the log when they're being used to undo or redo.
+            _edit_to_add (BaseEdit or None): edit that we're in the process
+                of performing and adding to the log. This is used for
+                continuous edits where the edit can be updated continuously by
+                the user before being added to the log (eg. dragging a calendar
+                item to change its time).
         """
         self._log = []
         self._undo_log = []
-        self._registration_locked = True
+        self.__registration_locked = True
+        self._edit_to_add = None
 
-    def get_current_edit_id(self):
-        """Get id of most recent edit.
+    @property
+    def _registration_locked(self):
+        """Check whether registration is locked.
+
+        We treat the edit registry as locked if either:
+            - the __registration_locked attribute is True
+            - there is an edit currentlysaved in the _edit_to_add attribute
 
         Returns:
-            (str): id of most recent edit.
+            (bool): whether or not edit registration is locked.
         """
-        if self._log:
-            return self._log[-1].id
+        return (self.__registration_locked or bool(self._edit_to_add))
+
+    @_registration_locked.setter
+    def _registration_locked(self, value):
+        """Set _registration_locked to given value.
+
+        Args:
+            value (bool): whether to lock or unlock registration.
+        """
+        self.__registration_locked = value
 
     def open_registry(self):
         """Open edit registry so edits can be added."""
@@ -57,13 +76,37 @@ class EditLog(object):
         old undone edits once a new edit has been added.
 
         Args:
-            edit (EditObject): edit object to add to list.
+            edit (BaseEdit): edit object to add to list.
+
+        Returns:
+            (bool): whether or not edit was successfully added.
         """
         if self._registration_locked:
-            return
+            return False
+        if not edit._is_valid:
+            return False
         if self._undo_log:
             self._undo_log = []
         self._log.append(edit)
+        return True
+
+    def begin_add_edit(self, edit):
+        """Begin adding edit to log.
+
+        This is for continuous edits, where the edit can be updated
+        continuously by the user before being added to the log (eg. dragging
+        a calendar item to change its time).
+
+        Args:
+            edit (BaseEdit): edit object to register.
+        """
+        self._edit_to_add = edit
+
+    def end_add_edit(self):
+        """Finish adding edit to log and unlock registry."""
+        edit = self._edit_to_add
+        self._edit_to_add = None
+        self.add_edit(edit)
 
     def undo(self):
         """Undo most recent edit.
@@ -94,6 +137,15 @@ class EditLog(object):
             edit._redo()
             self._log.append(edit)
             return True
+
+    def get_latest_edit_id(self):
+        """Get id of most recent edit.
+
+        Returns:
+            (str): id of most recent edit.
+        """
+        if self._log:
+            return self._log[-1].id
 
     def get_log_text(self, long=True):
         """Get string representation of all edits in edit log.
@@ -151,13 +203,13 @@ def redo():
     return EDIT_LOG.redo()
 
 
-def current_edit_id():
+def latest_edit_id():
     """Get id of most recent edit.
 
     Returns:
         (str): id of most recent edit.
     """
-    return EDIT_LOG.get_current_edit_id()
+    return EDIT_LOG.get_latest_edit_id()
 
 
 def print_edit_log(long=True):

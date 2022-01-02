@@ -52,10 +52,10 @@ def _move_calendar_item(
         new_start_datetime (DateTime): new start datetime for calendar item.
         new_end_datetime (DateTime): new end datetime for calendaritem.
     """
+    old_day = calendar.get_day(calendar_item.date)
+    new_day = calendar.get_day(new_start_datetime.date())
     calendar_item._start_datetime = new_start_datetime
     calendar_item._end_datetime = new_end_datetime
-    old_day = calendar.get_day(calendar_item.date)
-    new_day = calendar.get_day(new_start_datetime.date)
     try:
         old_day._scheduled_items.remove(calendar_item)
     except ValueError:
@@ -91,7 +91,6 @@ class AddCalendarItem(SimpleEdit):
 
         Args:
             calendar (Calendar): calendar object.
-            calendar_item (CalendarItem): calendar item to schedule.
             start_datetime (DateTime): start datetime for calendar item.
             end_datetime (DateTime): end datetime for calendar item.
             type_ (CalendarItemType or None): type of calendar item,
@@ -112,11 +111,19 @@ class AddCalendarItem(SimpleEdit):
             event_category,
             event_name
         )
-        super(BaseEdit, self).__init__(
+        super(AddCalendarItem, self).__init__(
             object_to_edit=calendar_item,
-            run_func=partial(_add_calendar_item, calendar=calendar),
-            inverse_run_func=partial(_remove_calendar_item, calendar=calendar),
+            run_func=partial(_add_calendar_item, calendar),
+            inverse_run_func=partial(_remove_calendar_item, calendar),
             register_edit=register_edit
+        )
+        self._name = "AddCalendarItem ({0})".format(calendar_item.name)
+        self._description = (
+            "Add calendar item {0} at datetime ({1}, {2})".format(
+                calendar_item.name,
+                calendar_item._start_datetime.string(),
+                calendar_item._end_datetime.string()
+            )
         )
 
 
@@ -136,11 +143,19 @@ class RemoveCalendarItem(SimpleEdit):
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
         """
-        super(BaseEdit, self).__init__(
+        super(RemoveCalendarItem, self).__init__(
             object_to_edit=calendar_item,
-            run_func=partial(_remove_calendar_item, calendar=calendar),
-            inverse_run_func=partial(_add_calendar_item, calendar=calendar),
+            run_func=partial(_remove_calendar_item, calendar),
+            inverse_run_func=partial(_add_calendar_item, calendar),
             register_edit=register_edit
+        )
+        self._name = "RemoveCalendarItem ({0})".format(calendar_item.name)
+        self._description = (
+            "Remove calendar item {0} at datetime ({1}, {2})".format(
+                calendar_item.name,
+                calendar_item._start_datetime.string(),
+                calendar_item._end_datetime.string()
+            )
         )
 
 
@@ -180,7 +195,7 @@ class ModifyCalendarItem(BaseEdit):
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
         """
-        super(BaseEdit, self).__init__(register_edit=register_edit)
+        super(ModifyCalendarItem, self).__init__(register_edit=register_edit)
         self.calendar_item = calendar_item
         self.calendar = calendar
 
@@ -240,14 +255,18 @@ class ModifyCalendarItem(BaseEdit):
     def description(self):
         """Get description of edit.
 
-        Return description:
+        Return
+            (str): description.
         """
-        return "Move datetime of {0}: ({1}, {2}) --> ({3}, {4})".format(
-            self.calendar_item.name,
-            self.orig_start_datetime,
-            self.orig_end_datetime,
-            self.new_start_datetime,
-            self.new_end_datetime
+        return (
+            "Edit attributes and move datetimes of {0}: "
+            "({1}, {2}) --> ({3}, {4})".format(
+                self.calendar_item.name,
+                self.orig_start_datetime.string(),
+                self.orig_end_datetime.string(),
+                self.new_start_datetime.string(),
+                self.new_end_datetime.string()
+            )
         )
 
     def _run(self):

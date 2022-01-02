@@ -68,6 +68,15 @@ class CalendarDay(BaseCalendarPeriod):
         )
 
     @property
+    def date(self):
+        """Get date of day class.
+
+        Returns:
+            (Date): date of this day.
+        """
+        return self._date
+
+    @property
     def name(self):
         """Get name of day class, to use in serialization.
 
@@ -75,6 +84,18 @@ class CalendarDay(BaseCalendarPeriod):
             name (str): name of class instance.
         """
         return self._date.string()
+
+    @property
+    def header_name(self):
+        """Get name to use in headers for this day.
+
+        Returns:
+            (str): header name.
+        """
+        return "{0} {1}".format(
+            self._date.weekday_string(),
+            self._date.ordinal_string()
+        )
 
     def iter_calendar_items(self):
         """Iterate through scheduled calendar items.
@@ -84,14 +105,6 @@ class CalendarDay(BaseCalendarPeriod):
         """
         for item in self._scheduled_items:
             yield item
-
-    def get_day_at_index(self, index):
-        """Get day at given index from start of week.
-
-        Args:
-            index (int): index of day from start of week.
-        """
-        return list(self.iter_calendar_items)[index]
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -133,7 +146,7 @@ class CalendarDay(BaseCalendarPeriod):
 
         scheduled_items_list = dict_repr.get(cls.CALENDAR_ITEMS_KEY, [])
         scheduled_items = [
-            CalendarItem.from_dict(scheduled_item_dict, parent=calendar_day)
+            CalendarItem.from_dict(scheduled_item_dict, calendar)
             for scheduled_item_dict in scheduled_items_list
         ]
         calendar_day._scheduled_items = scheduled_items
@@ -229,8 +242,16 @@ class CalendarWeek(BaseCalendarPeriod):
         Yields:
             (CalendarDay): next calendar day.
         """
-        for day in self.get_calendar_weeks():
+        for day in self._calendar_days.values():
             yield day
+
+    def get_day_at_index(self, index):
+        """Get day at given index from start of week.
+
+        Args:
+            index (int): index of day from start of week.
+        """
+        return list(self.iter_days())[index]
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -332,6 +353,15 @@ class CalendarMonth(BaseCalendarPeriod):
                 self.__calendar_days[date] = day
         return self.__calendar_days
 
+    @property
+    def name(self):
+        """Get name to use for month.
+
+        Returns:
+            (str): month name.
+        """
+        return Date.month_string_from_int(self._month, short=False)
+
     def get_calendar_weeks(self, starting_day=0):
         """Get calendar weeks list.
 
@@ -357,15 +387,6 @@ class CalendarMonth(BaseCalendarPeriod):
             week_list.append(CalendarWeek(self.calendar, date, length))
             date += TimeDelta(days=length)
         return week_list
-
-    @property
-    def name(self):
-        """Get name to use for month.
-
-        Returns:
-            (str): month name.
-        """
-        return Date.month_string_from_int(self._month, short=False)
 
     def iter_days(self):
         """Iterate through days in class.

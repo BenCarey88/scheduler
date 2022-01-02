@@ -1,6 +1,6 @@
 """Calendar item class."""
 
-from api.common.date_time import DateTime
+from scheduler.api.common.date_time import DateTime
 from scheduler.api.common.serializable import NestedSerializable, SaveType
 from scheduler.api.tree.task import Task
 
@@ -48,7 +48,7 @@ class CalendarItem(NestedSerializable):
         self._task_root = calendar.task_root
         self._start_datetime = start
         self._end_datetime = end
-        self._type = item_type or CalendarItemType.TASK,
+        self._type = item_type or CalendarItemType.TASK
         self._tree_item = tree_item
         self._event_category = event_category or ""
         self._event_name = event_name or ""
@@ -109,7 +109,7 @@ class CalendarItem(NestedSerializable):
         """
         if self._type == CalendarItemType.TASK:
             if isinstance(self._tree_item, Task):
-                return self._tree_item.top_level_task()
+                return self._tree_item.top_level_task().name
             return ""
         else:
             return self._event_category
@@ -139,7 +139,7 @@ class CalendarItem(NestedSerializable):
             self.END_KEY: self._end_datetime.string(),
             self.TYPE_KEY: self._type,
         }
-        if self.type == CalendarItemType.TASK:
+        if self.type == CalendarItemType.TASK and self._tree_item:
             dict_repr[self.TREE_ITEM_KEY] = self._tree_item.path
         else:
             dict_repr[self.CATEGORY_KEY] = self._event_category
@@ -157,8 +157,10 @@ class CalendarItem(NestedSerializable):
         Returns:
             (CalendarItem or None): calendar item, if can be initialised.
         """
-        start = dict_repr.get(cls.START_KEY)
-        end = dict_repr.get(cls.END_KEY)
+        # TODO: create deserialize method in serializable class that works
+        # out how to deserialize based on type.
+        start = DateTime.from_string(dict_repr.get(cls.START_KEY))
+        end = DateTime.from_string(dict_repr.get(cls.END_KEY))
         type_ = dict_repr.get(cls.TYPE_KEY)
         if not (start and end and type_):
             return None

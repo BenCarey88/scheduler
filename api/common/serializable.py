@@ -594,7 +594,9 @@ class NestedSerializable(BaseSerializable):
         subdir_items = dict_repr.get(cls._SUBDIR_KEY, {})
         if cls._ORDER_FILE:
             order_file = os.path.join(directory_path, cls._ORDER_FILE)
-            order = list(set(file_items.keys() + subdir_items.keys()))
+            order = list(
+                set(list(file_items.keys()) + list(subdir_items.keys()))
+            )
             with open(order_file, "w") as file_:
                 json.dump(order, file_, indent=4)
 

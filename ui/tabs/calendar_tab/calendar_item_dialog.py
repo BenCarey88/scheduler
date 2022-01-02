@@ -283,9 +283,11 @@ class CalendarItemDialog(QtWidgets.QDialog):
                 self.name,
             )
         else:
+            # TODO: feels odd that this just discards the item we're editing
+            # should maybe make that an optional field of the class and pass
+            # in the params instead?
             AddCalendarItem.create_and_run(
                 self._calendar,
-                self._calendar_item,
                 self.start_datetime,
                 self.end_datetime,
                 self.type,

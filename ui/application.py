@@ -14,9 +14,9 @@ from scheduler.api.tree.task_root import TaskRoot
 
 from .constants import CANCEL_BUTTON, NO_BUTTON, TIMER_INTERVAL, YES_BUTTON
 
+from .tabs.calendar_tab import CalendarTab
 from .tabs.notes_tab import NotesTab
 from .tabs.task_tab import TaskTab
-from .tabs.calendar_tab import TimetableTab
 from .tabs.tracker_tab import TrackerTab
 from .tabs.suggestions_tab import SuggestionsTab
 
@@ -64,9 +64,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             "Tasks",
             TaskTab
         )
-        self.timetable_tab = self.create_tab_and_outliner(
-            "Timetable",
-            TimetableTab,
+        self.calendar_tab = self.create_tab_and_outliner(
+            "Calendar",
+            CalendarTab,
             self.calendar
         )
         self.tracker_tab = self.create_tab_and_outliner(
@@ -85,7 +85,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tabs_widget.currentChanged.connect(
             self.outliner_stack.setCurrentIndex
         )
-        self.tabs_widget.setCurrentIndex(2)
+        self.tabs_widget.setCurrentIndex(1)
 
     # TODO: neaten up args for this? Maybe add calendar to everything? 
     # Or remove this function altogether?
@@ -160,6 +160,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """Save scheduler data."""
         if self.saved_edit_id != edit_log.latest_edit_id():
             self.tree_root.write()
+            # TODO: make calendar and tree root save consistent
+            self.calendar.write(
+                api_constants.SCHEDULER_CALENDAR_DIRECTORY
+            )
             self.saved_edit_id = edit_log.latest_edit_id()
         self.notes_tab.save()
 
@@ -183,6 +187,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         if self.autosaved_edit_id != edit_log.latest_edit_id():
             self.tree_root.write(
                 api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY
+            )
+            self.calendar.write(
+                api_constants.SCHEDULER_CALENDAR_AUTOSAVES_DIRECTORY
             )
             self.autosaved_edit_id = edit_log.latest_edit_id()
 

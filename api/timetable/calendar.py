@@ -207,9 +207,10 @@ class Calendar(NestedSerializable):
         years_dict = OrderedDict()
         years = sorted(self._years.keys())
         for year in years:
-            year_dict = self.get_year(year).to_dict()
+            calendar_year = self.get_year(year)
+            year_dict = calendar_year.to_dict()
             if year_dict:
-                years_dict[year.name] = year_dict
+                years_dict[calendar_year.name] = year_dict
         if years_dict:
             return {self.YEARS_KEY: years_dict}
         return {}

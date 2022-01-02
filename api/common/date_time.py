@@ -54,7 +54,9 @@ class TimeDelta(object):
             else:
                 raise DateTimeError(
                     "_timedelta param in TimeDelta __init__ must be None or a "
-                    "datetime.timedelta object."
+                    "datetime.timedelta object, not {0}".format(
+                        type(_timedelta)
+                    )
                 )
         else:
             self._timedelta_obj = datetime.timedelta(
@@ -97,15 +99,17 @@ class TimeDelta(object):
             return timedelta_or_datetime + self
         raise DateTimeError(
             "Supported args to TimeDelta addition are: TimeDelta, "
-            "datetime.timedelta or BaseDateTimeWrapper."
+            "datetime.timedelta or BaseDateTimeWrapper, not {0}".format(
+                type(timedelta_or_datetime)
+            )
         )
 
     def __sub__(self, timedelta):
         """Subtract another timedelta from this.
 
         Args:
-            timedelta_or_datetime (TimeDelta or  datetime.timedelta):
-                time delta to subtract.
+            timedelta (TimeDelta or  datetime.timedelta): time delta to
+                subtract.
 
         Returns:
             (TimeDelta): modified timedelta.
@@ -124,7 +128,7 @@ class TimeDelta(object):
             )
         raise DateTimeError(
             "Supported args to TimeDelta subtraction are: TimeDelta or "
-            "datetime.timedelta."
+            "datetime.timedelta, not {0}".format(type(timedelta))
         )
 
     def __neg__(self):
@@ -153,7 +157,8 @@ class TimeDelta(object):
         """
         if not isinstance(scalar, (int, float)):
             raise DateTimeError(
-                "Args to TimeDelta multiplication must be int or float."
+                "Args to TimeDelta multiplication must be int or float, "
+                "not {0}".format(type(scalar))
             )
         return TimeDelta(
             years=(self._years * scalar),
@@ -182,6 +187,65 @@ class TimeDelta(object):
             (TimeDelta): modified time delta.
         """
         return self.__mul__(1 / scalar)
+
+    def __truediv__(self, scalar):
+        """Divide timedelta by a scalar.
+
+        Args:
+            scalar (int, float): scalar to divide by.
+
+        Returns:
+            (TimeDelta): modified time delta.
+        """
+        return self.__div__(scalar)
+
+    def __lt__(self, time_delta):
+        """Compare to other time_delta.
+
+        Args:
+            time_delta (TimeDelta): object to compare to.
+
+        Returns:
+            (bool): whether this is less than time_delta.
+        """
+        self._check_no_years_or_months()
+        return self._timedelta_obj < time_delta._timedelta_obj
+
+    def __gt__(self, time_delta):
+        """Compare to other time_delta.
+
+        Args:
+            time_delta (TimeDelta): object to compare to.
+
+        Returns:
+            (bool): whether this is greater than time_delta.
+        """
+        self._check_no_years_or_months()
+        return self._timedelta_obj > time_delta._timedelta_obj
+
+    def __le__(self, time_delta):
+        """Compare to other time_delta.
+
+        Args:
+            time_delta (TimeDelta): object to compare to.
+
+        Returns:
+            (bool): whether this is less than or equal to time_delta.
+        """
+        self._check_no_years_or_months()
+        return self._timedelta_obj <= time_delta._timedelta_obj
+
+    def __ge__(self, time_delta):
+        """Compare to other time_delta.
+
+        Args:
+            time_delta (TimeDelta): object to compare to.
+
+        Returns:
+            (bool): whether this is greater than or equal to time_delta.
+        """
+        self._check_no_years_or_months()
+        return self._timedelta_obj >= time_delta._timedelta_obj
 
     def _check_no_years_or_months(self):
         """Convenience method to raise error if years or months attrs aren't 0.
@@ -214,6 +278,22 @@ class TimeDelta(object):
         """
         self._check_no_years_or_months()
         return self._timedelta_obj.total_seconds()
+
+    def __repr__(self):
+        """Override string representation of self.
+
+        Return:
+            (str): string representation.
+        """
+        return str(self._timedelta_obj)
+
+    def __str__(self):
+        """Override string representation of self.
+
+        Return:
+            (str): string representation.
+        """
+        return self.__repr__()
 
 
 class BaseDateTimeWrapper(object):
@@ -416,7 +496,7 @@ class BaseDateTimeWrapper(object):
         if not isinstance(time_delta, (TimeDelta, datetime.timedelta)):
             raise DateTimeError(
                 "DateTime addition requires TimeDelta or "
-                "datetime.timedelta object."
+                "datetime.timedelta object, not {0}".format(type(time_delta))
             )
 
     def __sub__(self, timedelta_or_datetime):
@@ -446,9 +526,10 @@ class BaseDateTimeWrapper(object):
         if not isinstance(timedelta_or_datetime, accepted_classes):
             raise DateTimeError(
                 "DateTime __sub__ requires one of the following arguments: "
-                "TimeDelta, datetime.timedelta, {0}, {1}".format(
+                "TimeDelta, datetime.timedelta, {0}, {1}, not {2}".format(
                     self.__class__,
-                    self._datetime_obj.__class__
+                    self._datetime_obj.__class__,
+                    type(timedelta_or_datetime)
                 )
             )
 
@@ -464,6 +545,22 @@ class BaseDateTimeWrapper(object):
             (str): string representation of class instance.
         """
         return str(self._datetime_obj)
+
+    def __repr__(self):
+        """Override string representation of self.
+
+        Return:
+            (str): string representation.
+        """
+        return self.string()
+
+    def __str__(self):
+        """Override string representation of self.
+
+        Return:
+            (str): string representation.
+        """
+        return self.string()
 
 
 class Date(BaseDateTimeWrapper):
@@ -485,7 +582,7 @@ class Date(BaseDateTimeWrapper):
             else:
                 raise DateTimeError(
                     "_date param in Date __init__ must be None or a "
-                    "datetime.date object."
+                    "datetime.date object, not {0}".format(type(_date))
                 )
         elif all(x is not None for x in (year, month, day)):
             self._datetime_obj = datetime.date(year, month, day)
@@ -650,7 +747,7 @@ class Date(BaseDateTimeWrapper):
             return "2nd"
         if day == 3:
             return "3rd"
-        return "{0}th"
+        return "{0}th".format(self.day)
 
 
 class Time(BaseDateTimeWrapper):
@@ -668,32 +765,15 @@ class Time(BaseDateTimeWrapper):
                 be used by clients.
         """
         if _time is not None:
-            if isinstance(_time, datetime.Time):
+            if isinstance(_time, datetime.time):
                 self._datetime_obj = _time
             else:
                 raise DateTimeError(
                     "_time param in Time __init__ must be None or a "
-                    "datetime.time object."
+                    "datetime.time object, not {0}".format(type(_time))
                 )
         else:
             self._datetime_obj = datetime.time(hour, minute, second)
-
-    @classmethod
-    def from_string(cls, time_str):
-        """Create Time from string.
-
-        Args:
-            datetime_str (str): date_time string in format:
-                hh:mm:ss.ff
-
-        Returns:
-            (Time): Time object.
-        """
-        _time = datetime.datetime.strptime(
-            time_str,
-            "%H:%M:%S.%f"
-        ).time()
-        return cls(_time=_time)
 
     @classmethod
     def now(cls):
@@ -704,6 +784,44 @@ class Time(BaseDateTimeWrapper):
         """
         return cls(_time=datetime.datetime.now().time())
 
+    @classmethod
+    def from_string(cls, time_str, short=True):
+        """Create Time from string.
+
+        Args:
+            datetime_str (str): date_time string in format: hh:mm:ss.ff
+            short (bool): if true, the format should be: hh:mm
+
+        Returns:
+            (Time): Time object.
+        """
+        if short:
+            time_str = "{0}:00.00".format(time_str)
+        _time = datetime.datetime.strptime(
+            time_str,
+            "%H:%M:%S.%f"
+        ).time()
+        return cls(_time=_time)
+
+    def string(self, short=True):
+        """Get string representation of class instance.
+
+        This should be the same format as the string used by the from_string
+        classmethod.
+
+        Args:
+            short (bool): if true, use form hh:mm.
+
+        Returns:
+            (str): string representation of class instance.
+        """
+        if short:
+            return "{0}:{1}".format(
+                str(self.hour).zfill(2),
+                str(self.minute).zfill(2)
+            )
+        return str(self._datetime_obj)
+
     def __add__(self, time_delta):
         """Add time_delta to date object.
 
@@ -713,14 +831,14 @@ class Time(BaseDateTimeWrapper):
         Returns:
             (Date): modified date object.
         """
-        super(Date, self).__add__(time_delta)
+        super(Time, self).__add__(time_delta)
         temp_datetime = datetime.datetime.combine(
-            datetime.date(1,1,1),
+            datetime.date(1000,1,1),
             self._datetime_obj
         )
         if isinstance(time_delta, datetime.timedelta):
             temp_datetime += time_delta
-        elif isinstance(time_delta, Time):
+        elif isinstance(time_delta, TimeDelta):
             temp_datetime += time_delta._timedelta_obj
         return Time(_time=temp_datetime.time())
 
@@ -735,10 +853,10 @@ class Time(BaseDateTimeWrapper):
             (Time or TimeDelta): modified Time object, if subtracting a
                 timedelta, or new timedelta, if subtracting another time.
         """
-        super(Time, self).__add__(timedelta_or_time)
+        super(Time, self).__sub__(timedelta_or_time)
         if isinstance(timedelta_or_time, (TimeDelta, datetime.timedelta)):
             return self + (-timedelta_or_time)
-        temp_date = datetime.date(1,1,1),
+        temp_date = datetime.date(1000,1,1)
         temp_datetime = datetime.datetime.combine(
             temp_date,
             self._datetime_obj
@@ -812,12 +930,12 @@ class DateTime(Date, Time):
                 from directly.
         """
         if _datetime is not None:
-            if isinstance(_datetime(datetime.datetime)):
+            if isinstance(_datetime, datetime.datetime):
                 self._datetime_obj = _datetime
             else:
                 raise DateTimeError(
                     "_datetime param in DateTime __init__ must be None or a "
-                    "datetime.datetime object."
+                    "datetime.datetime object, not {0}".format(type(_datetime))
                 )
         elif all(x is not None for x in (year, month, day)):
             self._datetime_obj = datetime.datetime(
@@ -833,23 +951,6 @@ class DateTime(Date, Time):
                 "DateTime class __init__ must provide a year, month and "
                 "day attribute, or a datetime.datetime object"
             )
-
-    @classmethod
-    def from_string(cls, datetime_str):
-        """Create DateTime object from string
-
-        Args:
-            datetime_str (str): time string in format:
-                yyyy-mm-dd hh:mm:ss.ff
-
-        Returns:
-            (DateTime): DateTime object.
-        """
-        _datetime = datetime.datetime.strptime(
-            datetime_str,
-            "%Y-%m-%d %H:%M:%S.%f"
-        )
-        return cls(_datetime=_datetime)
 
     @classmethod
     def from_date_and_time(cls, date, time):
@@ -877,6 +978,34 @@ class DateTime(Date, Time):
         """
         return cls(_datetime=datetime.datetime.now())
 
+    @classmethod
+    def from_string(cls, datetime_str):
+        """Create DateTime object from string
+
+        Args:
+            datetime_str (str): time string in format:
+                yyyy-mm-dd hh:mm:ss.ff
+
+        Returns:
+            (DateTime): DateTime object.
+        """
+        _datetime = datetime.datetime.strptime(
+            datetime_str,
+            "%Y-%m-%d %H:%M:%S"
+        )
+        return cls(_datetime=_datetime)
+
+    def string(self):
+        """Get string representation of class instance.
+
+        This should be the same format as the string used by the from_string
+        classmethod.
+
+        Returns:
+            (str): string representation of class instance.
+        """
+        return str(self._datetime_obj)
+
     def __add__(self, time_delta):
         """Add time_delta to datetime object.
 
@@ -886,7 +1015,7 @@ class DateTime(Date, Time):
         Returns:
             (DateTime): modified date time object.
         """
-        super(Date, self).__add__(time_delta)
+        super(DateTime, self).__add__(time_delta)
         if isinstance(time_delta, datetime.timedelta):
             return DateTime(
                 _datetime=(self._datetime_obj + time_delta)
@@ -927,7 +1056,7 @@ class DateTime(Date, Time):
                 subtracting a timedelta, or new timedelta, if subtracting
                 another date.
         """
-        super(Date, self).__sub__(timedelta_or_datetime)
+        super(DateTime, self).__sub__(timedelta_or_datetime)
         if isinstance(timedelta_or_datetime, (TimeDelta, datetime.timedelta)):
             return self + (-timedelta_or_datetime)
         elif isinstance(timedelta_or_datetime, datetime.datetime):

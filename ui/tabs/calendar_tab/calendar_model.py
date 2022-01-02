@@ -2,8 +2,11 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.common.date_time import Date
 
-# temporarily create data here - 
+
+# TODO: this module needs to be linked to the api properly
+# temporarily create data here
 class CalendarDataBlock(object):
     def __init__(self, time_start, time_end):
         self.time_start = time_start
@@ -11,27 +14,27 @@ class CalendarDataBlock(object):
 
 
 class CalendarModel(QtCore.QAbstractItemModel):
-    """Base tree model."""
+    """Base calendar model."""
 
-    WEEKDAYS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]
     DAY_START = 6
     DAY_END = 24
     TIME_INTERVAL = 1
 
-    def __init__(self, parent=None):
-        """Initialise base tree model.
+    def __init__(self, calendar_week, parent=None):
+        """Initialise base calendar model.
 
         Args:
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(CalendarModel, self).__init__(parent)
+        self.calendar_week = calendar_week
         # temporarily create data here
         # something like this should probably exist in api instead
         self.data = []
         self.num_rows = int(
             (self.DAY_END - self.DAY_START) / self.TIME_INTERVAL
         )
-        self.num_cols = len(self.WEEKDAYS)
+        self.num_cols = Date.NUM_WEEKDAYS
         for row in range(self.num_rows):
             self.data.append([])
             hour_float = self.DAY_START + self.TIME_INTERVAL * row
@@ -164,7 +167,7 @@ class CalendarModel(QtCore.QAbstractItemModel):
         """
         if role == QtCore.Qt.ItemDataRole.DisplayRole:
             if orientation == QtCore.Qt.Horizontal:
-                return self.WEEKDAYS[section]
+                return self.calendar_week.get_day_at_index(section).header_name
             else:
                 hour_float = self.DAY_START + self.TIME_INTERVAL * section
                 return self.convert_to_time(hour_float)

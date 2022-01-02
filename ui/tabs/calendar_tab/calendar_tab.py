@@ -130,6 +130,15 @@ class SelectedCalenderItem(object):
         """
         return self.calendar_item.end_time
 
+    @property
+    def date(self):
+        """Get current end time of item.
+
+        Returns:
+            (Time): current end time.
+        """
+        return self.calendar_item.date
+
     def change_time(self, new_start_datetime, new_end_datetime):
         """Change the time of the calendar item.
 
@@ -153,7 +162,7 @@ class CalendarView(QtWidgets.QTableView):
     # repeat of attrs from model (find way to share this info)
     WEEK_START_DAY = Date.SAT
     DAY_START = Time(hour=6)
-    DAY_END = Time(hour=24)
+    DAY_END = Time(hour=23, minute=59, second=59)
     TIME_INTERVAL = TimeDelta(hours=1)
     SELECTION_TIME_STEP = TimeDelta(minutes=15)
     SELECTION_TIME_STEP_SECS = SELECTION_TIME_STEP.total_seconds()
@@ -175,7 +184,7 @@ class CalendarView(QtWidgets.QTableView):
             starting_day=self.WEEK_START_DAY
         )
 
-        model = CalendarModel(self)
+        model = CalendarModel(self.calendar_week, self)
         self.setModel(model)
         self.setItemDelegate(CalendarDelegate(self))
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -205,8 +214,8 @@ class CalendarView(QtWidgets.QTableView):
             (int): table bottom y pos.
         """
         return (
-            self.rowViewportPosition(self.row_count() - 1) +
-            self.rowHeight(self.row_count() - 1)
+            self.rowViewportPosition(self.row_count - 1) +
+            self.rowHeight(self.row_count - 1)
         )
 
     @property
@@ -226,8 +235,8 @@ class CalendarView(QtWidgets.QTableView):
             (int): table right x pos.
         """
         return (
-            self.columnViewportPosition(self.column_count() - 1) +
-            self.columnWidth(self.column_count() - 1)
+            self.columnViewportPosition(self.column_count - 1) +
+            self.columnWidth(self.column_count - 1)
         )
 
     @property
@@ -317,7 +326,7 @@ class CalendarView(QtWidgets.QTableView):
         Returns:
             (TimeDelta): time range represented by that height.
         """
-        return self.time_range * height / self.table_height
+        return height * self.time_range / self.table_height
 
     def time_from_y_pos(self, y_pos):
         """Get the time represented by a given pixel height.
@@ -328,6 +337,10 @@ class CalendarView(QtWidgets.QTableView):
         Returns:
             (Time): time represented by that height.
         """
+        if y_pos < self.table_top:
+            return self.DAY_START
+        if y_pos > self.table_bottom:
+            return self.DAY_END
         y_pos_from_top = y_pos - self.table_top
         return self.DAY_START + self.time_range_from_height(y_pos_from_top)
 
@@ -347,11 +360,12 @@ class CalendarView(QtWidgets.QTableView):
         scaled_time_secs = (
             (time - self.DAY_START) / self.SELECTION_TIME_STEP_SECS
         ).total_seconds()
-        rounded_time_secs = (
-            round(scaled_time_secs) * self.SELECTION_TIME_STEP_SECS
+        rounded_time_secs = min(
+            round(scaled_time_secs) * self.SELECTION_TIME_STEP_SECS,
+            (self.DAY_END - self.DAY_START).total_seconds()
         )
         rounded_time = self.DAY_START + TimeDelta(seconds=rounded_time_secs)
-        return self.pos_from_time(rounded_time)
+        return self.y_pos_from_time(rounded_time)
 
     def round_height_to_time_step(self, height):
         """Round height based on self.SELECTION_TIME_STEP.
@@ -367,7 +381,7 @@ class CalendarView(QtWidgets.QTableView):
         """
         time_range = self.time_range_from_height(height)
         scaled_time_range_secs = (
-            time_range / self.SELECTION_TIME_STEP
+            time_range / self.SELECTION_TIME_STEP_SECS
         ).total_seconds()
         rounded_time_range_secs = (
             round(scaled_time_range_secs) * self.SELECTION_TIME_STEP_SECS
@@ -562,8 +576,8 @@ class CalendarView(QtWidgets.QTableView):
                         QtCore.Qt.AlignmentFlag.AlignVCenter
                     ),
                     "{0} - {1}".format(
-                        self.model().convert_to_time(item.start_time),
-                        self.model().convert_to_time(item.end_time)
+                        item.start_time.string(),
+                        item.end_time.string()
                     )
                 )
 
@@ -603,9 +617,9 @@ class CalendarView(QtWidgets.QTableView):
             col_width = self.columnWidth(day)
             self.selection_rect = SelectionRect(
                 col_start,
-                self.round_pos_to_time_step(pos.y()),
-                0,
+                self.round_y_pos_to_time_step(pos.y()),
                 col_width,
+                0,
                 day,
                 self.calendar_week.get_day_at_index(day).date
             )
@@ -618,24 +632,30 @@ class CalendarView(QtWidgets.QTableView):
             event (QtCore.QEvent): the mouse move event.
         """
         if self.selection_rect:
-            y_pos = self.round_pos_to_time_step(event.pos().y())
+            y_pos = self.round_y_pos_to_time_step(event.pos().y())
             self.selection_rect.height = y_pos - self.selection_rect.y_min
             self.viewport().update()
 
         elif self.selected_calendar_item:
             mouse_col = self.column_from_mouse_pos(event.pos())
-            date = self.date_from_column(mouse_col)
-            y_pos = event.pos().y().round_height_to
+            if mouse_col is not None:
+                date = self.date_from_column(mouse_col)
+            else:
+                date = self.selected_calendar_item.date
+            y_pos = self.round_height_to_time_step(event.y())
             y_pos_change = self.round_height_to_time_step(
                 y_pos - self.selected_calendar_item.orig_mouse_pos.y()
             )
             time_change = self.time_range_from_height(y_pos_change)
-            new_start_time = (
-                self.selected_calendar_item.orig_start_time + time_change
-            )
-            new_end_time = (
-                self.selected_calendar_item.orig_end_time + time_change
-            )
+            orig_start = self.selected_calendar_item.orig_start_time
+            orig_end = self.selected_calendar_item.orig_end_time
+            if (self.DAY_END - orig_end < time_change):
+                time_change = self.DAY_END - orig_end
+            # TODO this bit isn't working:
+            elif (orig_start - self.DAY_START < time_change):
+                time_change = orig_start - self.DAY_START
+            new_start_time = orig_start + time_change
+            new_end_time = orig_end + time_change
             if (new_start_time != self.selected_calendar_item.start_time
                     or date != self.selected_calendar_item.date):
                 self.selected_calendar_item.is_moving = True
@@ -658,22 +678,24 @@ class CalendarView(QtWidgets.QTableView):
             height = self.selection_rect.height
             if height != 0:
                 column = self.selection_rect.column
-                new_event = CalendarItem(
-                    self.selection_rect.date,
-                    DateTime.from_date_and_time(
-                        self.date_from_column(column),
-                        self.time_from_y_pos(y_top)
-                    ),
-                    DateTime.from_date_and_time(
-                        self.date_from_column(column),
-                        self.time_from_y_pos(y_top + height)
-                    )
+                start_datetime = DateTime.from_date_and_time(
+                    self.date_from_column(column),
+                    self.time_from_y_pos(y_top)
+                )
+                end_datetime = DateTime.from_date_and_time(
+                    self.date_from_column(column),
+                    self.time_from_y_pos(y_top + height)
+                )
+                new_calendar_item = CalendarItem(
+                    self.calendar,
+                    min(start_datetime, end_datetime),
+                    max(start_datetime, end_datetime)
                 )
                 item_editor = CalendarItemDialog(
                     self.tree_root,
                     self.tree_manager,
-                    self.selected_calendar_item,
-                    new_event
+                    self.calendar,
+                    new_calendar_item,
                 )
                 item_editor.exec()
             self.selection_rect = None
@@ -689,7 +711,7 @@ class CalendarView(QtWidgets.QTableView):
                     self.tree_root,
                     self.tree_manager,
                     self.calendar,
-                    self.selected_calendar_item,
+                    self.selected_calendar_item.calendar_item,
                     as_editor=True,
                 )
                 item_editor.exec()
@@ -722,8 +744,8 @@ class CalendarDelegate(QtWidgets.QStyledItemDelegate):
         num_rows = 12
         table_size = self.table.viewport().size()
         line_width = 1
-        rows = self.table.row_count() or 1
-        cols = self.table.column_count() or 1
+        rows = self.table.row_count or 1
+        cols = self.table.column_count or 1
         width = (table_size.width() - (line_width * (cols - 1))) / cols
         # TODO: why does the expression below use rows AND num_rows?
         height = (table_size.height() -  (line_width * (rows - 1))) / num_rows

@@ -1,16 +1,16 @@
-"""Timetable model."""
+"""Calendar model."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 # temporarily create data here - 
-class TimetableDataBlock(object):
+class CalendarDataBlock(object):
     def __init__(self, time_start, time_end):
         self.time_start = time_start
         self.time_end = time_end
 
 
-class TimetableModel(QtCore.QAbstractItemModel):
+class CalendarModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
     WEEKDAYS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]
@@ -24,7 +24,7 @@ class TimetableModel(QtCore.QAbstractItemModel):
         Args:
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        super(TimetableModel, self).__init__(parent)
+        super(CalendarModel, self).__init__(parent)
         # temporarily create data here
         # something like this should probably exist in api instead
         self.data = []
@@ -37,11 +37,11 @@ class TimetableModel(QtCore.QAbstractItemModel):
             hour_float = self.DAY_START + self.TIME_INTERVAL * row
             for col in range(self.num_cols):
                 self.data[row].append(
-                    TimetableDataBlock(
+                    CalendarDataBlock(
                         hour_float, hour_float + self.TIME_INTERVAL
                     )
                 )
-        #self.data = [TimetableDayData() for col in range(self.num_cols)]
+        #self.data = [CalendarDayData() for col in range(self.num_cols)]
         #self.data[3].add_event(10, 11.5)
 
     def index(self, row, column, parent_index):

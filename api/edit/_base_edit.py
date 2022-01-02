@@ -81,6 +81,11 @@ class BaseEdit(object):
             raise EditError(
                 "Edit object cannot be run externally after registration."
             )
+        if self._continuous_run_in_progress:
+            raise EditError(
+                "Edit object cannot call run when a continuous_run is already "
+                "in progress."
+            )
         self._run()
         self._has_been_done = True
         if self._register_edit:
@@ -132,7 +137,8 @@ class BaseEdit(object):
             )
         if not self._continuous_run_in_progress:
             return
-        EDIT_LOG.end_add_edit()
+        if self._register_edit:
+            EDIT_LOG.end_add_edit()
         self._continuous_run_in_progress = False
 
     def _run(self):
@@ -146,7 +152,7 @@ class BaseEdit(object):
             "_run must be implemented in BaseEdit subclasses."
         )
 
-    def _update(*args, **kwargs):
+    def _update(self, *args, **kwargs):
         """Update parameters of edit and run updates.
 
         This is used during continuous run functionality and so only needs to

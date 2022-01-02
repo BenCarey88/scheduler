@@ -1,14 +1,15 @@
 """Calendar class containing all calendar data."""
 
+from collections import OrderedDict
 from contextlib import contextmanager
 
-from scheduler.api.common.date_time import Date, DateTime
+from scheduler.api.common.date_time import Date, DateTime, TimeDelta
 from scheduler.api.common.serializable import (
     NestedSerializable,
     SaveType,
     SerializableFileTypes
 )
-from .calendar_period import CalendarDay, CalendarMonth, CalendarYear
+from .calendar_period import CalendarDay, CalendarMonth, CalendarWeek, CalendarYear
 
 
 class CalendarError(Exception):
@@ -18,9 +19,12 @@ class CalendarError(Exception):
 class Calendar(NestedSerializable):
     """Calendar object containing all calendar items."""
     _SAVE_TYPE = SaveType.DIRECTORY
-    _MARKER_FILE = "calendar{0}".format(SerializableFileTypes.MARKER)
+    _ORDER_FILE = "calendar{0}".format(SerializableFileTypes.ORDER)
+    _MARKER_FILE = _ORDER_FILE
     _SUBDIR_KEY = "years"
     _SUBDIR_CLASS = CalendarYear
+    _SUBDIR_DICT_TYPE = OrderedDict
+
     YEARS_KEY = _SUBDIR_KEY
 
     def __init__(self, task_root):
@@ -34,66 +38,6 @@ class Calendar(NestedSerializable):
         self._years = {}
         self._months = {}
         self._days = {}
-
-    def get_day(self, date):
-        """Get calendar day data for given date.
-
-        Args:
-            date (Date): date to look for.
-
-        Returns:
-            (CalendarDay): calendar day object.
-        """
-        if not isinstance(date, Date):
-            raise CalendarError(
-                "Calendar get_day method requires date input, not {0}".format(
-                    str(type(date))
-                )
-            )
-        return self._days.setdefault(
-            date,
-            CalendarDay(self, date)
-        )
-
-    def get_month(self, year, month):
-        """Get calendar month data for given year and month number.
-
-        Args:
-            year (int): year to search for.
-            month (int): month to search for.
-
-        Returns:
-            (CalendarMonth): calendar month object.
-        """
-        if not isinstance(year, int) or not isinstance(month, int):
-            raise CalendarError(
-                "Calendar get_month method requires two int inputs, not "
-                "({0}, {1})".format(str(type(year)), str(type(month)))
-            )
-        return self._months.setdefault(
-            (year, month),
-            CalendarMonth(self, year, month)
-        )
-
-    def get_year(self, year):
-        """Get calendar year data for given year number.
-
-        Args:
-            year (int): year to search for.
-
-        Returns:
-            (CalendaryYear): calendar year object.
-        """
-        if not isinstance(year, int):
-            raise CalendarError(
-                "Calendar get_year method requires int input, not {0}".format(
-                    str(type(year))
-                )
-            )
-        return self._years.setdefault(
-            year,
-            CalendarYear(self, year)
-        )
 
     def _add_day(self, calendar_day):
         """Add calendar day to calendar days dict.
@@ -156,6 +100,83 @@ class Calendar(NestedSerializable):
             )
         self._days[calendar_year._year] = calendar_year
 
+    def get_day(self, date):
+        """Get calendar day data for given date.
+
+        Args:
+            date (Date): date to look for.
+
+        Returns:
+            (CalendarDay): calendar day object.
+        """
+        if not isinstance(date, Date):
+            raise CalendarError(
+                "Calendar get_day method requires date input, not {0}".format(
+                    str(type(date))
+                )
+            )
+        return self._days.setdefault(
+            date,
+            CalendarDay(self, date)
+        )
+
+    def get_month(self, year, month):
+        """Get calendar month data for given year and month number.
+
+        Args:
+            year (int): year to search for.
+            month (int): month to search for.
+
+        Returns:
+            (CalendarMonth): calendar month object.
+        """
+        if not isinstance(year, int) or not isinstance(month, int):
+            raise CalendarError(
+                "Calendar get_month method requires two int inputs, not "
+                "({0}, {1})".format(str(type(year)), str(type(month)))
+            )
+        return self._months.setdefault(
+            (year, month),
+            CalendarMonth(self, year, month)
+        )
+
+    def get_year(self, year):
+        """Get calendar year data for given year number.
+
+        Args:
+            year (int): year to search for.
+
+        Returns:
+            (CalendaryYear): calendar year object.
+        """
+        if not isinstance(year, int):
+            raise CalendarError(
+                "Calendar get_year method requires int input, not {0}".format(
+                    str(type(year))
+                )
+            )
+        return self._years.setdefault(
+            year,
+            CalendarYear(self, year)
+        )
+
+    def get_week_containing_date(self, date, starting_day=0):
+        """Get calendar weeks list.
+
+        Args:
+            date (Date): date to get week for.
+            starting_day (int or str): integer or string representing starting
+                day for weeks. By default we start weeks on monday.
+
+        Returns:
+            (CalendarWeek): calendar week objects that contains given date.
+        """
+        if isinstance(starting_day, str):
+            starting_day = Date.weekday_int_from_string(starting_day)
+        days_offset = (date.weekday - starting_day) % Date.NUM_WEEKDAYS
+        starting_date = date - TimeDelta(days=days_offset)
+        return CalendarWeek(self, starting_date)
+
     # @contextmanager
     # def filter_items(self, filters):
     #     """Contextmanager to filter _items list temporarily.
@@ -183,12 +204,15 @@ class Calendar(NestedSerializable):
             (dict): nested json dict representing calendar object and its
                 contained calendar period objects.
         """
-        return {
-            self.YEARS_KEY: {
-                year.name: year.to_dict()
-                for year in self._years.values()
-            }
-        }
+        years_dict = OrderedDict()
+        years = sorted(self._years.keys())
+        for year in years:
+            year_dict = self.get_year(year).to_dict()
+            if year_dict:
+                years_dict[year.name] = year_dict
+        if years_dict:
+            return {self.YEARS_KEY: years_dict}
+        return {}
 
     @classmethod
     def from_dict(cls, dict_repr, task_root):

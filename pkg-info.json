@@ -3,5 +3,8 @@
     "name": "scheduler",
     "version": "temp",
     "dependencies": ["PyQt5"],
-    "ignore_patterns": ["notes"]
+    "ignore_patterns": [
+        "_archived_code",
+        "notes"
+    ]
 }

@@ -5,6 +5,7 @@ Friend classes: [Calendar, CalendarPeriod, CalendarItem]
 
 from functools import partial
 
+from scheduler.api.timetable.calendar_item import CalendarItem
 from ._base_edit import BaseEdit, EditError
 from ._core_edits import SimpleEdit
 
@@ -64,6 +65,8 @@ def _move_calendar_item(
         # But would need some way to distinguish multiple identical starting
         # times. Maybe key by (DateTime, id)? Or key by DateTime but make
         # values lists
+        # but actually we still need to be able to list events by day so maybe
+        # the current method does make the most sense.
         raise EditError(
             "Calendar item {0} not stored in correct CalendarDay class".format(
                 calendar_item.name
@@ -73,21 +76,42 @@ def _move_calendar_item(
 
 
 class AddCalendarItem(SimpleEdit):
-    """Add calendar item to calendar."""
+    """Create calendar item and add to calendar."""
     def __init__(
             self,
             calendar,
-            calendar_item,
+            start_datetime=None,
+            end_datetime=None,
+            item_type=None,
+            tree_item=None,
+            event_category=None,
+            event_name=None,
             register_edit=True):
         """Initialise edit.
 
         Args:
             calendar (Calendar): calendar object.
             calendar_item (CalendarItem): calendar item to schedule.
+            start_datetime (DateTime): start datetime for calendar item.
+            end_datetime (DateTime): end datetime for calendar item.
+            type_ (CalendarItemType or None): type of calendar item,
+                if setting.
+            tree_item (Task or None): tree item, if setting.
+            event_category (Str or None): nname of event category, if setting.
+            event_name (str or None): name of event, if setting.
             register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
         """
+        calendar_item = CalendarItem(
+            calendar,
+            start_datetime,
+            end_datetime,
+            item_type,
+            tree_item,
+            event_category,
+            event_name
+        )
         super(BaseEdit, self).__init__(
             object_to_edit=calendar_item,
             run_func=partial(_add_calendar_item, calendar=calendar),

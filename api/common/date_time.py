@@ -17,9 +17,11 @@ class TimeDelta(object):
             represent varying amounts of time. We implement these by storing
             them as extra attributes which we only interpret depending on the
             during addition/subtraction with a Date, Time or DateTime object.
+            Note though that if these are used we'll no longer be able to use
+            methods like total_seconds or the days property.
         - datetime.timedelta classes can only be added to datetime or date
-            objects. We allow adding to time objects too and just ignoring the
-            date part of the timedelta.
+            objects. We allow adding TimeDeltas to Time objects too and just
+            ignoring the date part of the timedelta.
     """
     def __init__(
             self,
@@ -44,8 +46,8 @@ class TimeDelta(object):
             _timedelta (datetime.timedelta or None): datetime obj to initialise
                 from directly.
         """
-        self._years = years
-        self._months = months
+        self._years = int(years)
+        self._months = int(months)
         if _timedelta is not None:
             if isinstance(_timedelta, datetime.timedelta):
                 self._timedelta_obj = _timedelta
@@ -137,23 +139,81 @@ class TimeDelta(object):
             _timedelta=-self._timedelta_obj
         )
 
+    def __mul__(self, scalar):
+        """Multiply timedelta by a scalar.
+
+        Note that this may give dodgy results if _years or _months attributes
+        are nonzero, particularly if the scalar is not integral.
+
+        Args:
+            scalar (int, float): scalar to multiply by.
+
+        Returns:
+            (TimeDelta): modified time delta.
+        """
+        if not isinstance(scalar, (int, float)):
+            raise DateTimeError(
+                "Args to TimeDelta multiplication must be int or float."
+            )
+        return TimeDelta(
+            years=(self._years * scalar),
+            months=(self._months * scalar),
+            _timedelta=(self._timedelta_obj * scalar)
+        )
+
+    def __rmul__(self, scalar):
+        """Right-multiply timedelta by a scalar.
+
+        Args:
+            scalar (int, float): scalar to multiply by.
+
+        Returns:
+            (TimeDelta): modified time delta.
+        """
+        return self.__mul__(scalar)
+
+    def __div__(self, scalar):
+        """Divide timedelta by a scalar.
+
+        Args:
+            scalar (int, float): scalar to divide by.
+
+        Returns:
+            (TimeDelta): modified time delta.
+        """
+        return self.__mul__(1 / scalar)
+
+    def _check_no_years_or_months(self):
+        """Convenience method to raise error if years or months attrs aren't 0.
+
+        Since years and months don't have fixed timespans then we can't perform
+        any methods that get an exact timespan from a TimeDelta if these are
+        nonzero, so this error will be raised.
+        """
+        if self._years or self._months:
+            raise DateTimeError(
+                "Can't return time values for TimeDelta class with nonzero "
+                "_year or _month attributes."
+            )
+
     @property
     def days(self):
         """Get number of days in time delta.
 
-        Note that this can only be called when the _years and _months attrs
-        are 0. If they're greater than 0, we can't calculate the days, so an
-        error is raised.
-
         Returns:
             (int): days of timedelta object.
         """
-        if self._years or self._months:
-            raise DateTimeError(
-                "Can only get number of days from a TimeDelta class without "
-                "a year or month attribute."
-            )
+        self._check_no_years_or_months()
         return self._timedelta_obj.days
+
+    def total_seconds(self):
+        """Get total number of seconds of time delta.
+
+        Returns:
+            (int): total number of seconds.
+        """
+        self._check_no_years_or_months()
+        return self._timedelta_obj.total_seconds()
 
 
 class BaseDateTimeWrapper(object):
@@ -409,8 +469,7 @@ class BaseDateTimeWrapper(object):
 class Date(BaseDateTimeWrapper):
     """Wrapper around datetime date class for easy string conversions etc."""
     def __init__(self, year=None, month=None, day=None, _date=None):
-        """
-        Initialise date item.
+        """Initialise date item.
 
         Args:
             year (int or None): year to pass to date or datetime init.

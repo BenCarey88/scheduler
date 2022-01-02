@@ -1,10 +1,9 @@
 """Classes representing a time period of calendar data."""
 
-import json
+from collections import OrderedDict
+
 from scheduler.api.common.date_time import (
-    BaseDateTimeWrapper,
     Date,
-    DateTime,
     DateTimeError,
     TimeDelta
 )
@@ -77,6 +76,23 @@ class CalendarDay(BaseCalendarPeriod):
         """
         return self._date.string()
 
+    def iter_calendar_items(self):
+        """Iterate through scheduled calendar items.
+        
+        Yields:
+            (CalendarItem): next calendar item.
+        """
+        for item in self._scheduled_items:
+            yield item
+
+    def get_day_at_index(self, index):
+        """Get day at given index from start of week.
+
+        Args:
+            index (int): index of day from start of week.
+        """
+        return list(self.iter_calendar_items)[index]
+
     def to_dict(self):
         """Return dictionary representation of class.
 
@@ -132,9 +148,12 @@ class CalendarWeek(BaseCalendarPeriod):
     day may be changed.
     """
     _SAVE_TYPE = SaveType.DIRECTORY
-    _MARKER_FILE = "week{0}".format(SerializableFileTypes.MARKER)
+    _ORDER_FILE = "week{0}".format(SerializableFileTypes.ORDER)
+    _MARKER_FILE = _ORDER_FILE
     _FILE_KEY = "days"
     _FILE_CLASS = CalendarDay
+    _FILE_DICT_TYPE = OrderedDict
+
     DAYS_KEY = _FILE_KEY
 
     def __init__(
@@ -166,7 +185,7 @@ class CalendarWeek(BaseCalendarPeriod):
             (dict(Date, CalendarDay)): days in this week.
         """
         if not self.__calendar_days:
-            self.__calendar_days = {}
+            self.__calendar_days = OrderedDict()
             for i in range(self._length):
                 date = self._start_date + TimeDelta(days=i)
                 day = self.calendar.get_day(date)
@@ -204,13 +223,22 @@ class CalendarWeek(BaseCalendarPeriod):
             self.end_date.string()
         )
 
+    def iter_days(self):
+        """Iterate through days in class.
+
+        Yields:
+            (CalendarDay): next calendar day.
+        """
+        for day in self.get_calendar_weeks():
+            yield day
+
     def to_dict(self):
         """Return dictionary representation of class.
 
         Returns:
             (dict): dictionary representation.
         """
-        days_dict = {}
+        days_dict = OrderedDict()
         for day in self._calendar_days.values():
             day_dict = day.to_dict()
             if day_dict:
@@ -261,9 +289,12 @@ class CalendarWeek(BaseCalendarPeriod):
 class CalendarMonth(BaseCalendarPeriod):
     """Class representing a month of calendar data."""
     _SAVE_TYPE = SaveType.DIRECTORY
-    _MARKER_FILE = "month{0}".format(SerializableFileTypes.MARKER)
+    _ORDER_FILE = "month{0}".format(SerializableFileTypes.ORDER)
+    _MARKER_FILE = _ORDER_FILE
     _SUBDIR_KEY = "weeks"
     _SUBDIR_CLASS = CalendarWeek
+    _SUBDIR_DICT_TYPE = OrderedDict
+
     WEEKS_KEY = _SUBDIR_KEY
 
     def __init__(self, calendar, year, month, calendar_year=None):
@@ -291,10 +322,10 @@ class CalendarMonth(BaseCalendarPeriod):
         """Get days dictionary.
 
         Returns:
-            (dict(Date, CalendarDay)): days in this week.
+            (OrderedDict(Date, CalendarDay)): days in this week.
         """
         if not self.__calendar_days:
-            self.__calendar_days = {}
+            self.__calendar_days = OrderedDict()
             for i in range(self._length):
                 date = self._start_date + TimeDelta(days=i)
                 day = self.calendar.get_day(date)
@@ -336,6 +367,28 @@ class CalendarMonth(BaseCalendarPeriod):
         """
         return Date.month_string_from_int(self._month, short=False)
 
+    def iter_days(self):
+        """Iterate through days in class.
+
+        Yields:
+            (CalendarDay): next calendar day.
+        """
+        for day in self._calendar_days.values():
+            yield day
+    
+    def iter_weeks(self, starting_day=0):
+        """Iterate through weeks in class.
+
+        Args:
+            starting_day (int or str): integer or string representing starting
+                day for weeks. By default we start weeks on monday.
+
+        Yields:
+            (CalendarWeek): next calendar week.
+        """
+        for week in self.get_calendar_weeks(starting_day):
+            yield week
+
     def to_dict(self):
         """Serialize class as dict.
 
@@ -343,7 +396,7 @@ class CalendarMonth(BaseCalendarPeriod):
             (dict): nested json dict representing calendar object and its
                 contained calendar period objects.
         """
-        weeks_dict = {}
+        weeks_dict = OrderedDict()
         for week in self.get_calendar_weeks():
             week_dict = week.to_dict()
             if week_dict:
@@ -392,9 +445,12 @@ class CalendarMonth(BaseCalendarPeriod):
 class CalendarYear(BaseCalendarPeriod):
     """Class representing a year of calendar data."""
     _SAVE_TYPE = SaveType.DIRECTORY
-    _MARKER_FILE = "month{0}".format(SerializableFileTypes.MARKER)
+    _ORDER_FILE = "year{0}".format(SerializableFileTypes.ORDER)
+    _MARKER_FILE = _ORDER_FILE
     _SUBDIR_KEY = "months"
     _SUBDIR_CLASS = CalendarMonth
+    _SUBDIR_DICT_TYPE = OrderedDict
+
     MONTHS_KEY = _SUBDIR_KEY
 
     def __init__(self, calendar, year):
@@ -417,7 +473,7 @@ class CalendarYear(BaseCalendarPeriod):
             (dict(int, CalendarDay)): months in this year.
         """
         if not self.__calendar_months:
-            self.__calendar_months = {}
+            self.__calendar_months = OrderedDict()
             for i in range(self._length):
                 month = self.calendar.get_month(self._year, i+1)
                 self.__calendar_months[i+1] = month
@@ -432,6 +488,15 @@ class CalendarYear(BaseCalendarPeriod):
         """
         return str(self._year)
 
+    def iter_months(self):
+        """Iterate through months in class.
+
+        Yields:
+            (CalendarMonth): next calendar month.
+        """
+        for month in self._calendar_months.values():
+            yield month
+
     def to_dict(self):
         """Serialize class as dict.
 
@@ -439,7 +504,7 @@ class CalendarYear(BaseCalendarPeriod):
             (dict): nested json dict representing calendar year object and its
                 contained calendar month objects.
         """
-        months_dict = {}
+        months_dict = OrderedDict()
         for month in self._calendar_months.values():
             month_dict = month.to_dict()
             if month_dict:

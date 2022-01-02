@@ -3,10 +3,16 @@
 from datetime import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from api.tree.task import Task
-from scheduler.api import tree
 
+from scheduler.api.common.date_time import DateTime, Time
+from scheduler.api.edit.calendar_edit import (
+    AddCalendarItem,
+    ModifyCalendarItem,
+    RemoveCalendarItem,
+)
+from scheduler.api.timetable.calendar_item import CalendarItemType
 from scheduler.api.tree.task import Task
+
 from scheduler.ui import utils
 from scheduler.ui.models.full_task_tree_model import FullTaskTreeModel
 from scheduler.ui.models.task_category_model import TaskCategoryModel
@@ -14,41 +20,49 @@ from scheduler.ui.models.task_model import TaskModel
 from scheduler.ui.widgets.outliner import Outliner
 
 
-class AddEventDialog(QtWidgets.QDialog):
+# TODO: current idea seems to be to make this class just be called and executed
+# - we don't need access to anything from it as it handles the edits itself, so
+# we should be able to make all methods private.
+class CalendarItemDialog(QtWidgets.QDialog):
+    """Dialog for creating or editing calendar items."""
+    END_TIME_KEY = "End"
+    START_TIME_KEY = "Start"
+
     def __init__(
             self,
             tree_root,
             tree_manager,
-            day_data,
-            event_item,
+            calendar,
+            calendar_item,
             as_editor=False,
             parent=None):
-        """
+        """Initialise dialog.
+
         Args:
-            ...
-            as_editor (bool): whether or not we're editing an existing event,
+            tree_root (TreeRoot): the task tree root object.
+            tree_manager (TreeManager): the task tree manager object.
+            calendar (calendar): the calendar object.
+            calendar_item (CalendarItem): calendar item we're editing or
+                creating.
+            as_editor (bool): whether or not we're editing an existing item,
                 or adding a new one.
-            ...
+            parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
-        super(AddEventDialog, self).__init__(parent)
-
-        self._event_item = event_item
-        date = event_item.date
-        start_time = event_item.start_time
-        end_time = event_item.end_time
-        self.day_data = day_data
-
-        accept_button_text = "Edit Event" if as_editor else "Add Event"
-
-        utils.set_style(self, "timetable_event_widget.qss")
+        super(CalendarItemDialog, self).__init__(parent=parent)
+        self._calendar = calendar
+        self._calendar_item = calendar_item
+        date = calendar_item.date
+        start_time = calendar_item.start_time
+        end_time = calendar_item.end_time
+        self.is_editor = as_editor
 
         flags = QtCore.Qt.WindowFlags(
             QtCore.Qt.WindowTitleHint | QtCore.Qt.WindowCloseButtonHint
         )
         self.setWindowFlags(flags)
         self.setMinimumSize(900, 700)
-
-        self.setWindowTitle("Timetable Event Editor")
+        self.setWindowTitle("Calendar Item Editor")
+        utils.set_style(self, "calendar_item_dialog.qss")
 
         outer_layout = QtWidgets.QHBoxLayout()
         main_layout = QtWidgets.QVBoxLayout()
@@ -64,8 +78,8 @@ class AddEventDialog(QtWidgets.QDialog):
         )
 
         self.time_editors = {
-            "Start": QtWidgets.QTimeEdit(),
-            "End": QtWidgets.QTimeEdit()
+            self.START_TIME_KEY: QtWidgets.QTimeEdit(),
+            self.END_TIME_KEY: QtWidgets.QTimeEdit()
         }
         for name, time_editor in self.time_editors.items():
             layout = QtWidgets.QHBoxLayout()
@@ -80,25 +94,17 @@ class AddEventDialog(QtWidgets.QDialog):
             layout.addWidget(time_editor)
             main_layout.addLayout(layout)
 
-        # 23.98 =~ 59/60
-        # TODO: this should be way neater
-        if int(start_time) >= 23.99:
-            start_time = 23.99
-        if int(end_time) >= 23.99:
-            end_time = 23.99
-        self.time_editors["Start"].setTime(
-            QtCore.QTime(
-                int(start_time),
-                (start_time % 1) * 60,
-            )
+        # TODO: can we find a way to avoid this? feels unneat
+        if start_time >= Time(23, 59):
+            start_time = Time(23, 59)
+        if end_time >= Time(23, 59):
+            end_time = Time(23, 59)
+        self.time_editors[self.START_TIME_KEY].setTime(
+            QtCore.QTime(start_time.hour, start_time.minute)
         )
-        self.time_editors["End"].setTime(
-            QtCore.QTime(
-                int(end_time),
-                (end_time % 1) * 60,
-            )
+        self.time_editors[self.END_TIME_KEY].setTime(
+            QtCore.QTime(end_time.hour, end_time.minute)
         )
-
         main_layout.addSpacing(10)
 
         # outliner_scroll_area = QtWidgets.QScrollArea()
@@ -117,14 +123,14 @@ class AddEventDialog(QtWidgets.QDialog):
             tree_root,
             tree_manager,
             task_label,
-            event_item.tree_item,
+            calendar_item.tree_item,
         )
         # self.task_combo_box = TaskViewComboBox(
         #     tree_root,
         #     tree_manager,
         #     task_label,
-        #     event_item.tree_item,
-        #     event_item.category_item
+        #     calendar_item.tree_item,
+        #     calendar_item.category_item
         # )
         # category_label = QtWidgets.QLabel("")
         # self.outliner_combo_box = OutlinerComboBox(
@@ -132,7 +138,7 @@ class AddEventDialog(QtWidgets.QDialog):
         #     tree_manager,
         #     category_label,
         #     self.task_combo_box,
-        #     event_item.category_item
+        #     calendar_item.category_item
         # )
         task_selection_layout.addStretch()
         task_selection_layout.addWidget(task_label)
@@ -150,12 +156,12 @@ class AddEventDialog(QtWidgets.QDialog):
 
         event_category_label = QtWidgets.QLabel("Category")
         self.event_category_line_edit = QtWidgets.QLineEdit()
-        if event_item.category:
-            self.event_category_line_edit.setText(event_item.category)
+        if calendar_item.category:
+            self.event_category_line_edit.setText(calendar_item.category)
         event_name_label = QtWidgets.QLabel("Name")
         self.event_name_line_edit = QtWidgets.QLineEdit()
-        if event_item.name:
-            self.event_name_line_edit.setText(event_item.name)
+        if calendar_item.name:
+            self.event_name_line_edit.setText(calendar_item.name)
         event_layout.addStretch()
         event_layout.addWidget(event_category_label)
         event_layout.addWidget(self.event_category_line_edit)
@@ -168,9 +174,12 @@ class AddEventDialog(QtWidgets.QDialog):
 
         buttons_layout = QtWidgets.QHBoxLayout()
         if as_editor:
-            self.delete_button = QtWidgets.QPushButton("Delete Event")
+            self.delete_button = QtWidgets.QPushButton("Delete Calendar Item")
             buttons_layout.addWidget(self.delete_button)
-            self.delete_button.clicked.connect(self.delete_event)
+            self.delete_button.clicked.connect(self.delete_item_and_close)
+        accept_button_text = (
+            "Edit Calendar Item" if self.is_editor else "Add Calendar Item"
+        )
         self.accept_button = QtWidgets.QPushButton(accept_button_text)
         buttons_layout.addWidget(self.accept_button)
         self.accept_button.clicked.connect(self.accept_and_close)
@@ -184,31 +193,72 @@ class AddEventDialog(QtWidgets.QDialog):
         # # tree_layout.addWidget(outliner_scroll_area)
         # tree_layout.addWidget(task_tree_scroll_area)
 
-    @staticmethod
-    def qtime_to_float(qtime):
-        return qtime.hour() + qtime.minute() / 60
-
     @property
-    def date(self):
+    def start_datetime(self):
+        """Get starting datetime for item, based on values set in editor.
+
+        Returns:
+            (DateTime): starting datetime.
+        """
         date = self.cb_date.date()
-        return datetime(date.year(), date.month(), date.day())
+        time = self.time_editors[self.START_TIME_KEY].time()
+        return DateTime(
+            date.year(), date.month(), date.day(), time.hour(), time.minute()
+        )
 
     @property
-    def start_time(self):
-        return self.qtime_to_float(self.time_editors["Start"].time())
+    def end_datetime(self):
+        """Get ending datetime for item, based on values set in editor.
+
+        Returns:
+            (DateTime): ending datetime.
+        """
+        date = self.cb_date.date()
+        time = self.time_editors[self.END_TIME_KEY].time()
+        return DateTime(
+            date.year(), date.month(), date.day(), time.hour(), time.minute()
+        )
 
     @property
-    def end_time(self):
-        return self.qtime_to_float(self.time_editors["End"].time())
+    def type(self):
+        """Get type of calendar item.
+
+        Returns:
+            (CalendarItemType): type of item, based on current selected tab.
+        """
+        if self.tab_widget.currentIndex() == 1:
+            return CalendarItemType.EVENT
+        return CalendarItemType.TASK
+
+    @property
+    def tree_item(self):
+        """Get tree item, if this is in task mode.
+
+        Returns:
+            (Task or None): selected task tree item, if one exists.
+        """
+        if self.tab_widget.currentIndex() == 0:
+            return self.task_combo_box.selected_task_item
+        return None
 
     @property
     def category(self):
+        """Get name of event category.
+
+        Returns:
+            (str): name of category.
+        """
         if self.tab_widget.currentIndex() == 1:
             return self.event_category_line_edit.text()
         return ""
 
     @property
     def name(self):
+        """Get name of calendar item.
+
+        Returns:
+            (str): name of calendar item.
+        """
         if self.tab_widget.currentIndex() == 0:
             if self.task_combo_box.selected_task_item:
                 return self.task_combo_box.selected_task_item.name
@@ -216,26 +266,45 @@ class AddEventDialog(QtWidgets.QDialog):
         else:
             return self.event_name_line_edit.text()
 
-    @property
-    def timetable_event(self):
-        return self._event_item
-
     def accept_and_close(self):
-        self._event_item.set_time(self.start_time, self.end_time)
-        self._event_item.set_date(self.date)
-        if (self.tab_widget.currentIndex() == 0 
-                and self.task_combo_box.selected_task_item):
-            self._event_item.set_tree_item(
-                self.task_combo_box.selected_task_item
+        """Run add or modify calendar item edit.
+
+        Called when user clicks accept.
+        """
+        if self.is_editor:
+            ModifyCalendarItem.create_and_run(
+                self._calendar,
+                self._calendar_item,
+                self.start_datetime,
+                self.end_datetime,
+                self.type,
+                self.tree_item,
+                self.category,
+                self.name,
             )
         else:
-            self._event_item.set_category(self.category)
-            self._event_item.set_name(self.name)
+            AddCalendarItem.create_and_run(
+                self._calendar,
+                self._calendar_item,
+                self.start_datetime,
+                self.end_datetime,
+                self.type,
+                self.tree_item,
+                self.category,
+                self.name,
+            )
         self.accept()
         self.close()
 
-    def delete_event(self):
-        self.day_data.events.remove(self._event_item)
+    def delete_item_and_close(self):
+        """Run remove calendar item edit.
+
+        Called when user clicks delete.
+        """
+        RemoveCalendarItem.create_and_run(
+            self._calendar,
+            self._calendar_item
+        )
         self.reject()
         self.close()
 

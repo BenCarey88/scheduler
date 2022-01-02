@@ -3,7 +3,6 @@
 from api.common.date_time import DateTime
 from scheduler.api.common.serializable import NestedSerializable, SaveType
 from scheduler.api.tree.task import Task
-from scheduler.api.tree.task_root import TaskRoot
 
 
 class CalendarItemType():
@@ -28,7 +27,7 @@ class CalendarItem(NestedSerializable):
             calendar,
             start,
             end,
-            item_type=CalendarItemType.TASK,
+            item_type=None,
             tree_item=None,
             event_category=None,
             event_name=None):
@@ -38,7 +37,7 @@ class CalendarItem(NestedSerializable):
             calendar (Calendar): calendar class instance.
             start (DateTime): start date time.
             end (DateTime): end date time.
-            item_type (CalendarItemType): type of scheduled item.
+            item_type (CalendarItemType or None): type of scheduled item.
             tree_item (BaseTreeItem or None): tree item representing task,
                 if item_type is task.
             event_category (str or None): name to be used for category of item,
@@ -49,7 +48,7 @@ class CalendarItem(NestedSerializable):
         self._task_root = calendar.task_root
         self._start_datetime = start
         self._end_datetime = end
-        self._type = item_type
+        self._type = item_type or CalendarItemType.TASK,
         self._tree_item = tree_item
         self._event_category = event_category or ""
         self._event_name = event_name or ""
@@ -128,16 +127,6 @@ class CalendarItem(NestedSerializable):
             return ""
         else:
             return self._event_name
-
-    def _change_time(self, new_start_datetime, new_end_datetime):
-        """Change start time and end time
-
-        Args:
-            new_start_datetime (DateTime): new start datetime.
-            new_end_datettime (DateTime): new end datetime.
-        """
-        self._start_datetime = new_start_datetime
-        self._end_datetime = new_end_datetime
 
     def to_dict(self):
         """Return dictionary representation of class.

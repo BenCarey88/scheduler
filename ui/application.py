@@ -16,7 +16,7 @@ from .constants import CANCEL_BUTTON, NO_BUTTON, TIMER_INTERVAL, YES_BUTTON
 
 from .tabs.notes_tab import NotesTab
 from .tabs.task_tab import TaskTab
-from .tabs.timetable_tab import TimetableTab
+from .tabs.calendar_tab import TimetableTab
 from .tabs.tracker_tab import TrackerTab
 from .tabs.suggestions_tab import SuggestionsTab
 
@@ -37,16 +37,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tree_root = TaskRoot.from_directory(
             api_constants.SCHEDULER_TASKS_DIRECTORY
         )
-
         self.calendar = Calendar.from_directory(
             api_constants.SCHEDULER_CALENDAR_DIRECTORY,
             self.tree_root
         )
-        # self.calendar._add_day(
-        #     CalendarDay(self.calendar, Date(2022, 1, 1))
-        # )
-        print (self.calendar.to_dict())
-        self.calendar.write(api_constants.SCHEDULER_CALENDAR_DIRECTORY)
 
         edit_log.open_edit_registry()
         self.setup_tabs()
@@ -72,7 +66,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         )
         self.timetable_tab = self.create_tab_and_outliner(
             "Timetable",
-            TimetableTab
+            TimetableTab,
+            self.calendar
         )
         self.tracker_tab = self.create_tab_and_outliner(
             "Tracker",
@@ -92,12 +87,16 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         )
         self.tabs_widget.setCurrentIndex(2)
 
-    def create_tab_and_outliner(self, tab_name, tab_class):
+    # TODO: neaten up args for this? Maybe add calendar to everything? 
+    # Or remove this function altogether?
+    def create_tab_and_outliner(self, tab_name, tab_class, *args, **kwargs):
         """Create tab and outliner combo for given tab_type.
 
         Args:
             tab_name (str): name to use for tab.
             tab_class (class): BaseTab subclass to use for class.
+            args (list): additional args to pass to tab init.
+            kwargs (dict): additional kwargs to pass to tab init.
 
         Returns:
             (QtWidgets.QTabWidget): the tab widgter.
@@ -105,7 +104,13 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         tab_tree_manager = TreeManager()
         outliner = Outliner(self.tree_root, tab_tree_manager)
         self.outliner_stack.addWidget(outliner)
-        tab = tab_class(self.tree_root, tab_tree_manager, outliner)
+        tab = tab_class(
+            self.tree_root,
+            tab_tree_manager,
+            outliner,
+            *args,
+            **kwargs
+        )
         self.tabs_widget.addTab(tab, tab_name)
         return tab
 

@@ -107,16 +107,12 @@ class CalendarItemDialog(QtWidgets.QDialog):
         )
         main_layout.addSpacing(10)
 
-        # outliner_scroll_area = QtWidgets.QScrollArea()
-        # outliner = Outliner(tree_root, tree_manager)
-        # outliner_scroll_area.setWidget(outliner)
-        # main_layout.addWidget(outliner_scroll_area)
         self.tab_widget = QtWidgets.QTabWidget()
         main_layout.addWidget(self.tab_widget)
         task_selection_tab = QtWidgets.QWidget()
         task_selection_layout = QtWidgets.QVBoxLayout()
         task_selection_tab.setLayout(task_selection_layout)
-        self.tab_widget.addTab(task_selection_tab, "Add Task")
+        self.tab_widget.addTab(task_selection_tab, "Task")
 
         task_label = QtWidgets.QLabel("")
         self.task_combo_box = TaskTreeComboBox(
@@ -125,34 +121,15 @@ class CalendarItemDialog(QtWidgets.QDialog):
             task_label,
             calendar_item.tree_item,
         )
-        # self.task_combo_box = TaskViewComboBox(
-        #     tree_root,
-        #     tree_manager,
-        #     task_label,
-        #     calendar_item.tree_item,
-        #     calendar_item.category_item
-        # )
-        # category_label = QtWidgets.QLabel("")
-        # self.outliner_combo_box = OutlinerComboBox(
-        #     tree_root,
-        #     tree_manager,
-        #     category_label,
-        #     self.task_combo_box,
-        #     calendar_item.category_item
-        # )
         task_selection_layout.addStretch()
         task_selection_layout.addWidget(task_label)
         task_selection_layout.addWidget(self.task_combo_box)
         task_selection_layout.addStretch()
-        # task_selection_layout.addStretch()
-        # task_selection_layout.addWidget(task_label)
-        # task_selection_layout.addWidget(self.task_combo_box)
-        # task_selection_layout.addStretch()
 
         event_tab = QtWidgets.QWidget()
         event_layout = QtWidgets.QVBoxLayout()
         event_tab.setLayout(event_layout)
-        self.tab_widget.addTab(event_tab, "Add Event")
+        self.tab_widget.addTab(event_tab, "Event")
 
         event_category_label = QtWidgets.QLabel("Category")
         self.event_category_line_edit = QtWidgets.QLineEdit()
@@ -169,6 +146,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
         event_layout.addWidget(event_name_label)
         event_layout.addWidget(self.event_name_line_edit)
         event_layout.addStretch()
+        if self._calendar_item.type == CalendarItemType.EVENT:
+            self.tab_widget.setCurrentIndex(1)
 
         main_layout.addSpacing(10)
 
@@ -237,9 +216,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
         Returns:
             (Task or None): selected task tree item, if one exists.
         """
-        if self.tab_widget.currentIndex() == 0:
-            return self.task_combo_box.selected_task_item
-        return None
+        return self.task_combo_box.selected_task_item
 
     @property
     def category(self):
@@ -248,9 +225,13 @@ class CalendarItemDialog(QtWidgets.QDialog):
         Returns:
             (str): name of category.
         """
-        if self.tab_widget.currentIndex() == 1:
+        if self.tab_widget.currentIndex() == 0:
+            if self.task_combo_box.selected_task_item:
+                task = self.task_combo_box.selected_task_item
+                return task.top_level_task().name
+            return ""
+        else:
             return self.event_category_line_edit.text()
-        return ""
 
     @property
     def name(self):
@@ -284,8 +265,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
             )
         else:
             # TODO: feels odd that this just discards the item we're editing
-            # should maybe make that an optional field of the class and pass
-            # in the params instead?
+            # should maybe make the item an optional field of this class and
+            # pass in the item params as arguments when creating instead?
             AddCalendarItem.create_and_run(
                 self._calendar,
                 self.start_datetime,
@@ -393,66 +374,3 @@ class TaskTreeComboBox(TreeComboBox):
             parent=parent
         )
         self.setup(model, tree_view, tree_root)
-
-
-# TODO: create archive directory for old code snippets that we want to save in
-# this repo
-
-# class OutlinerComboBox(TreeComboBox):
-#     # TODO: disable drag drop in this case of outliner
-#     def __init__(
-#             self,
-#             tree_root,
-#             tree_manager,
-#             label,
-#             task_combobox,
-#             tree_item=None,
-#             parent=None):
-#         self.tree_manager = tree_manager
-#         outliner = Outliner(tree_root, tree_manager)
-#         model = TaskCategoryModel(tree_root, tree_manager)
-#         super(OutlinerComboBox, self).__init__(
-#             label,
-#             tree_item,
-#             parent=parent
-#         )
-#         self.setup(model, outliner, tree_root)
-#         self.task_combobox = task_combobox
-#         self.currentIndexChanged.connect(self.setup_task_combobox)
-
-#     def setup_task_combobox(self, index):
-#         if isinstance(self.selected_task_item, Task):
-#             model = TaskModel(
-#                 self.selected_task_item,
-#                 self.tree_manager,
-#                 num_cols=1,
-#             )
-#             tree_view = QtWidgets.QTreeView()
-#             tree_view.setModel(model)
-#             self.task_combobox.setup(model, tree_view, self.selected_task_item)
-
-
-# class TaskViewComboBox(TreeComboBox):
-#     def __init__(
-#             self,
-#             tree_root,
-#             tree_manager,
-#             label,
-#             task_item=None,
-#             task_category_item=None,
-#             parent=None):
-#         super(TaskViewComboBox, self).__init__(
-#             label,
-#             task_item,
-#             parent=parent
-#         )
-#         if task_item and task_category_item:
-#             self.setEnabled(True)
-#             model = TaskModel(
-#                 task_category_item,
-#                 tree_manager,
-#                 num_cols=1,
-#             )
-#             tree_view = QtWidgets.QTreeView()
-#             tree_view.setModel(model)
-#             self.setup(model, tree_view, task_category_item)

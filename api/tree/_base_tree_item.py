@@ -51,7 +51,9 @@ class BaseTreeItem(ABC):
         Returns:
             (bool): whether the items are equal.
         """
-        return self.id == tree_item.id
+        if isinstance(tree_item, BaseTreeItem):
+            return self.id == tree_item.id
+        return False
 
     # TODO: this is only here so it can be accessed in the drag-drop stuff to find
     # the root of any model bc we're into the super-hacky just get something that

@@ -8,6 +8,7 @@
 import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from api.timetable.calendar_item import CalendarItemType
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.edit.calendar_edit import ModifyCalendarItem
@@ -54,36 +55,71 @@ class CalendarTab(BaseTab):
 
 class SelectionRect(object):
     """Class representing a selection rectangle in the table view."""
-    def __init__(self, x_min, y_min, width, height, column, date):
+    def __init__(self, column, date, time):
         """Initialise class.
 
         Args:
-            x_min (int): the left x pixel position of the rectangle.
-            y_min (int): the top y pixel value of the rectangle.
-            width (int): the pixel width of the rectangle.
-            height (int): the pixel height of the rectangle.
-            column (int): the column the rectangle is in.
+            column (int): column of the selection, passed for convenience.
             date (Date): the date of that column.
+            time (Time): the time at the the start of the selection creation.
         """
-        self.x_min = x_min
-        self.y_min = y_min
-        self.width = width
-        self.height = height
         self.column = column
         self.date = date
+        self._time_at_selection_start = time
+        self._time_at_selection_end = time
 
-    def get_qrectf(self):
-        """Get QRectF for this object.
+    def set_time_at_selection_end(self, time):
+        """Set time at other end of selection.
+
+        Args:
+            time (Time): time to set.
+        """
+        self._time_at_selection_end = time
+
+    @property
+    def start_time(self):
+        """Get starting time of selection.
 
         Returns:
-            (QtCore.QRectF): the qrect.
+            (Time): start time.
         """
-        return QtCore.QRectF(
-            self.x_min,
-            self.y_min,
-            self.width,
-            self.height,
-        )
+        return min(self._time_at_selection_start, self._time_at_selection_end)
+
+    @property
+    def end_time(self):
+        """Get ending time of selection.
+
+        Returns:
+            (Time): end time.
+        """
+        return max(self._time_at_selection_start, self._time_at_selection_end)
+
+    @property
+    def time_range(self):
+        """Get time range of selection.
+
+        Returns:
+            (TimeDelta): time range.
+        """
+        return self.end_time - self.start_time
+
+    @property
+    def start_datetime(self):
+        """Get starting datetime of selection.
+
+        Returns:
+            (DateTime): start datetime.
+        """
+        return DateTime.from_date_and_time(self.date, self.start_time)
+
+    @property
+    def end_datetime(self):
+        """Get ending datetime of selection.
+
+        Returns:
+            (DateTime): end datetime.
+        """
+        return DateTime.from_date_and_time(self.date, self.end_time)
 
 
 class SelectedCalenderItem(object):
@@ -493,7 +529,11 @@ class CalendarView(QtWidgets.QTableView):
         painter.setPen(pen)
 
         for rect, item in self.get_item_rects():
-            brush = QtGui.QBrush(QtGui.QColor(173, 216, 230))
+            if item.type == CalendarItemType.TASK:
+                brush_color = QtGui.QColor(245, 245, 190)
+            else:
+                brush_color = QtGui.QColor(173, 216, 230)
+            brush = QtGui.QBrush(brush_color)
             painter.setBrush(brush)
             # Create the path
             path = QtGui.QPainterPath()
@@ -584,10 +624,16 @@ class CalendarView(QtWidgets.QTableView):
         if self.selection_rect:
             brush = QtGui.QBrush(QtGui.QColor(0, 255, 204))
             painter.setBrush(brush)
+
             # Create the path
             path = QtGui.QPainterPath()
-
-            rect = self.selection_rect.get_qrectf()
+            x_start = self.columnViewportPosition(self.selection_rect.column)
+            width = self.columnWidth(self.selection_rect.column)
+            y_start = self.y_pos_from_time(self.selection_rect.start_time)
+            height = self.height_from_time_range(
+                self.selection_rect.time_range
+            )
+            rect = QtCore.QRectF(x_start, y_start, width, height)
             path.addRoundedRect(rect, 5, 5)
             painter.setClipPath(path)
 
@@ -611,17 +657,15 @@ class CalendarView(QtWidgets.QTableView):
                 )
                 return
 
-        day = self.column_from_mouse_pos(pos)
-        if day is not None:
-            col_start = self.columnViewportPosition(day)
-            col_width = self.columnWidth(day)
+        mouse_col = self.column_from_mouse_pos(pos)
+        if mouse_col is not None:
+            date = self.date_from_column(mouse_col)
+            y_pos = self.round_y_pos_to_time_step(event.pos().y())
+            time_start = self.time_from_y_pos(y_pos)
             self.selection_rect = SelectionRect(
-                col_start,
-                self.round_y_pos_to_time_step(pos.y()),
-                col_width,
-                0,
-                day,
-                self.calendar_week.get_day_at_index(day).date
+                mouse_col,
+                date,
+                time_start
             )
         return super(CalendarView, self).mousePressEvent(event)
 
@@ -632,8 +676,12 @@ class CalendarView(QtWidgets.QTableView):
             event (QtCore.QEvent): the mouse move event.
         """
         if self.selection_rect:
+            # TODO: create new method to round time directly, as otherwise
+            # here we convert, round, convert back and then convert again.
             y_pos = self.round_y_pos_to_time_step(event.pos().y())
-            self.selection_rect.height = y_pos - self.selection_rect.y_min
+            self.selection_rect.set_time_at_selection_end(
+                self.time_from_y_pos(y_pos)
+            )
             self.viewport().update()
 
         elif self.selected_calendar_item:
@@ -642,7 +690,7 @@ class CalendarView(QtWidgets.QTableView):
                 date = self.date_from_column(mouse_col)
             else:
                 date = self.selected_calendar_item.date
-            y_pos = self.round_height_to_time_step(event.y())
+            y_pos = self.round_height_to_time_step(event.pos().y())
             y_pos_change = self.round_height_to_time_step(
                 y_pos - self.selected_calendar_item.orig_mouse_pos.y()
             )
@@ -674,22 +722,11 @@ class CalendarView(QtWidgets.QTableView):
             event (QtCore.QEvent): the mouse release event.
         """
         if self.selection_rect:
-            y_top = self.selection_rect.y_min
-            height = self.selection_rect.height
-            if height != 0:
-                column = self.selection_rect.column
-                start_datetime = DateTime.from_date_and_time(
-                    self.date_from_column(column),
-                    self.time_from_y_pos(y_top)
-                )
-                end_datetime = DateTime.from_date_and_time(
-                    self.date_from_column(column),
-                    self.time_from_y_pos(y_top + height)
-                )
+            if self.selection_rect.time_range.total_seconds() != 0:
                 new_calendar_item = CalendarItem(
                     self.calendar,
-                    min(start_datetime, end_datetime),
-                    max(start_datetime, end_datetime)
+                    self.selection_rect.start_datetime,
+                    self.selection_rect.end_datetime,
                 )
                 item_editor = CalendarItemDialog(
                     self.tree_root,

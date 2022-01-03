@@ -169,6 +169,22 @@ class TaskCategory(BaseTreeItem):
         with self.filter_children([TaskFilter()]):
             return self._children
 
+    # TODO: see comment over identical function in task class. This is just
+    # here as a quick hack to help with calendar_item / calendar_item_dialog
+    # category attributes, we should rename this function and fix that stuff
+    # up when we rename the task types. Obvs the name is wrong here as it
+    # actually gives a top level task category.
+    def top_level_task(self):
+        """Get top level task category that this task is a subtask of.
+
+        Returns:
+            (Task): top level task item.
+        """
+        top_level_task_category = self
+        while isinstance(top_level_task_category.parent, TaskCategory):
+            top_level_task_category = top_level_task_category.parent
+        return top_level_task_category
+
     def to_dict(self):
         """Get json compatible dictionary representation of class.
 

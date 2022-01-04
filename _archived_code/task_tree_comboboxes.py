@@ -10,7 +10,7 @@ well delete this from the original code.
 from datetime import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from api.tree.task import Task
+from scheduler.api.tree.task import Task
 from scheduler.api import tree
 
 from scheduler.api.tree.task import Task

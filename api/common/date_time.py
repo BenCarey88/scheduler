@@ -366,6 +366,8 @@ class BaseDateTimeWrapper(object):
             "String {0} cannot be converted to weekday".format(weekday_string)
         )
 
+    # TODO: when using these bool args with defaults, default should be False
+    # ie. this should be long=False, or short=False if we want default as long
     @classmethod
     def month_string_from_int(cls, month, short=True):
         """Get string representing month.
@@ -414,67 +416,103 @@ class BaseDateTimeWrapper(object):
         """Check if this is equal to another date time object.
 
         Args:
-            date_time (BaseDateTimeWrapper): object to check equality with.
+            date_time (BaseDateTimeWrapper or datetime.datetime, datetime.time,
+                datetime.date): object to check equality with.
 
         Returns:
             (bool): whether this equals date_time.
         """
-        return self._datetime_obj == date_time._datetime_obj
+        if isinstance(date_time, BaseDateTimeWrapper):
+            return self._datetime_obj == date_time._datetime_obj
+        elif isinstance(
+                date_time, (datetime.datetime, datetime.date, datetime.time)):
+            return self._datetime_obj == date_time
+        return False
 
     def __ne__(self, date_time):
         """Check if this is equal to another date time object.
 
         Args:
-            date_time (BaseDateTimeWrapper): object to check equality with.
+            date_time (BaseDateTimeWrapper or datetime.datetime, datetime.time,
+                datetime.date): object to check equality with.
 
         Returns:
             (bool): whether this does not equal date_time.
         """
-        return self._datetime_obj != date_time._datetime_obj
+        if isinstance(date_time, BaseDateTimeWrapper):
+            return self._datetime_obj != date_time._datetime_obj
+        elif isinstance(
+                date_time, (datetime.datetime, datetime.date, datetime.time)):
+            return self._datetime_obj != date_time
+        return False
 
     def __lt__(self, date_time):
         """Compare to other date time.
 
         Args:
-            date_time (BaseDateTimeWrapper): object to compare to.
+            date_time (BaseDateTimeWrapper or datetime.datetime, datetime.time,
+                datetime.date): object to compare to.
 
         Returns:
             (bool): whether this is less than date_time.
         """
-        return self._datetime_obj < date_time._datetime_obj
+        if isinstance(date_time, BaseDateTimeWrapper):
+            return self._datetime_obj < date_time._datetime_obj
+        elif isinstance(
+                date_time, (datetime.datetime, datetime.date, datetime.time)):
+            return self._datetime_obj < date_time
+        return False
 
     def __gt__(self, date_time):
         """Compare to other date time.
 
         Args:
-            date_time (BaseDateTimeWrapper): object to compare to.
+            date_time (BaseDateTimeWrapper or datetime.datetime, datetime.time,
+                datetime.date): object to compare to.
 
         Returns:
             (bool): whether this is greater than date_time.
         """
-        return self._datetime_obj > date_time._datetime_obj
+        if isinstance(date_time, BaseDateTimeWrapper):
+            return self._datetime_obj > date_time._datetime_obj
+        elif isinstance(
+                date_time, (datetime.datetime, datetime.date, datetime.time)):
+            return self._datetime_obj > date_time
+        return False
 
     def __le__(self, date_time):
         """Compare to other date time.
 
         Args:
-            date_time (BaseDateTimeWrapper): object to compare to.
+            date_time (BaseDateTimeWrapper or datetime.datetime, datetime.time,
+                datetime.date): object to compare to.
 
         Returns:
             (bool): whether this is less than or equal to date_time.
         """
-        return self._datetime_obj <= date_time._datetime_obj
+        if isinstance(date_time, BaseDateTimeWrapper):
+            return self._datetime_obj <= date_time._datetime_obj
+        elif isinstance(
+                date_time, (datetime.datetime, datetime.date, datetime.time)):
+            return self._datetime_obj <= date_time
+        return False
 
     def __ge__(self, date_time):
         """Compare to other date time.
 
         Args:
-            date_time (BaseDateTimeWrapper): object to compare to.
+            date_time (BaseDateTimeWrapper or datetime.datetime, datetime.time,
+                datetime.date): object to compare to.
 
         Returns:
             (bool): whether this is greater than or equal to date_time.
         """
-        return self._datetime_obj >= date_time._datetime_obj
+        if isinstance(date_time, BaseDateTimeWrapper):
+            return self._datetime_obj >= date_time._datetime_obj
+        elif isinstance(
+                date_time, (datetime.datetime, datetime.date, datetime.time)):
+            return self._datetime_obj >= date_time
+        return False
 
     def __hash__(self):
         """Hash this object using the datetime_obj hash.

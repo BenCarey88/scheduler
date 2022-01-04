@@ -253,6 +253,31 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return list(self.iter_days())[index]
 
+    def next_week(self):
+        """Get calendar week starting immediately after this one.
+
+        This returns a standard seven-day week, with starting day immediately
+        after the end day of this one.
+
+        Returns
+            (CalendarWeek): the calendar week after this one.
+        """
+        return CalendarWeek(self.calendar, self.end_date + TimeDelta(days=1))
+
+    def prev_week(self):
+        """Get calendar week starting immediately before this one.
+
+        This returns a standard seven-day week, with ending day immediately
+        before the start day of this one.
+
+        Returns
+            (CalendarWeek): the calendar week before this one.
+        """
+        return CalendarWeek(
+            self.calendar,
+            self.start_date - TimeDelta(days=Date.NUM_WEEKDAYS)
+        )
+
     def to_dict(self):
         """Return dictionary representation of class.
 

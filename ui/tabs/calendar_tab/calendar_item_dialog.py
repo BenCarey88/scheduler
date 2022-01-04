@@ -1,6 +1,5 @@
 #TODO: rename as just EventDialog
 
-from datetime import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 

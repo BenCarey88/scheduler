@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api import constants as api_constants
 from scheduler.api.common.date_time import Date
 from scheduler.api.timetable.calendar import Calendar
-from scheduler.api.timetable.calendar_period import CalendarDay
+from scheduler.api.timetable.tracker import Tracker
 from scheduler.api.edit import edit_log
 from scheduler.api.tree.task_root import TaskRoot
 
@@ -41,6 +41,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             api_constants.SCHEDULER_CALENDAR_DIRECTORY,
             self.tree_root
         )
+        self.tracker = Tracker.from_file(
+            api_constants.SCHEDULER_TRACKER_FILE,
+            self.tree_root
+        )
 
         edit_log.open_edit_registry()
         self.setup_tabs()
@@ -71,7 +75,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         )
         self.tracker_tab = self.create_tab_and_outliner(
             "Tracker",
-            TrackerTab
+            TrackerTab,
+            self.calendar,
+            self.tracker
         )
         self.suggestions_tab = self.create_tab_and_outliner(
             "Suggestions",
@@ -82,10 +88,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             NotesTab
         )
 
-        self.tabs_widget.currentChanged.connect(
-            self.outliner_stack.setCurrentIndex
-        )
-        self.tabs_widget.setCurrentIndex(1)
+        self.tabs_widget.currentChanged.connect(self.change_tab)
+        self.tabs_widget.setCurrentIndex(2)
 
     # TODO: neaten up args for this? Maybe add calendar to everything? 
     # Or remove this function altogether?
@@ -131,6 +135,15 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         redo_action = edit_menu.addAction("Redo")
         redo_action.triggered.connect(self.redo)
 
+    def change_tab(self, index):
+        """Called when changing to different tab.
+        
+        Args:
+            index (int): index of new tab.
+        """
+        self.outliner_stack.setCurrentIndex(index)
+        self.tabs_widget.currentWidget().update()
+
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
 
@@ -164,6 +177,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             self.calendar.write(
                 api_constants.SCHEDULER_CALENDAR_DIRECTORY
             )
+            self.tracker.write(
+                api_constants.SCHEDULER_TRACKER_FILE
+            )
             self.saved_edit_id = edit_log.latest_edit_id()
         self.notes_tab.save()
 
@@ -190,6 +206,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             )
             self.calendar.write(
                 api_constants.SCHEDULER_CALENDAR_AUTOSAVES_DIRECTORY
+            )
+            self.tracker.write(
+                api_constants.SCHEDULER_TRACKER_AUTOSAVES_FILE
             )
             self.autosaved_edit_id = edit_log.latest_edit_id()
 

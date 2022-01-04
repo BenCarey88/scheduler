@@ -72,7 +72,7 @@ class TaskEditTest(unittest.TestCase):
             self.task_item,
             date_time,
             TaskStatus.IN_PROGRESS,
-            "TESTING",
+            comment="TESTING",
         )
         history_edit.run()
         self.assertEqual(

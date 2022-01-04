@@ -1,7 +1,6 @@
 """Utility functions for scheduler api."""
 
 from collections import OrderedDict
-import datetime
 import sys
 
 

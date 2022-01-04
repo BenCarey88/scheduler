@@ -159,7 +159,7 @@ class BaseSerializable(ABC):
             )
         json_dict = cls._read_json_file(
             file_path,
-            use_ordered_dict=(cls._DICT_TYPE==OrderedDict)
+            as_ordered_dict=(cls._DICT_TYPE==OrderedDict)
         )
         return cls.from_dict(json_dict, *args, **kwargs)
 
@@ -171,7 +171,7 @@ class BaseSerializable(ABC):
                 file in most cases, or a .info file for the additional
                 info file sometimes required in directory serialization.
         """
-        if self._SAVE_TYPE not in SaveType._DIR_TYPES:
+        if self._SAVE_TYPE not in SaveType._FILE_TYPES:
             raise SerializationError(
                 "{0} has save type '{1}', so can't be saved to a file".format(
                     str(self), self._SAVE_TYPE

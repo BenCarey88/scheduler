@@ -181,7 +181,9 @@ class TaskCategory(BaseTreeItem):
             (Task): top level task item.
         """
         top_level_task_category = self
-        while isinstance(top_level_task_category.parent, TaskCategory):
+        # using this rather than isinstance checks that parent is specifically
+        # a TaskCategory object and not a subclass of it
+        while top_level_task_category.parent.__class__ == TaskCategory:
             top_level_task_category = top_level_task_category.parent
         return top_level_task_category
 

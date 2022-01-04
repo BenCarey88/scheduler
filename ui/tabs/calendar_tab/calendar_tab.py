@@ -5,14 +5,15 @@
 #   - create all the conversion functions between that and the screen position values
 #   - maybe even make separate Converter class to do this? or break into separate file?
 
-import datetime
-
 from PyQt5 import QtCore, QtGui, QtWidgets
-from api.timetable.calendar_item import CalendarItemType
+from api.timetable.calendar_period import CalendarWeek
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.edit.calendar_edit import ModifyCalendarItem
-from scheduler.api.timetable.calendar_item import CalendarItem
+from scheduler.api.timetable.calendar_item import (
+    CalendarItem,
+    CalendarItemType
+)
 from scheduler.api.tree.task import Task
 
 from scheduler.ui.tabs.base_tab import BaseTab
@@ -24,6 +25,10 @@ from .calendar_model import CalendarModel
 
 class CalendarTab(BaseTab):
     """Calendar tab."""
+
+    # repeat of attrs from the view (find way to share this info)
+    WEEK_START_DAY = Date.SAT
+
     def __init__(
             self,
             tree_root,
@@ -46,11 +51,86 @@ class CalendarTab(BaseTab):
             outliner,
             parent=parent
         )
-        self.table = CalendarView(tree_root, tree_manager, calendar)
+        utils.set_style(self, "calendar.qss")
+        date = Date.now()
+        self.calendar_week = calendar.get_week_containing_date(
+            date,
+            starting_day=self.WEEK_START_DAY
+        )
+
+        navigator_panel = QtWidgets.QWidget()
+        navigator_panel.setFixedHeight(30)
+        navigator_layout = QtWidgets.QHBoxLayout()
+        navigator_layout.setContentsMargins(0, 0, 0, 0)
+        navigator_panel.setLayout(navigator_layout)
+        self.outer_layout.addWidget(navigator_panel)
+
+        self.date_label = QtWidgets.QLabel(self.get_date_label())
+        prev_week_button = QtWidgets.QPushButton("<")
+        next_week_button = QtWidgets.QPushButton(">")
+        view_type_dropdown = QtWidgets.QComboBox()
+        view_type_dropdown.addItems(["week"])
+
+        navigator_layout.addWidget(self.date_label)
+        navigator_layout.addStretch()
+        navigator_layout.addWidget(prev_week_button)
+        navigator_layout.addWidget(next_week_button)
+        navigator_layout.addStretch()
+        navigator_layout.addWidget(view_type_dropdown)
+
+        self.table = CalendarView(
+            tree_root,
+            tree_manager,
+            calendar,
+            self.calendar_week
+        )
         self.outer_layout.addWidget(self.table)
 
+        prev_week_button.clicked.connect(self.change_to_prev_week)
+        next_week_button.clicked.connect(self.change_to_next_week)
+
     def update(self):
-        pass
+        """Update widget."""
+        self.table.viewport().update()
+
+    def get_date_label(self):
+        """Get date label for current week.
+
+        Returns:
+            (str): label to use for date.
+        """
+        start_date = self.calendar_week.start_date
+        end_date = self.calendar_week.end_date
+        if start_date.month == end_date.month:
+            return " {0} {1}".format(
+                Date.month_string_from_int(start_date.month, short=False),
+                start_date.year
+            )
+        elif start_date.year == end_date.year:
+            return " {0} - {1} {2}".format(
+                Date.month_string_from_int(start_date.month),
+                Date.month_string_from_int(end_date.month),
+                start_date.year
+            )
+        else:
+            return " {0} {1} - {2} {3}".format(
+                Date.month_string_from_int(start_date.month),
+                start_date.year,
+                Date.month_string_from_int(end_date.month),
+                end_date.year
+            )
+
+    def change_to_prev_week(self):
+        """Set calendar view to use previous week."""
+        self.calendar_week = self.calendar_week.prev_week()
+        self.table.set_to_week(self.calendar_week)
+        self.date_label.setText(self.get_date_label())
+
+    def change_to_next_week(self):
+        """Set calendar view to use next week."""
+        self.calendar_week = self.calendar_week.next_week()
+        self.table.set_to_week(self.calendar_week)
+        self.date_label.setText(self.get_date_label())
 
 
 class SelectionRect(object):
@@ -203,22 +283,23 @@ class CalendarView(QtWidgets.QTableView):
     SELECTION_TIME_STEP = TimeDelta(minutes=15)
     SELECTION_TIME_STEP_SECS = SELECTION_TIME_STEP.total_seconds()
 
-    def __init__(self, tree_root, tree_manager, calendar, parent=None):
-        """Initialise task delegate item."""
+    def __init__(
+            self,
+            tree_root,
+            tree_manager,
+            calendar,
+            calendar_week,
+            parent=None):
+        """Initialise calendar view."""
         super(CalendarView, self).__init__(parent)
 
         self.tree_root = tree_root
         self.tree_manager = tree_manager
         self.calendar = calendar
+        self.calendar_week = calendar_week
 
         self.selection_rect = None
         self.selected_calendar_item = None
-
-        date = Date.now()
-        self.calendar_week = calendar.get_week_containing_date(
-            date,
-            starting_day=self.WEEK_START_DAY
-        )
 
         model = CalendarModel(self.calendar_week, self)
         self.setModel(model)
@@ -231,7 +312,17 @@ class CalendarView(QtWidgets.QTableView):
             QtWidgets.QHeaderView.ResizeMode.Fixed
         )
         self.resize_table()
-        utils.set_style(self, "calendar.qss")
+
+    def set_to_week(self, week):
+        """Set view to use given week.
+
+        Args:
+            week (CalendarWeek): the calendar week to use.
+        """
+        self.calendar_week = week
+        model = CalendarModel(week, self)
+        self.setModel(model)
+        self.viewport().update()
 
     @property
     def table_top(self):
@@ -519,15 +610,14 @@ class CalendarView(QtWidgets.QTableView):
         """
         super(CalendarView, self).paintEvent(event)
 
-        # Create the painter
+        # Create painter
         painter = QtGui.QPainter(self.viewport())
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-
-        #set the pen
         border_size = 1
         pen = QtGui.QPen(QtGui.QColor(0,0,0), border_size)
         painter.setPen(pen)
 
+        # Calendar Item Rects
         for rect, item in self.get_item_rects():
             if item.type == CalendarItemType.TASK:
                 brush_color = QtGui.QColor(245, 245, 190)
@@ -535,16 +625,13 @@ class CalendarView(QtWidgets.QTableView):
                 brush_color = QtGui.QColor(173, 216, 230)
             brush = QtGui.QBrush(brush_color)
             painter.setBrush(brush)
-            # Create the path
+
             path = QtGui.QPainterPath()
             rect.adjust(
                 border_size/2, border_size/2, -border_size/2, -border_size/2
             )
-            # Add the rect to path.
             path.addRoundedRect(rect, 5, 5)
             painter.setClipPath(path)
-
-            # Fill shape, draw the border and center the text.
             painter.fillPath(path, painter.brush())
             painter.strokePath(path, painter.pen())
 
@@ -621,11 +708,11 @@ class CalendarView(QtWidgets.QTableView):
                     )
                 )
 
+        # Selection Rect
         if self.selection_rect:
             brush = QtGui.QBrush(QtGui.QColor(0, 255, 204))
             painter.setBrush(brush)
 
-            # Create the path
             path = QtGui.QPainterPath()
             x_start = self.columnViewportPosition(self.selection_rect.column)
             width = self.columnWidth(self.selection_rect.column)
@@ -637,9 +724,29 @@ class CalendarView(QtWidgets.QTableView):
             path.addRoundedRect(rect, 5, 5)
             painter.setClipPath(path)
 
-            # Fill shape, draw the border and center the text.
             painter.fillPath(path, painter.brush())
             # painter.strokePath(path, painter.pen())
+
+        # Current Time Line
+        date_time = DateTime.now()
+        for i, calendar_day in enumerate(self.calendar_week.iter_days()):
+            if calendar_day.date == date_time.date():
+                line_thickness = 3
+                x_start = self.columnViewportPosition(i)
+                line_width = self.columnWidth(i)
+                y_start = self.y_pos_from_time(date_time.time())
+                path = QtGui.QPainterPath()
+                rect = QtCore.QRectF(
+                    x_start,
+                    y_start - line_thickness/2,
+                    line_width,
+                    line_thickness
+                )
+                path.addRoundedRect(rect, 3, 3)
+                painter.setBrush(QtGui.QBrush(QtGui.QColor(227, 36, 43)))
+                painter.setClipPath(path)
+                painter.fillPath(path, painter.brush())
+                break
 
     def mousePressEvent(self, event):
         """Override mouse press event for interaction with calendar items.
@@ -648,7 +755,8 @@ class CalendarView(QtWidgets.QTableView):
             event (QtCore.QEvent): the mouse press event.
         """
         pos = event.pos()
-        for rect, calendar_item in self.get_item_rects():
+        # item rects since drawn last are the ones we should click first
+        for rect, calendar_item in reversed(list(self.get_item_rects())):
             if rect.contains(pos):
                 self.selected_calendar_item = SelectedCalenderItem(
                     self.calendar,

@@ -37,25 +37,16 @@ class EditLog(object):
 
         We treat the edit registry as locked if either:
             - the __registration_locked attribute is True
-            - there is an edit currentlysaved in the _edit_to_add attribute
+            - there is an edit currently saved in the _edit_to_add attribute
 
         Returns:
             (bool): whether or not edit registration is locked.
         """
         return (self.__registration_locked or bool(self._edit_to_add))
 
-    @_registration_locked.setter
-    def _registration_locked(self, value):
-        """Set _registration_locked to given value.
-
-        Args:
-            value (bool): whether to lock or unlock registration.
-        """
-        self.__registration_locked = value
-
     def open_registry(self):
         """Open edit registry so edits can be added."""
-        self._registration_locked = False
+        self.__registration_locked = False
 
     @contextmanager
     def lock_registry(self):
@@ -64,10 +55,10 @@ class EditLog(object):
         In theory this shouldn't be needed right now but maybe could be
         useful/necessary down the line.
         """
-        _registration_locked = self._registration_locked
-        self._registration_locked = True
+        __registration_locked = self.__registration_locked
+        self.__registration_locked = True
         yield
-        self._registration_locked = _registration_locked
+        self.__registration_locked = __registration_locked
 
     def add_edit(self, edit):
         """Add edit object to list.

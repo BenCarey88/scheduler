@@ -139,6 +139,7 @@ class BaseEdit(object):
             return
         if self._register_edit:
             EDIT_LOG.end_add_edit()
+            self._has_been_done = True
         self._continuous_run_in_progress = False
 
     def _run(self):

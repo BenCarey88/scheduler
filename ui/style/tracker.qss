@@ -1,3 +1,12 @@
+QWidget{
+    font: 15px;
+}
+
+QLabel{
+    font: 20px;
+    background-color: lightcyan;
+}
+
 QHeaderView::section {
     background-color: white;
     border-top: 0px;

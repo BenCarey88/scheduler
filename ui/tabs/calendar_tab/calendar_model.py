@@ -24,6 +24,7 @@ class CalendarModel(QtCore.QAbstractItemModel):
         """Initialise base calendar model.
 
         Args:
+            calendar_week (CalendarWeek): the calendar week this is modelling.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(CalendarModel, self).__init__(parent)

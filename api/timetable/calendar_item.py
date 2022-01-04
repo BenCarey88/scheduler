@@ -3,6 +3,7 @@
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.common.serializable import NestedSerializable, SaveType
 from scheduler.api.tree.task import Task
+from scheduler.api.tree.task_category import TaskCategory
 
 
 class CalendarItemType():
@@ -108,8 +109,13 @@ class CalendarItem(NestedSerializable):
             (str): name to use for item category.
         """
         if self._type == CalendarItemType.TASK:
-            if isinstance(self._tree_item, Task):
-                return self._tree_item.top_level_task().name
+            # TODO: this is dodgy, task_category shouldn't 
+            # have a top_level_task method, change this in refactor
+            if isinstance(self._tree_item, (Task, TaskCategory)):
+                # and there should be a better system in general for dealing
+                # with the case where category==name
+                if self._tree_item.top_level_task() != self._tree_item:
+                    return self._tree_item.top_level_task().name
             return ""
         else:
             return self._event_category

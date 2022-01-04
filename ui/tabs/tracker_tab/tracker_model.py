@@ -3,19 +3,21 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-
+# TODO: basically same as calendar model, need some generic
+# day, week, month and year models
 class TrackerModel(QtCore.QAbstractItemModel):
     """Tracker model."""
 
     WEEKDAYS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]
 
-    def __init__(self, parent=None):
+    def __init__(self, calendar_week, parent=None):
         """Initialise base tree model.
 
         Args:
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(TrackerModel, self).__init__(parent)
+        self.calendar_week = calendar_week
         self.num_cols = len(self.WEEKDAYS)
         self.num_rows = 1
         self.data = [
@@ -127,5 +129,5 @@ class TrackerModel(QtCore.QAbstractItemModel):
         """
         if role == QtCore.Qt.ItemDataRole.DisplayRole:
             if orientation == QtCore.Qt.Horizontal:
-                return self.WEEKDAYS[section]
+                return self.calendar_week.get_day_at_index(section).header_name
         return QtCore.QVariant()

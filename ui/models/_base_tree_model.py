@@ -244,7 +244,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
         if len(indexes) > 1:
             raise NotImplementedError(
-                "Mime data currently only works for single index."
+                "Mime data currently only works for single item."
             )
         text = None
         for index in indexes:

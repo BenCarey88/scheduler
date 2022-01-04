@@ -1,16 +1,15 @@
 """Task class."""
 
 from collections import OrderedDict
-import datetime
 from functools import partial
 import json
 import os
 
+from scheduler.api.common.date_time import Date, DateTime
 from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit
 )
-from scheduler.api import utils
 
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
@@ -29,6 +28,16 @@ class TaskStatus():
     COMPLETE = "Complete"
 
 
+class TaskValueType():
+    """Enumeration for task value types."""
+    NONE = None
+    TIME = "Time"
+    STRING = "String"
+    INT = "Int"
+    FLOAT = "Float"
+    MULTI = "Multi"
+
+
 class Task(BaseTreeItem):
     """Class representing a generic task."""
 
@@ -36,6 +45,7 @@ class Task(BaseTreeItem):
     HISTORY_KEY = "history"
     STATUS_KEY = "status"
     TYPE_KEY = "type"
+    VALUE_TYPE_KEY = "value_type"
 
     def __init__(
             self,
@@ -43,7 +53,8 @@ class Task(BaseTreeItem):
             parent=None,
             task_type=None,
             status=None,
-            history=None):
+            history=None,
+            value_type=None):
         """Initialise task class.
 
         Args:
@@ -54,11 +65,13 @@ class Task(BaseTreeItem):
             status (TaskStatus or None): status of current task. If None,
                 we default to unstarted.
             history (TaskHistory or None): task history, if exists.
+            value_type (TaskValueType or None): task value type, if not None.
         """
         super(Task, self).__init__(name, parent)
         self._type = task_type or TaskType.GENERAL
         self._status = status or TaskStatus.UNSTARTED
         self.history = history if history is not None else TaskHistory()
+        self.value_type = value_type or TaskValueType.NONE
         self.allowed_child_types = [Task]
 
         # new attribute and method names for convenience
@@ -126,8 +139,8 @@ class Task(BaseTreeItem):
                 and self._status == TaskStatus.COMPLETE):
             last_completed = self.history.last_completed
             if last_completed:
-                date_completed = self.history.last_completed.date()
-                current_date = datetime.datetime.now().date()
+                date_completed = self.history.last_completed
+                current_date = Date.now()
                 if date_completed != current_date:
                     # TODO: should this update the task history too?
                     # probably not but really these statuses are not ideal
@@ -177,6 +190,21 @@ class Task(BaseTreeItem):
             if subtask.type != value:
                 subtask.type = value
 
+    # TODO: I made what I now feel was a pretty big ballsup with my
+    # classifications, and at the moment everything I've made a top-level
+    # task should I think be a bottom-level category, so I should make a
+    # new function here to reflect that once I've refactored.
+    def top_level_task(self):
+        """Get top level task that this task is a subtask of.
+
+        Returns:
+            (Task): top level task item.
+        """
+        top_level_task = self
+        while isinstance(top_level_task.parent, Task):
+            top_level_task = top_level_task.parent
+        return top_level_task
+
     def is_subtask(self):
         """Check whether this task is a subtask of some other task.
 
@@ -191,8 +219,8 @@ class Task(BaseTreeItem):
         Args:
             status (TaskStatus or None): status to update task with. If None
                 given, we calculate the next one.
-            date (datetime.datetimeor None): datetime object to update task
-                history with.
+            date (DateTime or None): datetime object to update task history
+                with.
             comment (str): comment to add to history if needed.
         """
         if status is None:
@@ -208,13 +236,12 @@ class Task(BaseTreeItem):
                 status = TaskStatus.UNSTARTED
 
         if date_time is None:
-            date_time = datetime.datetime.now()
-        date_time = date_time.replace(microsecond=0)
+            date_time = DateTime.now()
         UpdateTaskHistoryEdit.create_and_run(
             self,
             date_time,
             status,
-            comment,
+            comment=comment,
             register_edit=self._register_edits,
         )
 
@@ -257,6 +284,8 @@ class Task(BaseTreeItem):
         }
         if self.history:
             json_dict[self.HISTORY_KEY] = self.history.dict
+        if self.value_type:
+            json_dict[self.VALUE_TYPE_KEY] = self.value_type
         if self._subtasks:
             subtasks_dict = OrderedDict()
             for subtask_name, subtask in self._subtasks.items():
@@ -282,12 +311,14 @@ class Task(BaseTreeItem):
         task_type = json_dict.get(cls.TYPE_KEY, None)
         task_status = json_dict.get(cls.STATUS_KEY, None)
         task_history = json_dict.get(cls.HISTORY_KEY, None)
+        value_type = json_dict.get(cls.VALUE_TYPE_KEY, None)
         task = cls(
             name,
             parent,
             task_type,
             task_status,
-            TaskHistory(task_history)
+            TaskHistory(task_history),
+            value_type
         )
 
         subtasks = json_dict.get(cls.TASKS_KEY, {})
@@ -304,7 +335,7 @@ class Task(BaseTreeItem):
         """
         if not os.path.isdir(os.path.dirname(file_path)):
             raise TaskFileError(
-                "Task file directory {0} does not exist".format(
+                "Task file {0} does not exist".format(
                     file_path
                 )
             )
@@ -351,6 +382,7 @@ class TaskHistory(object):
     {
         date_1: {
             status: task_status,
+            value: task_value,
             comments: {
                 time_1: comment_1,
                 time_2: comment_2,
@@ -360,8 +392,8 @@ class TaskHistory(object):
         ...
     }
     """
-
     STATUS_KEY = "status"
+    VALUE_KEY = "value"
     COMMENTS_KEY = "comments"
 
     def __init__(self, history_dict=None):
@@ -396,9 +428,9 @@ class TaskHistory(object):
         This is used in the case of routines.
 
         Returns:
-            (datetime.datetime or None): date of last completion, if exists.
+            (Date or None): date of last completion, if exists.
         """
         for date, subdict in reversed(self.dict.items()):
             if subdict.get(self.STATUS_KEY) == TaskStatus.COMPLETE:
-                return utils.get_date_from_string(date)
+                return Date.from_string(date)
         return None

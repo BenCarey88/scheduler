@@ -16,7 +16,7 @@ class TaskRoot(TaskCategory):
 
     TREE_FILE_MARKER = "root.info"
     CATEGORIES_KEY = "categories"
-    ROOT_NAME = "Root"
+    ROOT_NAME = ""
 
     def __init__(self, directory_path=None, *args, **kwargs):
         """Initialise TaskRoot item.

@@ -75,8 +75,8 @@ class CompositeEdit(BaseEdit):
 
         Args:
             edits_list (list(BaseEdit)): list of edits to compose.
-            inverse_order (bool): if True, we reverse the order of the edits
-                for the inverse.
+            reverse_order_for_inverse (bool): if True, we reverse the order
+                of the edits for the inverse.
             reigster_edit (bool): whether or not to register this edit.
         """
         super(CompositeEdit, self).__init__(register_edit)
@@ -103,3 +103,20 @@ class CompositeEdit(BaseEdit):
             inverse_edits_list = self.edits_list
         for edit in inverse_edits_list:
             edit._inverse_run()
+
+
+class ContinuousEdit(BaseEdit):
+    """Edit that can be updated as it's being run.
+
+    This is for things like moving the time / date of a calendar date, whic
+    can be done by dragging and dropping.
+    """
+    def __init__(self, register_edit=True):
+        """Initialize continuous edit.
+
+        Args:
+            reigster_edit (bool): whether or not to register this edit.
+        """
+        super(ContinuousEdit, self).__init__(register_edit)
+
+# or maybe scrap this and add updating ability to base edit

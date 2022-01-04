@@ -88,6 +88,7 @@ class BaseTreeEdit(CompositeEdit):
             if child:
                 child._name = new_name
 
+    # TODO: merge this and the method below
     def _remove(self, tree_item, inverse):
         """Additional remove edit for removing tree child.
 

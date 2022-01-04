@@ -30,7 +30,7 @@ class TaskWidget(QtWidgets.QTreeView):
 
         # setup model and delegate
         self.setItemDelegate(TaskDelegate(self))
-        model = TaskModel(task_item, tab.tree_manager, parent)
+        model = TaskModel(task_item, tab.tree_manager, parent=parent)
         self.setModel(model)
         self.expandAll()
         model.dataChanged.connect(self.tab.update)
@@ -183,6 +183,7 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
                 item = index.internalPointer()
                 if item:
                     editor = QtWidgets.QLineEdit(parent)
+                    # TODO: is this needed since sets text from model anyway?
                     editor.setText(item.name)
                     return editor
         return super().createEditor(parent, option, index)

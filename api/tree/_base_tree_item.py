@@ -13,7 +13,6 @@ from scheduler.api.edit.tree_edit import (
     RemoveChildrenEdit,
     RenameChildrenEdit,
 )
-
 from .exceptions import (
     ChildNameError,
     DuplicateChildNameError,
@@ -27,18 +26,22 @@ class BaseTreeItem(ABC):
 
     TREE_PATH_SEPARATOR = "/"
 
-    def __init__(self, name, parent=None):
+    def __init__(self, name, parent=None, id=None):
         """Initialise tree item class.
 
         Args:
             name (str): name of tree item.
             parent (Task or None): parent of current item, if it's not a root.
+            id (uuid4 or None): id of tree item. If not given, we create one.
+                This argument allows us to create a new tree item but treat it
+                as if it's the same as an old one (eg. if we want to change a
+                Task to a TaskCategory).
         """
         self._name = name
         self.parent = parent
         self._children = OrderedDict()
         self._register_edits = True
-        self.id = uuid4()
+        self.id = id or uuid4()
         # base class must be overridden, has no allowed child types.
         self.allowed_child_types = []
 
@@ -48,7 +51,9 @@ class BaseTreeItem(ABC):
         Returns:
             (bool): whether the items are equal.
         """
-        return self.id == tree_item.id
+        if isinstance(tree_item, BaseTreeItem):
+            return self.id == tree_item.id
+        return False
 
     # TODO: this is only here so it can be accessed in the drag-drop stuff to find
     # the root of any model bc we're into the super-hacky just get something that

@@ -1,6 +1,9 @@
 
-temp:
-    Used for testing new versions. Includes notes tab.
+1.1.0:
+    First version of Calendar and Tracker tabs:
+        - Calendar tab has week view with task and event items
+        - Tracker tab shows tasks that are marked in tracker.json
+        - Also includes basic Notes tab
 
 1.0.5:
     - Ctrl+up/down for moving item index in tree

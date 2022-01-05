@@ -6,7 +6,6 @@
 #   - maybe even make separate Converter class to do this? or break into separate file?
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from api.timetable.calendar_period import CalendarWeek
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.edit.calendar_edit import ModifyCalendarItem
@@ -14,6 +13,7 @@ from scheduler.api.timetable.calendar_item import (
     CalendarItem,
     CalendarItemType
 )
+from scheduler.api.timetable.calendar_period import CalendarWeek
 from scheduler.api.tree.task import Task
 
 from scheduler.ui.tabs.base_tab import BaseTab

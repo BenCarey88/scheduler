@@ -46,11 +46,13 @@ class TaskTreeFilter(BaseFilter):
         filtered_list = []
         for item in calendar_items:
             if item.type == CalendarItemType.Task:
-                with self.tree_root.filter(self.tree_filters):
-                    tree_item = item.tree_item
-                    if not tree_item:
-                        continue
-                    if not self.tree_root.get_item_at_path(tree_item.path):
-                        continue
+                tree_item = item.tree_item
+                if not tree_item:
+                    continue
+                if tree_item.parent:
+                    parent = tree_item.parent
+                    with parent.filter_children(self.tree_filters):
+                        if not parent.get_child(tree_item.name):
+                            continue
             filtered_list.append(item)
         return filtered_list

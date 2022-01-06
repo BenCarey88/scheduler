@@ -12,7 +12,12 @@ from scheduler.api.timetable.tracker import Tracker
 from scheduler.api.edit import edit_log
 from scheduler.api.tree.task_root import TaskRoot
 
-from .constants import CANCEL_BUTTON, NO_BUTTON, TIMER_INTERVAL, YES_BUTTON
+from .constants import (
+    CANCEL_BUTTON,
+    NO_BUTTON,
+    SHORT_TIMER_INTERVAL,
+    YES_BUTTON
+)
 
 from .tabs.calendar_tab import CalendarTab
 from .tabs.notes_tab import NotesTab
@@ -51,7 +56,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.setup_menu()
         self.saved_edit_id = edit_log.latest_edit_id()
         self.autosaved_edit_id = edit_log.latest_edit_id()
-        self.startTimer(TIMER_INTERVAL)
+        self.startTimer(SHORT_TIMER_INTERVAL)
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""

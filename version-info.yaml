@@ -1,4 +1,11 @@
 
+1.1.1-temp:
+    Temp version used for updates:
+        Task tab:
+            - ctrl+click deselects ancestoral siblings too
+        Calendar Tab:
+            - keep current time marker up to date
+
 1.1.0:
     First version of Calendar and Tracker tabs:
         - Calendar tab has week view with task and event items

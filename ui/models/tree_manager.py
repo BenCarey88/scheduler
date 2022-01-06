@@ -128,6 +128,25 @@ class TreeManager(object):
             for sibling in tree_item.get_all_siblings()
         ])
 
+    def ancestor_sibs_selected_for_filter(self, tree_item):
+        """Check if all item's ancestoral siblings are selected for filtering.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to query.
+
+        Returns:
+            (bool): whether or not the item's ancestoral siblings (ie. siblings
+                of tree_item or one of it's ancestors) are all selected for
+                filtering.
+        """
+        while tree_item.parent:
+            if not self.siblings_are_selected_for_filtering(tree_item):
+                break
+            tree_item = tree_item.parent
+        else:
+            return True
+        return False
+
     def is_expanded(self, tree_item):
         """Check if the given tree item has been expanded in the outliner.
 
@@ -186,23 +205,27 @@ class TreeManager(object):
         for child in tree_item.get_all_children():
             self.unfilter_item(child, from_user_selection=False)
 
-    def filter_siblings(self, tree_item):
-        """Add all siblings of tree item to filter list.
+    def filter_ancestoral_siblings(self, tree_item):
+        """Add all siblings of tree item and ancestors to filter list.
 
         Args:
             tree_item (BaseTreeItem): tree item to filter out.
         """
         for sibling in tree_item.get_all_siblings():
             self.filter_item(sibling)
+        if tree_item.parent:
+            self.filter_ancestoral_siblings(tree_item.parent)
 
-    def unfilter_siblings(self, tree_item):
-        """Remove all sibling tree items from filter list.
+    def unfilter_ancestoral_siblings(self, tree_item):
+        """Remove all sibling of tree item and ancestors from filter list.
 
         Args:
             tree_item (BaseTreeItem): tree item to unfilter.
         """
         for sibling in tree_item.get_all_siblings():
             self.unfilter_item(sibling)
+        if tree_item.parent:
+            self.unfilter_ancestoral_siblings(tree_item.parent)
 
     def expand_item(self, tree_item, value):
         """Mark item as collapsed/expanded in the outliner.

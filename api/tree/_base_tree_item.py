@@ -467,6 +467,7 @@ class BaseTreeItem(ABC):
                 for child in self.parent.get_all_children()
                 if child != self
             ]
+        return []
 
     def num_children(self):
         """Get number of children of this item.

@@ -17,7 +17,7 @@ from scheduler.api.timetable.calendar_period import CalendarWeek
 from scheduler.api.tree.task import Task
 
 from scheduler.ui.tabs.base_tab import BaseTab
-from scheduler.ui import utils
+from scheduler.ui import constants, utils
 
 from .calendar_item_dialog import CalendarItemDialog
 from .calendar_model import CalendarModel
@@ -312,6 +312,7 @@ class CalendarView(QtWidgets.QTableView):
             QtWidgets.QHeaderView.ResizeMode.Fixed
         )
         self.resize_table()
+        self.startTimer(constants.LONG_TIMER_INTERVAL)
 
     def set_to_week(self, week):
         """Set view to use given week.
@@ -601,6 +602,16 @@ class CalendarView(QtWidgets.QTableView):
         """
         super(CalendarView, self).resizeEvent(event)
         self.resize_table()
+
+    def timerEvent(self, event):
+        """Called every timer_interval.
+
+        This is used to repaint so that current time marker stays up to date.
+
+        Args:
+            event (QtCore.QEvent): the timer event.
+        """
+        self.viewport().update()
 
     def paintEvent(self, event):
         """Override paint event to draw item rects and selection rect.

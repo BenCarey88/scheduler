@@ -22,6 +22,7 @@ class CalendarItem(NestedSerializable):
     TREE_ITEM_KEY = "tree_item"
     NAME_KEY = "name"
     CATEGORY_KEY = "category"
+    BACKGROUND_KEY = "background"
 
     def __init__(
             self,
@@ -31,7 +32,8 @@ class CalendarItem(NestedSerializable):
             item_type=None,
             tree_item=None,
             event_category=None,
-            event_name=None):
+            event_name=None,
+            is_background=False):
         """Initialise item.
 
         Args:
@@ -44,6 +46,9 @@ class CalendarItem(NestedSerializable):
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
+            is_background (bool): if True, this is a 'background' item, ie. a
+                higher level task or event that subevents or subtasks can be
+                overlayed on.
         """
         self._calendar = calendar
         self._task_root = calendar.task_root
@@ -53,6 +58,7 @@ class CalendarItem(NestedSerializable):
         self._tree_item = tree_item
         self._event_category = event_category or ""
         self._event_name = event_name or ""
+        self._is_background = is_background
 
     @property
     def start_time(self):
@@ -134,6 +140,15 @@ class CalendarItem(NestedSerializable):
         else:
             return self._event_name
 
+    @property
+    def is_background(self):
+        """Return whether or not this is a background item.
+
+        Returns:
+            (bool): whether or not this is a background item.
+        """
+        return self._is_background
+
     def to_dict(self):
         """Return dictionary representation of class.
 
@@ -150,6 +165,8 @@ class CalendarItem(NestedSerializable):
         else:
             dict_repr[self.CATEGORY_KEY] = self._event_category
             dict_repr[self.NAME_KEY] = self._event_name
+        if self._is_background:
+            dict_repr[self.BACKGROUND_KEY] = self._is_background
         return dict_repr
 
     @classmethod
@@ -175,6 +192,7 @@ class CalendarItem(NestedSerializable):
         )
         category = dict_repr.get(cls.CATEGORY_KEY)
         name = dict_repr.get(cls.NAME_KEY)
+        is_background = dict_repr.get(cls.BACKGROUND_KEY, False)
 
         return cls(
             calendar,
@@ -183,5 +201,6 @@ class CalendarItem(NestedSerializable):
             type_,
             tree_item,
             category,
-            name
+            name,
+            is_background
         )

@@ -86,6 +86,7 @@ class AddCalendarItem(SimpleEdit):
             tree_item=None,
             event_category=None,
             event_name=None,
+            is_background=None,
             register_edit=True):
         """Initialise edit.
 
@@ -98,6 +99,8 @@ class AddCalendarItem(SimpleEdit):
             tree_item (Task or None): tree item, if setting.
             event_category (Str or None): nname of event category, if setting.
             event_name (str or None): name of event, if setting.
+            is_background (bool or None): value to set for is_background
+                attribute, if setting.
             register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
@@ -109,7 +112,8 @@ class AddCalendarItem(SimpleEdit):
             item_type,
             tree_item,
             event_category,
-            event_name
+            event_name,
+            is_background,
         )
         super(AddCalendarItem, self).__init__(
             object_to_edit=calendar_item,
@@ -175,6 +179,7 @@ class ModifyCalendarItem(BaseEdit):
             new_tree_item=None,
             new_event_category=None,
             new_event_name=None,
+            new_is_background=None,
             register_edit=True):
         """Initialise edit.
 
@@ -191,44 +196,51 @@ class ModifyCalendarItem(BaseEdit):
             new_event_category (Str or None): new name of event category, if
                 changing.
             new_event_name (str or None): new name of event, if changing.
+            new_is_background (bool or None): new value to set for
+                _is_background attribute, if changing.
             register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
         """
         super(ModifyCalendarItem, self).__init__(register_edit=register_edit)
-        self.calendar_item = calendar_item
-        self.calendar = calendar
+        self._calendar_item = calendar_item
+        self._calendar = calendar
 
-        self.orig_start_datetime = calendar_item._start_datetime
-        self.orig_end_datetime = calendar_item._end_datetime
-        self.orig_type = calendar_item._type
-        self.orig_tree_item = calendar_item._tree_item
-        self.orig_event_category = calendar_item._event_category
-        self.orig_event_name = calendar_item._event_name
+        self._orig_start_datetime = calendar_item._start_datetime
+        self._orig_end_datetime = calendar_item._end_datetime
+        self._orig_type = calendar_item._type
+        self._orig_tree_item = calendar_item._tree_item
+        self._orig_event_category = calendar_item._event_category
+        self._orig_event_name = calendar_item._event_name
+        self._orig_is_background = calendar_item._is_background
 
-        self.new_start_datetime = (
+        self._new_start_datetime = (
             new_start_datetime if new_start_datetime is not None
-            else self.orig_start_datetime
+            else self._orig_start_datetime
         )
-        self.new_end_datetime = (
+        self._new_end_datetime = (
             new_end_datetime if new_end_datetime is not None
-            else self.orig_end_datetime
+            else self._orig_end_datetime
         )
-        self.new_type = (
+        self._new_type = (
             new_type if new_type is not None
-            else self.orig_type
+            else self._orig_type
         )
-        self.new_tree_item = (
+        self._new_tree_item = (
             new_tree_item if new_tree_item is not None
-            else self.orig_tree_item
+            else self._orig_tree_item
         )
-        self.new_event_category = (
+        self._new_event_category = (
             new_event_category if new_event_category is not None
-            else self.orig_event_category
+            else self._orig_event_category
         )
-        self.new_event_name = (
+        self._new_event_name = (
             new_event_name if new_event_name is not None
-            else self.orig_event_name
+            else self._orig_event_name
+        )
+        self._new_is_background = (
+            new_is_background if new_is_background is not None
+            else self._orig_is_background
         )
         self.check_validity()
 
@@ -243,12 +255,13 @@ class ModifyCalendarItem(BaseEdit):
         invalid and hence not added to the edit log.
         """
         self._is_valid = any([
-            self.new_start_datetime != self.orig_start_datetime,
-            self.new_end_datetime != self.orig_end_datetime,
-            self.new_type != self.orig_type,
-            self.new_tree_item != self.orig_tree_item,
-            self.new_event_category != self.orig_event_category,
-            self.new_event_name != self.orig_event_name
+            self._new_start_datetime != self._orig_start_datetime,
+            self._new_end_datetime != self._orig_end_datetime,
+            self._new_type != self._orig_type,
+            self._new_tree_item != self._orig_tree_item,
+            self._new_event_category != self._orig_event_category,
+            self._new_event_name != self._orig_event_name,
+            self._new_is_background != self._orig_is_background,
         ])
 
     @property
@@ -261,39 +274,40 @@ class ModifyCalendarItem(BaseEdit):
         return (
             "Edit attributes and move datetimes of {0}: "
             "({1}, {2}) --> ({3}, {4})".format(
-                self.calendar_item.name,
-                self.orig_start_datetime.string(),
-                self.orig_end_datetime.string(),
-                self.new_start_datetime.string(),
-                self.new_end_datetime.string()
+                self._calendar_item.name,
+                self._orig_start_datetime.string(),
+                self._orig_end_datetime.string(),
+                self._new_start_datetime.string(),
+                self._new_end_datetime.string()
             )
         )
 
     def _run(self):
         """Run edit."""
         _move_calendar_item(
-            self.calendar,
-            self.calendar_item,
-            self.new_start_datetime,
-            self.new_end_datetime
+            self._calendar,
+            self._calendar_item,
+            self._new_start_datetime,
+            self._new_end_datetime
         )
-        self.calendar_item._type = self.new_type
-        self.calendar_item._tree_item = self.new_tree_item
-        self.calendar_item._event_category = self.new_event_category
-        self.calendar_item._event_name = self.new_event_name
+        self._calendar_item._type = self._new_type
+        self._calendar_item._tree_item = self._new_tree_item
+        self._calendar_item._event_category = self._new_event_category
+        self._calendar_item._event_name = self._new_event_name
+        self._calendar_item._is_background = self._new_is_background
 
     def _inverse_run(self):
         """Run inverse to undo edit."""
         _move_calendar_item(
-            self.calendar,
-            self.calendar_item,
-            self.orig_start_datetime,
-            self.orig_end_datetime
+            self._calendar,
+            self._calendar_item,
+            self._orig_start_datetime,
+            self._orig_end_datetime
         )
-        self.calendar_item._type = self.orig_type
-        self.calendar_item._tree_item = self.orig_tree_item
-        self.calendar_item._event_category = self.orig_event_category
-        self.calendar_item._event_name = self.orig_event_name
+        self._calendar_item._type = self._orig_type
+        self._calendar_item._tree_item = self._orig_tree_item
+        self._calendar_item._event_category = self._orig_event_category
+        self._calendar_item._event_name = self._orig_event_name
 
     def _update(self, new_start_datetime=None, new_end_datetime=None):
         """Update parameters of edit and run.
@@ -305,13 +319,13 @@ class ModifyCalendarItem(BaseEdit):
         if new_start_datetime is None and new_end_datetime is None:
             return
         if new_start_datetime is not None:
-            self.new_start_datetime = new_start_datetime
+            self._new_start_datetime = new_start_datetime
         if new_end_datetime is not None:
-            self.new_end_datetime = new_end_datetime
+            self._new_end_datetime = new_end_datetime
         _move_calendar_item(
-            self.calendar,
-            self.calendar_item,
-            self.new_start_datetime,
-            self.new_end_datetime
+            self._calendar,
+            self._calendar_item,
+            self._new_start_datetime,
+            self._new_end_datetime
         )
         self.check_validity()

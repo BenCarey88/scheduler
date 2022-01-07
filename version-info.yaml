@@ -1,10 +1,11 @@
 
-1.1.1-temp:
+temp-1.1.1:
     Temp version used for updates:
         Task tab:
             - ctrl+click deselects ancestoral siblings too
         Calendar Tab:
             - keep current time marker up to date
+            - add background calendar items
 
 1.1.0:
     First version of Calendar and Tracker tabs:

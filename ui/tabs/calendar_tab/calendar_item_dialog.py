@@ -148,6 +148,11 @@ class CalendarItemDialog(QtWidgets.QDialog):
         if self._calendar_item.type == CalendarItemType.EVENT:
             self.tab_widget.setCurrentIndex(1)
 
+        self.background_checkbox = QtWidgets.QCheckBox("Set as background")
+        if calendar_item.is_background:
+            self.background_checkbox.setCheckState(2)
+        main_layout.addWidget(self.background_checkbox)
+
         main_layout.addSpacing(10)
 
         buttons_layout = QtWidgets.QHBoxLayout()
@@ -164,6 +169,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         main_layout.addLayout(buttons_layout)
         main_layout.addStretch()
+
+        self.accept_button.setFocus(True)
 
         # TODO: will be nicer to have one (or maybe both) of the two
         # treeviews as a widget on the RHS
@@ -246,6 +253,15 @@ class CalendarItemDialog(QtWidgets.QDialog):
         else:
             return self.event_name_line_edit.text()
 
+    @property
+    def is_background(self):
+        """Return whether or not this item is a background item.
+
+        Returns:
+            (bool): whether or not this item is a background item.
+        """
+        return bool(self.background_checkbox.checkState())
+
     def accept_and_close(self):
         """Run add or modify calendar item edit.
 
@@ -261,6 +277,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
                 self.tree_item,
                 self.category,
                 self.name,
+                self.is_background,
             )
         else:
             # TODO: feels odd that this just discards the item we're editing
@@ -274,6 +291,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
                 self.tree_item,
                 self.category,
                 self.name,
+                self.is_background
             )
         self.accept()
         self.close()

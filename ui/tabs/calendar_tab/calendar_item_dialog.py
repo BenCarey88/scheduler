@@ -1,15 +1,21 @@
 #TODO: rename as just EventDialog
 
 
+from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
+from api.edit.calendar_edit import ChangeCalendarItemRepeatType
+from api.timetable.calendar_item import CalendarItemRepeatPattern, RepeatCalendarItem
 
-from scheduler.api.common.date_time import DateTime, Time
+from scheduler.api.common.date_time import Date, DateTime, Time
 from scheduler.api.edit.calendar_edit import (
     AddCalendarItem,
     ModifyCalendarItem,
     RemoveCalendarItem,
 )
-from scheduler.api.timetable.calendar_item import CalendarItemType
+from scheduler.api.timetable.calendar_item import (
+    CalendarItem,
+    CalendarItemType
+)
 from scheduler.api.tree.task import Task
 
 from scheduler.ui import utils
@@ -41,8 +47,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
             tree_root (TreeRoot): the task tree root object.
             tree_manager (TreeManager): the task tree manager object.
             calendar (calendar): the calendar object.
-            calendar_item (CalendarItem): calendar item we're editing or
-                creating.
+            calendar_item (BaseCalendarItem): calendar item we're editing or
+                creating. Can be single item or repeat item template.
             as_editor (bool): whether or not we're editing an existing item,
                 or adding a new one.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
@@ -76,6 +82,13 @@ class CalendarItemDialog(QtWidgets.QDialog):
             QtCore.QDate(date.year, date.month, date.day)
         )
 
+        repeat_pattern = None
+        if isinstance(calendar_item, RepeatCalendarItem):
+            repeat_pattern = calendar_item.repeat_pattern
+        self.repeat_pattern_widget = RepeatPatternWidget(repeat_pattern)
+        main_layout.addWidget(self.repeat_pattern_widget)
+
+
         self.time_editors = {
             self.START_TIME_KEY: QtWidgets.QTimeEdit(),
             self.END_TIME_KEY: QtWidgets.QTimeEdit()
@@ -106,6 +119,11 @@ class CalendarItemDialog(QtWidgets.QDialog):
         )
         main_layout.addSpacing(10)
 
+        # TODO: create custom switcher widget and use that here
+        # instead of tabs. (Like this):
+        # [ (    )  TASK  ]
+        # [ EVENT  (    ) ]
+        # or maybe just with multiple buttons and one pressed down
         self.tab_widget = QtWidgets.QTabWidget()
         main_layout.addWidget(self.tab_widget)
         task_selection_tab = QtWidgets.QWidget()
@@ -179,17 +197,45 @@ class CalendarItemDialog(QtWidgets.QDialog):
         # tree_layout.addWidget(task_tree_scroll_area)
 
     @property
+    def start_time(self):
+        """Get starting time for item, based on values set in editor.
+
+        Returns:
+            (DateTime): starting time.
+        """
+        time = self.time_editors[self.START_TIME_KEY].time()
+        return Time(time.hour(), time.minute())
+
+    @property
+    def end_time(self):
+        """Get end time for item, based on values set in editor.
+
+        Returns:
+            (DateTime): end time.
+        """
+        time = self.time_editors[self.END_TIME_KEY].time()
+        return Time(time.hour(), time.minute())
+
+    @property
+    def date(self):
+        """Get date for item, based on values set in editor.
+
+        Returns:
+            (Date): item date. This is either the date of the item, or,
+                in the case of a repeat item, the date of the first instance
+                of the item.
+        """
+        date = self.cb_date.date()
+        return Date(date.year(), date.month(), date.day())
+
+    @property
     def start_datetime(self):
         """Get starting datetime for item, based on values set in editor.
 
         Returns:
             (DateTime): starting datetime.
         """
-        date = self.cb_date.date()
-        time = self.time_editors[self.START_TIME_KEY].time()
-        return DateTime(
-            date.year(), date.month(), date.day(), time.hour(), time.minute()
-        )
+        return DateTime.from_date_and_time(self.date, self.start_time)
 
     @property
     def end_datetime(self):
@@ -198,11 +244,28 @@ class CalendarItemDialog(QtWidgets.QDialog):
         Returns:
             (DateTime): ending datetime.
         """
-        date = self.cb_date.date()
-        time = self.time_editors[self.END_TIME_KEY].time()
-        return DateTime(
-            date.year(), date.month(), date.day(), time.hour(), time.minute()
-        )
+        return DateTime.from_date_and_time(self.date, self.end_time)
+
+    @property
+    def is_repeat(self):
+        """Check if this is a repeating item.
+        
+        Returns:
+            (bool): whether or not this is a repeating item.
+        """
+        return self.repeat_pattern_widget.is_enabled
+
+    @property
+    def repeat_pattern(self):
+        """Get repeat pattern of item, if this is a repeating item.
+
+        Returns:
+            (CalendarItemRepeatPattern or None): repeat pattern, or None if
+                this is not a repeat item.
+        """
+        if self.is_repeat:
+            return self.repeat_pattern_widget.get_repeat_pattern(self.date)
+        return None
 
     @property
     def type(self):
@@ -268,30 +331,56 @@ class CalendarItemDialog(QtWidgets.QDialog):
         Called when user clicks accept.
         """
         if self.is_editor:
-            ModifyCalendarItem.create_and_run(
+            # TODO: stop using isinstance to determine if item is a repeat
+            if self.is_repeat == isinstance(self._calendar_item, CalendarItem):
+                edit_class = ChangeCalendarItemRepeatType
+            else:
+                edit_class = ModifyCalendarItem
+            # Note that we rely on the edit to discard irrelevant attrs here
+            edit_class.create_and_run(
                 self._calendar,
                 self._calendar_item,
-                self.start_datetime,
-                self.end_datetime,
-                self.type,
-                self.tree_item,
-                self.category,
-                self.name,
-                self.is_background,
+                new_start_datetime=self.start_datetime,
+                new_end_datetime=self.end_datetime,
+                new_type=self.type,
+                new_tree_item=self.tree_item,
+                new_event_category=self.category,
+                new_event_name=self.name,
+                new_is_background=self.is_background,
+                new_start_time=self.start_time,
+                new_end_time=self.end_time,
+                new_repeat_pattern=self.repeat_pattern,
             )
         else:
             # TODO: feels odd that this just discards the item we're editing
             # should maybe make the item an optional field of this class and
             # pass in the item params as arguments when creating instead?
+            if self.is_repeat:
+                self._calendar_item = RepeatCalendarItem(
+                    self._calendar,
+                    self.start_time,
+                    self.end_time,
+                    self.repeat_pattern,
+                    self.type,
+                    self.tree_item,
+                    self.category,
+                    self.name,
+                    self.is_background
+                )
+            else:
+                self._calendar_item = CalendarItem(
+                    self._calendar,
+                    self.start_datetime,
+                    self.end_datetime,
+                    self.type,
+                    self.tree_item,
+                    self.category,
+                    self.name,
+                    self.is_background,
+                )
             AddCalendarItem.create_and_run(
                 self._calendar,
-                self.start_datetime,
-                self.end_datetime,
-                self.type,
-                self.tree_item,
-                self.category,
-                self.name,
-                self.is_background
+                self._calendar_item
             )
         self.accept()
         self.close()
@@ -307,6 +396,98 @@ class CalendarItemDialog(QtWidgets.QDialog):
         )
         self.reject()
         self.close()
+
+
+# TODO: update to allow non-week repeat patterns
+class RepeatPatternWidget(QtWidgets.QWidget):
+    """Widget describing the repeat pattern."""
+
+    def __init__(self, repeat_pattern=None, parent=None):
+        """Initialise widget.
+
+        Args:
+            repeat_pattern (CalendarItemRepeatPattern or None): repeat pattern
+                to initialise, if one already exists.
+            parent (QtWidgets.QWidget): parent widget, if one exists.
+        """
+        super(RepeatPatternWidget, self).__init__()
+        # TODO: make separate stylesheet for this
+        self.setStyleSheet(
+            """
+            QFrame {
+                background-color: rgb(250, 250, 250);
+                border-width: 1;
+                border-radius: 3;
+                border-style: solid;
+                border-color: rgb(10, 10, 10);
+            }
+            """
+        )
+        outer_layout = QtWidgets.QVBoxLayout()
+        self.setLayout(outer_layout)
+
+        self.enabled_checkbox = QtWidgets.QCheckBox()
+        self.enabled_checkbox.setText("Repeat Instance")
+        outer_layout.addWidget(self.enabled_checkbox)
+        self.enabled_checkbox.stateChanged.connect(self.toggle_active_status)
+
+        # TODO: this currently only allows single week gaps in patterns,
+        # update to allow multiple weeks, and different days for each one.
+        self.buttons_widget = QtWidgets.QFrame()
+        buttons_layout = QtWidgets.QHBoxLayout()
+        outer_layout.addWidget(self.buttons_widget)
+        self.buttons_widget.setLayout(buttons_layout)
+
+        self.weekday_buttons = OrderedDict()
+        for day in Date.WEEKDAYS:
+            weekday_button = QtWidgets.QPushButton(day[0])
+            weekday_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+            weekday_button.setCheckable(True)
+            buttons_layout.addWidget(weekday_button)
+            self.weekday_buttons[day] = weekday_button
+        if (repeat_pattern and
+                repeat_pattern.repeat_type == repeat_pattern.WEEK_REPEAT):
+            for date in repeat_pattern.initial_dates:
+                self.weekday_buttons[date.weekday].setChecked(True)
+
+        self.toggle_active_status(False)
+
+    def toggle_active_status(self, enabled):
+        """Toggle active status of widget.
+
+        Args:
+            enabled (bool): whether or not widget is active.
+        """
+        self._is_enabled = enabled
+        if enabled:
+            self.buttons_widget.show()
+        else:
+            self.buttons_widget.hide()
+
+    @property
+    def is_enabled(self):
+        """Return whether or not widget is enabled.
+
+        Returns:
+            (bool): whether or not widget is enabled.
+        """
+        return self._is_enabled
+
+    def get_repeat_pattern(self, date):
+        """Get repeat pattern represented by widget.
+
+        Args:
+            date (Date): initial date for repeat pattern.
+
+        Returns:
+            (CalendarItemRepeatPattern): repeat pattern.
+        """
+        weekdays = [
+            day for day, button in self.weekday_buttons.items()
+            if button.isChecked()
+        ]
+        print (weekdays)
+        return CalendarItemRepeatPattern.week_repeat(date, weekdays)
 
 
 class TreeComboBox(QtWidgets.QComboBox):

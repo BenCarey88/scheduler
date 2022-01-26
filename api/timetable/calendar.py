@@ -38,6 +38,7 @@ class Calendar(NestedSerializable):
         self._years = {}
         self._months = {}
         self._days = {}
+        self._repeat_items = []
 
     def _add_day(self, calendar_day):
         """Add calendar day to calendar days dict.

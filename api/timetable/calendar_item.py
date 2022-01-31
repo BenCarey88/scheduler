@@ -1,9 +1,14 @@
 """Calendar item class."""
 
 from collections import OrderedDict
-from api.common.date_time import DateTimeError
 
-from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
+from scheduler.api.common.date_time import (
+    Date,
+    DateTime,
+    DateTimeError,
+    Time,
+    TimeDelta
+)
 from scheduler.api.common.serializable import NestedSerializable, SaveType
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
@@ -558,15 +563,15 @@ class CalendarItem(BaseCalendarItem):
         Returns:
             (CalendarItem or None): calendar item, if can be initialised.
         """
+        start = dict_repr.get(cls.START_DATETIME_KEY)
+        end = dict_repr.get(cls.END_DATETIME_KEY)
         try:
-            start_datetime = DateTime.from_string(
-                dict_repr.get(cls.START_DATETIME_KEY)
-            )
-            end_datetime = DateTime.from_string(
-                dict_repr.get(cls.END_DATETIME_KEY)
-            )
-        except DateTimeError:
-            return None
+            start_datetime = DateTime.from_string(start)
+            end_datetime = DateTime.from_string(end)
+        except DateTimeError as e:
+            # TODO: either remove this try except, or return None and manage
+            # that case in CalendarDay class from_dict method
+            raise e
         return super(CalendarItem, cls).from_dict(
             dict_repr,
             calendar,

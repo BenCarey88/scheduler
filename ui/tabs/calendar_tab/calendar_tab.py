@@ -11,7 +11,8 @@ from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.edit.calendar_edit import ModifyCalendarItemDateTime
 from scheduler.api.timetable.calendar_item import (
     CalendarItem,
-    CalendarItemType
+    CalendarItemType,
+    RepeatCalendarItemInstance
 )
 from scheduler.api.timetable.calendar_period import CalendarWeek
 from scheduler.api.tree.task import Task
@@ -217,7 +218,7 @@ class SelectedCalenderItem(object):
             orig_mouse_pos (QtCore.QPoint): mouse position that the selected
                 item started at.
         """
-        self.calendar_item = calendar_item
+        self._calendar_item = calendar_item
         self.orig_mouse_pos = orig_mouse_pos
         self.orig_start_time = calendar_item.start_time
         self.orig_end_time = calendar_item.end_time
@@ -235,7 +236,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current start time.
         """
-        return self.calendar_item.start_time
+        return self._calendar_item.start_time
 
     @property
     def end_time(self):
@@ -244,7 +245,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current end time.
         """
-        return self.calendar_item.end_time
+        return self._calendar_item.end_time
 
     @property
     def date(self):
@@ -253,7 +254,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current end time.
         """
-        return self.calendar_item.date
+        return self._calendar_item.date
 
     def change_time(self, new_start_datetime, new_end_datetime):
         """Change the time of the calendar item.
@@ -270,6 +271,19 @@ class SelectedCalenderItem(object):
     def deselect(self):
         """Call when we've finished using this item."""
         self.edit.end_continuous_run()
+
+    def get_calendar_item_to_modify(self):
+        """Get the calendar item to open with the calendar item dialog.
+
+        Returns:
+            (BaseCalendarItem): either the calendar item, or the repeat item
+                that it's an instance of, in the case of repeat calendar item
+                instances.
+        """
+        if isinstance(self._calendar_item, CalendarItem):
+            return self._calendar_item
+        elif isinstance(self._calendar_item, RepeatCalendarItemInstance):
+            return self._calendar_item.repeat_calendar_item
 
 
 class CalendarView(QtWidgets.QTableView):
@@ -644,7 +658,7 @@ class CalendarView(QtWidgets.QTableView):
         """
         if item.type == CalendarItemType.TASK:
             tree_item = item.tree_item
-            if tree_item.colour:
+            if tree_item and tree_item.colour:
                 brush_color = QtGui.QColor(*tree_item.colour, alpha)
             else:
                 brush_color = QtGui.QColor(245, 245, 190, alpha)
@@ -923,7 +937,7 @@ class CalendarView(QtWidgets.QTableView):
                     self.tree_root,
                     self.tree_manager,
                     self.calendar,
-                    self.selected_calendar_item.calendar_item,
+                    self.selected_calendar_item.get_calendar_item_to_modify(),
                     as_editor=True,
                 )
                 item_editor.exec()

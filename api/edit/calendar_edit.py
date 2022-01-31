@@ -114,7 +114,7 @@ def _move_repeat_calendar_item_instance(
         new_start_datetime (DateTime): new start datetime for calendar item.
         new_end_datetime (DateTime): new end datetime for calendaritem.
     """
-    repeat_calendar_item = item_instance._repeat_calendar_item
+    repeat_calendar_item = item_instance.repeat_calendar_item
     scheduled_date = item_instance.scheduled_date
     scheduled_start_datetime = DateTime.from_date_and_time(
         scheduled_date,
@@ -277,8 +277,8 @@ class ModifyCalendarItemDateTime(BaseEdit):
         self._calendar = calendar
         if isinstance(calendar_item, RepeatCalendarItemInstance):
             self._move_calendar_item_func = _move_repeat_calendar_item_instance
-            self._orig_start_datetime = calendar_item._override_start_datetime
-            self._orig_end_datetime = calendar_item._override_end_datetime
+            self._orig_start_datetime = calendar_item._start_datetime
+            self._orig_end_datetime = calendar_item._end_datetime
         elif isinstance(calendar_item, CalendarItem):
             self._move_calendar_item_func = _move_calendar_item
             self._orig_start_datetime = calendar_item._start_datetime
@@ -392,7 +392,8 @@ class ModifyCalendarItem(CompositeEdit):
             new_start_time=None,
             new_end_time=None,
             new_repeat_pattern=None,
-            register_edit=True):
+            register_edit=True,
+            **kwargs):
         """Initialise edit.
 
         Args:
@@ -420,6 +421,7 @@ class ModifyCalendarItem(CompositeEdit):
             register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
+            **kwargs (dict): kwargs to ignore.
         """
         self._calendar_item = calendar_item
         self._calendar = calendar
@@ -546,7 +548,7 @@ class ModifyCalendarItem(CompositeEdit):
         calendar_item._start_time = self._new_start_time
         calendar_item._end_time = self._new_end_time
         if calendar_item._repeat_pattern != self._new_repeat_pattern:
-            calendar_item._repeat_pateern = self._new_repeat_pattern
+            calendar_item._repeat_pattern = self._new_repeat_pattern
             calendar_item._clear_instances()
         calendar_item._clean_overrides()
 
@@ -567,27 +569,34 @@ class ModifyCalendarItem(CompositeEdit):
 # TODO: this could be part of ModifyCalendarItem
 # plus wording is dodgy now repeat type has a different meaning in
 # calendar items module
+# TODO: also the __init__ args are VERY messy, needs cleaning
 class ChangeCalendarItemRepeatType(CompositeEdit):
     """Change calendar item to repeating item or vice versa.
-    
+
     This also allows us to modify attribute values.
     """
     def __init__(
             self,
             calendar,
             calendar_item,
-            *args,
             date=None,
             repeat_pattern=None,
+            new_start_datetime=None,
+            new_end_datetime=None,
+            new_type=None,
+            new_tree_item=None,
+            new_event_category=None,
+            new_event_name=None,
+            new_is_background=None,
+            new_start_time=None,
+            new_end_time=None,
             register_edit=True,
-            **kwargs,
-            ):
+            **kwargs):
         """Initialize edit.
 
         Args:
             calendar (Calendar): calendar object.
             calendar_item (BaseCalendarItem): calendar item to edit.
-            *args (list): args to pass to ModifyCalendarItem init.
             date (Date or None): date of item, needed if switching from a
                 repeat calendar item to a single one.
             repeat_pattern (CalendarItemRepeatPattern or None): repeat pattern
@@ -595,8 +604,24 @@ class ChangeCalendarItemRepeatType(CompositeEdit):
             register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
-            *kwargs (dict): args to pass to ModifyCalendarItem init.
+
+            kwargs (dict): kwargs to ignore.
         """
+        # TODO fallback_value would be a usefule util func
+        fallback_value = lambda v, f: v if v is not None else f
+
+        item_type = fallback_value(new_type, calendar_item._type)
+        tree_item = fallback_value(new_tree_item, calendar_item._tree_item)
+        event_category = fallback_value(
+            new_event_category,
+            calendar_item._event_category
+        )
+        event_name = fallback_value(new_event_name, calendar_item._event_name)
+        is_background = fallback_value(
+            new_is_background,
+            calendar_item._is_background
+        )
+
         # Calendar Item --> Repeat Calendar Item
         if isinstance(calendar_item, CalendarItem):
             if repeat_pattern is None:
@@ -604,11 +629,18 @@ class ChangeCalendarItemRepeatType(CompositeEdit):
                     "Need repeat pattern argument to switch calendar item to "
                     "repeat calendar item."
                 )
+            start_time = fallback_value(new_start_time, calendar_item.start_time)
+            end_time = fallback_value(new_end_time, calendar_item.end_time)
             new_calendar_item = RepeatCalendarItem(
                 calendar,
-                calendar_item.start_time,
-                calendar_item.end_time,
-                repeat_pattern
+                start_time,
+                end_time,
+                repeat_pattern,
+                item_type=item_type,
+                tree_item=tree_item,
+                event_category=event_category,
+                event_name=event_name,
+                is_background=is_background,
             )
         # Repeat Calendar Item --> Calendar Item
         else:
@@ -617,17 +649,24 @@ class ChangeCalendarItemRepeatType(CompositeEdit):
                     "Need date argument to switch repeat calendar item to "
                     "calendar item."
                 )
-            new_calendar_item = CalendarItem(
+            start_datetime = fallback_value(
+                new_start_datetime,
                 DateTime.from_date_and_time(date, calendar_item.start_time),
+            )
+            end_datetime = fallback_value(
+                new_end_datetime,
                 DateTime.from_date_and_time(date, calendar_item.end_time),
             )
-        ModifyCalendarItem.create_and_run(
-            calendar,
-            new_calendar_item,
-            *args,
-            **kwargs,
-            register_edit=False
-        )
+            new_calendar_item = CalendarItem(
+                calendar,
+                start_datetime,
+                end_datetime,
+                item_type=item_type,
+                tree_item=tree_item,
+                event_category=event_category,
+                event_name=event_name,
+                is_background=is_background,
+            )
 
         add_new_item_edit = AddCalendarItem(
             calendar,

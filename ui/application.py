@@ -94,6 +94,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         )
 
         self.tabs_widget.currentChanged.connect(self.change_tab)
+        self.tabs_widget.setCurrentIndex(1)
 
     # TODO: neaten up args for this? Maybe add calendar to everything? 
     # Or remove this function altogether?

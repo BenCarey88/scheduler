@@ -535,7 +535,7 @@ class BaseDateTimeWrapper(object):
         elif isinstance(
                 date_time, (datetime.datetime, datetime.date, datetime.time)):
             return self._datetime_obj != date_time
-        return False
+        return True
 
     def __lt__(self, date_time):
         """Compare to other date time.
@@ -850,7 +850,7 @@ class Date(BaseDateTimeWrapper):
         Returns:
             (str): weekday string.
         """
-        return self.weekday_string_from_int(self.weekday)
+        return self.weekday_string_from_int(self.weekday, short=short)
 
     def month_string(self, short=True):
         """Get string representing month.
@@ -861,7 +861,7 @@ class Date(BaseDateTimeWrapper):
         Returns:
             (str): month string.
         """
-        return self.month_string_from_int(self.month)
+        return self.month_string_from_int(self.month, short=short)
 
     def ordinal_string(self):
         """Get day ordinal (eg. 1st, 2nd 3rd etc.).

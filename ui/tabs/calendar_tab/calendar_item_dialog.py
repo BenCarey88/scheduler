@@ -57,7 +57,12 @@ class CalendarItemDialog(QtWidgets.QDialog):
         super(CalendarItemDialog, self).__init__(parent=parent)
         self._calendar = calendar
         self._calendar_item = calendar_item
-        date = calendar_item.date
+        # TODO: these isinstances are dotted all over the place in the ui,
+        # should be much better ways of dealing with this on the api side
+        if isinstance(calendar_item, CalendarItem):
+            date = calendar_item.date
+        else:
+            date = calendar_item.start_date
         start_time = calendar_item.start_time
         end_time = calendar_item.end_time
         self.is_editor = as_editor
@@ -262,7 +267,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         Returns:
             (CalendarItemRepeatPattern or None): repeat pattern, or None if
-                this is not a repeat item.
+                this is not a repeat item, or if the pattern is invalid.
         """
         if self.is_repeat:
             return self.repeat_pattern_widget.get_repeat_pattern(self.date)
@@ -331,6 +336,14 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         Called when user clicks accept.
         """
+        if self.is_repeat and self.repeat_pattern is None:
+            utils.simple_message_dialog(
+                "Repeat pattern given is invalid. Rejecting edit.",
+                parent=self
+            )
+            self.reject()
+            self.close()
+            return
         if self.is_editor:
             # TODO: stop using isinstance to determine if item is a repeat
             if self.is_repeat == isinstance(self._calendar_item, CalendarItem):
@@ -338,6 +351,10 @@ class CalendarItemDialog(QtWidgets.QDialog):
             else:
                 edit_class = ModifyCalendarItem
             # Note that we rely on the edit to discard irrelevant attrs here
+            # TODO: this is grim. All the edits here need serious reworking
+            # because they're getting really confusing.
+            # note that currently the bottom two args are irrelevant for
+            # ModifyCalendarItem init and just get swallowed in that case.
             edit_class.create_and_run(
                 self._calendar,
                 self._calendar_item,
@@ -351,6 +368,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
                 new_start_time=self.start_time,
                 new_end_time=self.end_time,
                 new_repeat_pattern=self.repeat_pattern,
+                repeat_pattern=self.repeat_pattern,
+                date=self.date,
             )
         else:
             # TODO: feels odd that this just discards the item we're editing
@@ -446,20 +465,25 @@ class RepeatPatternWidget(QtWidgets.QWidget):
             weekday_button.setCheckable(True)
             buttons_layout.addWidget(weekday_button)
             self.weekday_buttons[day] = weekday_button
-        if (repeat_pattern and
-                repeat_pattern.repeat_type == repeat_pattern.WEEK_REPEAT):
-            for date in repeat_pattern.initial_dates:
-                self.weekday_buttons[date.weekday].setChecked(True)
 
-        self.toggle_active_status(False)
+        enabled = repeat_pattern is not None
+        if enabled:
+            self.enabled_checkbox.setChecked(True)
+            if repeat_pattern.repeat_type == repeat_pattern.WEEK_REPEAT:
+                for date in repeat_pattern.initial_dates:
+                    self.weekday_buttons[
+                        date.weekday_string(short=False)
+                    ].setChecked(True)
+        self.toggle_active_status(enabled)
 
     def toggle_active_status(self, enabled):
         """Toggle active status of widget.
 
         Args:
-            enabled (bool): whether or not widget is active.
+            enabled (int): current state of checkbox widget, representing
+                whether or not it is enabled.
         """
-        self._is_enabled = enabled
+        self._is_enabled = bool(enabled)
         if enabled:
             self.buttons_widget.show()
         else:
@@ -481,12 +505,15 @@ class RepeatPatternWidget(QtWidgets.QWidget):
             date (Date): initial date for repeat pattern.
 
         Returns:
-            (CalendarItemRepeatPattern): repeat pattern.
+            (CalendarItemRepeatPattern or None): repeat pattern, or None
+                if can't be made.
         """
         weekdays = [
             day for day, button in self.weekday_buttons.items()
             if button.isChecked()
         ]
+        if not weekdays:
+            return None
         return CalendarItemRepeatPattern.week_repeat(date, weekdays)
 
 

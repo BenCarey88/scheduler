@@ -715,11 +715,17 @@ class RepeatCalendarItem(BaseCalendarItem):
         """Remove overrides that no longer apply.
 
         This should be called after the repeat pattern or times are changed,
-        to remove ghost overrides.
+        to remove ghost overrides. Overrides should be removed if they meet
+        one of the following criteria:
+            - their time values no longer override the scheduled time.
+            - their initial scheduled date no longer falls in the repeat
+                pattern.
         """
-        for scheduled_date, instance in self._overridden_instances.items():
-            if (not self.instances_at_date(scheduled_date)
+        override_tuples = list(self._overridden_instances.items())
+        for scheduled_date, instance in override_tuples:
+            if (not self._repeat_pattern.check_date(scheduled_date)
                     or not instance.is_override()):
+                print (scheduled_date, instance.date)
                 del self._overridden_instances[scheduled_date]
 
     def _clear_instances(self):
@@ -820,10 +826,8 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         self._override_end_datetime = override_end_datetime
 
     @property
-    def _repeat_calendar_item(self):
+    def repeat_calendar_item(self):
         """Get repeat calendar item.
-
-        This is just a second name for the base _template_item attribute.
 
         Returns:
             (RepeatCalendarItem): the repeat calendar item used as a template
@@ -840,7 +844,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         """
         if self._override_start_datetime:
             return self._override_start_datetime.time()
-        return self._repeat_calendar_item.start_time
+        return self.repeat_calendar_item.start_time
 
     @property
     def scheduled_start_time(self):
@@ -849,7 +853,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         Returns:
             (Time): scheduled start time.
         """
-        return self._repeat_calendar_item.start_time
+        return self.repeat_calendar_item.start_time
 
     @property
     def scheduled_end_time(self):
@@ -858,7 +862,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         Returns:
             (Time): scheduled end time.
         """
-        return self._repeat_calendar_item.end_time
+        return self.repeat_calendar_item.end_time
 
     @property
     def end_time(self):
@@ -869,7 +873,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         """
         if self._override_end_datetime:
             return self._override_end_datetime.time()
-        return self._repeat_calendar_item.end_time
+        return self.repeat_calendar_item.end_time
 
     @property
     def scheduled_date(self):
@@ -890,6 +894,24 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         if self._override_start_datetime:
             return self._override_start_datetime.date()
         return self._scheduled_date
+
+    @property
+    def _start_datetime(self):
+        """Get start datetime.
+
+        Returns:
+            (DateTime): start datetime.
+        """
+        return DateTime.from_date_and_time(self.date, self.start_time)
+
+    @property
+    def _end_datetime(self):
+        """Get end datetime.
+
+        Returns:
+            (DateTime): end datetime.
+        """
+        return DateTime.from_date_and_time(self.date, self.end_time)
 
     def is_override(self):
         """Check whether the given instance overrides the repeat template.

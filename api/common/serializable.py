@@ -45,7 +45,7 @@ class SerializableFileTypes():
 
     The intended purpose of these file types are as follows:
         JSON:   all classes serialized as files should be saved as jsons.
-        MARKER: empty file that marks out that directory it lives in represents
+        MARKER: empty file that marks that the directory it lives in represents
             a serialized class and can be read accordingly. A marker file is
             required for any directory-serializable class, but in cases where
             an order or info file is used, one of these can be designated as

@@ -3,6 +3,7 @@
 import calendar
 import datetime
 import math
+import re
 
 
 class DateTimeError(Exception):
@@ -278,6 +279,76 @@ class TimeDelta(object):
         """
         self._check_no_years_or_months()
         return self._timedelta_obj.total_seconds()
+
+    def string(self, date_only=False, time_only=False):
+        """Get string representation of self for serialization purposes.
+
+        Args:
+            date_only (bool): if True, the string only represents the date
+                part of the timedelta.
+            time_only (bool): if True, the string only represents the time
+                part of the timedelta.
+
+        Returns:
+            (str): string representation.
+        """
+        if date_only and time_only:
+            raise DateTimeError(
+                "Cannot use TimeDelta string method with both date_only and "
+                "time_only flags on."
+            )
+
+        attr_str = ""
+        if not time_only:
+            if self._years:
+                attr_str += "years={0}, ".format(self._years)
+            if self._months:
+                attr_str += "months={0}, ".format(self._months)
+            if self._timedelta_obj.days:
+                attr_str += "days={0}".format(self)
+
+        if not date_only:
+            total_seconds = self._timedelta_obj.seconds
+            if self._timedelta_obj.seconds:
+                hours = int(total_seconds / 3600)
+                remaining_seconds = total_seconds % 3600
+                minutes = int(remaining_seconds / 60)
+                seconds = remaining_seconds % 60
+                if hours:
+                    attr_str += "hours={0}, ".format(hours)
+                if minutes:
+                    attr_str += "minutes={0}, ".format(minutes)
+                if seconds:
+                    attr_str += "seconds={0}, ".format(seconds)
+
+        attr_str = attr_str or "0"
+        return "TimeDelta({0})".format(attr_str)
+
+    @classmethod
+    def from_string(cls, string):
+        """Get TimeDelta object from string.
+
+        Args:
+            string (str): the string to initialise from. This should be in
+                the same format as the one given by the string method.
+
+        Returns:
+            (TimeDelta): time delta described by string.
+        """
+        if string == "TimeDelta(0)":
+            return cls()
+        arg_string = "(years|months|days|hours|minutes|seconds)=\d+"
+        match_string = r"TimeDelta\(({0}, )*({0})\)".format(arg_string)
+        if not re.match(match_string, string):
+            raise DateTimeError(
+                "String {0} not in correct format for TimeDelta "
+                "deserialization".format(string)
+            )
+        kwargs = {}
+        for match in re.finditer(arg_string, string):
+            name, value = match.split("=")
+            kwargs[name] = value
+        return cls(**kwargs)
 
     def __repr__(self):
         """Override string representation of self.

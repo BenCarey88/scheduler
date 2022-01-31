@@ -40,14 +40,14 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.resize(1600, 800)
 
         self.tree_root = TaskRoot.from_directory(
-            api_constants.SCHEDULER_TASKS_DIRECTORY
+            api_constants.TASKS_DIRECTORY
         )
         self.calendar = Calendar.from_directory(
-            api_constants.SCHEDULER_CALENDAR_DIRECTORY,
+            api_constants.CALENDAR_DIRECTORY,
             self.tree_root
         )
         self.tracker = Tracker.from_file(
-            api_constants.SCHEDULER_TRACKER_FILE,
+            api_constants.TRACKER_FILE,
             self.tree_root
         )
 
@@ -179,10 +179,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             self.tree_root.write()
             # TODO: make calendar and tree root save consistent
             self.calendar.write(
-                api_constants.SCHEDULER_CALENDAR_DIRECTORY
+                api_constants.CALENDAR_DIRECTORY
             )
             self.tracker.write(
-                api_constants.SCHEDULER_TRACKER_FILE
+                api_constants.TRACKER_FILE
             )
             self.saved_edit_id = edit_log.latest_edit_id()
         self.notes_tab.save()
@@ -206,13 +206,13 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """Autosave backup file if needed."""
         if self.autosaved_edit_id != edit_log.latest_edit_id():
             self.tree_root.write(
-                api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY
+                api_constants.TASKS_AUTOSAVES_DIRECTORY
             )
             self.calendar.write(
-                api_constants.SCHEDULER_CALENDAR_AUTOSAVES_DIRECTORY
+                api_constants.CALENDAR_AUTOSAVES_DIRECTORY
             )
             self.tracker.write(
-                api_constants.SCHEDULER_TRACKER_AUTOSAVES_FILE
+                api_constants.TRACKER_AUTOSAVES_FILE
             )
             self.autosaved_edit_id = edit_log.latest_edit_id()
 

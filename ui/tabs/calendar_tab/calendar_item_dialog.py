@@ -486,7 +486,6 @@ class RepeatPatternWidget(QtWidgets.QWidget):
             day for day, button in self.weekday_buttons.items()
             if button.isChecked()
         ]
-        print (weekdays)
         return CalendarItemRepeatPattern.week_repeat(date, weekdays)
 
 

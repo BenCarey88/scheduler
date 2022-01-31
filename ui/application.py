@@ -6,7 +6,7 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants as api_constants
-from scheduler.api.common.date_time import Date
+from scheduler.api.common.date_time import Date, Time
 from scheduler.api.timetable.calendar import Calendar
 from scheduler.api.timetable.tracker import Tracker
 from scheduler.api.edit import edit_log

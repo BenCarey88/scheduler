@@ -59,7 +59,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
         self._pattern_size = len(inital_date_pattern)
         self._gap = timedelta_gap
         self._gap_multiplier = 1
-        self._dates = inital_date_pattern
+        self._dates = [date for date in inital_date_pattern]
         self._repeat_type = repeat_type or self.DAY_REPEAT
         self._end_date = end_date
 
@@ -205,7 +205,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
         """Get dates in repeating pattern between the two given dates.
 
         Args:
-            start_date (Date): start date. This is exclusive (ie. not included
+            start_date (Date): start date. This is inclusive (ie. included
                 in output).
             end_date (Date): end date. This is inclusive (ie. included in
                 output).
@@ -215,9 +215,9 @@ class CalendarItemRepeatPattern(NestedSerializable):
         """
         self._update_to_date(end_date)
         for date in self._dates:
-            if date <= start_date:
+            if date < start_date:
                 continue
-            elif start_date < date <= end_date:
+            elif start_date <= date <= end_date:
                 yield date
             else:
                 break
@@ -237,6 +237,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
         }
         if self._end_date:
             dict_repr[self.END_DATE_KEY] = self._end_date.string()
+        return dict_repr
 
     @classmethod
     def from_dict(cls, dict_repr):
@@ -249,7 +250,10 @@ class CalendarItemRepeatPattern(NestedSerializable):
             (CalendarItemRepeatPattern or None): repeat pattern, if can be
                 initialised.
         """
-        initial_dates = dict_repr.get(cls.INITIAL_DATES_KEY)
+        initial_dates = [
+            Date.from_string(date)
+            for date in dict_repr.get(cls.INITIAL_DATES_KEY, [])
+        ]
         timedelta_gap = TimeDelta.from_string(
             dict_repr.get(cls.TIMEDELTA_GAP_KEY)
         )
@@ -687,12 +691,13 @@ class RepeatCalendarItem(BaseCalendarItem):
         """
         latest_date = self.start_date
         if self._instances:
-            latest_date = self._instances.keys()[-1]
+            latest_date = list(self._instances.keys())[-1] + TimeDelta(days=1)
         for _date in self._repeat_pattern.dates_between(latest_date, date):
             if _date in self._overridden_instances.keys():
                 self._instances[_date] = self._overridden_instances[_date]
             else:
                 self._instances[_date] = RepeatCalendarItemInstance(
+                    self._calendar,
                     self,
                     _date
                 )
@@ -770,6 +775,7 @@ class RepeatCalendarItem(BaseCalendarItem):
             repeat_item._overridden_instances[date] = (
                 RepeatCalendarItemInstance.from_dict(
                     instance_dict,
+                    repeat_item._calendar,
                     repeat_item,
                     date
                 )

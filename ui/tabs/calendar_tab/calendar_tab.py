@@ -8,7 +8,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
-from scheduler.api.edit.calendar_edit import ModifyCalendarItem
+from scheduler.api.edit.calendar_edit import ModifyCalendarItemDateTime
 from scheduler.api.timetable.calendar_item import (
     CalendarItem,
     CalendarItemType
@@ -222,7 +222,7 @@ class SelectedCalenderItem(object):
         self.orig_start_time = calendar_item.start_time
         self.orig_end_time = calendar_item.end_time
         self.orig_date = calendar_item.date
-        self.edit = ModifyCalendarItem(
+        self.edit = ModifyCalendarItemDateTime(
             calendar,
             calendar_item
         )
@@ -643,7 +643,11 @@ class CalendarView(QtWidgets.QTableView):
             rounding (int): amount of rounding for rects.
         """
         if item.type == CalendarItemType.TASK:
-            brush_color = QtGui.QColor(245, 245, 190, alpha)
+            tree_item = item.tree_item
+            if tree_item.colour:
+                brush_color = QtGui.QColor(*tree_item.colour, alpha)
+            else:
+                brush_color = QtGui.QColor(245, 245, 190, alpha)
         else:
             brush_color = QtGui.QColor(173, 216, 230, alpha)
         brush = QtGui.QBrush(brush_color)

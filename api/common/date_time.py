@@ -299,13 +299,24 @@ class TimeDelta(object):
             )
 
         attr_str = ""
+        comma_if_needed = lambda string : ", " if string else ""
+
         if not time_only:
             if self._years:
-                attr_str += "years={0}, ".format(self._years)
+                attr_str += "{0}years={1}".format(
+                    comma_if_needed(attr_str),
+                    self._years
+                )
             if self._months:
-                attr_str += "months={0}, ".format(self._months)
+                attr_str += "{0}months={1}".format(
+                    comma_if_needed(attr_str),
+                    self._months
+                )
             if self._timedelta_obj.days:
-                attr_str += "days={0}".format(self)
+                attr_str += "{0}days={1}".format(
+                    comma_if_needed(attr_str),
+                    self._timedelta_obj.days
+                )
 
         if not date_only:
             total_seconds = self._timedelta_obj.seconds
@@ -315,11 +326,20 @@ class TimeDelta(object):
                 minutes = int(remaining_seconds / 60)
                 seconds = remaining_seconds % 60
                 if hours:
-                    attr_str += "hours={0}, ".format(hours)
+                    attr_str += "{0}hours={1}".format(
+                        comma_if_needed(attr_str),
+                        hours
+                    )
                 if minutes:
-                    attr_str += "minutes={0}, ".format(minutes)
+                    attr_str += "{0}minutes={1}".format(
+                        comma_if_needed(attr_str),
+                        minutes
+                    )
                 if seconds:
-                    attr_str += "seconds={0}, ".format(seconds)
+                    attr_str += "{0}seconds={1}".format(
+                        comma_if_needed(attr_str),
+                        seconds
+                    )
 
         attr_str = attr_str or "0"
         return "TimeDelta({0})".format(attr_str)
@@ -346,8 +366,8 @@ class TimeDelta(object):
             )
         kwargs = {}
         for match in re.finditer(arg_string, string):
-            name, value = match.split("=")
-            kwargs[name] = value
+            name, value = match[0].split("=")
+            kwargs[name] = int(value)
         return cls(**kwargs)
 
     def __repr__(self):

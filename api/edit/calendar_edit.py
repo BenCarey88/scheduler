@@ -135,7 +135,9 @@ def _move_repeat_calendar_item_instance(
             repeat_calendar_item._overridden_instances.get(scheduled_date)):
         del repeat_calendar_item._overridden_instances[scheduled_date]
     else:
-        repeat_calendar_item[scheduled_date] = item_instance
+        repeat_calendar_item._overridden_instances[scheduled_date] = (
+            item_instance
+        )
 
 
 class AddCalendarItem(SimpleEdit):
@@ -161,12 +163,17 @@ class AddCalendarItem(SimpleEdit):
             start = calendar_item._start_datetime.string()
             end = calendar_item._end_datetime.string()
             item_name = "calendar item"
-        else:
+        elif isinstance(calendar_item, RepeatCalendarItem):
             run_func = _add_repeat_calendar_item
             inverse_run_func = _remove_repeat_calendar_item
             start = calendar_item._start_time.string()
             end = calendar_item._end_time.string()
             item_name = "repeat calendar item"
+        else:
+            raise EditError(
+                "AddCalendarItem only accepts CalendarItem and "
+                "RepeatCalendarItem inputs."
+            )
 
         super(AddCalendarItem, self).__init__(
             object_to_edit=calendar_item,
@@ -207,11 +214,16 @@ class RemoveCalendarItem(SimpleEdit):
             inverse_run_func = _add_calendar_item
             start = calendar_item._start_datetime.string()
             end = calendar_item._end_datetime.string()
-        else:
+        elif isinstance(calendar_item, RepeatCalendarItem):
             run_func = _remove_repeat_calendar_item
             inverse_run_func = _add_repeat_calendar_item
             start = calendar_item._start_time.string()
             end = calendar_item._end_time.string()
+        else:
+            raise EditError(
+                "RemoveCalendarItem only accepts CalendarItem and "
+                "RepeatCalendarItem inputs."
+            )
 
         super(RemoveCalendarItem, self).__init__(
             object_to_edit=calendar_item,
@@ -258,16 +270,25 @@ class ModifyCalendarItemDateTime(BaseEdit):
             new_end_datetime (DateTime or None): new end datetime for calendar
                 item. If None, use original.
         """
-        super(ModifyCalendarItemDateTime, self).__init__(register_edit=register_edit)
+        super(ModifyCalendarItemDateTime, self).__init__(
+            register_edit=register_edit
+        )
         self._calendar_item = calendar_item
         self._calendar = calendar
         if isinstance(calendar_item, RepeatCalendarItemInstance):
             self._move_calendar_item_func = _move_repeat_calendar_item_instance
-        else:
+            self._orig_start_datetime = calendar_item._override_start_datetime
+            self._orig_end_datetime = calendar_item._override_end_datetime
+        elif isinstance(calendar_item, CalendarItem):
             self._move_calendar_item_func = _move_calendar_item
+            self._orig_start_datetime = calendar_item._start_datetime
+            self._orig_end_datetime = calendar_item._end_datetime
+        else:
+            raise EditError(
+                "ModifyCalendarItem only accepts CalendarItem and "
+                "RepeatCalendarItemInstance inputs."
+            )
 
-        self._orig_start_datetime = calendar_item._start_datetime
-        self._orig_end_datetime = calendar_item._end_datetime
         self._new_start_datetime = (
             new_start_datetime if new_start_datetime is not None
             else self._orig_start_datetime
@@ -544,6 +565,8 @@ class ModifyCalendarItem(CompositeEdit):
 
 
 # TODO: this could be part of ModifyCalendarItem
+# plus wording is dodgy now repeat type has a different meaning in
+# calendar items module
 class ChangeCalendarItemRepeatType(CompositeEdit):
     """Change calendar item to repeating item or vice versa.
     

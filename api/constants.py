@@ -28,3 +28,13 @@ TASKS_AUTOSAVES_DIRECTORY = os.path.join(AUTOSAVES_DIRECTORY, "tasks")
 CALENDAR_AUTOSAVES_DIRECTORY = os.path.join(AUTOSAVES_DIRECTORY, "calendar")
 TRACKER_AUTOSAVES_FILE = os.path.join(AUTOSAVES_DIRECTORY, "tracker.json")
 NOTES_AUTOSAVES_FILE = os.path.join(AUTOSAVES_DIRECTORY, "notes.txt")
+
+
+# TODO: this should DEFINITELY be set by user, as task attribute, hardcoding for now
+TASK_COLOURS = {
+    "Projects": (255, 165, 0),                  # Orange
+    "Work": (245, 245, 190),                    # Yellow
+    "General To Do": (50,205,50),               # Green
+    "Leisure And Learning": (255,192,203),      # Pink
+    "Routines": (255,99,71),                    # Red
+}

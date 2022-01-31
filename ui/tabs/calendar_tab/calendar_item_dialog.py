@@ -3,18 +3,19 @@
 
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
-from api.edit.calendar_edit import ChangeCalendarItemRepeatType
-from api.timetable.calendar_item import CalendarItemRepeatPattern, RepeatCalendarItem
 
 from scheduler.api.common.date_time import Date, DateTime, Time
 from scheduler.api.edit.calendar_edit import (
     AddCalendarItem,
+    ChangeCalendarItemRepeatType,
     ModifyCalendarItem,
     RemoveCalendarItem,
 )
 from scheduler.api.timetable.calendar_item import (
     CalendarItem,
-    CalendarItemType
+    CalendarItemRepeatPattern,
+    CalendarItemType,
+    RepeatCalendarItem
 )
 from scheduler.api.tree.task import Task
 

@@ -3,13 +3,19 @@
 from collections import OrderedDict
 from contextlib import contextmanager
 
-from scheduler.api.common.date_time import Date, DateTime, TimeDelta
+from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.common.serializable import (
     NestedSerializable,
     SaveType,
     SerializableFileTypes
 )
-from .calendar_period import CalendarDay, CalendarMonth, CalendarWeek, CalendarYear
+from .calendar_item import RepeatCalendarItem
+from .calendar_period import (
+    CalendarDay,
+    CalendarMonth,
+    CalendarWeek,
+    CalendarYear
+)
 
 
 class CalendarError(Exception):
@@ -20,12 +26,14 @@ class Calendar(NestedSerializable):
     """Calendar object containing all calendar items."""
     _SAVE_TYPE = SaveType.DIRECTORY
     _ORDER_FILE = "calendar{0}".format(SerializableFileTypes.ORDER)
+    _INFO_FILE = "repeat_items{0}".format(SerializableFileTypes.INFO)
     _MARKER_FILE = _ORDER_FILE
     _SUBDIR_KEY = "years"
     _SUBDIR_CLASS = CalendarYear
     _SUBDIR_DICT_TYPE = OrderedDict
 
     YEARS_KEY = _SUBDIR_KEY
+    REPEAT_ITEMS_KEY = "repeat_items"
 
     def __init__(self, task_root):
         """Initialise calendar class.
@@ -38,6 +46,7 @@ class Calendar(NestedSerializable):
         self._years = {}
         self._months = {}
         self._days = {}
+        self._repeat_items = []
 
     def _add_day(self, calendar_day):
         """Add calendar day to calendar days dict.
@@ -204,6 +213,15 @@ class Calendar(NestedSerializable):
             (dict): nested json dict representing calendar object and its
                 contained calendar period objects.
         """
+        dict_repr = {}
+        repeat_items_list = []
+        for item in self._repeat_items:
+            repeat_item_dict = item.to_dict()
+            if repeat_item_dict:
+                repeat_items_list.append(repeat_item_dict)
+        if repeat_items_list:
+            dict_repr[self.REPEAT_ITEMS_KEY] = repeat_items_list
+
         years_dict = OrderedDict()
         years = sorted(self._years.keys())
         for year in years:
@@ -212,8 +230,9 @@ class Calendar(NestedSerializable):
             if year_dict:
                 years_dict[calendar_year.name] = year_dict
         if years_dict:
-            return {self.YEARS_KEY: years_dict}
-        return {}
+            dict_repr[self.YEARS_KEY] = years_dict
+
+        return dict_repr
 
     @classmethod
     def from_dict(cls, dict_repr, task_root):
@@ -231,5 +250,10 @@ class Calendar(NestedSerializable):
         for year_name, year_dict in years_dict.items():
             calendar._add_year(
                 CalendarYear.from_dict(year_dict, calendar, year_name)
+            )
+        repeat_items_list = dict_repr.get(cls.REPEAT_ITEMS_KEY, [])
+        for repeat_item_dict in repeat_items_list:
+            calendar._repeat_items.append(
+                RepeatCalendarItem.from_dict(repeat_item_dict, calendar)
             )
         return calendar

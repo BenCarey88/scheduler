@@ -99,10 +99,11 @@ class TaskCategoryModel(BaseTreeModel):
                 return False
             modifiers = QtWidgets.QApplication.keyboardModifiers()
             if modifiers == QtCore.Qt.KeyboardModifier.ControlModifier:
-                if self.tree_manager.siblings_are_selected_for_filtering(item):
-                    self.tree_manager.unfilter_siblings(item)
+                self.tree_manager.unfilter_item(item)
+                if self.tree_manager.ancestor_sibs_selected_for_filter(item):
+                    self.tree_manager.unfilter_ancestoral_siblings(item)
                 else:
-                    self.tree_manager.filter_siblings(item)
+                    self.tree_manager.filter_ancestoral_siblings(item)
             else:
                 if self.tree_manager.is_selected_for_filtering(item):
                     self.tree_manager.unfilter_item(item)

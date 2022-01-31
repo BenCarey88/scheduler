@@ -8,16 +8,17 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
-from scheduler.api.edit.calendar_edit import ModifyCalendarItem
+from scheduler.api.edit.calendar_edit import ModifyCalendarItemDateTime
 from scheduler.api.timetable.calendar_item import (
     CalendarItem,
-    CalendarItemType
+    CalendarItemType,
+    RepeatCalendarItemInstance
 )
 from scheduler.api.timetable.calendar_period import CalendarWeek
 from scheduler.api.tree.task import Task
 
 from scheduler.ui.tabs.base_tab import BaseTab
-from scheduler.ui import utils
+from scheduler.ui import constants, utils
 
 from .calendar_item_dialog import CalendarItemDialog
 from .calendar_model import CalendarModel
@@ -217,12 +218,12 @@ class SelectedCalenderItem(object):
             orig_mouse_pos (QtCore.QPoint): mouse position that the selected
                 item started at.
         """
-        self.calendar_item = calendar_item
+        self._calendar_item = calendar_item
         self.orig_mouse_pos = orig_mouse_pos
         self.orig_start_time = calendar_item.start_time
         self.orig_end_time = calendar_item.end_time
         self.orig_date = calendar_item.date
-        self.edit = ModifyCalendarItem(
+        self.edit = ModifyCalendarItemDateTime(
             calendar,
             calendar_item
         )
@@ -235,7 +236,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current start time.
         """
-        return self.calendar_item.start_time
+        return self._calendar_item.start_time
 
     @property
     def end_time(self):
@@ -244,7 +245,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current end time.
         """
-        return self.calendar_item.end_time
+        return self._calendar_item.end_time
 
     @property
     def date(self):
@@ -253,7 +254,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current end time.
         """
-        return self.calendar_item.date
+        return self._calendar_item.date
 
     def change_time(self, new_start_datetime, new_end_datetime):
         """Change the time of the calendar item.
@@ -270,6 +271,19 @@ class SelectedCalenderItem(object):
     def deselect(self):
         """Call when we've finished using this item."""
         self.edit.end_continuous_run()
+
+    def get_calendar_item_to_modify(self):
+        """Get the calendar item to open with the calendar item dialog.
+
+        Returns:
+            (BaseCalendarItem): either the calendar item, or the repeat item
+                that it's an instance of, in the case of repeat calendar item
+                instances.
+        """
+        if isinstance(self._calendar_item, CalendarItem):
+            return self._calendar_item
+        elif isinstance(self._calendar_item, RepeatCalendarItemInstance):
+            return self._calendar_item.repeat_calendar_item
 
 
 class CalendarView(QtWidgets.QTableView):
@@ -312,6 +326,7 @@ class CalendarView(QtWidgets.QTableView):
             QtWidgets.QHeaderView.ResizeMode.Fixed
         )
         self.resize_table()
+        self.startTimer(constants.LONG_TIMER_INTERVAL)
 
     def set_to_week(self, week):
         """Set view to use given week.
@@ -563,17 +578,35 @@ class CalendarView(QtWidgets.QTableView):
         date = self.date_from_column(column)
         return DateTime.from_date_and_time(date, time)
 
-    def get_item_rects(self):
+    # TODO: make proper exception class for this func. Also maybe find more
+    # efficient way to do this (eg. separate item attrs in CalendarDay?)
+    def get_item_rects(self, background_only=False, foreground_only=False):
         """Get all qt rectangles to display for calendar items.
+
+        Args:
+            background_only (bool): if True, only return background items.
+            foreground_only (bool): if True, only return foreground items.
+
+        Raises:
+            (Exception): if both background_only and foreground_only are True.
 
         Yields:
             (QtCore.QRectF): rectangle for a given calendar item.
             (CalendarItem): the corresponding calendar item.
         """
+        if background_only and foreground_only:
+            raise Exception(
+                "Cannot call get_item_rects with both background_only "
+                "and foreground_only flags set to True."
+            )
         for i, calendar_day in enumerate(self.calendar_week.iter_days()):
             rect_x = self.columnViewportPosition(i)
             rect_width = self.columnWidth(i)
             for calendar_item in calendar_day.iter_calendar_items():
+                if foreground_only and calendar_item.is_background:
+                    continue
+                elif background_only and not calendar_item.is_background:
+                    continue
                 time_start = calendar_item.start_time
                 time_end = calendar_item.end_time
                 rect_y = self.y_pos_from_time(time_start)
@@ -602,6 +635,120 @@ class CalendarView(QtWidgets.QTableView):
         super(CalendarView, self).resizeEvent(event)
         self.resize_table()
 
+    def timerEvent(self, event):
+        """Called every timer_interval.
+
+        This is used to repaint so that current time marker stays up to date.
+
+        Args:
+            event (QtCore.QEvent): the timer event.
+        """
+        self.viewport().update()
+
+    def _paint_item(self, painter, rect, item, border_size, alpha, rounding):
+        """Paint calendar item.
+
+        Args:
+            painter (QtGui.QPainter): qt painter object.
+            rect (QtCore.QRectF): rectangle to paint.
+            item (CalendarItem): calendar item we're painting.
+            border_size (int): size of border of items.
+            alpha (int): alpha value for colours.
+            rounding (int): amount of rounding for rects.
+        """
+        if item.type == CalendarItemType.TASK:
+            tree_item = item.tree_item
+            if tree_item and tree_item.colour:
+                brush_color = QtGui.QColor(*tree_item.colour, alpha)
+            else:
+                brush_color = QtGui.QColor(245, 245, 190, alpha)
+        else:
+            brush_color = QtGui.QColor(173, 216, 230, alpha)
+        brush = QtGui.QBrush(brush_color)
+        painter.setBrush(brush)
+
+        path = QtGui.QPainterPath()
+        rect.adjust(
+            border_size/2, border_size/2, -border_size/2, -border_size/2
+        )
+        path.addRoundedRect(rect, rounding, rounding)
+        painter.setClipPath(path)
+        painter.fillPath(path, painter.brush())
+        painter.strokePath(path, painter.pen())
+
+        padding = 10
+        text_height = 20
+        category_text_rect = None
+        time_text_rect = None
+        # TODO: neaten this whole bit
+        if rect.height() <= 2 * text_height + 3 * padding:
+            name_text_rect = rect.adjusted(
+                padding, 0, -padding, 0
+            )
+        elif (2 * text_height + 3 * padding <= rect.height() 
+                and rect.height() < 3 * text_height + 5 * padding):
+            name_text_rect = rect.adjusted(
+                padding,
+                padding,
+                -padding,
+                padding + text_height - rect.height(),
+            )
+            time_text_rect = rect.adjusted(
+                padding,
+                2 * padding + text_height,
+                -padding, 
+                2 * padding + 2 * text_height - rect.height()
+            )
+        else:
+            category_text_rect = rect.adjusted(
+                padding,
+                padding,
+                -padding,
+                padding + text_height - rect.height()
+            )
+            name_text_rect = rect.adjusted(
+                padding,
+                2 * padding + text_height,
+                -padding, 
+                2 * padding + 2 * text_height - rect.height()
+            )
+            time_text_rect = rect.adjusted(
+                padding,
+                3 * padding + 2 * text_height,
+                -padding,
+                3 * padding + 3 * text_height - rect.height()
+            )
+
+        if category_text_rect:
+            painter.drawText(
+                category_text_rect,
+                (
+                    QtCore.Qt.AlignmentFlag.AlignLeft|
+                    QtCore.Qt.AlignmentFlag.AlignVCenter
+                ),
+                str(item.category)
+            )
+        painter.drawText(
+            name_text_rect,
+            (
+                QtCore.Qt.AlignmentFlag.AlignLeft |
+                QtCore.Qt.AlignmentFlag.AlignVCenter
+            ),
+            str(item.name)
+        )
+        if time_text_rect:
+            painter.drawText(
+                time_text_rect,
+                (
+                    QtCore.Qt.AlignmentFlag.AlignLeft |
+                    QtCore.Qt.AlignmentFlag.AlignVCenter
+                ),
+                "{0} - {1}".format(
+                    item.start_time.string(),
+                    item.end_time.string()
+                )
+            )
+
     def paintEvent(self, event):
         """Override paint event to draw item rects and selection rect.
 
@@ -617,96 +764,27 @@ class CalendarView(QtWidgets.QTableView):
         pen = QtGui.QPen(QtGui.QColor(0,0,0), border_size)
         painter.setPen(pen)
 
-        # Calendar Item Rects
-        for rect, item in self.get_item_rects():
-            if item.type == CalendarItemType.TASK:
-                brush_color = QtGui.QColor(245, 245, 190)
-            else:
-                brush_color = QtGui.QColor(173, 216, 230)
-            brush = QtGui.QBrush(brush_color)
-            painter.setBrush(brush)
-
-            path = QtGui.QPainterPath()
-            rect.adjust(
-                border_size/2, border_size/2, -border_size/2, -border_size/2
+        # Calendar Item background rects
+        for rect, item in self.get_item_rects(background_only=True):
+            self._paint_item(
+                painter,
+                rect,
+                item,
+                border_size,
+                100,
+                1,
             )
-            path.addRoundedRect(rect, 5, 5)
-            painter.setClipPath(path)
-            painter.fillPath(path, painter.brush())
-            painter.strokePath(path, painter.pen())
 
-            padding = 10
-            text_height = 20
-            category_text_rect = None
-            time_text_rect = None
-            # TODO: neaten this whole bit
-            if rect.height() <= 2 * text_height + 3 * padding:
-                name_text_rect = rect.adjusted(
-                    padding, 0, -padding, 0
-                )
-            elif (2 * text_height + 3 * padding <= rect.height() 
-                    and rect.height() < 3 * text_height + 5 * padding):
-                name_text_rect = rect.adjusted(
-                    padding,
-                    padding,
-                    -padding,
-                    padding + text_height - rect.height(),
-                )
-                time_text_rect = rect.adjusted(
-                    padding,
-                    2 * padding + text_height,
-                    -padding, 
-                    2 * padding + 2 * text_height - rect.height()
-                )
-            else:
-                category_text_rect = rect.adjusted(
-                    padding,
-                    padding,
-                    -padding,
-                    padding + text_height - rect.height()
-                )
-                name_text_rect = rect.adjusted(
-                    padding,
-                    2 * padding + text_height,
-                    -padding, 
-                    2 * padding + 2 * text_height - rect.height()
-                )
-                time_text_rect = rect.adjusted(
-                    padding,
-                    3 * padding + 2 * text_height,
-                    -padding,
-                    3 * padding + 3 * text_height - rect.height()
-                )
-
-            if category_text_rect:
-                painter.drawText(
-                    category_text_rect,
-                    (
-                        QtCore.Qt.AlignmentFlag.AlignLeft|
-                        QtCore.Qt.AlignmentFlag.AlignVCenter
-                    ),
-                    str(item.category)
-                )
-            painter.drawText(
-                name_text_rect,
-                (
-                    QtCore.Qt.AlignmentFlag.AlignLeft |
-                    QtCore.Qt.AlignmentFlag.AlignVCenter
-                ),
-                str(item.name)
+        # Calendar Item foreground rects
+        for rect, item in self.get_item_rects(foreground_only=True):
+            self._paint_item(
+                painter,
+                rect,
+                item,
+                border_size,
+                255,
+                5,
             )
-            if time_text_rect:
-                painter.drawText(
-                    time_text_rect,
-                    (
-                        QtCore.Qt.AlignmentFlag.AlignLeft |
-                        QtCore.Qt.AlignmentFlag.AlignVCenter
-                    ),
-                    "{0} - {1}".format(
-                        item.start_time.string(),
-                        item.end_time.string()
-                    )
-                )
 
         # Selection Rect
         if self.selection_rect:
@@ -755,8 +833,12 @@ class CalendarView(QtWidgets.QTableView):
             event (QtCore.QEvent): the mouse press event.
         """
         pos = event.pos()
-        # item rects since drawn last are the ones we should click first
-        for rect, calendar_item in reversed(list(self.get_item_rects())):
+        # item rects drawn last are the ones we should click first
+        foreground_rects = list(self.get_item_rects(foreground_only=True))
+        foreground_rects.reverse()
+        background_rects = list(self.get_item_rects(background_only=True))
+        background_rects.reverse()
+        for rect, calendar_item in foreground_rects + background_rects:
             if rect.contains(pos):
                 self.selected_calendar_item = SelectedCalenderItem(
                     self.calendar,
@@ -805,11 +887,10 @@ class CalendarView(QtWidgets.QTableView):
             time_change = self.time_range_from_height(y_pos_change)
             orig_start = self.selected_calendar_item.orig_start_time
             orig_end = self.selected_calendar_item.orig_end_time
-            if (self.DAY_END - orig_end < time_change):
+            if (self.DAY_END - orig_end <= time_change):
                 time_change = self.DAY_END - orig_end
-            # TODO this bit isn't working:
-            elif (orig_start - self.DAY_START < time_change):
-                time_change = orig_start - self.DAY_START
+            elif (time_change <= self.DAY_START - orig_start):
+                time_change = self.DAY_START - orig_start
             new_start_time = orig_start + time_change
             new_end_time = orig_end + time_change
             if (new_start_time != self.selected_calendar_item.start_time
@@ -856,7 +937,7 @@ class CalendarView(QtWidgets.QTableView):
                     self.tree_root,
                     self.tree_manager,
                     self.calendar,
-                    self.selected_calendar_item.calendar_item,
+                    self.selected_calendar_item.get_calendar_item_to_modify(),
                     as_editor=True,
                 )
                 item_editor.exec()

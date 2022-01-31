@@ -58,14 +58,18 @@ class CalendarDay(BaseCalendarPeriod):
             calendar (Calendar): calendar root item.
             date (Date): date object.
             calendar_month (CalendarMonth or None): calendar month object.
+
+        Attrs:
+            _scheduled_items (list(BaseCalendarItem)): all calendar item
+                instances scheduled on this day.
         """
         super(CalendarDay, self).__init__(calendar)
         self._date = date
-        self._scheduled_items = []
         self._calendar_month = calendar_month or self.calendar.get_month(
             date.year,
             date.month
         )
+        self._scheduled_items = []
 
     @property
     def date(self):
@@ -99,10 +103,15 @@ class CalendarDay(BaseCalendarPeriod):
 
     def iter_calendar_items(self):
         """Iterate through scheduled calendar items.
-        
+
+        This includes repeat instances as well.
+
         Yields:
             (CalendarItem): next calendar item.
         """
+        for repeat_item in self.calendar._repeat_items:
+            for item_instance in repeat_item.instances_at_date(self.date):
+                yield item_instance
         for item in self._scheduled_items:
             yield item
 
@@ -276,6 +285,28 @@ class CalendarWeek(BaseCalendarPeriod):
         return CalendarWeek(
             self.calendar,
             self.start_date - TimeDelta(days=Date.NUM_WEEKDAYS)
+        )
+
+    def week_starting_next_day(self):
+        """Get calendar week starting one day later than this one.
+
+        Returns:
+            (CalendarWeek): calendar week starting a day later than this one.
+        """
+        return CalendarWeek(
+            self.calendar,
+            self.start_date + TimeDelta(days=1)
+        )
+
+    def week_starting_prev_day(self):
+        """Get calendar week starting one day earlier than this one.
+
+        Returns:
+            (CalendarWeek): calendar week starting a day earlier than this one.
+        """
+        return CalendarWeek(
+            self.calendar,
+            self.start_date - TimeDelta(days=1)
         )
 
     def to_dict(self):

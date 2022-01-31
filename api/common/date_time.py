@@ -3,6 +3,7 @@
 import calendar
 import datetime
 import math
+import re
 
 
 class DateTimeError(Exception):
@@ -279,6 +280,96 @@ class TimeDelta(object):
         self._check_no_years_or_months()
         return self._timedelta_obj.total_seconds()
 
+    def string(self, date_only=False, time_only=False):
+        """Get string representation of self for serialization purposes.
+
+        Args:
+            date_only (bool): if True, the string only represents the date
+                part of the timedelta.
+            time_only (bool): if True, the string only represents the time
+                part of the timedelta.
+
+        Returns:
+            (str): string representation.
+        """
+        if date_only and time_only:
+            raise DateTimeError(
+                "Cannot use TimeDelta string method with both date_only and "
+                "time_only flags on."
+            )
+
+        attr_str = ""
+        comma_if_needed = lambda string : ", " if string else ""
+
+        if not time_only:
+            if self._years:
+                attr_str += "{0}years={1}".format(
+                    comma_if_needed(attr_str),
+                    self._years
+                )
+            if self._months:
+                attr_str += "{0}months={1}".format(
+                    comma_if_needed(attr_str),
+                    self._months
+                )
+            if self._timedelta_obj.days:
+                attr_str += "{0}days={1}".format(
+                    comma_if_needed(attr_str),
+                    self._timedelta_obj.days
+                )
+
+        if not date_only:
+            total_seconds = self._timedelta_obj.seconds
+            if self._timedelta_obj.seconds:
+                hours = int(total_seconds / 3600)
+                remaining_seconds = total_seconds % 3600
+                minutes = int(remaining_seconds / 60)
+                seconds = remaining_seconds % 60
+                if hours:
+                    attr_str += "{0}hours={1}".format(
+                        comma_if_needed(attr_str),
+                        hours
+                    )
+                if minutes:
+                    attr_str += "{0}minutes={1}".format(
+                        comma_if_needed(attr_str),
+                        minutes
+                    )
+                if seconds:
+                    attr_str += "{0}seconds={1}".format(
+                        comma_if_needed(attr_str),
+                        seconds
+                    )
+
+        attr_str = attr_str or "0"
+        return "TimeDelta({0})".format(attr_str)
+
+    @classmethod
+    def from_string(cls, string):
+        """Get TimeDelta object from string.
+
+        Args:
+            string (str): the string to initialise from. This should be in
+                the same format as the one given by the string method.
+
+        Returns:
+            (TimeDelta): time delta described by string.
+        """
+        if string == "TimeDelta(0)":
+            return cls()
+        arg_string = "(years|months|days|hours|minutes|seconds)=\d+"
+        match_string = r"TimeDelta\(({0}, )*({0})\)".format(arg_string)
+        if not re.match(match_string, string):
+            raise DateTimeError(
+                "String {0} not in correct format for TimeDelta "
+                "deserialization".format(string)
+            )
+        kwargs = {}
+        for match in re.finditer(arg_string, string):
+            name, value = match[0].split("=")
+            kwargs[name] = int(value)
+        return cls(**kwargs)
+
     def __repr__(self):
         """Override string representation of self.
 
@@ -444,7 +535,7 @@ class BaseDateTimeWrapper(object):
         elif isinstance(
                 date_time, (datetime.datetime, datetime.date, datetime.time)):
             return self._datetime_obj != date_time
-        return False
+        return True
 
     def __lt__(self, date_time):
         """Compare to other date time.
@@ -759,7 +850,7 @@ class Date(BaseDateTimeWrapper):
         Returns:
             (str): weekday string.
         """
-        return self.weekday_string_from_int(self.weekday)
+        return self.weekday_string_from_int(self.weekday, short=short)
 
     def month_string(self, short=True):
         """Get string representing month.
@@ -770,7 +861,7 @@ class Date(BaseDateTimeWrapper):
         Returns:
             (str): month string.
         """
-        return self.month_string_from_int(self.month)
+        return self.month_string_from_int(self.month, short=short)
 
     def ordinal_string(self):
         """Get day ordinal (eg. 1st, 2nd 3rd etc.).

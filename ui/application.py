@@ -6,13 +6,18 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants as api_constants
-from scheduler.api.common.date_time import Date
+from scheduler.api.common.date_time import Date, Time
 from scheduler.api.timetable.calendar import Calendar
 from scheduler.api.timetable.tracker import Tracker
 from scheduler.api.edit import edit_log
 from scheduler.api.tree.task_root import TaskRoot
 
-from .constants import CANCEL_BUTTON, NO_BUTTON, TIMER_INTERVAL, YES_BUTTON
+from .constants import (
+    CANCEL_BUTTON,
+    NO_BUTTON,
+    SHORT_TIMER_INTERVAL,
+    YES_BUTTON
+)
 
 from .tabs.calendar_tab import CalendarTab
 from .tabs.notes_tab import NotesTab
@@ -35,14 +40,14 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.resize(1600, 800)
 
         self.tree_root = TaskRoot.from_directory(
-            api_constants.SCHEDULER_TASKS_DIRECTORY
+            api_constants.TASKS_DIRECTORY
         )
         self.calendar = Calendar.from_directory(
-            api_constants.SCHEDULER_CALENDAR_DIRECTORY,
+            api_constants.CALENDAR_DIRECTORY,
             self.tree_root
         )
         self.tracker = Tracker.from_file(
-            api_constants.SCHEDULER_TRACKER_FILE,
+            api_constants.TRACKER_FILE,
             self.tree_root
         )
 
@@ -51,7 +56,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.setup_menu()
         self.saved_edit_id = edit_log.latest_edit_id()
         self.autosaved_edit_id = edit_log.latest_edit_id()
-        self.startTimer(TIMER_INTERVAL)
+        self.startTimer(SHORT_TIMER_INTERVAL)
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
@@ -89,6 +94,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         )
 
         self.tabs_widget.currentChanged.connect(self.change_tab)
+        self.tabs_widget.setCurrentIndex(1)
 
     # TODO: neaten up args for this? Maybe add calendar to everything? 
     # Or remove this function altogether?
@@ -174,10 +180,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             self.tree_root.write()
             # TODO: make calendar and tree root save consistent
             self.calendar.write(
-                api_constants.SCHEDULER_CALENDAR_DIRECTORY
+                api_constants.CALENDAR_DIRECTORY
             )
             self.tracker.write(
-                api_constants.SCHEDULER_TRACKER_FILE
+                api_constants.TRACKER_FILE
             )
             self.saved_edit_id = edit_log.latest_edit_id()
         self.notes_tab.save()
@@ -201,13 +207,13 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """Autosave backup file if needed."""
         if self.autosaved_edit_id != edit_log.latest_edit_id():
             self.tree_root.write(
-                api_constants.SCHEDULER_TASKS_AUTOSAVES_DIRECTORY
+                api_constants.TASKS_AUTOSAVES_DIRECTORY
             )
             self.calendar.write(
-                api_constants.SCHEDULER_CALENDAR_AUTOSAVES_DIRECTORY
+                api_constants.CALENDAR_AUTOSAVES_DIRECTORY
             )
             self.tracker.write(
-                api_constants.SCHEDULER_TRACKER_AUTOSAVES_FILE
+                api_constants.TRACKER_AUTOSAVES_FILE
             )
             self.autosaved_edit_id = edit_log.latest_edit_id()
 

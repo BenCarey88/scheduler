@@ -1,31 +1,31 @@
 """Filters for items in timetable."""
 
-from timetable_item import TimetableItemType
+from .calendar_item import CalendarItemType
 
 
 class BaseFilter(object):
     """Base filter (does nothing)."""
-    def filter_function(self, timetable_items):
-        return timetable_items
+    def filter_function(self, calendar_items):
+        return calendar_items
 
 
-class NoTaskEvents(BaseFilter):
-    """Filter to only non-task events."""
-    def filter_function(self, timetable_items):
+class NoTaskItems(BaseFilter):
+    """Filter to only non-task items."""
+    def filter_function(self, calendar_items):
         filtered_list = []
-        for event in timetable_items:
-            if event.type != TimetableItemType.Task:
-                filtered_list.append(timetable_items)
+        for item in calendar_items:
+            if item.type != CalendarItemType.Task:
+                filtered_list.append(calendar_items)
         return filtered_list
 
 
 class OnlyTaskEvents(BaseFilter):
     """Filter to only include task events."""
-    def filter_function(self, timetable_items):
+    def filter_function(self, calendar_items):
         filtered_list = []
-        for event in timetable_items:
-            if event.type == TimetableItemType.Task:
-                filtered_list.append(timetable_items)
+        for event in calendar_items:
+            if event.type == CalendarItemType.Task:
+                filtered_list.append(calendar_items)
         return filtered_list
 
 
@@ -41,16 +41,18 @@ class TaskTreeFilter(BaseFilter):
         self.tree_root = tree_root
         self.tree_filters = tree_filters
 
-    def filter_function(self, timetable_items):
+    def filter_function(self, calendar_items):
         """If event is a task that's not in the filtered tree, remove it."""
         filtered_list = []
-        for event in timetable_items:
-            if event.type == TimetableItemType.Task:
-                with self.tree_root.filter(self.tree_filters):
-                    tree_item = event.tree_item
-                    if not tree_item:
-                        continue
-                    if not self.tree_root.get_item_at_path(tree_item.path):
-                        continue
-            filtered_list.append(event)
+        for item in calendar_items:
+            if item.type == CalendarItemType.Task:
+                tree_item = item.tree_item
+                if not tree_item:
+                    continue
+                if tree_item.parent:
+                    parent = tree_item.parent
+                    with parent.filter_children(self.tree_filters):
+                        if not parent.get_child(tree_item.name):
+                            continue
+            filtered_list.append(item)
         return filtered_list

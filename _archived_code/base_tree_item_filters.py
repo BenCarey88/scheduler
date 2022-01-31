@@ -1,11 +1,22 @@
-"""Base tree item class."""
+### ARCHIVED ###
+"""This is an old version of the BaseTreeItem class.
+
+It is saved because specifically for the changes to the filter_children method
+and the corresponding decorator, which in theory could be applied to all the
+getter methods, which might allow the entire tree to be filtered, so that for
+eg. task_root.get_item_at_path() could be effected by filters even if only the
+task root has the filter_children contextmanager applied.
+
+Not sure if this is what we want/has other risks associated, and may be a bit
+slow so I'm not using it for now.
+"""
+
 
 from abc import ABC
 from collections import OrderedDict
 from contextlib import contextmanager
 from uuid import uuid4
 
-from scheduler.api.constants import TASK_COLOURS
 from scheduler.api.edit.tree_edit import (
     AddChildrenEdit,
     InsertChildrenEdit,
@@ -43,6 +54,7 @@ class BaseTreeItem(ABC):
         self._children = OrderedDict()
         self._register_edits = True
         self.id = id or uuid4()
+        self._filters = []
         # base class must be overridden, has no allowed child types.
         # TODO: this feels like a class property rather than an instance one
         self.allowed_child_types = []
@@ -127,39 +139,57 @@ class BaseTreeItem(ABC):
         """
         return self.TREE_PATH_SEPARATOR.join(self.path_list)
 
-    # TODO: does this belong here?
-    @property
-    def colour(self):
-        """Get colour of tree item.
-
-        Returns:
-            (tuple(int) or None): rgb colour of item, if defined.
-        """
-        if self.name in TASK_COLOURS:
-            return TASK_COLOURS.get(self.name)
-        if self.parent:
-            return self.parent.colour
-        return None
-
     @contextmanager
-    def filter_children(self, filters):
+    def filter_children(self, filters=None):
         """Contextmanager to filter _children dict temporarily.
 
         This uses the child filters defined in the filters module.
 
         Args:
-            filters (list(BaseFilter)): types of filtering required.
+            filters (list(BaseFilter) or None): types of filtering required.
+                If None, we use self._filters.
         """
+        if not filters and not self._filters:
+            return
         _children = self._children
+        _orig_filters = self._filters
+        if filters is not None:
+            self._filters = list(set(_orig_filters + filters))
+
         try:
-            for child_filter in filters:
+            for child_filter in self._filters:
                 self._children = child_filter.filter_function(
                     self._children,
                     self
                 )
+                orig_filters = {}
+                for child in self._children.values():
+                    orig_filters[child.id] = child._filters
+                    child._filters = child._filters + self._filters
             yield
         finally:
+            for child in self._children.values():
+                child._filters = orig_filters[child.id]
             self._children = _children
+            self._filters = _orig_filters
+
+    @staticmethod
+    def _filter_decorator(func):
+        """Convenience decorator to add filter to getter methods.
+
+        This returns the function but with the filter_children contextmanager
+        applied first.
+
+        Args:
+            func (function): function to decorate.
+
+        Returns:
+            (function): decorated func.
+        """
+        def decorated_func(self, *args, **kwargs):
+            with self.filter_children():
+                return func(*args, **kwargs)
+        return decorated_func
 
     def create_child(
             self,
@@ -439,6 +469,7 @@ class BaseTreeItem(ABC):
             new_child._children[grandchild_copy.name] = grandchild_copy
         self.replace_child(child_name, new_child)
 
+    @_filter_decorator
     def get_child(self, name):
         """Get child by name.
 
@@ -450,6 +481,7 @@ class BaseTreeItem(ABC):
         """
         return self._children.get(name, None)
 
+    @_filter_decorator
     def get_child_at_index(self, index):
         """Get child by index.
 
@@ -463,6 +495,7 @@ class BaseTreeItem(ABC):
             return list(self._children.values())[index]
         return None
 
+    @_filter_decorator
     def get_all_children(self):
         """Get all children of this item.
 
@@ -471,6 +504,7 @@ class BaseTreeItem(ABC):
         """
         return list(self._children.values())
 
+    @_filter_decorator
     def get_all_siblings(self):
         """Get all siblings of this item.
 
@@ -485,6 +519,7 @@ class BaseTreeItem(ABC):
             ]
         return []
 
+    @_filter_decorator
     def num_children(self):
         """Get number of children of this item.
 
@@ -493,6 +528,7 @@ class BaseTreeItem(ABC):
         """
         return len(self._children)
 
+    @_filter_decorator
     def num_descendants(self):
         """Get number of descendants of this item.
 
@@ -503,6 +539,7 @@ class BaseTreeItem(ABC):
             (child.num_descendants() + 1) for child in self._children.values()
         ])
 
+    @_filter_decorator
     def index(self):
         """Get index of this item as a child of its parent.
 
@@ -520,6 +557,7 @@ class BaseTreeItem(ABC):
         except ValueError:
             return None
 
+    @_filter_decorator
     def is_leaf(self):
         """Return whether or not this item is a leaf (ie has no children).
 
@@ -528,6 +566,7 @@ class BaseTreeItem(ABC):
         """
         return not bool(self._children)
 
+    @_filter_decorator
     def is_ancestor(self, other_tree_item):
         """Check if this item is an ancestor of another item.
 
@@ -539,6 +578,7 @@ class BaseTreeItem(ABC):
         """
         return other_tree_item.path.startswith(self.path)
 
+    @_filter_decorator
     def get_descendants_with_incorrect_parents(
             self,
             parent=None,

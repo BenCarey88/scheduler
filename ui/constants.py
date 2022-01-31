@@ -12,7 +12,8 @@ TASK_STATUS_CHECK_STATES = OrderedDict([
     (TaskStatus.IN_PROGRESS, 1),
     (TaskStatus.COMPLETE, 2)
 ])
-TIMER_INTERVAL = 30000  # every 30s
+SHORT_TIMER_INTERVAL = 30000  # every 30s
+LONG_TIMER_INTERVAL = 300000 # every 5 mins
 
 # Colors
 BASE_TEXT_COLOR = QtGui.QColor(0, 0, 0)

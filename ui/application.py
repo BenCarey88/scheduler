@@ -6,6 +6,7 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants as api_constants
+from scheduler.api import utils as api_utils
 from scheduler.api.common.date_time import Date, Time
 from scheduler.api.timetable.calendar import Calendar
 from scheduler.api.timetable.tracker import Tracker
@@ -26,7 +27,7 @@ from .tabs.tracker_tab import TrackerTab
 from .tabs.suggestions_tab import SuggestionsTab
 
 from .models.tree_manager import TreeManager
-from .utils import custom_message_dialog, set_style
+from .utils import custom_message_dialog, set_style, simple_message_dialog
 from .widgets.outliner import Outliner
 
 
@@ -244,9 +245,17 @@ class SchedulerWindow(QtWidgets.QMainWindow):
                 event.ignore()
                 return
             if result == YES_BUTTON:
-                self.tree_root.write()
-                self.notes_tab.save()
+                self.save()
             event.accept()
+
+        error = api_utils.backup_git_repo(api_constants.SCHEDULER_DIRECTORY)
+        if error:
+            simple_message_dialog(
+                "Git backup failed for {0}".format(
+                    api_constants.SCHEDULER_DIRECTORY
+                ),
+                informative_text=error
+            )
         super(SchedulerWindow, self).closeEvent(event)
 
 

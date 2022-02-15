@@ -2,7 +2,10 @@
     "owner": "Ben Carey",
     "name": "scheduler",
     "version": "1.1.1",
-    "dependencies": ["PyQt5"],
+    "dependencies": [
+        "PyQt5",
+        "GitPython"
+    ],
     "ignore_patterns": [
         "_archived_code",
         "notes"

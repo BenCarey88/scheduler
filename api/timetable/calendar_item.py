@@ -227,6 +227,48 @@ class CalendarItemRepeatPattern(NestedSerializable):
             else:
                 break
 
+    def summary_string(self):
+        """Get string summarising the repeat pattern to display in ui.
+
+        Return:
+            (str): string summarising the repeat pattern
+        """
+        num_days = len(self._initial_date_pattern)
+        if num_days == 1:
+            num_days_string ="Once"
+        elif num_days == 2:
+            num_days_string = "Twice"
+        else:
+            num_days_string = "{0} times".format(num_days)
+
+        def get_repeat_time_string(repeat_type, gap_size):
+            if gap_size == 1:
+                return "a {0}".format(repeat_type)
+            return "every {0} {1}s".format(gap_size, repeat_type)
+
+        if self.repeat_type == self.DAY_REPEAT:
+            repeat_time_string = get_repeat_time_string(
+                "day",
+                self._gap.days
+            )
+        elif self.repeat_type == self.WEEK_REPEAT:
+            repeat_time_string = get_repeat_time_string(
+                "week",
+                int(self._gap.days / Date.NUM_WEEKDAYS)
+            )
+        elif self.repeat_type == self.MONTH_REPEAT:
+            repeat_time_string = get_repeat_time_string(
+                "month",
+                self._gap.months
+            )
+        elif self.repeat_type == self.WEEK_REPEAT:
+            repeat_time_string = get_repeat_time_string(
+                "year",
+                self._gap.years
+            )
+
+        return "{0} {1}".format(num_days_string, repeat_time_string)
+
     def to_dict(self):
         """Return dictionary representation of class.
 

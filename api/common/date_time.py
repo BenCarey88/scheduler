@@ -271,6 +271,30 @@ class TimeDelta(object):
         self._check_no_years_or_months()
         return self._timedelta_obj.days
 
+    @property
+    def months(self):
+        """Get number of months in time delta.
+
+        Note that this uses self._months and self._years. It does not
+        attempt to calculate additional months made up by extra days.
+
+        Returns:
+            (int): number of months.
+        """
+        return (self._years * Date.NUM_MONTHS) + self._months
+
+    @property
+    def years(self):
+        """Get number of years in time delta.
+
+        Note that this uses self._months and self._years. It does not
+        attempt to calculate additional years made up by extra days.
+
+        Returns:
+            (int): number of years.
+        """
+        return self._years + (self._months % Date.NUM_MONTHS)
+
     def total_seconds(self):
         """Get total number of seconds of time delta.
 

@@ -4,7 +4,7 @@
 from contextlib import contextmanager
 
 
-class EditLog(object):
+class _EditLog(object):
     """Log of user edits made in tool.
     
     Friend Classes: [BaseEdit]
@@ -168,7 +168,7 @@ class EditLog(object):
 # application, but remember that the singleton is also needed in the edit
 # classes, so that may be a ball-ache - would still def need to be a singleton
 # (because fuck passing the edit_log as an argument to each edit)
-EDIT_LOG = EditLog()
+EDIT_LOG = _EditLog()
 
 
 def open_edit_registry():
@@ -178,7 +178,7 @@ def open_edit_registry():
 
 def undo():
     """Run undo on edit log singleton.
-    
+
     Returns:
         (bool): whether or not undo was performed.
     """

@@ -7,8 +7,11 @@ this release:
 
 next release:
 =============
+* investigate calendar saving bug + slowness
 * background items cannot be moved and need double click to edit?
-* nicer text for background items
+* nicer look for background items
+    - no border
+    - no text (except maybe scrollover) - or choose if there's text
 * cross top-right and checkbox top-left of calendar items
 
 * git scripts for automatically backing up the data

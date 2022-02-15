@@ -42,3 +42,53 @@ def add_key_at_start(ordered_dict, key, value):
         for i in range(len(ordered_dict) - 1):
             k, v = ordered_dict.popitem(last=False)
             ordered_dict[k] = v
+
+
+def backup_git_repo(repo_path, commit_message="backup"):
+    """Attempt to commit and push all files in git repo at given path.
+
+    Args:
+        repo_path (str): path to local git repository.
+        commit_message (str or None): message for commit.
+
+    Returns:
+        (str or None): error message, if save was unsuccessful.
+    """
+    try:
+        import git
+    except ImportError:
+        return (
+            "Could not import GitPython module. Ensure python version >= 3.7 "
+            "and this is installed."
+        )
+    try:
+        git_repo = git.Repo(repo_path)
+    except git.exc.InvalidGitRepositoryError:
+        return "Directory {0} is not a valid git repo".format(repo_path)
+    modified_files = git_repo.git.diff(None, name_only=True).split("\n")
+    untracked_files = git_repo.untracked_files
+    for file_ in modified_files + untracked_files:
+        try:
+            git_repo.git.add(file_)
+        except git.exc.GitCommandError as e:
+            return "Git error when staging file {0} in repo {1}:\n{2}".format(
+                file_,
+                repo_path,
+                e.stderr
+            )
+    try:
+        git_repo.git.commit("-m", commit_message)
+    except git.exc.GitCommandError as e:
+        return "Git error when committing changes for repo {1}:\n{2}".format(
+            repo_path,
+            e.stderr
+        )
+    try:
+        git_repo.git.push()
+    except git.exc.GitCommandError as e:
+        return "Git error when pushing changes for repo {1}:\n{2}".format(
+            repo_path,
+            e.stderr
+        )
+
+    return None

@@ -8,6 +8,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api import constants as api_constants
 from scheduler.api import utils as api_utils
 from scheduler.api.common.date_time import Date, Time
+from scheduler.api.common import user_prefs
 from scheduler.api.timetable.calendar import Calendar
 from scheduler.api.timetable.tracker import Tracker
 from scheduler.api.edit import edit_log
@@ -33,6 +34,8 @@ from .widgets.outliner import Outliner
 
 class SchedulerWindow(QtWidgets.QMainWindow):
     """Scheduler window class."""
+    CURRENT_TAB_PREF = "current_tab"
+    SPLITTER_SIZES = "splitter_sizes"
 
     def __init__(self, *args, **kwargs):
         """Initialise main window."""
@@ -70,6 +73,11 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         splitter.addWidget(self.outliner_stack)
         splitter.addWidget(self.tabs_widget)
 
+        splitter.splitterMoved.connect(self.on_splitter_moved)
+        splitter.setSizes(
+            user_prefs.get_app_user_pref(self.SPLITTER_SIZES, [1, 1])
+        )
+
         self.tasks_tab = self.create_tab_and_outliner(
             "Tasks",
             TaskTab
@@ -94,8 +102,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             NotesTab
         )
 
-        self.tabs_widget.currentChanged.connect(self.change_tab)
-        self.tabs_widget.setCurrentIndex(1)
+        self.tabs_widget.currentChanged.connect(self.on_tab_changed)
+        self.tabs_widget.setCurrentIndex(
+            user_prefs.get_app_user_pref(self.CURRENT_TAB_PREF, 0)
+        )
 
     # TODO: neaten up args for this? Maybe add calendar to everything? 
     # Or remove this function altogether?
@@ -141,14 +151,27 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         redo_action = edit_menu.addAction("Redo")
         redo_action.triggered.connect(self.redo)
 
-    def change_tab(self, index):
+    def on_tab_changed(self, index):
         """Called when changing to different tab.
-        
+
         Args:
             index (int): index of new tab.
         """
+        user_prefs.set_app_user_pref(self.CURRENT_TAB_PREF, index)
         self.outliner_stack.setCurrentIndex(index)
         self.tabs_widget.currentWidget().update()
+
+    def on_splitter_moved(self, new_pos, index):
+        """Called when splitter is moved.
+
+        Args:
+            new_pos (int): new position of splitter.
+            index (int): index of splitter moved.
+        """
+        user_prefs.set_app_user_pref(
+            self.SPLITTER_SIZES,
+            [self.outliner_stack.width(), self.tabs_widget.width()]
+        )
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
@@ -173,7 +196,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             if event.key() == QtCore.Qt.Key_Z:
                 self.redo()
 
-        super(SchedulerWindow, self).keyPressEvent(event)
+        return super(SchedulerWindow, self).keyPressEvent(event)
 
     def save(self):
         """Save scheduler data."""
@@ -233,6 +256,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             event (QtCore.QEvent): the close event.
         """
         self._autosave()
+        user_prefs.save_app_user_prefs()
         if self.saved_edit_id != edit_log.latest_edit_id():
             result = custom_message_dialog(
                 "Unsaved Changes",

@@ -8,7 +8,7 @@ import os
 import shutil
 import tempfile
 
-from .date_time import BaseDateTimeWrapper
+from .date_time import BaseDateTimeWrapper, TimeDelta
 
 
 class SerializationError(Exception):
@@ -79,6 +79,109 @@ class BaseSerializable(ABC):
     """
     _SAVE_TYPE = SaveType.FILE
     _DICT_TYPE = dict
+
+    ### Type Serialization ###
+    @classmethod
+    def serialize(cls, object, *args, **kwargs):
+        """Serialize object so it's json compatible.
+
+        Note that some serializable classes will want to override this method
+        or use their own to allow for custom / more readable serializations.
+        eg. task attributes as calendar items should be serialized as tree
+        paths, rather than a copy of the entire task dictionary.
+
+        Args:
+            object (variant): object to serialize. The following types are
+                supported: str, dict, list, float, int or bool (already
+                serialized), Date, DateTime, Time, TimeDelta, BaseSerializable
+            *args (list): optional args, allowed for some types.
+            **kwargs (dict): optional kwargs, allowed for some types.
+
+        Returns:
+            (str, dict, list, tuple, float, int or bool): serialized object.
+        """
+        if isinstance(object, (str, float, int, bool, tuple)):
+            return object
+        if isinstance(object, list):
+            return_list = []
+            for item in object:
+                return_list.append(cls.serialize(item, *args, **kwargs))
+            return return_list
+        if isinstance(object, dict):
+            return_dict = type(object)()
+            for key, value in object.items():
+                return_dict[cls.serialize(key, *args, **kwargs)] = (
+                    cls.serialize(value, *args, **kwargs)
+                )
+        if isinstance(object, (BaseDateTimeWrapper, TimeDelta)):
+            return object.string(*args, **kwargs)
+        if isinstance(object, BaseSerializable):
+            return object.to_dict()
+        raise SerializationError(
+            "Cannot serialize objects of type {0}".format(str(type(object)))
+        )
+
+    @classmethod
+    def deserialize(cls, object, type_=None, *args, **kwargs):
+        """Deserialize json object to given type.
+
+        Args:
+            object (str, dict, list, float, int or bool): json object to
+                deserialize.
+            type_ (type, list, dict or None): type to deserialize to (can be
+                any of the defined options in serialize method). This argument
+                can also be a (potentially nested) list or dict of types, if
+                the object is correspondingly a list or dict: in this case, the
+                argument represents the types that the nested items should be
+                deserialized to. If type_ is None, it's assumed the object has
+                a standard json type.
+            **kwargs (dict): optional kwargs, allowed for some types.
+
+        Returns:
+            (variant): deserialized object.
+        """
+        if isinstance(type_, list):
+            if not isinstance(object, list):
+                raise SerializationError(
+                    "deserialize type_ argument can only be a list if its "
+                    "object argument is also a list."
+                )
+            return_list = []
+            for item, item_type in zip(object, type_):
+                return_list.append(
+                    cls.deserialize(item, item_type, *args, **kwargs)
+                )
+            return return_list
+
+        if isinstance(type_, dict):
+            if not isinstance(object, dict):
+                raise SerializationError(
+                    "deserialize type_ argument can only be a dict if its "
+                    "object argument is also a dict."
+                )
+            return_dict = []
+            for key, value in object.items():
+                value_type = type_.get(key)
+                key_type = None
+                # tuples tell us how to deserialize key as well
+                if isinstance(item_type, tuple):
+                    key_type = item_type[0]
+                    value_type = item_type[1]
+                return_dict[cls.deserialize(key, key_type, *args, **kwargs)] = (
+                    cls.deserialize(value, value_type, *args, **kwargs)
+                )
+            return return_dict
+
+        if (type_ is None or
+                issubclass(type_, (str, float, int, bool, tuple, list, dict))):
+            return object
+        if issubclass(type_, (BaseDateTimeWrapper, TimeDelta)):
+            return type_.from_string(object, *args, **kwargs)
+        if issubclass(type_, BaseSerializable):
+            return type_.from_dict(object, *args, **kwargs)
+        raise SerializationError(
+            "Cannot deserialize objects to type {0}".format(str(type_))
+        )
 
     ### Dict Read/Write ###
     # These must be reimplemented in subclasses

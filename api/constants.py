@@ -3,7 +3,7 @@
 import os
 
 SCHEDULER_FILES_DIR = os.path.normpath(
-    "/users/benca/OneDrive/Documents/pkgs-data/scheduler"
+    "/users/benca/OneDrive/Documents/pkg-data/Scheduler"
 )
 USER_PREFS_FILE = os.path.join(
     SCHEDULER_FILES_DIR, "user_prefs.json"

@@ -44,6 +44,21 @@ def add_key_at_start(ordered_dict, key, value):
             ordered_dict[k] = v
 
 
+def get_class_name_from_method(method):
+    """Get name of class that a given class method belongs to.
+
+    Args:
+        method (function): method of some class.
+
+    Returns:
+        (str): name of class.
+    """
+    if sys.version_info >= (3, 3):
+        return method.__qualname__.split(".")[0]
+    else:
+        return type(method.__im_class__).__name__
+
+
 def backup_git_repo(repo_path, commit_message="backup"):
     """Attempt to commit and push all files in git repo at given path.
 
@@ -65,9 +80,15 @@ def backup_git_repo(repo_path, commit_message="backup"):
         git_repo = git.Repo(repo_path)
     except git.exc.InvalidGitRepositoryError:
         return "Directory {0} is not a valid git repo".format(repo_path)
-    modified_files = git_repo.git.diff(None, name_only=True).split("\n")
+    modified_files = [
+        x for x in git_repo.git.diff(None, name_only=True).split("\n") if x
+    ]
     untracked_files = git_repo.untracked_files
-    for file_ in modified_files + untracked_files:
+    files_to_stage = modified_files + untracked_files
+    if not files_to_stage:
+        return None
+
+    for file_ in files_to_stage:
         try:
             git_repo.git.add(file_)
         except git.exc.GitCommandError as e:
@@ -79,14 +100,14 @@ def backup_git_repo(repo_path, commit_message="backup"):
     try:
         git_repo.git.commit("-m", commit_message)
     except git.exc.GitCommandError as e:
-        return "Git error when committing changes for repo {1}:\n{2}".format(
+        return "Git error when committing changes for repo {0}:\n{1}".format(
             repo_path,
             e.stderr
         )
     try:
         git_repo.git.push()
     except git.exc.GitCommandError as e:
-        return "Git error when pushing changes for repo {1}:\n{2}".format(
+        return "Git error when pushing changes for repo {0}:\n{1}".format(
             repo_path,
             e.stderr
         )

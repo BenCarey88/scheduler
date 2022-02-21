@@ -3,8 +3,13 @@
     "name": "scheduler",
     "version": "1.1.1",
     "dependencies": [
-        "PyQt5",
-        "GitPython"
+        "PyQt5"
+    ],
+    "optional_dependencies": [
+        "git",
+        "google",
+        "google_auth_oauth_lib",
+        "googleapiclient"
     ],
     "ignore_patterns": [
         "_archived_code",

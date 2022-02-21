@@ -54,6 +54,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             api_constants.TRACKER_FILE,
             self.tree_root
         )
+        self.project_user_prefs = user_prefs.ProjectUserPrefs.from_file_or_new(
+            user_prefs.
+        )
 
         edit_log.open_edit_registry()
         self.setup_tabs()
@@ -121,7 +124,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Returns:
             (QtWidgets.QTabWidget): the tab widgter.
         """
-        tab_tree_manager = TreeManager()
+        tab_tree_manager = TreeManager("{0}_tree_manager".format(tab_name))
         outliner = Outliner(self.tree_root, tab_tree_manager)
         self.outliner_stack.addWidget(outliner)
         tab = tab_class(

@@ -894,13 +894,14 @@ class Date(BaseDateTimeWrapper):
             (str): day ordinal.
         """
         day = self.day
-        if day == 1:
-            return "1st"
-        if day == 2:
-            return "2nd"
-        if day == 3:
-            return "3rd"
-        return "{0}th".format(self.day)
+        suffix = "th"
+        if day % 10 == 1 and day != 11:
+            suffix = "st"
+        if day % 10 == 2 and day != 12:
+            suffix = "nd"
+        if day % 10 == 3 and day != 13:
+            suffix = "rd"
+        return "{0}{1}".format(day, suffix)
 
 
 class Time(BaseDateTimeWrapper):

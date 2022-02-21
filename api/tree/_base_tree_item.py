@@ -47,16 +47,6 @@ class BaseTreeItem(ABC):
         # TODO: this feels like a class property rather than an instance one
         self.allowed_child_types = []
 
-    def __eq__(self, tree_item):
-        """Check if this item is equal to another item.
-
-        Returns:
-            (bool): whether the items are equal.
-        """
-        if isinstance(tree_item, BaseTreeItem):
-            return self.id == tree_item.id
-        return False
-
     # TODO: this is only here so it can be accessed in the drag-drop stuff to find
     # the root of any model bc we're into the super-hacky just get something that
     # works stage of release1. We can probably remove this function (and maybe

@@ -8,6 +8,7 @@ is being filtered for in the current tab.
 Data for each tree item is maintained via its unique id.
 """
 
+from scheduler.api.common import user_prefs
 from scheduler.api.tree.filters import NoFilter, RemoveChildrenById
 
 
@@ -42,10 +43,15 @@ class TreeManager(object):
     IS_FILTERED_OUT = "is_filtered_out"
     IS_EXPANDED = "is_expanded"
 
-    def __init__(self):
+    FILTERED_TASKS_PREF = "task_filters"
+
+    def __init__(self, name):
         """Initialise tree manager. Note that this class actually has no
         knowledge of the tree item itself, so needs to be used in conjunction
         with a tree root.
+
+        Args:
+            name (str): name of tree manager.
 
         Attributes:
             _tree_data (dict(str, dict)): additional tree data for each item,
@@ -53,8 +59,10 @@ class TreeManager(object):
             _filtered_items (set(str)): set of ids of items we're filtering
                 out.
         """
+        self._name = name
         self._tree_data = {}
         self._filtered_items = set()
+        self.set_items
 
     def get_attribute(self, tree_item, attribute, default):
         """Get the attribute for the given tree item.
@@ -78,6 +86,18 @@ class TreeManager(object):
             atttribute (str): attribute name.
             value (variant): value to set.
         """
+        # TODO: this doesn't work atm
+        # can't save by tree item id as doesn't persist across sessions, can't
+        # save by tree item path as may change within a session.
+        # could literally force tree item id to persist across sessions but
+        # may hit issues with new uuids no longer being guaranteed to be unique
+        # or could save by id, then switch out for path when it comes to saving
+        # the user prefs. But then need a registry somewhere of all tree items
+        # by id.
+        # user_prefs.set_project_user_pref(
+        #     [self._name, self.FILTERED_TASKS_PREF, tree_item.id, attribute],
+        #     value
+        # )
         item_dict = self._tree_data.setdefault(tree_item.id, {})
         item_dict[attribute] = value
 

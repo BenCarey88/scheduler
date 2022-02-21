@@ -7,6 +7,8 @@ from scheduler.api.common.serializable import (
     BaseSerializable,
     SerializationError
 )
+from scheduler.api.common.serializer import serialize_dict, deserialize_dict
+from scheduler.api.tree._base_tree_item import BaseTreeItem
 
 
 class UserPrefsError(Exception):
@@ -89,28 +91,53 @@ class _BaseUserPrefs(BaseSerializable):
         """Get user preference with given name.
 
         Args:
-            name (str): name of attribute to get.
+            name (str or list): name of attribute to get, or list of keys
+                representing path to attribute in dict.
             default (variant): default value to set, if wanted.
 
         Returns:
             (variant or None): the user prefs attribute if found.
         """
+        if isinstance(name, list):
+            dict_value = self._user_prefs_dict
+            for key in name:
+                dict_value = dict_value.get(key)
+                if not isinstance(dict_value, dict):
+                    break
+            return dict_value if dict_value is not None else default
         return self._user_prefs_dict.get(name, default)
 
     def set_attribute(self, name, value):
         """Set user preference with given name to given value.
 
         Args:
-            name (str): name of attribute to set.
-           value (variant): value to set.
+            name (str or list): name of attribute to set, or list of keys
+                representing path to attribute in dict.
+            value (variant): value to set.
         """
-        self._user_prefs_dict[name] = value
+        user_prefs_dict = self._user_prefs_dict
+        if isinstance(name, list):
+            if len(name) == 0:
+                return
+            for key in name[:-1]:
+                user_prefs_dict = user_prefs_dict.setdefault(key, {})
+                if not isinstance(user_prefs_dict, dict):
+                    return
+            name = name[-1]
+        user_prefs_dict[name] = value
 
     @classmethod
     def from_dict(cls, dictionary):
-        """Initialise class from dictionary."""
+        """Initialise class from dictionary.
+
+        Args:
+            dictionary (dict): Serialized dictionary.
+
+        Returns:
+            (_BaseUserPrefs): user prefs class instance.
+        """
         user_prefs = cls()
-        user_prefs._user_prefs_dict = dictionary
+        user_prefs._user_prefs_dict = deserialize_dict(dictionary)
         return user_prefs
 
     def to_dict(self):
@@ -119,14 +146,16 @@ class _BaseUserPrefs(BaseSerializable):
         Returns:
             (dict): Serialized dictionary.
         """
-        return self._user_prefs_dict
+        return serialize_dict(self._user_prefs_dict)
 
     @classmethod
-    def from_file_or_new(cls, file_path=None):
+    def from_file_or_new(cls, file_path=None, *args, **kwargs):
         """Load user prefs from file if exists, else create new user prefs.
 
         Args:
             file_path (str or None): path to try to load from, if given.
+            args (list): args to pass to from_file method.
+            kwargs (dict): kwargs to pass to from_file method.
 
         Returns:
             (_BaseUserPrefs): user prefs class instance.
@@ -134,7 +163,7 @@ class _BaseUserPrefs(BaseSerializable):
         if file_path is None:
             return cls()
         try:
-            user_prefs = cls.from_file(file_path)
+            user_prefs = cls.from_file(file_path, *args, **kwargs)
         except SerializationError:
             user_prefs = cls()
         user_prefs._file_path = file_path
@@ -160,22 +189,56 @@ class _AppUserPrefs(_BaseUserPrefs):
         """
         project_path = self._user_prefs_dict.get("active_project")
         if project_path is None:
-            return project_path
+            return None
         return os.path.join(
             project_path,
             "user_prefs.json"
         )
 
 
-class _ProjectUserPrefs(_BaseUserPrefs):
+class ProjectUserPrefs(_BaseUserPrefs):
     """Class for user preferences relating to a specific schedule project."""
+
+    def __init__(self, tree_root):
+        """Initialise project user prefs.
+
+        Args:
+            tree_root (TaskRoot): root of task tree for project.
+        """
+        self._tree_root = tree_root
+
+    @classmethod
+    def from_dict(cls, dictionary, tree_root):
+        """Initialise class from dictionary.
+
+        Args:
+            dictionary (dict): Serialized dictionary.
+            tree_root (TaskRoot): root of task tree for project.
+
+        Returns:
+            (ProjectUserPrefs): user prefs class instance.
+        """
+        user_prefs = cls()
+        user_prefs._user_prefs_dict = deserialize_dict(
+            dictionary,
+            tree_root=tree_root
+        )
+        return user_prefs
+
+    def to_dict(self):
+        """Create dict from class.
+
+        Returns:
+            (dict): Serialized dictionary.
+        """
+        return serialize_dict(
+            self._user_prefs_dict,
+            tree_root=self._tree_root
+        )
 
 
 APP_USER_PREFS = _AppUserPrefs.from_file_or_new(
     constants.USER_PREFS_FILE
-)
-PROJECT_USER_PREFS = _ProjectUserPrefs.from_file_or_new(
-    APP_USER_PREFS.project_user_prefs_file
 )
 
 
@@ -183,7 +246,8 @@ def get_app_user_pref(name, default=None):
     """Get app user preference with given name.
 
     Args:
-        name (str): name of attribute to get.
+        name (str or list): name of attribute to get, or list of keys
+            representing path to attribute in dict.
         default (variant): default value to set, if wanted.
 
     Returns:
@@ -196,7 +260,8 @@ def set_app_user_pref(name, value):
     """Set user preference with given name to given value.
 
     Args:
-        name (str): name of attribute to set.
+        name (str or list): name of attribute to set, or list of keys
+            representing path to attribute in dict.
         value (variant): value to set.
     """
     APP_USER_PREFS.set_attribute(name, value)
@@ -205,46 +270,3 @@ def set_app_user_pref(name, value):
 def save_app_user_prefs():
     """Save application user preferences."""
     APP_USER_PREFS.write()
-
-
-def update_project_user_prefs():
-    """Switch to the new project user prefs when active project is changed.
-
-    This assumes the active project has already been updated in the app user
-    preferences.
-    """
-    try:
-        PROJECT_USER_PREFS.write()
-    except UserPrefsError:
-        pass
-    PROJECT_USER_PREFS = _ProjectUserPrefs.from_file_or_new(
-        APP_USER_PREFS.project_user_prefs_file
-    )
-
-
-def get_project_user_pref(name, default=None):
-    """Get app user preference with given name.
-
-    Args:
-        name (str): name of attribute to get.
-        default (variant): default value to set, if wanted.
-
-    Returns:
-        (variant or None): the user prefs attribute if found.
-    """
-    return PROJECT_USER_PREFS.get_attribute(name, default)
-
-
-def set_project_user_pref(name, value):
-    """Set user preference with given name to given value.
-
-    Args:
-        name (str): name of attribute to set.
-        value (variant): value to set.
-    """
-    PROJECT_USER_PREFS.set_attribute(name, value)
-
-
-def save_project_user_prefs():
-    """Save project user preferences."""
-    PROJECT_USER_PREFS.write()

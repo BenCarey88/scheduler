@@ -105,7 +105,7 @@ class Outliner(QtWidgets.QTreeView):
             self._expand_item(child_index)
 
     def expand_items(self):
-        """Expand all items marked as expanded in tree_manager."""#
+        """Expand all items marked as expanded in tree_manager."""
         for i in range(self.root.num_children()):
             child_index = self._model.index(i, 0, QtCore.QModelIndex())
             self._expand_item(child_index)

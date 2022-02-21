@@ -81,6 +81,8 @@ class BaseSerializable(ABC):
     _DICT_TYPE = dict
 
     ### Type Serialization ###
+    # TODO: are these needed now that we have serializer module?
+    # Should they maybe use the _serializer module?
     @classmethod
     def serialize(cls, object, *args, **kwargs):
         """Serialize object so it's json compatible.

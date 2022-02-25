@@ -17,7 +17,7 @@ from .serializable import BaseSerializable
 
 class SerializableValue(object):
     """Struct to store an object along with the way we should serialize it."""
-    SERIALIZER_MARKER = "__SERIALIZER__: "
+    SERIALIZER_MARKER = "<__SERIALIZER__"
 
     def __init__(self, value, serializer=None, *args, **kwargs):
         """Initialize serializable obj.
@@ -62,48 +62,101 @@ class SerializableValue(object):
             "Cannot find serializer of type {0}".format(string)
         )
 
-    def serialize(self):
+    def serialize(self, as_key=False):
         """Serialize class instance as tuple, or as single value.
 
+        Args:
+            as_key (bool): if True, we serialize the item as a string.
+                Otherwise, we serialize it as a list. This flag should be
+                set to True whenever we're serializing dictionary keys, as
+                these can't be lists. Note that this means that all values
+                intended to be used as dictionary keys in a serialized file
+                must be serialized to strings.
+
         Returns:
-            tuple(variant, str) or variant: tuple containing object and
-                serializer, if a serializer is used, else just the value.
+            (list, str or variant): serialized item. If a serializer is used,
+                this is either a list containing the serialized value and then
+                the serializer. Otherwised, it's just the value.
         """
-        if self.serializer is None or self.serializer == BaseSerializer:
+        if type(self.serializer) == BaseSerializer:
             return self.value
-        return (
+        if as_key:
+            return "{0}{1}{2}>".format(
+                self.serializer.serialize(self.value),
+                self.SERIALIZER_MARKER,
+                self.serializer.string()
+            )
+        return [
             self.serializer.serialize(self.value),
-            "{0}{1}".format(self.SERIALIZER_MARKER, self.serializer.string())
+            "{0}{1}>".format(self.SERIALIZER_MARKER, self.serializer.string())
+        ]
+
+    @classmethod
+    def is_serialized_serializable_value(cls, json_obj, as_key=False):
+        """Check if json obj is a serialized SerializableValue class.
+
+        Args:
+            json_list (variant): serialized list object.
+            as_key (bool): whether we're checking if the object is key-
+                serialized (ie. serialized as a string) or list-serialized.
+
+        Returns:
+            (bool): whether or not list represents a serializable value class.
+        """
+        if as_key:
+            return (
+                isinstance(json_obj, str)
+                and len(json_obj.split(cls.SERIALIZER_MARKER) ) == 2
+            )
+        return (
+            isinstance(json_obj, list)
+            and len(json_obj) == 2
+            and isinstance(json_obj[1], str)
+            and json_obj[1].startswith(cls.SERIALIZER_MARKER)
         )
 
     @classmethod
-    def deserialize(cls, json_obj, *args, **kwargs):
+    def deserialize(cls, json_obj, as_key=False, *args, **kwargs):
         """Deserialize class instance from json compatible value.
 
         Args:
-            json_obj (tuple(variant, str) or variant): serialized item. If
-                it's a 2-tuple with the second value a string starting with
-                SERIALIZER_MARKER, we use that string to get the serializer.
-                Otherwise, we assume no serializer is needed, and the json_obj
-                represents the whole value.
+            json_obj (list, str or variant): serialized item. If this is a
+                string containing the SERIALIZER_MARKER as a substring, or
+                a list where the second item is a string containing the
+                SERIALIZER_MARKER as a substring, we use this to get the
+                serializer to use. Otherwise, the json_obj represents the
+                entire value.
+            as_key (bool): if True, the item is serialized as a string.
+                Otherwise, we assume it's been serialized as a list. This flag
+                should be set to True whenever we're deserializing dictionary
+                keys.
             args (list): args to pass to serializer init.
             kwargs (dict): kwargs to pass to serializer init.
 
         Returns:
             (SerializableValue): class instance.
         """
-        if (not isinstance(json_obj, tuple)
-                or len(json_obj != 2)
-                or not isinstance(json_obj[1], str)
-                or not json_obj[1].startswith(cls.SERIALIZER_MARKER)):
-            return cls(json_obj)
-        serializer_string = json_obj[1][len(cls.SERIALIZER_MARKER):]
+        if as_key:
+            if not isinstance(json_obj, str):
+                return cls(json_obj)
+            split_json_obj = json_obj.split(cls.SERIALIZER_MARKER)
+            if len(split_json_obj) != 2:
+                return cls(json_obj)
+            value_obj = split_json_obj[0]
+            serializer_string = split_json_obj[1][:-1]
+
+        else:
+            if (not cls.is_serialized_serializable_value(json_obj)):
+                return cls(json_obj)
+            value_obj = json_obj[0]
+            serializer_string = json_obj[1][len(cls.SERIALIZER_MARKER):-1]
+
         serializer = cls.serializer_from_string(
             serializer_string,
             *args,
             **kwargs
         )
-        value = serializer.deserialize(json_obj[0])
+        value = serializer.deserialize(value_obj)
         return cls(value, serializer)
 
 
@@ -119,12 +172,12 @@ Note also that using an OrderedDict is necessary so that any subclasses
 are placed above their parent classes, ensuring that we find the subclass
 first.
 """
-TYPE_MAPPINGS = OrderedDict(
-    (BaseSerializer, (str, float, int, tuple, list, dict)),
-    (DateTimeSerializer, (BaseDateTimeWrapper, TimeDelta)),
-    (TreeSerializer, (BaseTreeItem)),
+TYPE_MAPPINGS = OrderedDict([
+    (BaseSerializer, (str, float, int, tuple, list, dict,)),
+    (DateTimeSerializer, (BaseDateTimeWrapper, TimeDelta,)),
+    (TreeSerializer, (BaseTreeItem,)),
     # (SerializableSerializer, (BaseSerializable)),  <- no use cases afaik
-)
+])
 
 
 def serializer_from_type(type_, *args, **kwargs):
@@ -138,7 +191,7 @@ def serializer_from_type(type_, *args, **kwargs):
     Returns:
         (BaseSerializer): the default serializer for that type.
     """
-    for serializer, type_tuple in TYPE_MAPPINGS.values():
+    for serializer, type_tuple in TYPE_MAPPINGS.items():
         for base_type in type_tuple:
             if issubclass(type_, base_type):
                 return serializer(*args, **kwargs)
@@ -173,7 +226,11 @@ def serialize_dict(dictionary, tree_root=None):
     """
     return_dict = type(dictionary)()
     for key, value in dictionary.items():
-        key = SerializableValue(key, tree_root=tree_root).serialize()
+        if key is None:
+            continue
+        key = SerializableValue(key, tree_root=tree_root).serialize(
+            as_key=True
+        )
         if isinstance(value, dict):
             value = serialize_dict(value, tree_root=tree_root)
         elif isinstance(value, list):
@@ -223,14 +280,27 @@ def deserialize_dict(dictionary, tree_root=None):
     """
     return_dict = type(dictionary)()
     for key, value in dictionary.items():
-        key = SerializableValue.deserialize(key, tree_root=tree_root)
+        key = SerializableValue.deserialize(
+            key,
+            as_key=True,
+            tree_root=tree_root
+        ).value
         if isinstance(value, dict):
             value = deserialize_dict(value, tree_root=tree_root)
         elif isinstance(value, list):
-            value = deserialize_list(value, tree_root=tree_root)
+            if SerializableValue.is_serialized_serializable_value(value):
+                value = SerializableValue.deserialize(
+                    value,
+                    tree_root=tree_root
+                ).value
+            else:
+                value = deserialize_list(value, tree_root=tree_root)
         else:
-            value = SerializableValue.deserialize(value, tree_root=tree_root)
-        return_dict[key.value] = value.value
+            value = SerializableValue.deserialize(
+                value,
+                tree_root=tree_root
+            ).value
+        return_dict[key] = value
     return return_dict
 
 
@@ -251,8 +321,17 @@ def deserialize_list(list_, tree_root=None):
         if isinstance(value, dict):
             value = deserialize_dict(value, tree_root=tree_root)
         elif isinstance(value, list):
-            value = deserialize_list(value, tree_root=tree_root)
+            if SerializableValue.is_serialized_serializable_value(value):
+                value = SerializableValue.deserialize(
+                    value,
+                    tree_root=tree_root
+                ).value
+            else:
+                value = deserialize_list(value, tree_root=tree_root)
         else:
-            value = SerializableValue.deserialize(value, tree_root=tree_root)
-        return_list.append(value.value)
+            value = SerializableValue.deserialize(
+                value,
+                tree_root=tree_root
+            ).value
+        return_list.append(value)
     return return_list

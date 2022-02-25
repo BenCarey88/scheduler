@@ -99,6 +99,7 @@ class DateTimeSerializer(BaseSerializer):
 
     def deserialize(self, obj):
         return self._type.from_string(
+            obj,
             *self._serialize_args,
             **self._serialize_kwargs
         )
@@ -122,7 +123,7 @@ class TreeSerializer(BaseSerializer):
         super(TreeSerializer, self).__init__(type_)
         self._tree_root = tree_root
 
-    def serialize(obj):
+    def serialize(self, obj):
         return obj.path
 
     def deserialize(self, obj):

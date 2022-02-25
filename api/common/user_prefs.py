@@ -154,18 +154,18 @@ class _BaseUserPrefs(BaseSerializable):
 
         Args:
             file_path (str or None): path to try to load from, if given.
-            args (list): args to pass to from_file method.
-            kwargs (dict): kwargs to pass to from_file method.
+            args (list): args to pass to __init__ method.
+            kwargs (dict): kwargs to pass to __init__ method.
 
         Returns:
             (_BaseUserPrefs): user prefs class instance.
         """
         if file_path is None:
-            return cls()
+            return cls(*args, **kwargs)
         try:
             user_prefs = cls.from_file(file_path, *args, **kwargs)
         except SerializationError:
-            user_prefs = cls()
+            user_prefs = cls(*args, **kwargs)
         user_prefs._file_path = file_path
         return user_prefs
 
@@ -196,7 +196,7 @@ class _AppUserPrefs(_BaseUserPrefs):
         )
 
 
-class ProjectUserPrefs(_BaseUserPrefs):
+class _ProjectUserPrefs(_BaseUserPrefs):
     """Class for user preferences relating to a specific schedule project."""
 
     def __init__(self, tree_root):
@@ -205,6 +205,7 @@ class ProjectUserPrefs(_BaseUserPrefs):
         Args:
             tree_root (TaskRoot): root of task tree for project.
         """
+        super(_ProjectUserPrefs, self).__init__()
         self._tree_root = tree_root
 
     @classmethod
@@ -218,7 +219,7 @@ class ProjectUserPrefs(_BaseUserPrefs):
         Returns:
             (ProjectUserPrefs): user prefs class instance.
         """
-        user_prefs = cls()
+        user_prefs = cls(tree_root)
         user_prefs._user_prefs_dict = deserialize_dict(
             dictionary,
             tree_root=tree_root
@@ -270,3 +271,18 @@ def set_app_user_pref(name, value):
 def save_app_user_prefs():
     """Save application user preferences."""
     APP_USER_PREFS.write()
+
+
+def get_active_project_user_prefs(tree_root):
+    """Get project user prefs for active project.
+
+    Args:
+        tree_root (TaskRoot): root of task tree for project.
+
+    Returns:
+        (_ProjectUserPrefs): user prefs for active project.
+    """
+    return _ProjectUserPrefs.from_file_or_new(
+        APP_USER_PREFS.project_user_prefs_file,
+        tree_root=tree_root
+    )

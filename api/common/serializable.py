@@ -100,9 +100,9 @@ class BaseSerializable(ABC):
             **kwargs (dict): optional kwargs, allowed for some types.
 
         Returns:
-            (str, dict, list, tuple, float, int or bool): serialized object.
+            (str, dict, list, float, int or bool): serialized object.
         """
-        if isinstance(object, (str, float, int, bool, tuple)):
+        if isinstance(object, (str, float, int, bool)):
             return object
         if isinstance(object, list):
             return_list = []
@@ -123,6 +123,8 @@ class BaseSerializable(ABC):
             "Cannot serialize objects of type {0}".format(str(type(object)))
         )
 
+    # TODO: I Think should just delete all this, turns out tuples aren't json
+    # types lol so it's pretty fucked
     @classmethod
     def deserialize(cls, object, type_=None, *args, **kwargs):
         """Deserialize json object to given type.

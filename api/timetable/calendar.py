@@ -4,7 +4,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
-from scheduler.api.common.serializable import (
+from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
     SerializableFileTypes

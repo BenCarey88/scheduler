@@ -1,11 +1,11 @@
-"""Framework for serializing/deserialing various types."""
+"""Default framework for serializing/deserialing various types."""
 
 from collections import OrderedDict
 
 from scheduler.api.tree._base_tree_item import BaseTreeItem
 from scheduler.api.common.date_time import BaseDateTimeWrapper, TimeDelta
 
-from ._serializer import (
+from .serializer import (
     SerializerError,
     BaseSerializer,
     SerializableSerializer,
@@ -76,7 +76,9 @@ class SerializableValue(object):
         Returns:
             (list, str or variant): serialized item. If a serializer is used,
                 this is either a list containing the serialized value and then
-                the serializer. Otherwised, it's just the value.
+                the serializer string, or a string consisting of the serialized
+                value followed by the serializer string.
+                Otherwise, it's just the value.
         """
         if type(self.serializer) == BaseSerializer:
             return self.value
@@ -176,7 +178,7 @@ TYPE_MAPPINGS = OrderedDict([
     (BaseSerializer, (str, float, int, tuple, list, dict,)),
     (DateTimeSerializer, (BaseDateTimeWrapper, TimeDelta,)),
     (TreeSerializer, (BaseTreeItem,)),
-    # (SerializableSerializer, (BaseSerializable)),  <- no use cases afaik
+    # (SerializableSerializer, (BaseSerializable,)),  <- no use cases afaik
 ])
 
 

@@ -7,7 +7,7 @@ from scheduler.api.common.date_time import (
     DateTimeError,
     TimeDelta
 )
-from scheduler.api.common.serializable import (
+from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
     SerializableFileTypes

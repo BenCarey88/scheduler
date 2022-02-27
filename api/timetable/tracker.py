@@ -1,7 +1,7 @@
 """Tracker file reader."""
 # TODO: should this module live in another location?
 
-from scheduler.api.common.serializable import BaseSerializable
+from scheduler.api.serialization.serializable import BaseSerializable
 
 
 class Tracker(BaseSerializable):

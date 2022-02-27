@@ -43,6 +43,7 @@ def setp_credentials():
         # TODO: this should be saved in pkg-data rather than in this file
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
+    return creds
 
 
 def calendar_item_to_google_event(calendar_item):

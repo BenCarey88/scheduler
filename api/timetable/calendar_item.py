@@ -9,7 +9,10 @@ from scheduler.api.common.date_time import (
     Time,
     TimeDelta
 )
-from scheduler.api.common.serializable import NestedSerializable, SaveType
+from scheduler.api.serialization.serializable import (
+    NestedSerializable,
+    SaveType
+)
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
 

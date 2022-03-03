@@ -10,6 +10,32 @@ class DateTimeError(Exception):
     """Exception class for datetime related errors."""
 
 
+#TODO: complete this logic
+def date_time_obj_from_string(string, *args, **kwargs):
+    """General method to get a DateTime object from a string.
+
+    Args:
+        string (str): string to deserialize as date time object.
+        args (list): args to pass to date time class from_string method.
+        kwargs (list): kwargs to pass to date time class from_string method.
+
+    Returns:
+        (BaseDateTimeWrapper or TimeDelta): date time object represented
+            by string.
+    """
+    raise NotImplementedError(
+        "General DateTime deserialization This isn't finished yet"
+    )
+    if string.startswith("TimeDelta("):
+        return TimeDelta.from_string(string)
+    
+    raise DateTimeError(
+        "Cannot deserialize {0} as DateTime or TimeDelta object".format(
+            string
+        )
+    )
+
+
 class TimeDelta(object):
     """Wrapper around datetime.timedelta class.
 

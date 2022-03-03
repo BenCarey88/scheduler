@@ -214,13 +214,15 @@ def default_serializer(value, *args, **kwargs):
     return serializer_from_type(type(value), *args, **kwargs)
 
 
-def serialize_dict(dictionary, tree_root=None):
+def serialize_dict(dictionary, tree_root=None, delete_empty_containers=False):
     """Serialize dictionary using default type serializers.
 
     Args:
         dictionary (dict): dictionary to serialize.
         tree_root (TaskRoot or None): tree root, needed for certain
             serializers.
+        delete_empty_containers (bool): if True, we delete any empty lists or
+            keys from the serialized dict.
 
     Returns:
         (dict): serialized dictionary, containing serialized SerializableValue
@@ -234,22 +236,39 @@ def serialize_dict(dictionary, tree_root=None):
             as_key=True
         )
         if isinstance(value, dict):
-            value = serialize_dict(value, tree_root=tree_root)
+            value = serialize_dict(
+                value,
+                tree_root=tree_root,
+                delete_empty_containers=delete_empty_containers,
+            )
+            if delete_empty_containers and not value:
+                continue
         elif isinstance(value, list):
-            value = serialize_list(value, tree_root=tree_root)
+            value = serialize_list(
+                value,
+                tree_root=tree_root,
+                delete_empty_containers=delete_empty_containers,
+            )
+            if delete_empty_containers and not value:
+                continue
         else:
             value = SerializableValue(value, tree_root=tree_root).serialize()
+        if value is None:
+            # we don't support None type serialization
+            continue
         return_dict[key] = value
     return return_dict
 
 
-def serialize_list(list_, tree_root=None):
+def serialize_list(list_, tree_root=None, delete_empty_containers=False):
     """Serialize list using default type serializers.
 
     Args:
         list_ (list): list to serialize.
         tree_root (TaskRoot or None): tree root, needed for certain
             serializers.
+        delete_empty_containers (bool): if True, we delete any empty lists or
+            keys from the serialized dict.
 
     Returns:
         (list): serialized list, containing serialized SerializableValue
@@ -258,11 +277,26 @@ def serialize_list(list_, tree_root=None):
     return_list = type(list_)()
     for value in list_:
         if isinstance(value, dict):
-            value = serialize_dict(value, tree_root=tree_root)
+            value = serialize_dict(
+                value,
+                tree_root=tree_root,
+                delete_empty_containers=delete_empty_containers
+            )
+            if delete_empty_containers and not value:
+                continue
         elif isinstance(value, list):
-            value = serialize_list(value, tree_root=tree_root)
+            value = serialize_list(
+                value,
+                tree_root=tree_root,
+                delete_empty_containers=delete_empty_containers
+            )
+            if delete_empty_containers and not value:
+                continue
         else:
             value = SerializableValue(value, tree_root=tree_root).serialize()
+        if value is None:
+            # we don't support None type serialization
+            continue
         return_list.append(value)
     return return_list
 
@@ -302,6 +336,9 @@ def deserialize_dict(dictionary, tree_root=None):
                 value,
                 tree_root=tree_root
             ).value
+        if key is None or value is None:
+            # ignore None types (eg. for tree path that no longer exists)
+            continue
         return_dict[key] = value
     return return_dict
 
@@ -335,5 +372,8 @@ def deserialize_list(list_, tree_root=None):
                 value,
                 tree_root=tree_root
             ).value
+        if value is None:
+            # ignore None types (eg. for tree path that no longer exists)
+            continue
         return_list.append(value)
     return return_list

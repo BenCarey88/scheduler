@@ -1,34 +1,20 @@
-"""Tree manager class to manage tree items for each model.
+"""Tree manager class to manage filtering tree items for each model.
 
 Each tab is intended to have its own tree manager class. This allows
 us to maintain ui-specific properties for each tree item without
 editing the underlying tree item data, eg. whether or not the item
 is being filtered for in the current tab.
-
-Data for each tree item is maintained via its unique id.
 """
 
 from scheduler.api.common import user_prefs
-from scheduler.api.tree.filters import NoFilter, RemoveChildrenById
+from scheduler.api.tree.filters import NoFilter, FilterByItem
 
-
-# TODO: I think the current plan is to massively extend this class so that
-# most/all of the task operations done through the ui go through this class.
-# In service of this we should split this out into a separate tree_manager
-# directory, make a main tree manager class in it (defined in the __init__
-# or in another module and imported into the __init__) and then have that
-# own a separate filter_manager attribute that is effectively this class.
-# (Or maybe it could subclass the filter manager?)
-# basically there's gonna be a whole lot of functions (potentially a
-# reimplementation of almost everything from BaseTreeItem and its subclasses??)
-# so I want to spread it out if possible.
-# QUESTION: should we still do that extension? very much an open q.
 
 class TreeManager(object):
     """Tree manager class to maintain ui attributes for each tree item.
 
     This stores attributes for each item in internal data dicts, keyed by tree
-    item id.
+    item.
 
     Attributes:
         IS_SELECTED_FOR_FILTERING (bool): whether or not the user has selected
@@ -43,9 +29,18 @@ class TreeManager(object):
     IS_FILTERED_OUT = "is_filtered_out"
     IS_EXPANDED = "is_expanded"
 
+    ATTRIBUTE_DEFAULTS = {
+        IS_SELECTED_FOR_FILTERING: False,
+        IS_FILTERED_OUT: False,
+        IS_EXPANDED: True,
+    }
+    USER_PREFS_ATTRIBUTES = [
+        IS_SELECTED_FOR_FILTERING,
+        IS_EXPANDED,
+    ]
     FILTERED_TASKS_PREF = "task_filters"
 
-    def __init__(self, name, user_prefs):
+    def __init__(self, name, user_prefs, tree_root):
         """Initialise tree manager. Note that this class actually has no
         knowledge of the tree item itself, so needs to be used in conjunction
         with a tree root.
@@ -53,15 +48,15 @@ class TreeManager(object):
         Args:
             name (str): name of tree manager.
             user_prefs (_ProjectUserPrefs): project user prefs class.
+            tree_root (TaskRoot): root task object.
 
         Attributes:
-            _tree_data (dict(str, dict)): additional tree data for each item,
-                keyed by item id.
-            _filtered_items (set(str)): set of ids of items we're filtering
-                out.
+            _tree_data (dict(str, dict)): additional tree data for each item.
+            _filtered_items (set(str)): set of items we're filtering out.
         """
         self._name = name
         self._project_user_prefs = user_prefs
+        self._tree_root = tree_root
         self._tree_data = {}
         self._filtered_items = set()
         self.setup_from_user_prefs()
@@ -74,23 +69,36 @@ class TreeManager(object):
         for tree_item, attr_dict in filter_attrs.items():
             if tree_item and attr_dict:
                 for attr, value in attr_dict.items():
-                    self.set_attribute(tree_item, attr, value)
+                    self._tree_data.setdefault(tree_item, {})[attr] = value
 
-    def get_attribute(self, tree_item, attribute, default):
+    def has_attribute(self, tree_item, attribute):
+        """Check if tree item already has attribute defined in internal dict.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to query for.
+            atttribute (str): attribute name.
+
+        Returns:
+            (bool): whether or not given attribute is currently defined in
+                internal dict.
+        """
+        return attribute in self._tree_data.setdefault(tree_item, {})
+
+    def get_attribute(self, tree_item, attribute):
         """Get the attribute for the given tree item.
 
         Args:
             tree_item (BaseTreeItem): tree item to query for.
             atttribute (str): attribute name.
-            default (variant): default value.
 
         Returns:
             (variant): value of attribute for given item.
         """
-        item_dict = self._tree_data.setdefault(tree_item.id, {})
+        item_dict = self._tree_data.setdefault(tree_item, {})
+        default = self.ATTRIBUTE_DEFAULTS.get(attribute)
         return item_dict.setdefault(attribute, default)
 
-    def set_attribute(self, tree_item, attribute, value):
+    def set_attribute(self, tree_item, attribute,  value):
         """Set the attribute for the given tree item.
 
         Args:
@@ -98,27 +106,36 @@ class TreeManager(object):
             atttribute (str): attribute name.
             value (variant): value to set.
         """
-        self._project_user_prefs.set_attribute(
-            [self._name, self.FILTERED_TASKS_PREF, tree_item, attribute],
-            value
-        )
-        item_dict = self._tree_data.setdefault(tree_item.id, {})
+        if attribute in self.USER_PREFS_ATTRIBUTES:
+            default = self.ATTRIBUTE_DEFAULTS.get(attribute)
+            self._project_user_prefs.set_attribute(
+                [self._name, self.FILTERED_TASKS_PREF, tree_item, attribute],
+                value,
+                default
+            )
+        item_dict = self._tree_data.setdefault(tree_item, {})
         item_dict[attribute] = value
 
     def is_filtered_out(self, tree_item):
         """Check if the given tree item is filtered out.
-        
+
         Args:
             tree_item (BaseTreeItem): tree item to query.
 
         Returns:
             (bool): whether or not the given item is being filtered out.
         """
-        return self.get_attribute(
-            tree_item,
-            self.IS_FILTERED_OUT,
-            False
-        )
+        if self.has_attribute(tree_item, self.IS_FILTERED_OUT):
+            return self.get_attribute(tree_item, self.IS_FILTERED_OUT)
+
+        if self.is_selected_for_filtering(tree_item):
+            return_val = True
+        elif tree_item.parent is not None:
+            return_val = self.is_filtered_out(tree_item.parent)
+        else:
+            return_val = False
+        self.set_attribute(tree_item, self.IS_FILTERED_OUT, return_val)
+        return return_val
 
     def is_selected_for_filtering(self, tree_item):
         """Check if the given tree item has been selected for filtering.
@@ -131,11 +148,7 @@ class TreeManager(object):
         Returns:
             (bool): whether or not the given item is selected for filtering.
         """
-        return self.get_attribute(
-            tree_item,
-            self.IS_SELECTED_FOR_FILTERING,
-            False
-        )
+        return self.get_attribute(tree_item, self.IS_SELECTED_FOR_FILTERING)
 
     def siblings_are_selected_for_filtering(self, tree_item):
         """Check if all this tree_item's siblings are selected for filtering.
@@ -180,11 +193,7 @@ class TreeManager(object):
         Returns:
             (bool): whether or not the given item is expanded.
         """
-        return self.get_attribute(
-            tree_item,
-            self.IS_EXPANDED,
-            True
-        )
+        return self.get_attribute(tree_item, self.IS_EXPANDED)
 
     def filter_item(self, tree_item, from_user_selection=True):
         """Add tree item to filter list.
@@ -199,7 +208,7 @@ class TreeManager(object):
         if from_user_selection:
             self.set_attribute(tree_item, self.IS_SELECTED_FOR_FILTERING, True)
         self.set_attribute(tree_item, self.IS_FILTERED_OUT, True)
-        self._filtered_items.add(tree_item.id)
+        self._filtered_items.add(tree_item)
         for child in tree_item.get_all_children():
             self.filter_item(child, from_user_selection=False)
 
@@ -225,7 +234,7 @@ class TreeManager(object):
             return
 
         self.set_attribute(tree_item, self.IS_FILTERED_OUT, False)
-        self._filtered_items.discard(tree_item.id)
+        self._filtered_items.discard(tree_item)
         for child in tree_item.get_all_children():
             self.unfilter_item(child, from_user_selection=False)
 
@@ -278,11 +287,11 @@ class TreeManager(object):
 
     @property
     def child_filter(self):
-        """Get filter to filter children by id.
+        """Get filter to filter children.
 
         Returns:
             (BaseFilter): filter to filter children with.
         """
         if self._filtered_items:
-            return RemoveChildrenById(list(self._filtered_items))
+            return FilterByItem(list(self._filtered_items))
         return NoFilter()

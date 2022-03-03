@@ -285,6 +285,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         # TODO: make separate method for decoding/encoding data.
         encoded_data = mimeData.data('application/vnd.treeviewdragdrop.list')
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
+        if stream.atEnd():
+            return False
+
         while not stream.atEnd():
             byte_array = QtCore.QByteArray()
             stream >> byte_array

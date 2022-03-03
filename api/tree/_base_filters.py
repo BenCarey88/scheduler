@@ -125,20 +125,20 @@ class RestrictToGivenChildren(BaseFilter):
         return filtered_dict
 
 
-class RemoveChildrenById(BaseFilter):
-    """Filter to remove children based on their id."""
+class FilterByItem(BaseFilter):
+    """Filter to remove given items."""
 
-    def __init__(self, ids_to_remove):
+    def __init__(self, items_to_remove):
         """Initialise filter.
 
         Args:
-            ids_to_remove (list(str)): ids of children to remove.
+            items_to_remove (list(BaseTreeItem)): items to remove.
         """
-        self.ids_to_remove = ids_to_remove
+        self._items_to_remove = items_to_remove
 
     def filter_function(self, child_dict, item):
         filtered_dict = OrderedDict()
         for key, value in child_dict.items():
-            if value.id not in self.ids_to_remove:
+            if value not in self._items_to_remove:
                 filtered_dict[key] = value
         return filtered_dict

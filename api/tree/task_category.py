@@ -48,7 +48,7 @@ class TaskCategory(BaseTreeItem):
                 subcategory.
         """
         super(TaskCategory, self).__init__(name, parent)
-        self.allowed_child_types = [TaskCategory, Task]
+        self._allowed_child_types = [TaskCategory, Task]
 
         # subcategory methods
         self.create_subcategory = self.create_child

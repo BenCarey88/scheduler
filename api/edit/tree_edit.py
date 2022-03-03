@@ -103,9 +103,9 @@ class BaseTreeEdit(CompositeEdit):
             child = tree_item.get_child(name)
             if child:
                 if inverse:
-                    child.parent = tree_item
+                    child._parent = tree_item
                 else:
-                    child.parent = None
+                    child._parent = None
 
     def _add_or_insert(self, tree_item, inverse):
         """Additional remove edit for adding/inserting tree child.
@@ -121,9 +121,9 @@ class BaseTreeEdit(CompositeEdit):
             child = tree_item.get_child(name)
             if child:
                 if inverse:
-                    child.parent = None
+                    child._parent = None
                 else:
-                    child.parent = tree_item
+                    child._parent = tree_item
 
 
 class AddChildrenEdit(BaseTreeEdit):

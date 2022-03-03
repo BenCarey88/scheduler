@@ -31,7 +31,7 @@ class TaskRoot(TaskCategory):
         """
         super(TaskRoot, self).__init__(name=self.ROOT_NAME, parent=None)
         self._directory_path = directory_path
-        self.allowed_child_types = [TaskCategory]
+        self._allowed_child_types = [TaskCategory]
 
         # use category in place of subcategory in category function names
         self.create_category = self.create_subcategory
@@ -129,7 +129,7 @@ class TaskRoot(TaskCategory):
         if (item.parent.id != new_parent.id
                 and item.name in new_parent._children.keys()):
             return
-        if type(item) not in new_parent.allowed_child_types:
+        if type(item) not in new_parent._allowed_child_types:
             return
         if index < 0 or index > new_parent.num_children():
             return

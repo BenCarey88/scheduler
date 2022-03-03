@@ -326,6 +326,14 @@ class CalendarView(QtWidgets.QTableView):
             QtWidgets.QHeaderView.ResizeMode.Fixed
         )
         self.resize_table()
+
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
+        self.setDragEnabled(True)
+        self.setDropIndicatorShown(True)
+        self.viewport().setAcceptDrops(True)
+        self.setDefaultDropAction(QtCore.Qt.DropAction.CopyAction)
+
         self.startTimer(constants.LONG_TIMER_INTERVAL)
 
     def set_to_week(self, week):
@@ -945,6 +953,39 @@ class CalendarView(QtWidgets.QTableView):
             self.viewport().update()
 
         return super(CalendarView, self).mouseReleaseEvent(event)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat('application/vnd.treeviewdragdrop.list'):
+            event.acceptProposedAction()
+        #event.accept()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat('application/vnd.treeviewdragdrop.list'):
+            event.acceptProposedAction()
+        # super(CalendarView, self).dragMoveEvent(event)
+        # event.setDropAction(QtCore.Qt.DropAction.CopyAction)
+        # event.accept()
+
+    def dropEvent(self, event):
+        # TODO: if we use this same setup here as from tree model to decode mime data
+        # should add as utils function or similar.
+        encoded_data = event.mimeData().data('application/vnd.treeviewdragdrop.list')
+        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
+
+        if stream.atEnd():
+            print ("early return")
+            return
+
+        while not stream.atEnd():
+            byte_array = QtCore.QByteArray()
+            stream >> byte_array
+            encoded_path = bytes(byte_array).decode('utf-8')
+
+        print (encoded_path)
+
+        super(CalendarView, self).dropEvent(event)
+        print ("DROPPED", event.mimeData().text())
+        event.acceptProposedAction()
 
 
 class CalendarDelegate(QtWidgets.QStyledItemDelegate):

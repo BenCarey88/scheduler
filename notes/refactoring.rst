@@ -27,7 +27,7 @@ To fix this:
 
 Then:
 
-* Outliner is just Categories
+* Outliner is just Categories [actually now I probably want outliner is everything]
 * Task View is Tasks and TaskGroups
 
 

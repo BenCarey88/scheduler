@@ -72,7 +72,7 @@ class Task(BaseTreeItem):
         self._status = status or TaskStatus.UNSTARTED
         self.history = history if history is not None else TaskHistory()
         self.value_type = value_type or TaskValueType.NONE
-        self.allowed_child_types = [Task]
+        self._allowed_child_types = [Task]
 
         # new attribute and method names for convenience
         # TODO: it's a faff to keep adding these redefinitions

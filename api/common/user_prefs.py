@@ -110,24 +110,31 @@ class _BaseUserPrefs(BaseSerializable):
             return dict_value if dict_value is not None else default
         return self._user_prefs_dict.get(name, default)
 
-    def set_attribute(self, name, value):
+    def set_attribute(self, name, value, default=None):
         """Set user preference with given name to given value.
 
         Args:
             name (str or list): name of attribute to set, or list of keys
                 representing path to attribute in dict.
             value (variant): value to set.
+            default (variant): default value that's used when getting this
+                attribute - if this is the same as value then we just delete
+                the given key from the dictionary.
         """
-        user_prefs_dict = self._user_prefs_dict
+        prefs_dict = self._user_prefs_dict
         if isinstance(name, list):
             if len(name) == 0:
                 return
             for key in name[:-1]:
-                user_prefs_dict = user_prefs_dict.setdefault(key, {})
-                if not isinstance(user_prefs_dict, dict):
+                prefs_dict = prefs_dict.setdefault(key, {})
+                if not isinstance(prefs_dict, dict):
                     return
             name = name[-1]
-        user_prefs_dict[name] = value
+        if default is not None and value == default:
+            if name in prefs_dict:
+                del prefs_dict[name]
+        else:
+            prefs_dict[name] = value
 
     @classmethod
     def from_dict(cls, dictionary):
@@ -149,7 +156,10 @@ class _BaseUserPrefs(BaseSerializable):
         Returns:
             (dict): Serialized dictionary.
         """
-        return serialize_dict(self._user_prefs_dict)
+        return serialize_dict(
+            self._user_prefs_dict,
+            delete_empty_containers=True
+        )
 
     @classmethod
     def from_file_or_new(cls, file_path=None, *args, **kwargs):
@@ -237,7 +247,8 @@ class _ProjectUserPrefs(_BaseUserPrefs):
         """
         return serialize_dict(
             self._user_prefs_dict,
-            tree_root=self._tree_root
+            tree_root=self._tree_root,
+            delete_empty_containers=True
         )
 
 

@@ -39,13 +39,13 @@ class BaseTreeItem(ABC):
                 Task to a TaskCategory).
         """
         self._name = name
-        self.parent = parent
+        self._parent = parent
         self._children = OrderedDict()
         self._register_edits = True
         self.id = id or uuid4()
         # base class must be overridden, has no allowed child types.
         # TODO: this feels like a class property rather than an instance one
-        self.allowed_child_types = []
+        self._allowed_child_types = []
 
     # TODO: this is only here so it can be accessed in the drag-drop stuff to find
     # the root of any model bc we're into the super-hacky just get something that
@@ -71,6 +71,8 @@ class BaseTreeItem(ABC):
         """
         return self._name
 
+    # TODO: this shouldn't be a setter, make it an actual method
+    # for consistency wwith other edits.
     @name.setter
     def name(self, new_name):
         """Set item name.
@@ -93,6 +95,16 @@ class BaseTreeItem(ABC):
                 {self.name: new_name},
                 register_edit=self._register_edits,
             )
+            # TODO: surely we want to be able to change name even if there's no parent?
+
+    @property
+    def parent(self):
+        """Get parent item.
+
+        Returns:
+            (BaseTreeItem or None): parent item, if one exists.
+        """
+        return self._parent
 
     @property
     def path_list(self):
@@ -179,7 +191,7 @@ class BaseTreeItem(ABC):
         if name in self._children:
             raise DuplicateChildNameError(self.name, name)
         child_type = child_type or self.__class__
-        if child_type not in self.allowed_child_types:
+        if child_type not in self._allowed_child_types:
             raise UnallowedChildType(self.__class__, child_type)
         child = child_type(name, parent=self, **kwargs)
         if index is None:
@@ -243,10 +255,10 @@ class BaseTreeItem(ABC):
         """
         if child.name in self._children:
             raise DuplicateChildNameError(self.name, child.name)
-        if type(child) not in self.allowed_child_types:
+        if type(child) not in self._allowed_child_types:
             raise UnallowedChildType(self.__class__, type(child))
         if not child.parent:
-            child.parent = self
+            child._parent = self
         if child.parent != self:
             raise MultipleParentsError(
                 "child {0} has incorrect parent: {1} instead of {2}".format(
@@ -366,10 +378,10 @@ class BaseTreeItem(ABC):
                 "Can't replace child {0} with new child of "
                 "different name {1}".format(name, new_child.name)
             )
-        if type(new_child) not in self.allowed_child_types:
+        if type(new_child) not in self._allowed_child_types:
             raise UnallowedChildType(self.__class__, type(new_child))
         if not new_child.parent:
-            new_child.parent = self
+            new_child._parent = self
         if new_child.parent != self:
             raise MultipleParentsError(
                 "child {0} has incorrect parent: {1} instead of {2}".format(
@@ -413,7 +425,7 @@ class BaseTreeItem(ABC):
                 of the given child are unallowed child types for the new
                 tree class.
         """
-        if new_tree_class not in self.allowed_child_types:
+        if new_tree_class not in self._allowed_child_types:
             raise UnallowedChildType(self.__class__, new_tree_class)
         child = self.get_child(child_name)
         if not child or isinstance(child, new_tree_class):
@@ -421,7 +433,7 @@ class BaseTreeItem(ABC):
         new_child = new_tree_class(child_name)
         for grandchild in child.get_all_children():
             grandchild_class = type(grandchild)
-            if grandchild_class not in new_child.allowed_child_types:
+            if grandchild_class not in new_child._allowed_child_types:
                 raise UnallowedChildType(grandchild_class)
             grandchild_copy = grandchild_class.from_dict(
                 grandchild.to_dict()

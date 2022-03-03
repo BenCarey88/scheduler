@@ -6,8 +6,8 @@ Includes all base filters as well as filters for specific tree types.
 from ._base_filters import (
     NoFilter,
     FullPrune,
+    FilterByItem,
     KeepChildrenOfType,
-    RemoveChildrenById,
     RemoveChildrenOfType,
     RemoveGivenChildren,
     RemoveSubChildrenOfType,

@@ -68,6 +68,9 @@ class BaseSerializer(object):
         return self.__class__.__name__
 
 
+# TODO: remove? arguably based on current implementations, there's
+# really no point to a TYPE_REQUIRED required serializer, as in that
+# case we may as well just deserialize manually.
 class SerializableSerializer(BaseSerializer):
     """Serialize a serializable class.
 
@@ -89,6 +92,7 @@ class DateTimeSerializer(BaseSerializer):
     Types:
         BaseDateTimeWrapper, TimeDelta
     """
+    # TODO: use date_time_obj_from_string method so type isn't required
     TYPE_REQUIRED = True
 
     def serialize(self, obj):

@@ -9,6 +9,7 @@ from scheduler.api import constants as api_constants
 from scheduler.api import utils as api_utils
 from scheduler.api.common.date_time import Date, Time
 from scheduler.api.common import user_prefs
+from scheduler.api.managers.tree_manager import TreeManager
 from scheduler.api.timetable.calendar import Calendar
 from scheduler.api.timetable.tracker import Tracker
 from scheduler.api.edit import edit_log
@@ -27,7 +28,6 @@ from .tabs.task_tab import TaskTab
 from .tabs.tracker_tab import TrackerTab
 from .tabs.suggestions_tab import SuggestionsTab
 
-from .models.tree_manager import TreeManager
 from .utils import custom_message_dialog, set_style, simple_message_dialog
 from .widgets.outliner import Outliner
 
@@ -126,7 +126,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """
         tab_tree_manager = TreeManager(
             "{0}_tree_manager".format(tab_name),
-            self.project_user_prefs
+            self.project_user_prefs,
+            self.tree_root
         )
         outliner = Outliner(self.tree_root, tab_tree_manager)
         self.outliner_stack.addWidget(outliner)

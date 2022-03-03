@@ -6,14 +6,14 @@ import os
 import shutil
 import tempfile
 
+from scheduler.api.serialization.serializable import (
+    SaveType,
+    SerializableFileTypes,
+)
 from ._base_filters import KeepChildrenOfType
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
 from .task import Task
-from ._file_utils import (
-    is_tree_directory,
-    check_directory_can_be_written_to
-)
 
 
 class TaskFilter(KeepChildrenOfType):
@@ -34,9 +34,17 @@ class TaskCategory(BaseTreeItem):
 
     This class has two types of children: subcategories and tasks.
     """
+    _SAVE_TYPE = SaveType.DIRECTORY
+    _ORDER_FILE = "category{0}".format(SerializableFileTypes.ORDER)
+    _MARKER_FILE = _ORDER_FILE
 
-    TREE_FILE_MARKER = "category.info"
-    CATEGORIES_KEY = "subcategories"
+    _SUBDIR_KEY = "subcategories"
+    _SUBDIR_DICT_TYPE = OrderedDict
+    _FILE_KEY = "tasks"
+    _FILE_CLASS = Task
+    _FILE_DICT_TYPE = OrderedDict
+
+    CATEGORIES_KEY = _SUBDIR_KEY
     TASKS_KEY = "tasks"
 
     def __init__(self, name, parent=None):
@@ -252,105 +260,3 @@ class TaskCategory(BaseTreeItem):
             task = Task.from_dict(task_dict, task_name)
             category.add_task(task)
         return category
-
-    def write(self, directory_path):
-        """Write data to directory tree.
-
-        The structure is:
-            category_tree_dir:
-                subcategory_1_tree_dir:
-                subcategory_2_tree_dir:
-                task_1.json
-                task_2.json
-                TREE_FILE_MARKER
-
-        The TREE_FILE_MARKER file saves the official ordering as this
-        will be lost in the directory.
-
-        Args:
-            directory_path (str): path to directory to write to.
-        """
-        check_directory_can_be_written_to(
-            directory_path,
-            self.TREE_FILE_MARKER
-        )
-
-        tmp_dir = None
-        if os.path.exists(directory_path):
-            tmp_dir = tempfile.mkdtemp(
-                suffix="{0}_backup_".format(os.path.basename(directory_path)),
-                dir=os.path.dirname(directory_path),
-            )
-            shutil.move(directory_path, tmp_dir)
-        os.mkdir(directory_path)
-        task_category_file = os.path.join(
-            directory_path,
-            self.TREE_FILE_MARKER
-        )
-        with open(task_category_file, "w") as file_:
-            file_.write(
-                "\n".join([child.name for child in self.get_all_children()])
-            )
-
-        for subcategory in self.get_all_subcategories():
-            subcategory_directory = os.path.join(
-                directory_path,
-                subcategory.name
-            )
-            subcategory.write(subcategory_directory)
-
-        for task in self.get_all_tasks():
-            task_file = os.path.join(
-                directory_path,
-                "{0}.json".format(task.name)
-            )
-            task.write(task_file)
-
-        if tmp_dir:
-            shutil.rmtree(tmp_dir)
-
-    @classmethod
-    def from_directory(
-            cls,
-            directory_path,
-            parent=None):
-        """Create TaskCategory object from category directory.
-
-        Args:
-            directory_path (str): path to category directory.
-            parent (TaskCategory or None): parent item.
-
-        Raises:
-            (TaskFileError): if the directory doesn't exist or isn't a task
-                directory (ie. doesn't have a TREE_FILE_MARKER)
-
-        Returns:
-            (TaskCategory): TaskCategory object populated with categories from
-                directory tree.
-        """
-        if not is_tree_directory(directory_path, cls.TREE_FILE_MARKER):
-            raise TaskFileError(
-                "Directory {0} is not a valid task root directory".format(
-                    directory_path
-                )
-            )
-        category_name = os.path.basename(directory_path)
-        category_item = cls(name=category_name, parent=parent)
-
-        task_category_file = os.path.join(directory_path, cls.TREE_FILE_MARKER)
-        with open(task_category_file, "r") as file_:
-            child_order = file_.read().split("\n")
-
-        for name in child_order:
-            if not name:
-                # ignore empty strings
-                continue
-            path = os.path.join(directory_path, name)
-            if is_tree_directory(path, TaskCategory.TREE_FILE_MARKER):
-                subcategory = TaskCategory.from_directory(path, category_item)
-                category_item.add_subcategory(subcategory)
-            elif (os.path.isfile("{0}.json".format(path))):
-                task = Task.from_file("{0}.json".format(path), category_item)
-                category_item.add_task(task)
-
-        return category_item

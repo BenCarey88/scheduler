@@ -99,7 +99,7 @@ class TaskCategoryWidget(QtWidgets.QFrame):
         # items are done through the model? so this functions would call
         # the model's update_name method or something like that.
         try:
-            self.task_item.name = self.line_edit.text()
+            self.task_item.set_name(self.line_edit.text())
             self.tab.MODEL_UPDATED_SIGNAL.emit()
         except Exception:
             self.line_edit.setText(self.task_item.name)

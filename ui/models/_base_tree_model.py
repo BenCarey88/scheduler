@@ -168,7 +168,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not item:
             return False
         try:
-            item.name = value
+            item.set_name(value)
             self.dataChanged.emit(index, index)
             return True
         except DuplicateChildNameError:

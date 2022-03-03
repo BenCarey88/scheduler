@@ -48,7 +48,6 @@ class BaseCalendarPeriod(NestedSerializable):
 class CalendarDay(BaseCalendarPeriod):
     """Class representing a day of calendar data."""
     _SAVE_TYPE = SaveType.FILE
-    _KEY_TYPE = Date
     CALENDAR_ITEMS_KEY = "calendar_items"
 
     def __init__(self, calendar, date, calendar_month=None):

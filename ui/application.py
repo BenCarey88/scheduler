@@ -46,6 +46,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tree_root = TaskRoot.from_directory(
             api_constants.TASKS_DIRECTORY
         )
+
         self.calendar = Calendar.from_directory(
             api_constants.CALENDAR_DIRECTORY,
             self.tree_root
@@ -281,6 +282,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
                 self.save()
             event.accept()
 
+        # TODO: maybe make this a prompted option rather than always done?
+        # or at least give some indication it's happening?
+        # and/or maybe also add a check for when last commit was (only do one
+        # a day / one every few days / whatever)
         error = api_utils.backup_git_repo(api_constants.SCHEDULER_DIRECTORY)
         if error:
             simple_message_dialog(

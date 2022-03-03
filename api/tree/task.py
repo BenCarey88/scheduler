@@ -10,6 +10,7 @@ from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit
 )
+from scheduler.api.serialization.serializable import SaveType
 
 from ._base_tree_item import BaseTreeItem
 from .exceptions import TaskFileError
@@ -40,6 +41,7 @@ class TaskValueType():
 
 class Task(BaseTreeItem):
     """Class representing a generic task."""
+    _SAVE_TYPE = SaveType.FILE
 
     TASKS_KEY = "subtasks"
     HISTORY_KEY = "history"
@@ -326,53 +328,6 @@ class Task(BaseTreeItem):
             subtask = cls.from_dict(subtask_dict, subtask_name, task)
             task.add_subtask(subtask)
         return task
-
-    def write(self, file_path):
-        """Write this task item to a json file, using the to_dict string.
-
-        Args:
-            file_path (str): path to the json file.
-        """
-        if not os.path.isdir(os.path.dirname(file_path)):
-            raise TaskFileError(
-                "Task file {0} does not exist".format(
-                    file_path
-                )
-            )
-        if os.path.splitext(file_path)[-1] != ".json":
-            raise TaskFileError(
-                "Task file path {0} is not a json.".format(file_path)
-            )
-        with open(file_path, 'w') as f:
-            json.dump(self.to_dict(), f, indent=4)
-
-    @classmethod
-    def from_file(cls, file_path, parent=None):
-        """Initialise class from json file.
-
-        Args:
-            file_path (str): path to the json file.
-            parent (Task or TaskCategory or None): parent of task.
-
-        Returns:
-            (Task): Task item described by json file.
-        """
-        if not os.path.isfile(file_path):
-            raise TaskFileError(
-                "Task file {0} does not exist".format(file_path)
-            )
-        with open(file_path, "r") as file_:
-            file_text = file_.read()
-        try:
-            task_dict = json.loads(file_text, object_pairs_hook=OrderedDict)
-        except json.JSONDecodeError:
-            raise TaskFileError(
-                "Tasks file {0} is incorrectly formatted for json load".format(
-                    file_path
-                )
-            )
-        name = os.path.splitext(os.path.basename(file_path))[0]
-        return cls.from_dict(task_dict, name, parent)
 
 
 class TaskHistory(object):

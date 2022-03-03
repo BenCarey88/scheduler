@@ -1,6 +1,5 @@
 """Base tree item class."""
 
-from abc import ABC
 from collections import OrderedDict
 from contextlib import contextmanager
 from uuid import uuid4
@@ -14,6 +13,7 @@ from scheduler.api.edit.tree_edit import (
     RemoveChildrenEdit,
     RenameChildrenEdit,
 )
+from scheduler.api.serialization.serializable import NestedSerializable
 from .exceptions import (
     ChildNameError,
     DuplicateChildNameError,
@@ -22,9 +22,8 @@ from .exceptions import (
 )
 
 
-class BaseTreeItem(ABC):
+class BaseTreeItem(NestedSerializable):
     """Base class representing a tree item."""
-
     TREE_PATH_SEPARATOR = "/"
 
     def __init__(self, name, parent=None, id=None):
@@ -44,7 +43,6 @@ class BaseTreeItem(ABC):
         self._register_edits = True
         self.id = id or uuid4()
         # base class must be overridden, has no allowed child types.
-        # TODO: this feels like a class property rather than an instance one
         self._allowed_child_types = []
 
     # TODO: this is only here so it can be accessed in the drag-drop stuff to find
@@ -70,32 +68,6 @@ class BaseTreeItem(ABC):
             (str): item's name.
         """
         return self._name
-
-    # TODO: this shouldn't be a setter, make it an actual method
-    # for consistency wwith other edits.
-    @name.setter
-    def name(self, new_name):
-        """Set item name.
-
-        This setter also updates the item's name in its parent's child dict.
-
-        Args:
-            new_name (str): new item name.
-
-        Raises:
-            (DuplicateChildNameError): if the new name is the same as one of its
-                siblings.
-        """
-        parent = self.parent
-        if parent:
-            if parent.get_child(new_name):
-                raise DuplicateChildNameError(parent.name, new_name)
-            RenameChildrenEdit.create_and_run(
-                parent,
-                {self.name: new_name},
-                register_edit=self._register_edits,
-            )
-            # TODO: surely we want to be able to change name even if there's no parent?
 
     @property
     def parent(self):
@@ -440,6 +412,30 @@ class BaseTreeItem(ABC):
             )
             new_child._children[grandchild_copy.name] = grandchild_copy
         self.replace_child(child_name, new_child)
+
+    def set_name(self, new_name):
+        """Set item name.
+
+        This setter also updates the item's name in its parent's child dict.
+
+        Args:
+            new_name (str): new item name.
+
+        Raises:
+            (DuplicateChildNameError): if the new name is the same as one of its
+                siblings.
+        """
+        parent = self.parent
+        if parent:
+            if parent.get_child(new_name):
+                raise DuplicateChildNameError(parent.name, new_name)
+            RenameChildrenEdit.create_and_run(
+                parent,
+                {self.name: new_name},
+                register_edit=self._register_edits,
+            )
+        else:
+            raise Exception("Cannot rename root tree item")
 
     def get_child(self, name):
         """Get child by name.

@@ -5,7 +5,12 @@ used across all its tabs and widgets.
 """
 
 from collections import OrderedDict
+
 from scheduler.api.edit.tree_edit import MoveTreeItemEdit
+from scheduler.api.serialization.serializable import (
+    SaveType,
+    SerializableFileTypes,
+)
 
 from .exceptions import TaskFileError
 from .task_category import TaskCategory
@@ -13,23 +18,31 @@ from .task_category import TaskCategory
 
 class TaskRoot(TaskCategory):
     """Root item for all task data for the scheduler."""
+    _SAVE_TYPE = SaveType.DIRECTORY
+    _ORDER_FILE = "root{0}".format(SerializableFileTypes.ORDER)
+    _MARKER_FILE = _ORDER_FILE
 
-    TREE_FILE_MARKER = "root.info"
-    CATEGORIES_KEY = "categories"
+    _SUBDIR_KEY = "categories"
+    _SUBDIR_CLASS = TaskCategory
+    _FILE_KEY = None
+
+    CATEGORIES_KEY = _SUBDIR_KEY
     ROOT_NAME = ""
 
-    def __init__(self, directory_path=None, *args, **kwargs):
+    def __init__(self, directory_path=None, name=None, *args, **kwargs):
         """Initialise TaskRoot item.
 
         Args:
             directory_path (str or None): path to directory this should be
                 saved to, or None if not set yet.
+            name (str or None): name. If None, use ROOT_NAME.
             args (tuple): additional args to allow super class classmethod
                 to use this init.
             kwargs (dict): additional kwargs to allow super class classmethod
                 to use this init.
         """
-        super(TaskRoot, self).__init__(name=self.ROOT_NAME, parent=None)
+        name = name or self.ROOT_NAME
+        super(TaskRoot, self).__init__(name=name, parent=None)
         self._directory_path = directory_path
         self._allowed_child_types = [TaskCategory]
 

@@ -1,12 +1,16 @@
 """Exceptions for tree classes."""
 
 
-class ChildNameError(Exception):
+class TreeError(Exception):
+    """Base tree exception for others to inherit from."""
+
+
+class ChildNameError(TreeError):
     """Exception for when replacing child with another with different name."""
     pass
 
 
-class DuplicateChildNameError(Exception):
+class DuplicateChildNameError(TreeError):
     """Exception for two cildren having the same name."""
     def __init__(self, tree_item_name, child_item_name):
         """Initialise exception.
@@ -21,17 +25,17 @@ class DuplicateChildNameError(Exception):
         super(DuplicateChildNameError, self).__init__(message)
 
 
-class MultipleParentsError(Exception):
+class MultipleParentsError(TreeError):
     """Exception for when new child does not have current item as a parent."""
     pass
 
 
-class TaskFileError(Exception):
+class TaskFileError(TreeError):
     """Exception for when the tasks file / directory missing or unreadable."""
     pass
 
 
-class UnallowedChildType(Exception):
+class UnallowedChildType(TreeError):
     """Exception for trying to add a child of an unallowed type to a tree."""
     def __init__(self, tree_class, child_tree_class):
         """Initialise exception.

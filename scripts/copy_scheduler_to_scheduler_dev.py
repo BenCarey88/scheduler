@@ -18,7 +18,11 @@ if __name__ == "__main__":
         new_path = os.path.join(dev_scheduler_files, file_or_dir)
         if os.path.isfile(old_path):
             print ("copying file {0} to {1}".format(old_path, new_path))
+            if os.path.exists(new_path):
+                os.remove(new_path)
             shutil.copy2(old_path, new_path)
         elif os.path.isdir(old_path):
             print ("copying directory {0} to {1}".format(old_path, new_path))
-            shutil.copytree(old_path, new_path, dirs_exist_ok=True)
+            if os.path.exists(new_path):
+                shutil.rmtree(new_path)
+            shutil.copytree(old_path, new_path)

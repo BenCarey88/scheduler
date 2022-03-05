@@ -33,6 +33,7 @@ class BaseCalendarPeriod(NestedSerializable):
         Args:
             calendar (Calendar): calendar root object.
         """
+        super(BaseCalendarPeriod, self).__init__()
         self._calendar = calendar
 
     @property

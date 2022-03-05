@@ -1,5 +1,8 @@
 """Notes Tab."""
 
+# TODO: no longer consistent with new project setup, either remove
+# or add to project tree.
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 

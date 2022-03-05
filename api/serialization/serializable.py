@@ -2,15 +2,18 @@
 
 
 from abc import ABC, abstractclassmethod, abstractmethod
+from ast import excepthandler
 from collections import OrderedDict
 import json
 import os
 import shutil
 import tempfile
 
-
-class SerializationError(Exception):
-    """Exception class for serialization errors."""
+from .file_utils import (
+    check_directory_can_be_written_to,
+    is_serialize_directory,
+    SerializationError
+)
 
 
 class SaveType():
@@ -54,7 +57,6 @@ class SerializableFileTypes():
         INFO:   optional json formatted file representing any additional info
             required for deserialization of a directory.
     """
-    # TODO: use these in subclasses - make .infos in task classes json format
     JSON = ".json"
     MARKER= ".marker"
     ORDER = ".order"
@@ -71,12 +73,30 @@ class BaseSerializable(ABC):
     All subclasses make use of these two class variables:
 
         _SAVE_TYPE (SaveType): the type of save that this serialization uses
-            (see SaveType struct above)
+            (see SaveType struct above).
         _DICT_TYPE (type): the type of dict that this class can be serialized
-            to (can be dict or OrderedDict)
+            to (can be dict or OrderedDict).
+        _STORE_SAVE_PATH (bool): if True, store the path this serializable was
+            read from during read method so we can use it in the write method.
     """
     _SAVE_TYPE = SaveType.FILE
     _DICT_TYPE = dict
+    _STORE_SAVE_PATH = False
+
+    def __init__(self):
+        """Initialize serializable instance."""
+        self._save_path = None
+
+    def set_save_path(self, save_path):
+        """Set save path for serializable.
+
+        This is a path that can be used with the write command, so that we
+        don't have to pass in a path to write.
+
+        Args:
+            save_path (str): path to write this serializable to. 
+        """
+        self._save_path = save_path
 
     ### Dict Read/Write ###
     # These must be reimplemented in subclasses
@@ -231,28 +251,70 @@ class BaseSerializable(ABC):
             (BaseSerializable): class instance.
         """
         if cls._SAVE_TYPE == SaveType.FILE:
-            return cls.from_file(path, *args, **kwargs)
+            instance = cls.from_file(path, *args, **kwargs)
         elif cls._SAVE_TYPE == SaveType.DIRECTORY:
-            return cls.from_directory(path, *args, **kwargs)
+            instance = cls.from_directory(path, *args, **kwargs)
         elif cls._SAVE_TYPE == SaveType.EITHER:
             if os.path.isfile(path):
-                return cls.from_file(path, *args, **kwargs)
+                instance = cls.from_file(path, *args, **kwargs)
             elif os.path.isdir(path):
-                return cls.from_directory(path, *args, **kwargs)
+                instance = cls.from_directory(path, *args, **kwargs)
             raise SerializationError(
                 "Path {0} is neither a file nor a directory".format(path)
             )
-        raise SerializationError(
-            "{0} has save type '{1}', so can't be read from a file "
-            "or directory".format(str(cls), cls._SAVE_TYPE)
-        )
+        else:
+            raise SerializationError(
+                "{0} has save type '{1}', so can't be read from a file "
+                "or directory".format(str(cls), cls._SAVE_TYPE)
+            )
+        if cls._STORE_SAVE_PATH:
+            instance._save_path = path
+        return instance
 
-    def write(self, path):
+    # TODO: we should split up serialization errors - we don't want to catch
+    # every single one here. Ideally I think we should catch cases
+    # eg. things that will stop us writing back may need to be flagged here
+    @classmethod
+    def safe_read(cls, path, *args, **kwargs):
+        """Read class from path, or create new one if error.
+
+        Note for this to work, we need to ensure that the __init__ method
+        doesn't require additional arguments that aren't passed to the read
+        method (or alternatively that we pass additional init args as kwargs
+        and the read method can just accept and ignore these).
+
+        Args:
+            path (str): file or directory to read from.
+            args (list): args to pass to class read or __init__ method.
+            kwargs (dict): kwargs to pass to class read or __init__ method.
+
+        Returns:
+            (BaseSerializable): class instance.
+        """
+        try:
+            return cls.read(path, *args, **kwargs)
+        except SerializationError:
+            instance = cls(*args, **kwargs)
+            if cls._STORE_SAVE_PATH:
+                # this may cause crashes during write if the wrong errors
+                # have been caught
+                instance._save_path = path
+            return instance
+
+    def write(self, path=None):
         """Write to path.
 
         Args:
-            path (str): file or directory path to write to.
+            path (str or None): file or directory path to write to, or None
+                if we intend to use stored save_path instead.
         """
+        path = path or self._save_path
+        if not path:
+            raise SerializationError(
+                "Save path has not been set on {0} instance.".format(
+                    self.__class__.__name__
+                )
+            )
         if self._SAVE_TYPE == SaveType.FILE:
             self.to_file(path)
         elif self._SAVE_TYPE == SaveType.DIRECTORY:
@@ -270,7 +332,6 @@ class BaseSerializable(ABC):
             )
 
 
-# TODO: use this in task classes
 class NestedSerializable(BaseSerializable):
     """Serializable class for nested structures.
 
@@ -375,38 +436,15 @@ class NestedSerializable(BaseSerializable):
                 "types must be too"
             )
 
-    @staticmethod
-    def _is_serialize_directory(directory_path, marker_file):
-        """Check if directory represents a serialized class.
-
-        Args:
-            directory_path (str): path to directory.
-            marker_file (str): name of marker file in this directory, that
-                designates the directory as a serialized class.
-
-        Returns:
-            (bool) whether or not directory path represents a valid directory
-                that can be deserialized.
-        """
-        if os.path.isdir(directory_path):
-            marker_file_path = os.path.join(
-                directory_path,
-                marker_file
-            )
-            if os.path.isfile(marker_file_path):
-                return True
-        return False
-
-    # TODO: should this raise_error flag be the norm in this repo?
     @classmethod
     def _check_directory_can_be_written_to(
             cls,
             directory_path,
             raise_error=True):
-        """Check if directory path can be written to.
+        """Check if directory path can be written to by this class.
 
-        A directory path can have a nested serializable written to it so long
-        as the following criteria are met:
+        A directory path can have this nested serializable written to it so
+        long as the following criteria are met:
             - the _SAVE_TYPE of this class is a directory one.
             - the path's parent directory exists.
             - the path is not a file.
@@ -429,30 +467,11 @@ class NestedSerializable(BaseSerializable):
                     str(cls), cls._SAVE_TYPE
                 )
             )
-        if not os.path.isdir(os.path.dirname(directory_path)):
-            if raise_error:
-                raise SerializationError(
-                    "Directory {0} has no parent dir and so cannot "
-                    "be created".format(directory_path)
-                )
-            return False
-        if os.path.isfile(directory_path):
-            if raise_error:
-                raise SerializationError(
-                    "Directory {0} is a file".format(directory_path)
-                )
-            return False
-        marker_file = cls._MARKER_FILE
-        if (marker_file and
-                os.path.exists(directory_path) and
-                not cls._is_serialize_directory(directory_path, marker_file)):
-            if raise_error:
-                raise SerializationError(
-                    "Directory {0} already exists and is not a serialized "
-                    "directory - cannot overwrite".format(directory_path)
-                )
-            return False
-        return True
+        return check_directory_can_be_written_to(
+            directory_path,
+            cls._MARKER_FILE,
+            raise_error=raise_error
+        )
 
     ### Directory Read/Write ###
     @classmethod
@@ -476,7 +495,7 @@ class NestedSerializable(BaseSerializable):
         """
         subdir_class = cls._subdir_class()
         file_class = cls._file_class()
-        if not cls._is_serialize_directory(directory_path, cls._MARKER_FILE):
+        if not is_serialize_directory(directory_path, cls._MARKER_FILE):
             raise SerializationError(
                 "Directory path {0} is not a serialized class "
                 "directory".format(directory_path)
@@ -521,7 +540,7 @@ class NestedSerializable(BaseSerializable):
             subdir_marker = subdir_class._MARKER_FILE
             if (cls._SUBDIR_KEY
                     and subdir_marker
-                    and cls._is_serialize_directory(path, subdir_marker)):
+                    and is_serialize_directory(path, subdir_marker)):
                 subdir_item_dict = subdir_class._read_directory(path)
                 subdir_dict[name] = subdir_item_dict
             elif cls._FILE_KEY and os.path.isfile("{0}.json".format(path)):
@@ -636,3 +655,22 @@ class NestedSerializable(BaseSerializable):
         self._run_directory_checks()
         dict_repr = self.to_dict()
         self._dict_to_directory(directory_path, dict_repr)
+
+
+class CustomSerializable(NestedSerializable):
+    """Serializable class that doesn't use dictionaries for serialization."""
+
+    def to_dict(self):
+        """Override to_dict method so it doesn't need to be defined."""
+        raise NotImplementedError(
+            "to_dict method not implemented for {0}".format(
+                self.__class__.__name__
+            )
+        )
+
+    @classmethod
+    def from_dict(cls):
+        """Override to_dict method so it doesn't need to be defined."""
+        raise NotImplementedError(
+            "from_dict method not implemented for {0}".format(cls.__name__)
+        )

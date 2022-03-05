@@ -14,6 +14,7 @@ class Tracker(BaseSerializable):
         Args:
             task_root (TaskRoot): the root task object.
         """
+        super(Tracker, self).__init__()
         self.task_root = task_root
         self._tracked_tasks = []
 

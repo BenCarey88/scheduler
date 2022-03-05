@@ -47,7 +47,7 @@ class TreeManager(object):
 
         Args:
             name (str): name of tree manager.
-            user_prefs (_ProjectUserPrefs): project user prefs class.
+            user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
 
         Attributes:

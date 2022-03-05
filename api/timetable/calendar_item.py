@@ -58,6 +58,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
             repeat_type (str or None): type of repeating used.
             end_date (Date or None): end date, if one exists.
         """
+        super(CalendarItemRepeatPattern, self).__init__()
         self._initial_date_pattern = inital_date_pattern
         if inital_date_pattern[0] + timedelta_gap <= inital_date_pattern[-1]:
             raise CalendarItemError(
@@ -362,6 +363,7 @@ class BaseCalendarItem(NestedSerializable):
                 properties from, if they're not overridden. This is used by
                 RepeatCalendarItemInstances.
         """
+        super(BaseCalendarItem, self).__init__()
         self._calendar = calendar
         self._task_root = calendar.task_root
         self._template_item = template_item

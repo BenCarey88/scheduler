@@ -5,29 +5,19 @@ import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api import constants as api_constants
 from scheduler.api import utils as api_utils
 from scheduler.api.common.date_time import Date, Time
 from scheduler.api.common import user_prefs
-from scheduler.api.managers.tree_manager import TreeManager
-from scheduler.api.timetable.calendar import Calendar
-from scheduler.api.timetable.tracker import Tracker
 from scheduler.api.edit import edit_log
-from scheduler.api.tree.task_root import TaskRoot
+from scheduler.api.managers.tree_manager import TreeManager
+from scheduler.api.project import Project
 
-from .constants import (
-    CANCEL_BUTTON,
-    NO_BUTTON,
-    SHORT_TIMER_INTERVAL,
-    YES_BUTTON
-)
-
+from . import constants as ui_constants
 from .tabs.calendar_tab import CalendarTab
-from .tabs.notes_tab import NotesTab
+# from .tabs.notes_tab import NotesTab
 from .tabs.task_tab import TaskTab
 from .tabs.tracker_tab import TrackerTab
 from .tabs.suggestions_tab import SuggestionsTab
-
 from .utils import custom_message_dialog, set_style, simple_message_dialog
 from .widgets.outliner import Outliner
 
@@ -43,28 +33,21 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
 
-        self.tree_root = TaskRoot.from_directory(
-            api_constants.TASKS_DIRECTORY
-        )
+        # TODO: need functionality here for if active project not set
+        self.project = Project.read(user_prefs.get_active_project())
 
-        self.calendar = Calendar.from_directory(
-            api_constants.CALENDAR_DIRECTORY,
-            self.tree_root
-        )
-        self.tracker = Tracker.from_file(
-            api_constants.TRACKER_FILE,
-            self.tree_root
-        )
-        self.project_user_prefs = user_prefs.get_active_project_user_prefs(
-            self.tree_root
-        )
+        # TODO: make consistent across repo 'tree root' /'task root'
+        self.tree_root = self.project.task_root
+        self.calendar = self.project.calendar
+        self.tracker = self.project.tracker
+        self.project_user_prefs = self.project.user_prefs
 
         edit_log.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
         self.saved_edit_id = edit_log.latest_edit_id()
         self.autosaved_edit_id = edit_log.latest_edit_id()
-        self.startTimer(SHORT_TIMER_INTERVAL)
+        self.startTimer(ui_constants.SHORT_TIMER_INTERVAL)
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
@@ -97,14 +80,14 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             self.calendar,
             self.tracker
         )
-        self.suggestions_tab = self.create_tab_and_outliner(
-            "Suggestions",
-            SuggestionsTab
-        )
-        self.notes_tab = self.create_tab_and_outliner(
-            "Notes",
-            NotesTab
-        )
+        # self.suggestions_tab = self.create_tab_and_outliner(
+        #     "Suggestions",
+        #     SuggestionsTab
+        # )
+        # self.notes_tab = self.create_tab_and_outliner(
+        #     "Notes",
+        #     NotesTab
+        # )
 
         self.tabs_widget.currentChanged.connect(self.on_tab_changed)
         self.tabs_widget.setCurrentIndex(
@@ -209,16 +192,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
     def save(self):
         """Save scheduler data."""
         if self.saved_edit_id != edit_log.latest_edit_id():
-            self.tree_root.write()
-            # TODO: make calendar and tree root save consistent
-            self.calendar.write(
-                api_constants.CALENDAR_DIRECTORY
-            )
-            self.tracker.write(
-                api_constants.TRACKER_FILE
-            )
-            self.saved_edit_id = edit_log.latest_edit_id()
-        self.notes_tab.save()
+            self.project.write()
+        # self.notes_tab.save()
 
     def undo(self):
         """Undo last action."""
@@ -238,16 +213,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
     def _autosave(self):
         """Autosave backup file if needed."""
         if self.autosaved_edit_id != edit_log.latest_edit_id():
-            self.tree_root.write(
-                api_constants.TASKS_AUTOSAVES_DIRECTORY
-            )
-            self.calendar.write(
-                api_constants.CALENDAR_AUTOSAVES_DIRECTORY
-            )
-            self.tracker.write(
-                api_constants.TRACKER_AUTOSAVES_FILE
-            )
-            self.autosaved_edit_id = edit_log.latest_edit_id()
+            self.project.autosave()
 
     def timerEvent(self, event):
         """Called every timer_interval. Used to make autosaves.
@@ -264,21 +230,26 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             event (QtCore.QEvent): the close event.
         """
         self._autosave()
+        # TODO: add user prefs saves to autosave function?
         user_prefs.save_app_user_prefs()
         # TODO: THIS NEEDS ERROR CATCHING:
-        self.project_user_prefs.write()
+        self.project.write_user_prefs()
         if self.saved_edit_id != edit_log.latest_edit_id():
             result = custom_message_dialog(
                 "Unsaved Changes",
-                buttons=[YES_BUTTON, NO_BUTTON, CANCEL_BUTTON],
+                buttons=[
+                    ui_constants.YES_BUTTON,
+                    ui_constants.NO_BUTTON,
+                    ui_constants.CANCEL_BUTTON
+                ],
                 informative_text=(
                     "There are unsaved changes. Save before closing?"
                 )
             )
-            if result == CANCEL_BUTTON:
+            if result == ui_constants.CANCEL_BUTTON:
                 event.ignore()
                 return
-            if result == YES_BUTTON:
+            if result == ui_constants.YES_BUTTON:
                 self.save()
             event.accept()
 
@@ -286,11 +257,11 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         # or at least give some indication it's happening?
         # and/or maybe also add a check for when last commit was (only do one
         # a day / one every few days / whatever)
-        error = api_utils.backup_git_repo(api_constants.SCHEDULER_DIRECTORY)
+        error = api_utils.backup_git_repo(self.project.root_directory)
         if error:
             simple_message_dialog(
                 "Git backup failed for {0}".format(
-                    api_constants.SCHEDULER_DIRECTORY
+                    self.project.root_directory
                 ),
                 informative_text=error
             )

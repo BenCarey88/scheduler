@@ -18,7 +18,7 @@ class UserPrefsError(Exception):
     """Exception class for all user pref related errors."""
 
 
-class _BaseUserPrefs(BaseSerializable):
+class BaseUserPrefs(BaseSerializable):
     """Base user preferences class."""
 
     def __init__(self):
@@ -32,11 +32,10 @@ class _BaseUserPrefs(BaseSerializable):
                 These can't be serialized and so get repopulated each time the
                 app is opened, but are used to define how to apply some of the
                 saved user pref values.
-            file_path (str): path of file to read/write from/to.
         """
+        super(BaseUserPrefs, self).__init__()
         self._user_prefs_dict = {}
         self._functions_dict = {}
-        self._file_path = ""
 
     def register_method(self, method):
         """Decorator to register a method and run it.
@@ -144,7 +143,7 @@ class _BaseUserPrefs(BaseSerializable):
             dictionary (dict): Serialized dictionary.
 
         Returns:
-            (_BaseUserPrefs): user prefs class instance.
+            (BaseUserPrefs): user prefs class instance.
         """
         user_prefs = cls()
         user_prefs._user_prefs_dict = deserialize_dict(dictionary)
@@ -161,55 +160,13 @@ class _BaseUserPrefs(BaseSerializable):
             delete_empty_containers=True
         )
 
-    @classmethod
-    def from_file_or_new(cls, file_path=None, *args, **kwargs):
-        """Load user prefs from file if exists, else create new user prefs.
 
-        Args:
-            file_path (str or None): path to try to load from, if given.
-            args (list): args to pass to __init__ method.
-            kwargs (dict): kwargs to pass to __init__ method.
-
-        Returns:
-            (_BaseUserPrefs): user prefs class instance.
-        """
-        if file_path is None:
-            return cls(*args, **kwargs)
-        try:
-            user_prefs = cls.from_file(file_path, *args, **kwargs)
-        except SerializationError:
-            user_prefs = cls(*args, **kwargs)
-        user_prefs._file_path = file_path
-        return user_prefs
-
-    def write(self):
-        """Write class to file."""
-        if not self._file_path:
-            raise UserPrefsError("No file path set, can't write user prefs")
-        self.to_file(self._file_path)
-
-
-class _AppUserPrefs(_BaseUserPrefs):
+class AppUserPrefs(BaseUserPrefs):
     """Class for general user preferences relating to the application."""
-
-    @property
-    def project_user_prefs_file(self):
-        """Get path to user prefs class for active schedule project.
-
-        Returns:
-            (str or None): file path to project user prefs, if an active
-                project is set.
-        """
-        project_path = self._user_prefs_dict.get("active_project")
-        if project_path is None:
-            return None
-        return os.path.join(
-            project_path,
-            "user_prefs.json"
-        )
+    _STORE_SAVE_PATH = True
 
 
-class _ProjectUserPrefs(_BaseUserPrefs):
+class ProjectUserPrefs(BaseUserPrefs):
     """Class for user preferences relating to a specific schedule project."""
 
     def __init__(self, tree_root):
@@ -218,7 +175,7 @@ class _ProjectUserPrefs(_BaseUserPrefs):
         Args:
             tree_root (TaskRoot): root of task tree for project.
         """
-        super(_ProjectUserPrefs, self).__init__()
+        super(ProjectUserPrefs, self).__init__()
         self._tree_root = tree_root
 
     @classmethod
@@ -252,9 +209,8 @@ class _ProjectUserPrefs(_BaseUserPrefs):
         )
 
 
-APP_USER_PREFS = _AppUserPrefs.from_file_or_new(
-    constants.USER_PREFS_FILE
-)
+# app user prefs are a constant across the program
+APP_USER_PREFS = AppUserPrefs.safe_read(constants.USER_PREFS_FILE)
 
 
 def get_app_user_pref(name, default=None):
@@ -282,21 +238,27 @@ def set_app_user_pref(name, value):
     APP_USER_PREFS.set_attribute(name, value)
 
 
+def get_active_project():
+    """Get path to active scheduler project from app user prefs.
+
+    Returns:
+        (str or None): path to active project.
+    """
+    active_project = get_app_user_pref("active_project")
+    if active_project is None:
+        return active_project
+    return os.path.normpath(active_project)
+
+
+def set_active_project(active_project):
+    """Set path to active scheduler project from app user prefs.
+
+    Args:
+        active_project (str): path to active project.
+    """
+    set_app_user_pref(os.path.normpath(active_project))
+
+
 def save_app_user_prefs():
     """Save application user preferences."""
     APP_USER_PREFS.write()
-
-
-def get_active_project_user_prefs(tree_root):
-    """Get project user prefs for active project.
-
-    Args:
-        tree_root (TaskRoot): root of task tree for project.
-
-    Returns:
-        (_ProjectUserPrefs): user prefs for active project.
-    """
-    return _ProjectUserPrefs.from_file_or_new(
-        APP_USER_PREFS.project_user_prefs_file,
-        tree_root=tree_root
-    )

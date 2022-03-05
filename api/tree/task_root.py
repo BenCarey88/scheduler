@@ -9,10 +9,10 @@ from collections import OrderedDict
 from scheduler.api.edit.tree_edit import MoveTreeItemEdit
 from scheduler.api.serialization.serializable import (
     SaveType,
+    SerializationError,
     SerializableFileTypes,
 )
 
-from .exceptions import TaskFileError
 from .task_category import TaskCategory
 
 
@@ -66,22 +66,6 @@ class TaskRoot(TaskCategory):
             (OrderedDict): dictionary of category children.
         """
         return self._children
-
-    def set_directory_path(self, directory_path):
-        """Change directory path to read/write from/to.
-
-        Args:
-            directory_path (str): new directory path.
-        """
-        self._directory_path = directory_path
-
-    def get_directory_path(self):
-        """Get directory path to read/write from/to.
-        
-        Returns:
-            directory_path (str): name of directory path.
-        """
-        return self._directory_path
 
     def get_item_at_path(self, path):
         """Get item at given path.
@@ -152,40 +136,6 @@ class TaskRoot(TaskCategory):
             index,
             register_edit=self._register_edits,
         )
-
-    def write(self, directory_path=None):
-        """Write data to directory tree.
-
-        Args:
-            directory_path (str or None): path to directory, if we want to
-                write to a different one. Otherwise we use the one set as
-                self._directory_path.
-        """
-        directory_path = directory_path or self._directory_path
-        if not directory_path:
-            raise TaskFileError(
-                "Directory path has not been set on task root."
-            )
-        super(TaskRoot, self).write(directory_path)
-
-    @classmethod
-    def from_directory(cls, directory_path):
-        """Create TaskRoot object from task directory.
-
-        Args:
-            directory_path (str): path to tasks directory.
-
-        Raises:
-            (TaskFileError): if the directory doesn't exist or isn't a task
-                directory (ie. doesn't have a TREE_FILE_MARKER)
-
-        Returns:
-            (TaskRoot): TaskRoot object populated with tasks from directory
-                tree.
-        """
-        root = super(TaskRoot, cls).from_directory(directory_path)
-        root.set_directory_path(directory_path)
-        return root
 
     @classmethod
     def from_dict(cls, json_dict, name=None):

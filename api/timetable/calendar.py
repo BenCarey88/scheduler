@@ -42,6 +42,7 @@ class Calendar(NestedSerializable):
             task_root (TaskRoot): root task item to use for scheduling task
                 calendar items.
         """
+        super(Calendar, self).__init__()
         self.task_root = task_root
         self._years = {}
         self._months = {}

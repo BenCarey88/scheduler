@@ -12,7 +12,6 @@ from scheduler.api.serialization.serializable import (
 )
 from ._base_filters import KeepChildrenOfType
 from ._base_tree_item import BaseTreeItem
-from .exceptions import TaskFileError
 from .task import Task
 
 

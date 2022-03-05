@@ -37,6 +37,7 @@ class BaseTreeItem(NestedSerializable):
                 as if it's the same as an old one (eg. if we want to change a
                 Task to a TaskCategory).
         """
+        super(BaseTreeItem, self).__init__()
         self._name = name
         self._parent = parent
         self._children = OrderedDict()

@@ -13,7 +13,6 @@ from scheduler.api.edit.task_edit import (
 from scheduler.api.serialization.serializable import SaveType
 
 from ._base_tree_item import BaseTreeItem
-from .exceptions import TaskFileError
 
 
 class TaskType():

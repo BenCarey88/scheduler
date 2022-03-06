@@ -12,8 +12,15 @@ from scheduler.ui.utils import simple_message_dialog
 
 
 class Outliner(QtWidgets.QTreeView):
-    """Task Outliner panel."""
+    """Task Outliner panel.
 
+    Signals:
+        MODEL_UPDATED_SIGNAL: emitted whenever the tree model is updated by
+            the outliner.
+        CURRENT_CHANGED_SIGNAL (QtCore.QModelIndex, QtCore.QModelIndex):
+            emitted when the current selected item in the outliner is changed.
+            The arguments are the old selected item and the new selected item.
+    """
     MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
     CURRENT_CHANGED_SIGNAL = QtCore.pyqtSignal(
         QtCore.QModelIndex,

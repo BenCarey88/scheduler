@@ -187,6 +187,18 @@ class Calendar(NestedSerializable):
         starting_date = date - TimeDelta(days=days_offset)
         return CalendarWeek(self, starting_date)
 
+    def get_current_week(self, starting_day=0):
+        """Get current calendar week.
+
+        Args:
+            starting_day (int or str): integer or string representing starting
+                day for weeks. By default we start weeks on monday.
+
+        Returns:
+            (CalendarWeek): calendar week objects that contains given date.
+        """
+        return self.get_week_containing_date(Date.now(), starting_day)
+
     # @contextmanager
     # def filter_items(self, filters):
     #     """Contextmanager to filter _items list temporarily.

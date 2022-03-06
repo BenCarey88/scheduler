@@ -1,14 +1,15 @@
 """Base Tab class."""
 
-from functools import partial
 from PyQt5 import QtCore, QtGui, QtWidgets
-
-from scheduler.ui.widgets.outliner import Outliner
 
 
 class BaseTab(QtWidgets.QWidget):
-    """Base Tab class."""
+    """Base Tab class.
 
+    Signals:
+        MODEL_UPDATED_SIGNAL: emitted whenever the tree model is updated by
+            the outliner.
+    """
     MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
 
     def __init__(self, tree_root, tree_manager, outliner, parent=None):
@@ -54,5 +55,5 @@ class BaseTab(QtWidgets.QWidget):
     def update(self):
         """Update main view to sync with model."""
         raise NotImplementedError(
-            "This needs to be reimplemented in subclasses."
+            "update method needs to be implemented in subclasses."
         )

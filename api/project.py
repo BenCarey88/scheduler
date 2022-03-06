@@ -297,6 +297,8 @@ class Project(CustomSerializable):
 
     def autosave(self):
         """Write project files to autosaves directory."""
+        if not os.path.exists(self._autosaves_tree.root_directory):
+            os.mkdir(self._autosaves_tree.root_directory)
         self._write_all_components(self._autosaves_tree)
 
     def write_user_prefs(self):

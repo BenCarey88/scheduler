@@ -1,9 +1,5 @@
 """Calendar Tab."""
 
-# general TODO (should hopefully cover several of the to-dos below):
-#   - switch times here to all use datetime (or my util class wrapper around datetime)
-#   - create all the conversion functions between that and the screen position values
-#   - maybe even make separate Converter class to do this? or break into separate file?
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -14,21 +10,19 @@ from scheduler.api.timetable.calendar_item import (
     CalendarItemType,
     RepeatCalendarItemInstance
 )
-from scheduler.api.timetable.calendar_period import CalendarWeek
-from scheduler.api.tree.task import Task
 
-from scheduler.ui.tabs.base_tab import BaseTab
+from scheduler.ui.models.timetable_week_model import CalendarWeekModel
+from scheduler.ui.tabs.base_timetable_tab import (
+    BaseTimetableTab,
+    BaseWeekTableView
+)
 from scheduler.ui import constants, utils
 
 from .calendar_item_dialog import CalendarItemDialog
-from .calendar_model import CalendarModel
 
 
-class CalendarTab(BaseTab):
+class CalendarTab(BaseTimetableTab):
     """Calendar tab."""
-
-    # repeat of attrs from the view (find way to share this info)
-    WEEK_START_DAY = Date.SAT
 
     def __init__(
             self,
@@ -46,92 +40,20 @@ class CalendarTab(BaseTab):
             calendar (Calendar): calendar item.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
+        calendar_table_view = CalendarView(
+            tree_root,
+            tree_manager,
+            calendar
+        )
         super(CalendarTab, self).__init__(
             tree_root,
             tree_manager,
             outliner,
-            parent=parent
+            calendar,
+            calendar_table_view,
+            parent=parent,
         )
         utils.set_style(self, "calendar.qss")
-        date = Date.now()
-        self.calendar_week = calendar.get_week_containing_date(
-            date,
-            starting_day=self.WEEK_START_DAY
-        )
-
-        navigator_panel = QtWidgets.QWidget()
-        navigator_panel.setFixedHeight(30)
-        navigator_layout = QtWidgets.QHBoxLayout()
-        navigator_layout.setContentsMargins(0, 0, 0, 0)
-        navigator_panel.setLayout(navigator_layout)
-        self.outer_layout.addWidget(navigator_panel)
-
-        self.date_label = QtWidgets.QLabel(self.get_date_label())
-        prev_week_button = QtWidgets.QPushButton("<")
-        next_week_button = QtWidgets.QPushButton(">")
-        view_type_dropdown = QtWidgets.QComboBox()
-        view_type_dropdown.addItems(["week"])
-
-        navigator_layout.addWidget(self.date_label)
-        navigator_layout.addStretch()
-        navigator_layout.addWidget(prev_week_button)
-        navigator_layout.addWidget(next_week_button)
-        navigator_layout.addStretch()
-        navigator_layout.addWidget(view_type_dropdown)
-
-        self.table = CalendarView(
-            tree_root,
-            tree_manager,
-            calendar,
-            self.calendar_week
-        )
-        self.outer_layout.addWidget(self.table)
-
-        prev_week_button.clicked.connect(self.change_to_prev_week)
-        next_week_button.clicked.connect(self.change_to_next_week)
-
-    def update(self):
-        """Update widget."""
-        self.table.viewport().update()
-
-    def get_date_label(self):
-        """Get date label for current week.
-
-        Returns:
-            (str): label to use for date.
-        """
-        start_date = self.calendar_week.start_date
-        end_date = self.calendar_week.end_date
-        if start_date.month == end_date.month:
-            return " {0} {1}".format(
-                Date.month_string_from_int(start_date.month, short=False),
-                start_date.year
-            )
-        elif start_date.year == end_date.year:
-            return " {0} - {1} {2}".format(
-                Date.month_string_from_int(start_date.month),
-                Date.month_string_from_int(end_date.month),
-                start_date.year
-            )
-        else:
-            return " {0} {1} - {2} {3}".format(
-                Date.month_string_from_int(start_date.month),
-                start_date.year,
-                Date.month_string_from_int(end_date.month),
-                end_date.year
-            )
-
-    def change_to_prev_week(self):
-        """Set calendar view to use previous week."""
-        self.calendar_week = self.calendar_week.prev_week()
-        self.table.set_to_week(self.calendar_week)
-        self.date_label.setText(self.get_date_label())
-
-    def change_to_next_week(self):
-        """Set calendar view to use next week."""
-        self.calendar_week = self.calendar_week.next_week()
-        self.table.set_to_week(self.calendar_week)
-        self.date_label.setText(self.get_date_label())
 
 
 class SelectionRect(object):
@@ -286,12 +208,9 @@ class SelectedCalenderItem(object):
             return self._calendar_item.repeat_calendar_item
 
 
-class CalendarView(QtWidgets.QTableView):
+class CalendarView(BaseWeekTableView):
     """Calendar view widget."""
-
-    # repeat of attrs from model (find way to share this info)
-    WEEK_START_DAY = Date.SAT
-    DAY_START = Time(hour=6)
+    DAY_START = Time(hour=0)
     DAY_END = Time(hour=23, minute=59, second=59)
     TIME_INTERVAL = TimeDelta(hours=1)
     SELECTION_TIME_STEP = TimeDelta(minutes=15)
@@ -302,21 +221,25 @@ class CalendarView(QtWidgets.QTableView):
             tree_root,
             tree_manager,
             calendar,
-            calendar_week,
             parent=None):
-        """Initialise calendar view."""
-        super(CalendarView, self).__init__(parent)
+        """Initialise calendar view.
 
-        self.tree_root = tree_root
-        self.tree_manager = tree_manager
-        self.calendar = calendar
-        self.calendar_week = calendar_week
-
+        Args:
+            tree_root (BaseTreeItem): tree root item for tab's models.
+            tree_manager (TreeManager): tree manager object.
+            calendar (Calendar): calendar object.
+            calendar_week (CalendarWeek): calendar week for view.
+            parent (QtGui.QWidget or None): QWidget parent of widget.
+        """
+        super(CalendarView, self).__init__(
+            tree_root,
+            tree_manager,
+            calendar,
+            CalendarWeekModel(calendar),
+            parent=parent,
+        )
         self.selection_rect = None
-        self.selected_calendar_item = None
 
-        model = CalendarModel(self.calendar_week, self)
-        self.setModel(model)
         self.setItemDelegate(CalendarDelegate(self))
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.horizontalHeader().setSectionResizeMode(
@@ -336,17 +259,6 @@ class CalendarView(QtWidgets.QTableView):
 
         self.startTimer(constants.LONG_TIMER_INTERVAL)
 
-    def set_to_week(self, week):
-        """Set view to use given week.
-
-        Args:
-            week (CalendarWeek): the calendar week to use.
-        """
-        self.calendar_week = week
-        model = CalendarModel(week, self)
-        self.setModel(model)
-        self.viewport().update()
-
     @property
     def table_top(self):
         """Get topmost y pos of table:
@@ -355,7 +267,7 @@ class CalendarView(QtWidgets.QTableView):
             (int): table top y pos.
         """
         return self.rowViewportPosition(0)
-        
+
     @property
     def table_bottom(self):
         """Get bottommost y pos of table:
@@ -955,18 +867,31 @@ class CalendarView(QtWidgets.QTableView):
         return super(CalendarView, self).mouseReleaseEvent(event)
 
     def dragEnterEvent(self, event):
+        """Override drag enter event for dragging task items.
+
+        Args:
+            event (QtCore.QEvent): the drag enter event.
+        """
         if event.mimeData().hasFormat('application/vnd.treeviewdragdrop.list'):
             event.acceptProposedAction()
-        #event.accept()
+        super(CalendarView, self).dragMoveEvent(event)
 
     def dragMoveEvent(self, event):
+        """Override drag move event for dragging task items.
+
+        Args:
+            event (QtCore.QEvent): the drag move event.
+        """
         if event.mimeData().hasFormat('application/vnd.treeviewdragdrop.list'):
             event.acceptProposedAction()
-        # super(CalendarView, self).dragMoveEvent(event)
-        # event.setDropAction(QtCore.Qt.DropAction.CopyAction)
-        # event.accept()
+        super(CalendarView, self).dragMoveEvent(event)
 
     def dropEvent(self, event):
+        """Override drop event for dropping task items.
+
+        Args:
+            event (QtCore.QEvent): the drop event.
+        """
         # TODO: if we use this same setup here as from tree model to decode mime data
         # should add as utils function or similar.
         encoded_data = event.mimeData().data('application/vnd.treeviewdragdrop.list')

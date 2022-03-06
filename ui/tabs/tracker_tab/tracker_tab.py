@@ -13,18 +13,18 @@ from scheduler.api.tree.task import (
     TaskStatus,
     TaskValueType
 )
+
+from scheduler.ui.models.timetable_week_model import TrackerWeekModel
+from scheduler.ui.tabs.base_timetable_tab import (
+    BaseTimetableTab,
+    BaseWeekTableView
+)
 from scheduler.ui.tabs.base_tab import BaseTab
 from scheduler.ui import constants, utils
 
-from .tracker_model import TrackerModel
 
-
-# TODO: base class here is pretty much identical to calendar, as is model,
-# should do some sharing
-class TrackerTab(BaseTab):
+class TrackerTab(BaseTimetableTab):
     """Tracker tab."""
-
-    WEEK_START_DAY = Date.SAT
 
     def __init__(
             self,
@@ -44,118 +44,49 @@ class TrackerTab(BaseTab):
             tracker (Tracker): tracker object.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
+        tracker_view = TrackerView(
+            tree_root,
+            tree_manager,
+            calendar,
+            tracker
+        )
         super(TrackerTab, self).__init__(
             tree_root,
             tree_manager,
             outliner,
-            parent=parent
+            calendar,
+            tracker_view,
+            parent=parent,
         )
         utils.set_style(self, "tracker.qss")
-        self.tracker = tracker
-        date = Date.now()
-        self.calendar_week = calendar.get_week_containing_date(
-            date,
-            starting_day=self.WEEK_START_DAY
-        )
-
-        navigator_panel = QtWidgets.QWidget()
-        navigator_panel.setFixedHeight(30)
-        navigator_layout = QtWidgets.QHBoxLayout()
-        navigator_layout.setContentsMargins(0, 0, 0, 0)
-        navigator_panel.setLayout(navigator_layout)
-        self.outer_layout.addWidget(navigator_panel)
-
-        self.date_label = QtWidgets.QLabel(self.get_date_label())
-        prev_week_button = QtWidgets.QPushButton("<")
-        next_week_button = QtWidgets.QPushButton(">")
-        view_type_dropdown = QtWidgets.QComboBox()
-        view_type_dropdown.addItems(["week"])
-
-        navigator_layout.addWidget(self.date_label)
-        navigator_layout.addStretch()
-        navigator_layout.addWidget(prev_week_button)
-        navigator_layout.addWidget(next_week_button)
-        navigator_layout.addStretch()
-        navigator_layout.addWidget(view_type_dropdown)
-
-        self.table = TrackerView(
-            tree_root,
-            tree_manager,
-            tracker,
-            self.calendar_week
-        )
-        self.outer_layout.addWidget(self.table)
-
-        prev_week_button.clicked.connect(self.change_to_prev_week)
-        next_week_button.clicked.connect(self.change_to_next_week)
-
-    def update(self):
-        """Update widget."""
-        self.table.update()
-
-    def get_date_label(self):
-        """Get date label for current week.
-
-        Returns:
-            (str): label to use for date.
-        """
-        start_date = self.calendar_week.start_date
-        end_date = self.calendar_week.end_date
-        if start_date.month == end_date.month:
-            return " {0} {1}".format(
-                Date.month_string_from_int(start_date.month, short=False),
-                start_date.year
-            )
-        elif start_date.year == end_date.year:
-            return " {0} - {1} {2}".format(
-                Date.month_string_from_int(start_date.month),
-                Date.month_string_from_int(end_date.month),
-                start_date.year
-            )
-        else:
-            return " {0} {1} - {2} {3}".format(
-                Date.month_string_from_int(start_date.month),
-                start_date.year,
-                Date.month_string_from_int(end_date.month),
-                end_date.year
-            )
-
-    def change_to_prev_week(self):
-        """Set calendar view to use previous week."""
-        self.calendar_week = self.calendar_week.prev_week()
-        self.table.set_to_week(self.calendar_week)
-        self.date_label.setText(self.get_date_label())
-
-    def change_to_next_week(self):
-        """Set calendar view to use next week."""
-        self.calendar_week = self.calendar_week.next_week()
-        self.table.set_to_week(self.calendar_week)
-        self.date_label.setText(self.get_date_label())
 
 
-class TrackerView(QtWidgets.QTableView):
-
+class TrackerView(BaseWeekTableView):
+    """Tracker table view."""
     def __init__(
             self,
             tree_root,
             tree_manager,
+            calendar,
             tracker,
-            calendar_week,
             parent=None):
         """Initialise tracker delegate item.
 
         Args:
             tree_root (BaseTreeItem): tree root item for tab's models.
             tree_manager (TreeManager): tree manager object.
+            calendar (Calendar): calendar object.
             tracker (Tracker): tracker object.
-            calendar_week (CalendarWeek): the week we're tracking.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        super(TrackerView, self).__init__(parent)
+        super(TrackerView, self).__init__(
+            tree_root,
+            tree_manager,
+            calendar,
+            TrackerWeekModel(calendar),
+            parent=parent,
+        )
         utils.set_style(self, "tracker_view.qss")
-        self.calendar_week = calendar_week
-        model = TrackerModel(calendar_week, self)
-        self.setModel(model)
         self.setItemDelegate(TrackerDelegate(self, tracker))
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
@@ -167,24 +98,20 @@ class TrackerView(QtWidgets.QTableView):
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.open_editors()
 
-    def update(self):
-        """Update widget and viewport."""
-        self.open_editors()
-        self.viewport().update()
-
     def set_to_week(self, week):
         """Set view to use given week.
 
         Args:
             week (CalendarWeek): the calendar week to use.
         """
-        self.calendar_week = week
-        model = TrackerModel(week, self)
-        self.setModel(model)
+        super(TrackerView, self).set_to_week(week)
         self.open_editors()
 
-    # TODO this page shares a lot of functionality with TimetableView - maybe
-    # make a bunch of base classes to inherit from (same for the model)
+    def update(self):
+        """Update widget and viewport."""
+        self.open_editors()
+        self.viewport().update()
+
     def resize_table(self):
         """Resize table view."""
         self.resizeRowsToContents()

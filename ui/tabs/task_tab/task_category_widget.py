@@ -14,8 +14,11 @@ class TaskCategoryWidget(QtWidgets.QFrame):
     This widget holds a line edit with the name of the current category,
     as well as TaskCategoryWidgets for all of its subcategories and
     TaskTreeWidgets for all its tasks.
-    """
 
+    Signals:
+        MODEL_UPDATED_SIGNAL: emitted whenever the tree model is updated by
+            the outliner.
+    """
     MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
 
     def __init__(self, task_item, tab, recursive_depth=0, parent=None):

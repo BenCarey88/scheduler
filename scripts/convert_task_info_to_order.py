@@ -39,7 +39,7 @@ def convert_task_info_files_to_order_jsons(directory):
 
 
 if __name__ == "__main__":
-    current_dir = sys.argv[1] if len(sys.argv) >= 2 else os.getcwd()
+    current_dir = sys.argv[1]
     current_dir = os.path.abspath(current_dir)
     print (current_dir)
     convert_task_info_files_to_order_jsons(current_dir)

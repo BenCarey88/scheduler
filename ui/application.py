@@ -6,7 +6,6 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import utils as api_utils
-from scheduler.api.common.date_time import Date, Time
 from scheduler.api.common import user_prefs
 from scheduler.api.edit import edit_log
 from scheduler.api.managers.tree_manager import TreeManager
@@ -17,7 +16,7 @@ from .tabs.calendar_tab import CalendarTab
 # from .tabs.notes_tab import NotesTab
 from .tabs.task_tab import TaskTab
 from .tabs.tracker_tab import TrackerTab
-from .tabs.suggestions_tab import SuggestionsTab
+# from .tabs.suggestions_tab import SuggestionsTab
 from .utils import custom_message_dialog, set_style, simple_message_dialog
 from .widgets.outliner import Outliner
 
@@ -257,6 +256,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         # or at least give some indication it's happening?
         # and/or maybe also add a check for when last commit was (only do one
         # a day / one every few days / whatever)
+        # TODO: this should also be a method in project class
         error = api_utils.backup_git_repo(self.project.root_directory)
         if error:
             simple_message_dialog(

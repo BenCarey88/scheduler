@@ -24,11 +24,11 @@ def date_time_obj_from_string(string, *args, **kwargs):
             by string.
     """
     raise NotImplementedError(
-        "General DateTime deserialization This isn't finished yet"
+        "General DateTime deserialization isn't finished yet"
     )
     if string.startswith("TimeDelta("):
         return TimeDelta.from_string(string)
-    
+
     raise DateTimeError(
         "Cannot deserialize {0} as DateTime or TimeDelta object".format(
             string
@@ -466,6 +466,10 @@ class BaseDateTimeWrapper(object):
     DEC = "December"
     MONTHS = [JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC]
     NUM_MONTHS = len(MONTHS)
+
+    # Time Data
+    DAY_START = 0
+    DAY_END = 24
 
     def __init__(self, datetime_obj):
         """Initialise base class.

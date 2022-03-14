@@ -4,14 +4,12 @@ import os
 
 from scheduler.api import constants, utils
 from scheduler.api.serialization.serializable import (
-    BaseSerializable,
-    SerializationError
+    BaseSerializable
 )
 from scheduler.api.serialization.default import (
     serialize_dict,
     deserialize_dict
 )
-from scheduler.api.tree._base_tree_item import BaseTreeItem
 
 
 class UserPrefsError(Exception):

@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from ._core_edits import CompositeEdit, SelfInverseSimpleEdit
+from ._core_edits import CompositeEdit, AttributeEdit
 from ._ordered_dict_edit import OrderedDictEdit, OrderedDictOp
 
 
@@ -28,102 +28,53 @@ class BaseTreeEdit(CompositeEdit):
             register_edit=False,
         )
         edit_list = [ordered_dict_edit]
-        # TODO: Is there a nicer way to do composite edits than needing this
-        # reverse order flag? Eg. is there a way to build these edits so that
-        # the order doesn't matter?
-        reverse_order_for_inverse = True
 
         if op_type == OrderedDictOp.RENAME:
-            name_change_edit = SelfInverseSimpleEdit(
-                tree_item,
-                run_func=self._rename,
-                register_edit=False,
+            name_change_edit = AttributeEdit(
+                {
+                    tree_item.get_child(old_name)._name: new_name
+                    for old_name, new_name in diff_dict.items()
+                    if tree_item.get_child(old_name)
+                },
+                register_edit=False
             )
             edit_list = [name_change_edit, ordered_dict_edit]
-            # Name change needs to be done before dict change both times
-            reverse_order_for_inverse = False
 
         elif op_type == OrderedDictOp.REMOVE:
-            remove_parent_edit = SelfInverseSimpleEdit(
-                tree_item,
-                run_func=self._remove,
-                register_edit=False,
+            remove_parent_edit = AttributeEdit(
+                {
+                    tree_item.get_child(name)._parent: None
+                    for name in diff_dict
+                    if tree_item.get_child(name)
+                },
+                register_edit=False
             )
-            # Order is important here: need to remove parent first
             edit_list = [remove_parent_edit, ordered_dict_edit]
 
-        elif op_type in [OrderedDictOp.ADD, OrderedDictOp.INSERT]:
-            add_parent_edit = SelfInverseSimpleEdit(
-                tree_item,
-                run_func=self._add_or_insert,
-                register_edit=False,
+        elif op_type == OrderedDictOp.ADD:
+            add_parent_edit = AttributeEdit(
+                {
+                    new_child._parent: tree_item
+                    for new_child in diff_dict.values()
+                },
+                register_edit=False
             )
-            # Order is important here: need to add it to dict first
             edit_list = [ordered_dict_edit, add_parent_edit]
+
+        elif op_type == OrderedDictOp.INSERT:
+            insert_parent_edit = AttributeEdit(
+                {
+                    new_child._parent: tree_item
+                    for _, new_child in diff_dict.values()
+                },
+                register_edit=False
+            )
+            edit_list = [ordered_dict_edit, insert_parent_edit]
 
         super(BaseTreeEdit, self).__init__(
             edit_list,
-            reverse_order_for_inverse=reverse_order_for_inverse,
             register_edit=register_edit,
         )
-
-    def _rename(self, tree_item, inverse):
-        """Additional renaming edit for tree name child.
-
-        This changes the child's name attribute. Notice that due to the
-        implementation of this, it's important that it's run BEFORE the
-        ordered dict rename edit, as otherwise, the child will have the
-        new name and won't be found by tree_item.get_child(). The same
-        is true of the inverse of this function.
-
-        Args:
-            tree_item (BaseTreeItem): tree item whose child we're renaming.
-            inverse (bool): flag for if this function is being run as an
-                inverse or not.
-        """
-        for name_tuple in self.diff_dict.items():
-            original_name = name_tuple[1] if inverse else name_tuple[0]
-            new_name = name_tuple[0] if inverse else name_tuple[1]
-            child = tree_item.get_child(original_name)
-            if child:
-                child._name = new_name
-
-    # TODO: merge this and the method below
-    def _remove(self, tree_item, inverse):
-        """Additional remove edit for removing tree child.
-
-        This removes/readds the child's parent attribute.
-
-        Args:
-            tree_item (BaseTreeItem): tree item whose child we're renaming.
-            inverse (bool): flag for if this function is being run as an
-                inverse or not.
-        """
-        for name in self.diff_dict.keys():
-            child = tree_item.get_child(name)
-            if child:
-                if inverse:
-                    child._parent = tree_item
-                else:
-                    child._parent = None
-
-    def _add_or_insert(self, tree_item, inverse):
-        """Additional remove edit for adding/inserting tree child.
-
-        This adds/removes the child's parent attribute.
-
-        Args:
-            tree_item (BaseTreeItem): tree item whose child we're renaming.
-            inverse (bool): flag for if this function is being run as an
-                inverse or not.
-        """
-        for name in self.diff_dict.keys():
-            child = tree_item.get_child(name)
-            if child:
-                if inverse:
-                    child._parent = None
-                else:
-                    child._parent = tree_item
 
 
 class AddChildrenEdit(BaseTreeEdit):

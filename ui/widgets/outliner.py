@@ -133,7 +133,10 @@ class Outliner(QtWidgets.QTreeView):
         # TODO: This is just for debugging, remove later
         dodgy_parents = self.root.get_descendants_with_incorrect_parents()
         if dodgy_parents:
-            print (dodgy_parents)
+            print (
+                "The following items have incorrect parents:",
+                dodgy_parents
+            )
 
         # TODO: afaik this is currently only needed for adding siblings to
         # top-level category - I think we should be able to avoid resetting

@@ -42,6 +42,293 @@ class OrderedDictOp(object):
         return cls._INVERSES.get(op_type)
 
 
+class BaseContainerEdit(BaseEdit):
+    """Edit on a container type (dict, OrderedDict or list)."""
+    def __init__(
+            self,
+            container,
+            diff_container,
+            op_type,
+            recursive=False,
+            register_edit=True):
+        """Initialise edit item.
+
+        Args:
+            container (list or dict): the container that this edit is being
+                run on.
+            diff_container (list or dict): a container representing
+                modifications to the original container dict. How to interpret
+                this depends on the operation type.
+            operation_type (OrderedDictOp): The type of edit operation to do.
+            recrsive (bool): if this is True, the diff_container will be
+                applied recursively: ie. if the values in the diff_container
+                are further containers, whose keys/values correspond to keys
+                and values at the same level in the diff container, we can go
+                down a level and apply the edit operation there. Interpretation
+                depends on op_type.
+            register_edit (bool): whether or not to register this edit.
+        """
+        super(BaseContainerEdit, self).__init__(register_edit)
+        self._container = container
+        self._container_type = type(container)
+        self._diff_container = diff_container
+        self._operation_type = op_type
+        self._recursive = recursive
+        self._inverse_diff_container = None
+        self._inverse_operation_type = OrderedDictOp.get_inverse_op(op_type)
+
+    def _run(self):
+        """Run this edit on the given container.
+
+        The first time this is called it should also fill up the inverse
+        diff container too, so that we can use it in _inverse_run.
+        """
+        if self._inverse_diff_container is None:
+            self._inverse_diff_container = self._container_type()
+            self._run_operation(
+                self._container,
+                self._diff_container,
+                self._operation_type,
+                self._inverse_diff_container,
+            )
+        else:
+            self._run_operation(
+                self._container,
+                self._diff_container,
+                self._operation_type,
+            )
+
+    def _inverse_run(self):
+        """Run inverse operation to undo edit.
+
+        Raises:
+            (EditError): if the edit has not yet been run so the diff dict
+                hasn't been filled up.
+        """
+        if self._inverse_diff_container is None:
+            raise EditError(
+                "Can only call ContainerEdit _inverse_run once _run has "
+                "been called."
+            )
+        self._run_operation(
+            self._container,
+            self._inverse_diff_container,
+            self._inverse_operation_type,
+        )
+
+    def _recursion_required(self, key_or_index, container, diff_container):
+        """Utility to check if we should apply an operation recursively.
+
+        If self.recursive=True, and the values at a given key of both the
+        ordered_dict and the diff_dict are nested ordered dictionaries,
+        then we should apply recursively.
+
+        Args:
+            key_or_index (variant): key to check dictionaries at, or index
+                to check lists at.
+            container (dict or list): container that's being edited.
+            diff_container (dict or list): diff_container used to edit it.
+
+        Returns:
+            (bool): whether or not we should use recursion.
+        """
+        if not self.recursive:
+            return False
+
+        if isinstance(container, dict):
+            subcontainer_type = diff_container.get(key_or_index)
+            if not isinstance(subcontainer_type, (dict, list)):
+                return False
+            if not isinstance(container.get(key_or_index), subcontainer_type):
+                return False
+
+        elif isinstance(container, list):
+            if len(diff_container) != len(container):
+                return False
+            if (len(container) < key_or_index
+                    or len(diff_container) < key_or_index):
+                return False
+            subcontainer_type = diff_container[key_or_index]
+            if not isinstance(subcontainer_type, (dict, list)):
+                return False
+            if not isinstance(container[key_or_index], subcontainer_type):
+                return False
+
+        return True
+
+    @staticmethod
+    def _add_inverse_diff_dict_key(inverse_diff_dict, key, value):
+        """Add key to inverse diff dict.
+
+        If the dict is ordered, this is added at start.
+
+        Args:
+            inverse_diff_dict (dict): dict to add key to.
+            key (variant): key to add.
+            value (variant): value at key.
+        """
+        if isinstance(inverse_diff_dict, OrderedDict):
+            utils.add_key_at_start(inverse_diff_dict, key, value)
+        else:
+            inverse_diff_dict[key] = value
+
+    def _run_operation(
+            self,
+            container,
+            diff_container,
+            operation_type,
+            inverse_diff_container=None):
+        """Run operation on a container.
+
+        Loop through the container and check if there are nested diff
+        containers that we should run this function recursively with,
+        otherwise call methods to apply the edit operation on that key.
+
+        Args:
+            ordered_dict (OrderedDict): dictionary to run on.
+            diff_dict (OrderedDict): dictionary of modifications to make.
+            op_type (OrderedDictOp): type of operation to run.
+            inverse_diff_dict (OrderedDict or None): if given, use this to
+                build up the inverse operation.
+        """
+        if isinstance(container, dict):
+            for key, value in diff_container.items():
+                # call recursively if needed
+                if self._recursion_required(key, container, diff_container):
+                    if inverse_diff_container is not None:
+                        # all inverse diff keys are added at start so that they're
+                        # applied in reverse order from the forwards diff
+                        self._add_inverse_diff_dict_key(
+                            inverse_diff_container,
+                            key,
+                            type(container)()
+                        )
+                        self._run_operation(
+                            container[key],
+                            diff_container[key],
+                            operation_type,
+                            inverse_diff_container[key],
+                        )
+                    else:
+                        self._run_operation(
+                            container[key],
+                            diff_container[key],
+                            operation_type,
+                        )
+                # otherwise call specific operarion method
+                else:
+                    if operation_type == OrderedDictOp.ADD:
+                        self._dict_add(
+                            key, value, container, inverse_diff_container
+                        )
+                    elif operation_type == OrderedDictOp.INSERT:
+                        self._ordered_dict_insert(
+                            key, value, container, inverse_diff_container
+                        )
+                    elif operation_type == OrderedDictOp.REMOVE:
+                        self._dict_remove(
+                            key, value, container, inverse_diff_container
+                        )
+                    elif operation_type == OrderedDictOp.RENAME:
+                        self._dict_rename(
+                            key, value, container, inverse_diff_container
+                        )
+                    elif operation_type == OrderedDictOp.MODIFY:
+                        self._dict_modify(
+                            key, value, container, inverse_diff_container
+                        )
+                    elif operation_type == OrderedDictOp.MOVE:
+                        self._ordered_dict_move(
+                            key, value, container, inverse_diff_container
+                        )
+
+                    elif operation_type == OrderedDictOp.ADD_OR_MODIFY:
+                        self._add_or_modify(
+                            key, value, container, inverse_diff_container
+                        )
+                    elif operation_type == OrderedDictOp.REMOVE_OR_MODIFY:
+                        self._remove_or_modify(
+                            key, value, container, inverse_diff_container
+                        )
+
+    # def _run_operation(
+    #         self,
+    #         container,
+    #         diff_container,
+    #         operation_type,
+    #         inverse_diff_container=None):
+    #     """Run operation on contatiner.
+
+    #     Loop through the container, and check if there are nested containers
+    #     that we should run this function recursively with, otherwise call
+    #     methods to apply the edit operation on that key.
+
+    #     Args:
+    #         container (list or dict): container to run on.
+    #         diff_container (list or dict): container of modifications to make.
+    #         op_type (OrderedDictOp): type of operation to run.
+    #         inverse_diff_container (list or dict or None): if given, use this
+    #             to build up the inverse operation.
+    #     """
+    #     raise NotImplementedError(
+    #         "_run_operation must be implemented in BaseContainer subclasses."
+    #     )
+
+    def _dict_add(self, key, value, dict_, inverse_diff_dict=None):
+        """Add given key, value to ordered dict.
+
+        Args:
+            key (variant): key to add.
+            value (variant): value to set at key.
+            dict_ (dict): dict to add key to.
+            inverse_diff_dict (dict or None): if given, add to this to
+                define inverse operation.
+        """
+        if key not in dict_:
+            if inverse_diff_dict is not None:
+                self._add_inverse_diff_dict_key(inverse_diff_dict, key, None)
+            dict_[key] = value
+
+    def _ordered_dict_insert(
+            self,
+            key,
+            value_tuple,
+            ordered_dict,
+            inverse_diff_dict=None):
+        """Insert given key, value to ordered dict.
+
+        Args:
+            key (variant): key to insert.
+            value_tuple (tuple(int, variant)): tuple of index to add new key at
+                and value to set for key. The index defines the index that we
+                want the key to have after being inserted.
+            ordered_dict (OrderedDict): ordered dict to insert key into.
+            inverse_diff_dict (OrderedDict or None): if given, add to this to
+                define inverse operation.
+        """
+        if key not in ordered_dict:
+            if type(value_tuple) != tuple:
+                raise EditError(
+                    "diff_dict for INSERT op needs tuple valued leaves"
+                )
+            index = value_tuple[0]
+            if index < 0 or index > len(ordered_dict):
+                return
+            new_value = value_tuple[1]
+            if index == len(ordered_dict):
+                ordered_dict[key] = new_value
+            else:
+                for i in range(len(ordered_dict)):
+                    k, v = ordered_dict.popitem(last=False)
+                    if index == i:
+                        ordered_dict[key] = new_value
+                    ordered_dict[k] = v
+            if inverse_diff_dict is not None:
+                self._add_inverse_diff_dict_key(inverse_diff_dict, key, None)
+
+
+
+
 class OrderedDictEdit(BaseEdit):
     """Edit on an OrderedDict."""
 
@@ -140,6 +427,7 @@ class OrderedDictEdit(BaseEdit):
             and isinstance(diff_dict.get(key), OrderedDict)
         )
 
+    # TODO: update so that this sets is_valid to true once any change is introduced
     def _run_operation(
             self,
             ordered_dict,

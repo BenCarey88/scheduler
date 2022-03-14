@@ -2,6 +2,7 @@
 
 from functools import partial
 
+from scheduler.api.common.mutable_attribute import MutableAttribute
 from ._base_edit import BaseEdit, EditError
 
 
@@ -80,6 +81,7 @@ class CompositeEdit(BaseEdit):
             reigster_edit (bool): whether or not to register this edit.
         """
         super(CompositeEdit, self).__init__(register_edit)
+        self._is_valid = bool(edits_list)
         for edit in edits_list:
             if edit._register_edit or edit._registered or edit._has_been_done:
                 raise EditError(
@@ -92,8 +94,11 @@ class CompositeEdit(BaseEdit):
 
     def _run(self):
         """Run each edit in turn."""
+        self._is_valid = False
         for edit in self.edits_list:
             edit._run()
+            if edit._is_valid:
+                self._is_valid = True
 
     def _inverse_run(self):
         """Run in each inverse edit in reverse order or edits_list."""
@@ -105,18 +110,34 @@ class CompositeEdit(BaseEdit):
             edit._inverse_run()
 
 
-class ContinuousEdit(BaseEdit):
-    """Edit that can be updated as it's being run.
-
-    This is for things like moving the time / date of a calendar date, whic
-    can be done by dragging and dropping.
-    """
-    def __init__(self, register_edit=True):
-        """Initialize continuous edit.
+class AttributeEdit(BaseEdit):
+    """Edit that changes a MutableAttribute object to a new value."""
+    def __init__(self, attr_dict, register_edit=True):
+        """Initiailize edit.
 
         Args:
+            attr_dict (dict(MutableAttribute, variant)): dictionary of
+                attributes with new values to set them to.
             reigster_edit (bool): whether or not to register this edit.
         """
-        super(ContinuousEdit, self).__init__(register_edit)
+        super(AttributeEdit, self).__init__(register_edit)
+        self._attr_dict = attr_dict
+        self._orig_attr_dict = {}
+        for attr in self._attr_dict:
+            if not isinstance(attr, MutableAttribute):
+                raise EditError(
+                    "attr_dict in AttributeEdit must be keyed by "
+                    "MutableAttribute objects."
+                )
+            self._orig_attr_dict[attr] = attr.value
 
-# or maybe scrap this and add updating ability to base edit
+    def _run(self):
+        """Run edit."""
+        self._is_valid = False
+        for attr, value in self._attr_dict.items():
+            self._is_valid = attr.set_value(value) or self._is_valid
+
+    def _inverse_run(self):
+        """Run edit inverse."""
+        for attr, value in self._orig_attr_dict.items():
+            attr.set_value(value)

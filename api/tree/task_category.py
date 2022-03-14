@@ -10,6 +10,7 @@ from scheduler.api.serialization.serializable import (
     SaveType,
     SerializableFileTypes,
 )
+from .exceptions import DuplicateChildNameError
 from ._base_filters import KeepChildrenOfType
 from ._base_tree_item import BaseTreeItem
 from .task import Task
@@ -253,9 +254,17 @@ class TaskCategory(BaseTreeItem):
                 subcategory_name,
                 category
             )
-            category.add_subcategory(subcategory)
+            category._children[subcategory_name] = subcategory
         tasks = json_dict.get(cls.TASKS_KEY, {})
         for task_name, task_dict in tasks.items():
-            task = Task.from_dict(task_dict, task_name)
-            category.add_task(task)
+            task = Task.from_dict(task_dict, task_name, category)
+            if task_name in category._children:
+                raise DuplicateChildNameError(
+                    "Serialized category {0} has a subcategory and a task "
+                    "with the same name {1}".format(
+                        name,
+                        task_name
+                    )
+                )
+            category._children[task_name] = task
         return category

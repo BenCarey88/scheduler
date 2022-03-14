@@ -4,6 +4,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from uuid import uuid4
 
+from scheduler.api.common.mutable_attribute import MutableAttribute
 from scheduler.api.constants import TASK_COLOURS
 from scheduler.api.edit.tree_edit import (
     AddChildrenEdit,
@@ -38,8 +39,8 @@ class BaseTreeItem(NestedSerializable):
                 Task to a TaskCategory).
         """
         super(BaseTreeItem, self).__init__()
-        self._name = name
-        self._parent = parent
+        self._name = MutableAttribute(name)
+        self._parent = MutableAttribute(parent)
         self._children = OrderedDict()
         self._register_edits = True
         self.id = id or uuid4()
@@ -68,7 +69,7 @@ class BaseTreeItem(NestedSerializable):
         Returns:
             (str): item's name.
         """
-        return self._name
+        return self._name.value
 
     @property
     def parent(self):
@@ -77,7 +78,7 @@ class BaseTreeItem(NestedSerializable):
         Returns:
             (BaseTreeItem or None): parent item, if one exists.
         """
-        return self._parent
+        return self._parent.value
 
     @property
     def path_list(self):
@@ -231,7 +232,7 @@ class BaseTreeItem(NestedSerializable):
         if type(child) not in self._allowed_child_types:
             raise UnallowedChildType(self.__class__, type(child))
         if not child.parent:
-            child._parent = self
+            child._parent.set_value(self)
         if child.parent != self:
             raise MultipleParentsError(
                 "child {0} has incorrect parent: {1} instead of {2}".format(
@@ -354,7 +355,7 @@ class BaseTreeItem(NestedSerializable):
         if type(new_child) not in self._allowed_child_types:
             raise UnallowedChildType(self.__class__, type(new_child))
         if not new_child.parent:
-            new_child._parent = self
+            new_child._parent.set_value(self)
         if new_child.parent != self:
             raise MultipleParentsError(
                 "child {0} has incorrect parent: {1} instead of {2}".format(
@@ -483,6 +484,36 @@ class BaseTreeItem(NestedSerializable):
                 if child != self
             ]
         return []
+
+    def get_all_descendants(self):
+        """Get all descendants of item.
+
+        Returns:
+            (list(BaseTreeItem)): list of descendants.
+        """
+        descendants = self.get_all_children()
+        for child in self.get_all_children():
+            descendants.extend(child.get_all_descendants())
+        return descendants
+
+    def get_family(self):
+        """Get tree family members of this item with same class type.
+
+        This iterates through ancestors and children of this item (and children
+        of those ancestors) and adds them to the return list, stopping each
+        branch of iteration when it meets a member of a different class type.
+
+        Returns:
+            (list(BaseTreeItem)): list of family members with same class type.
+                List will include the current item.
+        """
+        current_item = self
+        while isinstance(current_item.parent, self.__class__):
+            current_item = current_item.parent
+        return [current_item] + [
+            item for item in current_item.get_all_descendants()
+            if isinstance(item, self.__class__)
+        ]
 
     def num_children(self):
         """Get number of children of this item.

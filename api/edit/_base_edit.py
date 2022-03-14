@@ -60,7 +60,7 @@ class BaseEdit(object):
         ownership of it over to the EDIT_LOG.
 
         Exceptions to this rule are:
-            - when creating an edit as part of a composite edit
+            - when creating an unregistered edit as part of a composite edit
             - when creaating an edit to be used as part of a continuous run
 
         Args:

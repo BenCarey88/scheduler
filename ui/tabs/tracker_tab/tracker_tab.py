@@ -217,17 +217,8 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             (QtWidgets.QLayout): layout of widgets for given task value.
         """
         task_value_type = task.value_type
-        # TODO: task history should be keyed by date not date string
-        task_history_at_date = task.history.dict.get(str(date), {})
-        status = task_history_at_date.get(
-            TaskHistory.STATUS_KEY,
-            TaskStatus.UNSTARTED
-        )
-
-        value = task_history_at_date.get(
-            TaskHistory.VALUE_KEY,
-            None
-        )
+        status = task.history.get_status_at_date(date)
+        value = task.history.get_value_at_date(date)
 
         if task_value_type == TaskValueType.MULTI:
             layout = QtWidgets.QVBoxLayout()

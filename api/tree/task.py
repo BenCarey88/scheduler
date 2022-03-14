@@ -1,11 +1,13 @@
 """Task class."""
 
+from ast import Or
 from collections import OrderedDict
 from functools import partial
 import json
 import os
 
-from scheduler.api.common.date_time import Date, DateTime
+from scheduler.api.common.date_time import Date, DateTime, Time
+from scheduler.api.common.mutable_attribute import MutableAttribute
 from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit
@@ -54,7 +56,7 @@ class Task(BaseTreeItem):
             parent=None,
             task_type=None,
             status=None,
-            history=None,
+            history_dict=None,
             value_type=None):
         """Initialise task class.
 
@@ -65,13 +67,18 @@ class Task(BaseTreeItem):
                 if None, we default to general.
             status (TaskStatus or None): status of current task. If None,
                 we default to unstarted.
-            history (TaskHistory or None): task history, if exists.
+            history_dict (OrderedDict or None): serialized task history dict,
+                if exists.
             value_type (TaskValueType or None): task value type, if not None.
         """
         super(Task, self).__init__(name, parent)
-        self._type = task_type or TaskType.GENERAL
-        self._status = status or TaskStatus.UNSTARTED
-        self.history = history if history is not None else TaskHistory()
+        self._type = MutableAttribute(task_type or TaskType.GENERAL)
+        self._status = MutableAttribute(status or TaskStatus.UNSTARTED)
+        self._history = (
+            TaskHistory.from_dict(history_dict, self)
+            if history_dict is not None
+            else TaskHistory(self)
+        )
         self.value_type = value_type or TaskValueType.NONE
         self._allowed_child_types = [Task]
 
@@ -136,33 +143,33 @@ class Task(BaseTreeItem):
         Returns:
             (TaskStatus): current status.
         """
-        if (self.type == TaskType.ROUTINE 
-                and self._status == TaskStatus.COMPLETE):
+        if (self.type == TaskType.ROUTINE
+                and self._status.value == TaskStatus.COMPLETE):
             last_completed = self.history.last_completed
-            if last_completed:
-                date_completed = self.history.last_completed
-                current_date = Date.now()
-                if date_completed != current_date:
+            if last_completed and last_completed != Date.now():
+                # date_completed = self.history.last_completed
+                # current_date = Date.now()
+                # if date_completed != current_date:
                     # TODO: should this update the task history too?
                     # probably not but really these statuses are not ideal
                     # for routines. Ultimately I do think routines need their
                     # own subclass, which may mean TaskTypes become unneeded.
-                    self._status = TaskStatus.UNSTARTED
-        return self._status
+                self._status.set_value(TaskStatus.UNSTARTED)
+        return self._status.value
 
     # TODO: do we need this? Currently status seter is used by edit class,
     # but that's a friend so is free to use _status, and other classes
     # shouldn't be setting this directly anyway.
     # does allow to set recursively though which we probably want down
     # the line.
-    @status.setter
-    def status(self, value):
-        """Set task status.
+    # @status.setter
+    # def status(self, value):
+    #     """Set task status.
 
-        Args:
-            (TaskStatus): new status value.
-        """
-        self._status = value
+    #     Args:
+    #         (TaskStatus): new status value.
+    #     """
+    #     self._status = value
 
     @property
     def type(self):
@@ -171,25 +178,34 @@ class Task(BaseTreeItem):
         Returns:
             (TaskType): current status.
         """
-        return self._type
+        return self._type.value
 
-    @type.setter
-    def type(self, value):
-        """Set task type.
+    # @type.setter
+    # def type(self, value):
+    #     """Set task type.
 
-        Also update type for all parents and children.
+    #     Also update type for all parents and children.
 
-        Args:
-            (TaskType): new type value.
+    #     Args:
+    #         (TaskType): new type value.
+    #     """
+    #     self._type = value
+    #     parent = self.parent
+    #     while isinstance(parent, Task) and parent.type != value:
+    #         parent._type = value
+    #         parent = parent.parent
+    #     for subtask in self._children.values():
+    #         if subtask.type != value:
+    #             subtask.type = value
+
+    @property
+    def history(self):
+        """Get task history.
+
+        Returns:
+            (TaskHistory): task history.
         """
-        self._type = value
-        parent = self.parent
-        while isinstance(parent, Task) and parent.type != value:
-            parent._type = value
-            parent = parent.parent
-        for subtask in self._children.values():
-            if subtask.type != value:
-                subtask.type = value
+        return self._history
 
     # TODO: I made what I now feel was a pretty big ballsup with my
     # classifications, and at the moment everything I've made a top-level
@@ -284,7 +300,7 @@ class Task(BaseTreeItem):
             self.TYPE_KEY: self.type,
         }
         if self.history:
-            json_dict[self.HISTORY_KEY] = self.history.dict
+            json_dict[self.HISTORY_KEY] = self.history.to_dict()
         if self.value_type:
             json_dict[self.VALUE_TYPE_KEY] = self.value_type
         if self._subtasks:
@@ -318,14 +334,14 @@ class Task(BaseTreeItem):
             parent,
             task_type,
             task_status,
-            TaskHistory(task_history),
+            task_history,
             value_type
         )
 
         subtasks = json_dict.get(cls.TASKS_KEY, {})
         for subtask_name, subtask_dict in subtasks.items():
             subtask = cls.from_dict(subtask_dict, subtask_name, task)
-            task.add_subtask(subtask)
+            task._children[subtask_name] = subtask
         return task
 
 
@@ -350,14 +366,14 @@ class TaskHistory(object):
     VALUE_KEY = "value"
     COMMENTS_KEY = "comments"
 
-    def __init__(self, history_dict=None):
+    def __init__(self, task):
         """Initialise task history object.
 
         Args:
-            history_dict (OrderedDict or None): the ordered dict representing
-                the history.
+            task (Task): task this is describing the history of.
         """
-        self.dict = history_dict or OrderedDict()
+        self._task = task
+        self._dict = OrderedDict()
 
     def __bool__(self):
         """Override bool operator to indicate whether dictionary is filled.
@@ -365,7 +381,7 @@ class TaskHistory(object):
         Returns:
             (bool): False if dictionary is empty, else True.
         """
-        return bool(self.dict)
+        return bool(self._dict)
 
     def __nonzero__(self):
         """Override bool operator (python 2.x).
@@ -373,7 +389,7 @@ class TaskHistory(object):
         Returns:
             (bool): False if dictionary is empty, else True.
         """
-        return bool(self.dict)
+        return bool(self._dict)
 
     @property
     def last_completed(self):
@@ -384,7 +400,99 @@ class TaskHistory(object):
         Returns:
             (Date or None): date of last completion, if exists.
         """
-        for date, subdict in reversed(self.dict.items()):
+        for date, subdict in reversed(self._dict.items()):
             if subdict.get(self.STATUS_KEY) == TaskStatus.COMPLETE:
-                return Date.from_string(date)
+                return date
         return None
+
+    def get_dict_at_date(self, date):
+        """Get dict describing task history at given date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (dict): subdict of internal dict for given date.
+        """
+        return self._dict.get(date, {})
+
+    def get_status_at_date(self, date):
+        """Get task status at given date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (TaskStatus): task status at given date.
+        """
+        status = self.get_dict_at_date(date).get(self.STATUS_KEY)
+        if status:
+            return status
+        if self._task.type != TaskType.ROUTINE:
+            # if task isn't routine, default to last recorded status
+            for recorded_date, subdict in reversed(self._dict.items()):
+                if recorded_date < date and self.STATUS_KEY in subdict:
+                    return subdict[self.STATUS_KEY]
+        return TaskStatus.UNSTARTED
+
+    def get_value_at_date(self, date):
+        """Get task value at given date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (variant or None): task value at given date, if set.
+        """
+        return self.get_dict_at_date(date).get(self.VALUE_KEY, None)
+
+    def to_dict(self):
+        """Convert class to serialized json dict.
+
+        In practice, this just converts the Date and Time objects to strings.
+
+        Returns:
+            (OrderedDict): json dict.
+        """
+        json_dict = OrderedDict()
+        for date, subdict in self._dict.items():
+            json_subdict = {}
+            json_dict[date.string()] = json_subdict
+            if self.STATUS_KEY in subdict:
+                json_subdict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
+            if self.VALUE_KEY in subdict:
+                json_subdict[self.VALUE_KEY] = subdict[self.VALUE_KEY]
+            if self.COMMENTS_KEY in subdict:
+                json_comments_subdict = OrderedDict()
+                json_subdict[self.COMMENTS_KEY] = json_comments_subdict
+                for time, comment in subdict[self.COMMENTS_KEY].items():
+                    json_comments_subdict[time.string()] = comment
+        return json_dict
+
+    @classmethod
+    def from_dict(cls, json_dict, task):
+        """Initialise class from dictionary representation.
+
+        Args:
+            json_dict (OrderedDict): dictionary representation.
+            task (Task): task this is describing the history of.
+
+        Returns:
+            (TaskHistory): task history class with given dict.
+        """
+        class_dict = OrderedDict()
+        for date, subdict in json_dict.items():
+            class_subdict = {}
+            class_dict[Date.from_string(date)] = class_subdict
+            if cls.STATUS_KEY in subdict:
+                class_subdict[cls.STATUS_KEY] = subdict[cls.STATUS_KEY]
+            if cls.VALUE_KEY in subdict:
+                class_subdict[cls.VALUE_KEY] = subdict[cls.VALUE_KEY]
+            if cls.COMMENTS_KEY in subdict:
+                class_comments_subdict = OrderedDict()
+                class_subdict[cls.COMMENTS_KEY] = class_comments_subdict
+                for time, comment in subdict[cls.COMMENTS_KEY].items():
+                    class_comments_subdict[Time.from_string(time)] = comment
+        task_history = cls(task)
+        task_history._dict = class_dict
+        return task_history

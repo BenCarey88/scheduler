@@ -604,16 +604,19 @@ class NestedSerializable(BaseSerializable):
 
         # marker file
         marker_file = os.path.join(directory_path, cls._MARKER_FILE)
-        open(marker_file, "w+")
+        with open(marker_file, "w+"):
+            pass
 
         # order file
         file_items = dict_repr.get(cls._FILE_KEY, {})
         subdir_items = dict_repr.get(cls._SUBDIR_KEY, {})
         if cls._ORDER_FILE:
             order_file = os.path.join(directory_path, cls._ORDER_FILE)
-            order = list(
-                set(list(file_items.keys()) + list(subdir_items.keys()))
-            )
+            seen = set()
+            order = [
+                x for x in list(file_items.keys()) + list(subdir_items.keys())
+                if not (x in seen or seen.add(x))
+            ]
             with open(order_file, "w") as file_:
                 json.dump(order, file_, indent=4)
 

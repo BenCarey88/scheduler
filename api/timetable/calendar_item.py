@@ -373,24 +373,29 @@ class BaseCalendarItem(NestedSerializable):
         self._event_name = event_name or ""
         self._is_background = is_background
 
-    # TODO: if we decide to allow instance overrides of the base class 
-    # properties, this will need to be changed
-    def _template_item_decorator(property_func):
-        """Decorator for property method.
+    class _Decorators(object):
+        """Internal decorators class."""
+        # TODO: if we decide to allow instance overrides of the base class 
+        # properties, this will need to be changed
+        @staticmethod
+        def _template_item_decorator(property_func):
+            """Decorator for property method.
 
-        Args:
-            property_func (function): the property function to decorate.
+            Args:
+                property_func (function): the property function to decorate.
 
-        Returns:
-            (function): the decorated function. This returns the equivalent
-                property of the template item, if one exists, otherwise
-                it returns the property of this item.
-        """
-        def decorated_func(class_instance):
-            if class_instance._template_item is not None:
-                return property_func(class_instance._template_item)
-            return property_func(class_instance)
-        return decorated_func
+            Returns:
+                (function): the decorated function. This returns the equivalent
+                    property of the template item, if one exists, otherwise
+                    it returns the property of this item.
+            """
+            def decorated_func(class_instance):
+                if class_instance._template_item is not None:
+                    return property_func(class_instance._template_item)
+                return property_func(class_instance)
+            return decorated_func
+
+    _template_item_decorator = _Decorators._template_item_decorator  
 
     @property
     @_template_item_decorator

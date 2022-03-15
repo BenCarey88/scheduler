@@ -7,3 +7,5 @@ Issue being hit with deserialization:
 
 - more generally, note that json converts None type to the string "null". This
     should be caught in deserializations
+
+- refocus issue when renaming in task view (jumps to selected outliner category)

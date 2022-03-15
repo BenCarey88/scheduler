@@ -146,7 +146,7 @@ class BaseEdit(object):
         """Run edit function.
 
         If extra data is required for the implementation of _inverse_run (eg.
-        the inverse_diff_dict in OrderedDictEdit), it is the responsibility
+        the inverse_diff_dict in ContainerEdit), it is the responsibility
         of this function to ensure this data is defined.
         """
         raise NotImplementedError(
@@ -169,7 +169,7 @@ class BaseEdit(object):
         This should only be called after the _run function has been called, as
         it may be the case that some things required for the implementation of
         this method are defined in during _run (eg. inverse_diff_dict in
-        OrderedDictEdit).
+        ContainerEdit).
         """
         raise NotImplementedError(
             "_inverse_run must be reimplemented in BaseEdit subclasses."

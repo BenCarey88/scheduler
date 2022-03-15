@@ -76,8 +76,8 @@ class TaskTreeTest(unittest.TestCase):
 
         Remove the temporary task directory if it's been written to.
         """
-        if os.path.isdir(self.temp_task_dir):
-            shutil.rmtree(self.temp_task_dir)
+        # if os.path.isdir(self.temp_task_dir):
+        #     shutil.rmtree(self.temp_task_dir)
 
     def test_tree_read(self):
         """Test the tree reads correctly from a directory."""
@@ -91,7 +91,7 @@ class TaskTreeTest(unittest.TestCase):
 
         This test assumes that the tree read functions are correct.
         """
-        self.tree_root.set_directory_path(self.temp_task_dir)
+        self.tree_root.set_save_path(self.temp_task_dir)
         self.tree_root.add_category(TaskCategory("Test"))
         self.tree_root.write()
 

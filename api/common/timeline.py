@@ -52,6 +52,11 @@ class Timeline(object):
                     "Cannot initialise Timeline object with dictionary "
                     "containing non-list values."
                 )
+            if len(value) != len(set(value)):
+                raise TimelineError(
+                    "Timeline class does not allow duplicate items at the "
+                    "same time"
+                )
         self._dict = internal_dict or OrderedDict()
         self._timeline_type = timeline_type
         self.sort_timeline()
@@ -94,11 +99,19 @@ class Timeline(object):
             raise TimelineError(
                 "Timeline object {0} keys items by {1}, not {2}".format(
                     str(self),
-                    date_time.__name__,
+                    date_time.__class__.__name__,
                     self._timeline_type.__name__
                 )
             )
         if date_time in self._dict:
+            if item in self._dict[date_time]:
+                raise TimelineError(
+                    "Timeline class does not allow duplicate items at the "
+                    "same time (duplication of {0} at time {1})".format(
+                        str(item),
+                        date_time.string()
+                    )
+                )
             self._dict[date_time].append(item)
         else:
             item_not_added = True
@@ -146,7 +159,7 @@ class Timeline(object):
         Args:
             date_time (BaseDateTimeWrapper): date or time to get item at.
 
-        Yields:
+        Returns:
             (list): list of items at given date_time.
         """
         return self._dict.get(date_time)

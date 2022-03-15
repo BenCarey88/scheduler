@@ -3,7 +3,7 @@
 from collections import OrderedDict
 
 from ._core_edits import CompositeEdit, AttributeEdit
-from ._ordered_dict_edit import OrderedDictEdit, OrderedDictOp
+from ._container_edit import DictEdit, ContainerOp
 
 
 class BaseTreeEdit(CompositeEdit):
@@ -17,11 +17,11 @@ class BaseTreeEdit(CompositeEdit):
             diff_dict (OrderedDict): a dictionary representing modifications
                 to the tree item's child dict. How to interpret this dictionary
                 depends on the operation type.
-            operation_type (OrderedDictOp): The type of edit operation to do.
+            operation_type (ContainerOp): The type of edit operation to do.
             register_edit (bool): whether or not to register this edit.
         """
         self.diff_dict = diff_dict
-        ordered_dict_edit = OrderedDictEdit(
+        ordered_dict_edit = DictEdit(
             tree_item._children,
             diff_dict,
             op_type,
@@ -29,7 +29,7 @@ class BaseTreeEdit(CompositeEdit):
         )
         edit_list = [ordered_dict_edit]
 
-        if op_type == OrderedDictOp.RENAME:
+        if op_type == ContainerOp.RENAME:
             name_change_edit = AttributeEdit(
                 {
                     tree_item.get_child(old_name)._name: new_name
@@ -40,7 +40,7 @@ class BaseTreeEdit(CompositeEdit):
             )
             edit_list = [name_change_edit, ordered_dict_edit]
 
-        elif op_type == OrderedDictOp.REMOVE:
+        elif op_type == ContainerOp.REMOVE:
             remove_parent_edit = AttributeEdit(
                 {
                     tree_item.get_child(name)._parent: None
@@ -51,7 +51,7 @@ class BaseTreeEdit(CompositeEdit):
             )
             edit_list = [remove_parent_edit, ordered_dict_edit]
 
-        elif op_type == OrderedDictOp.ADD:
+        elif op_type == ContainerOp.ADD:
             add_parent_edit = AttributeEdit(
                 {
                     new_child._parent: tree_item
@@ -61,7 +61,7 @@ class BaseTreeEdit(CompositeEdit):
             )
             edit_list = [ordered_dict_edit, add_parent_edit]
 
-        elif op_type == OrderedDictOp.INSERT:
+        elif op_type == ContainerOp.INSERT:
             insert_parent_edit = AttributeEdit(
                 {
                     new_child._parent: tree_item
@@ -93,7 +93,7 @@ class AddChildrenEdit(BaseTreeEdit):
         super(AddChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_add),
-            op_type=OrderedDictOp.ADD,
+            op_type=ContainerOp.ADD,
             register_edit=register_edit,
         )
 
@@ -121,7 +121,7 @@ class InsertChildrenEdit(BaseTreeEdit):
         super(InsertChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_insert),
-            op_type=OrderedDictOp.INSERT,
+            op_type=ContainerOp.INSERT,
             register_edit=register_edit,
         )
 
@@ -154,7 +154,7 @@ class RemoveChildrenEdit(BaseTreeEdit):
             diff_dict=OrderedDict(
                 [(name, None) for name in children_to_remove]
             ),
-            op_type=OrderedDictOp.REMOVE,
+            op_type=ContainerOp.REMOVE,
             register_edit=register_edit,
         )
 
@@ -180,7 +180,7 @@ class RenameChildrenEdit(BaseTreeEdit):
         super(RenameChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_rename),
-            op_type=OrderedDictOp.RENAME,
+            op_type=ContainerOp.RENAME,
             register_edit=register_edit,
         )
 
@@ -212,7 +212,7 @@ class ModifyChildrenEdit(BaseTreeEdit):
         super(ModifyChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_modify),
-            op_type=OrderedDictOp.MODIFY,
+            op_type=ContainerOp.MODIFY,
             register_edit=register_edit,
         )
 
@@ -242,7 +242,7 @@ class MoveChildrenEdit(BaseTreeEdit):
         super(MoveChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_move),
-            op_type=OrderedDictOp.MOVE,
+            op_type=ContainerOp.MOVE,
             register_edit=register_edit,
         )
 

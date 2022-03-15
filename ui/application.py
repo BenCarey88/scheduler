@@ -5,6 +5,7 @@ import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api import constants as api_constants
 from scheduler.api import utils as api_utils
 from scheduler.api.common import user_prefs
 from scheduler.api.edit import edit_log
@@ -252,19 +253,21 @@ class SchedulerWindow(QtWidgets.QMainWindow):
                 self.save()
             event.accept()
 
-        # TODO: maybe make this a prompted option rather than always done?
-        # or at least give some indication it's happening?
-        # and/or maybe also add a check for when last commit was (only do one
-        # a day / one every few days / whatever)
-        # TODO: this should also be a method in project class
-        error = api_utils.backup_git_repo(self.project.root_directory)
-        if error:
-            simple_message_dialog(
-                "Git backup failed for {0}".format(
-                    self.project.root_directory
-                ),
-                informative_text=error
-            )
+        # hacky, remove this when speed is less of an issue here
+        if not api_constants.DEV_MODE:
+            # TODO: maybe make this a prompted option rather than always done?
+            # or at least give some indication it's happening?
+            # and/or maybe also add a check for when last commit was (only do one
+            # a day / one every few days / whatever)
+            # TODO: this should also be a method in project class
+            error = api_utils.backup_git_repo(self.project.root_directory)
+            if error:
+                simple_message_dialog(
+                    "Git backup failed for {0}".format(
+                        self.project.root_directory
+                    ),
+                    informative_text=error
+                )
         super(SchedulerWindow, self).closeEvent(event)
 
 

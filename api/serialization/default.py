@@ -4,22 +4,24 @@ from collections import OrderedDict
 
 from scheduler.api.tree._base_tree_item import BaseTreeItem
 from scheduler.api.common.date_time import BaseDateTimeWrapper, TimeDelta
+from scheduler.api.common.id_registry import Id, get_object_by_id
 
 from .serializer import (
-    SerializerError,
     BaseSerializer,
-    SerializableSerializer,
     DateTimeSerializer,
-    TreeSerializer
+    NumberSerializer,
+    TreeSerializer,
+    IdSerializer,
+    convert_serializer_to_string,
+    get_serializer_from_string,
 )
-from .serializable import BaseSerializable
 
 
 class SerializableValue(object):
     """Struct to store an object along with the way we should serialize it."""
     SERIALIZER_MARKER = "<__SERIALIZER__"
 
-    def __init__(self, value, serializer=None, *args, **kwargs):
+    def __init__(self, value, serializer=None, as_key=False, *args, **kwargs):
         """Initialize serializable obj.
 
         Args:
@@ -27,51 +29,26 @@ class SerializableValue(object):
             serializer (BaseSerializable or None): the way to serialize the
                 object - if None, we use the default serializer for the value
                 type.
+            as_key (bool): if True, this value needs to be serialized as a
+                dictionary key.
             args (list): args to pass to default serializer init.
             kwargs (dict): kwargs to pass to default serializer init.
         """
         self.value = value
         self.serializer = serializer or default_serializer(
             value,
+            as_key,
             *args,
             **kwargs
         )
+        self._as_key = as_key
 
-    @staticmethod
-    def serializer_from_string(string, *args, **kwargs):
-        """Get serializer from string.
-
-        Args:
-            string (str): serialized serializer.
-            args (list): args to pass to serializer init.
-            kwargs (dict): kwargs to pass to serializer init.
-
-        Returns:
-            (BaseSerializer): the serializer.
-        """
-        serializers = [
-            BaseSerializer,
-            SerializableSerializer,
-            DateTimeSerializer,
-            TreeSerializer,
-        ]
-        for serializer in serializers:
-            if string == serializer.__name__:
-                return serializer(*args, **kwargs)
-        raise SerializerError(
-            "Cannot find serializer of type {0}".format(string)
-        )
-
-    def serialize(self, as_key=False):
+    def serialize(self):
         """Serialize class instance as tuple, or as single value.
 
-        Args:
-            as_key (bool): if True, we serialize the item as a string.
-                Otherwise, we serialize it as a list. This flag should be
-                set to True whenever we're serializing dictionary keys, as
-                these can't be lists. Note that this means that all values
-                intended to be used as dictionary keys in a serialized file
-                must be serialized to strings.
+        if self._as_key is True, we serialize the item as a string. Otherwise,
+        we serialize it as a list. Note that this means that all values
+        intended to be used as dictionary keys in a serialized file must be
 
         Returns:
             (list, str or variant): serialized item. If a serializer is used,
@@ -82,15 +59,18 @@ class SerializableValue(object):
         """
         if type(self.serializer) == BaseSerializer:
             return self.value
-        if as_key:
+        if self._as_key:
             return "{0}{1}{2}>".format(
                 self.serializer.serialize(self.value),
                 self.SERIALIZER_MARKER,
-                self.serializer.string()
+                convert_serializer_to_string(self.serializer)
             )
         return [
             self.serializer.serialize(self.value),
-            "{0}{1}>".format(self.SERIALIZER_MARKER, self.serializer.string())
+            "{0}{1}>".format(
+                self.SERIALIZER_MARKER,
+                convert_serializer_to_string(self.serializer)
+            )
         ]
 
     @classmethod
@@ -153,13 +133,13 @@ class SerializableValue(object):
             value_obj = json_obj[0]
             serializer_string = json_obj[1][len(cls.SERIALIZER_MARKER):-1]
 
-        serializer = cls.serializer_from_string(
+        serializer = get_serializer_from_string(
             serializer_string,
             *args,
             **kwargs
         )
         value = serializer.deserialize(value_obj)
-        return cls(value, serializer)
+        return cls(value, serializer, as_key)
 
 
 #TODO: put all the below in the SerializableValue class?
@@ -173,45 +153,63 @@ default, we standardly will use these mappings.
 Note also that using an OrderedDict is necessary so that any subclasses
 are placed above their parent classes, ensuring that we find the subclass
 first.
+
+KEY_TYPE_MAPPINGS gives us additional mappings specific to dictionary keys:
+for example, ints and floats can't be keys in json, so we need to convert
+them to strings.
 """
 TYPE_MAPPINGS = OrderedDict([
-    (BaseSerializer, (str, float, int, tuple, list, dict,)),
+    (BaseSerializer, (str, float, int, list, dict,)),
     (DateTimeSerializer, (BaseDateTimeWrapper, TimeDelta,)),
     (TreeSerializer, (BaseTreeItem,)),
-    # (SerializableSerializer, (BaseSerializable,)),  <- no use cases afaik
+    (IdSerializer, (Id,)),
+])
+KEY_TYPE_MAPPINGS = OrderedDict([
+    (NumberSerializer, (int, float,))
 ])
 
 
-def serializer_from_type(type_, *args, **kwargs):
+def serializer_from_type(type_, as_key=False, *args, **kwargs):
     """Get default serializer for given type.
 
     Args:
         type_ (type): type to get serializer for.
+        as_key (bool): if True, use KEY_TYPE_MAPPINGS as well as
+            normal type mappings.
         args (list): args to pass to serializer init.
         kwargs (dict): kwargs to pass to serializer init.
 
     Returns:
         (BaseSerializer): the default serializer for that type.
     """
-    for serializer, type_tuple in TYPE_MAPPINGS.items():
+    type_mappings = TYPE_MAPPINGS.items()
+    if as_key:
+        type_mappings = KEY_TYPE_MAPPINGS.items() + type_mappings
+    for serializer, type_tuple in type_mappings:
         for base_type in type_tuple:
             if issubclass(type_, base_type):
                 return serializer(*args, **kwargs)
     return BaseSerializer()
 
 
-def default_serializer(value, *args, **kwargs):
+def default_serializer(value, as_key=False, *args, **kwargs):
     """Get default serializer for given value, based on type.
 
     Args:
         type_ (type): type to get serializer for.
+        as_key (bool): if True, use KEY_TYPE_MAPPINGS as well as
+            normal type mappings.
         args (list): args to pass to serializer init.
         kwargs (dict): kwargs to pass to serializer init.
 
     Returns:
         (BaseSerializer): the default serializer for that type.
     """
-    return serializer_from_type(type(value), *args, **kwargs)
+    if isinstance(value, Id):
+        obj = get_object_by_id(value)
+        subserializer = default_serializer(obj, as_key, *args, **kwargs)
+        args.insert(0, subserializer)
+    return serializer_from_type(type(value), as_key, *args, **kwargs)
 
 
 def serialize_dict(dictionary, tree_root=None, delete_empty_containers=False):
@@ -232,9 +230,11 @@ def serialize_dict(dictionary, tree_root=None, delete_empty_containers=False):
     for key, value in dictionary.items():
         if key is None:
             continue
-        key = SerializableValue(key, tree_root=tree_root).serialize(
-            as_key=True
-        )
+        key = SerializableValue(
+            key,
+            as_key=True,
+            tree_root=tree_root
+        ).serialize()
         if isinstance(value, dict):
             value = serialize_dict(
                 value,

@@ -56,7 +56,7 @@ edit was made:
   - we also hold a temporary ui_state_edit_log in the main EDIT_LOG to hold changes
       that are made before a new edit is made, or before an undo/redo
   - pass an optional arg to all edits, so that edits have the option of being registered
-    to the EDIT_LOG's ui_state_edit_log rather than the default EDIT_LOG
+      to the EDIT_LOG's ui_state_edit_log rather than the default EDIT_LOG
   - each filter change and other ui state change triggers an edit which is registered
       to the EDIT_LOG ui_state_edit_log
   - when a new edit is registered to EDIT_LOG, the temporary EDIT_LOG ui_state_edit_log
@@ -68,7 +68,7 @@ edit was made:
       THEN undo the edit_A itself. This should leave us in exactly the state we were in
       just before edit_A was made.
       Then the EDIT_LOG ui_state_edit_log will be reset
-  - calling redo will first ENDO the EDIT_LOG ui_state_edit_log, then REDO any edits in
+  - calling redo will first UNDO the EDIT_LOG ui_state_edit_log, then REDO any edits in
       the PREVIOUS latest edit's (if one exists) ui_state_edit_log THAT HAVE PREVIOUSLY
       BEEN UNDONE (if I'm not mistaken, for there to be ui_state_edits here that have been
       undone, we need to have run undo at least twice previously - the first will just

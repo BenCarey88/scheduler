@@ -20,7 +20,6 @@ class BaseTreeEdit(CompositeEdit):
             operation_type (ContainerOp): The type of edit operation to do.
             register_edit (bool): whether or not to register this edit.
         """
-        self.diff_dict = diff_dict
         ordered_dict_edit = DictEdit(
             tree_item._children,
             diff_dict,

@@ -12,7 +12,8 @@ from scheduler.api.timetable.calendar_item import (
     RepeatCalendarItemInstance
 )
 from ._base_edit import BaseEdit, EditError
-from ._core_edits import SimpleEdit, CompositeEdit
+from ._container_edit import ListEdit, ContainerOp
+from ._core_edits import AttributeEdit, SimpleEdit, CompositeEdit
 
 
 def _add_calendar_item(calendar, calendar_item):
@@ -137,6 +138,120 @@ def _move_repeat_calendar_item_instance(
     else:
         repeat_calendar_item._overridden_instances[scheduled_date] = (
             item_instance
+        )
+
+
+## IN PROCESS OF UPDATING TO USE CONTAINER AND ATTRIBUTE EDIT.
+class BaseCalendarEdit(CompositeEdit):
+    """Container edit on a calendar."""
+    def __init__(
+            self,
+            calendar,
+            diff_list,
+            op_type,
+            register_edit=True):
+        """Initialise edit.
+
+        Args:
+            calendar (Calendar): calendar object.
+            diff_list (list): list representing calendar items to add, remove
+                or move.
+            op_type (ContainerOp): operation type. Note that this will
+                interpret the operations differently from a standard list
+                edit. See below.
+            register_edit (bool): whether or not to register this edit in the
+                edit log (ie. whether or not it's a user edit that can be
+                undone).
+
+        diff_list formats:
+            ADD:    [item]                  - add items to relevant container
+            REMOVE: [item]                  - remove items from container
+            MOVE:   [(item, new_datetime)]  - move items to new container
+            MODIFY: [(item, attr_dict)]     - modify item attributes
+        """
+        sub_edits = []
+        for item in diff_list:
+            # ADD: add item lsit edit
+            if op_type == ContainerOp.ADD:
+                sub_edits.append(
+                    ListEdit(
+                        calendar.get_item_container(item),
+                        [item],
+                        op_type,
+                        register_edit=False,
+                    )
+                )
+
+            # REMOVE: convert diff list to use indexes instead of items
+            elif op_type == ContainerOp.REMOVE:
+                container = calendar.get_item_container(item)
+                sub_edits.append(
+                    ListEdit(
+                        container,
+                        [container.index(item)],
+                        op_type,
+                        register_edit=False
+                    )
+                )
+
+            # MOVE: remove from one container and add to new
+            elif op_type == ContainerOp.MOVE:
+                # expand tuple
+                item, new_datetime = item
+                # remove items from old container
+                old_container = calendar.get_item_container(item)
+                sub_edits.append(
+                    ListEdit(
+                        old_container,
+                        [old_container.index(item)],
+                        ContainerOp.REMOVE,
+                        register_edit=False
+                    )
+                )
+                # edit item datetime attribute
+                sub_edits.append(
+                    AttributeEdit(
+                        {item._datetime: new_datetime},
+                        register_edit=False,
+                    )
+                )
+                # add items to new container
+                new_container = calendar.get_item_container(item, new_datetime)
+                sub_edits.append(
+                    ListEdit(
+                        new_container,
+                        [item],
+                        ContainerOp.ADD,
+                        register_edit=False
+                    )
+                )
+
+            # MODIFY: modify item attributes
+            elif op_type == ContainerOp.MODIFY:
+                # expand tuple
+                item, attr_dict = item
+                # if datetime is edited, add move edit
+                if item._datetime in attr_dict:
+                    sub_edits.append(
+                        BaseCalendarEdit(
+                            calendar,
+                            [item, attr_dict.get(item._datetime)],
+                            ContainerOp.MOVE,
+                            register_edit=False
+                        )
+                    )
+                    del attr_dict[item._datetime]
+                # add attribute edit for other attributes
+                sub_edits.append(
+                    AttributeEdit(
+                        attr_dict,
+                        register_edit=False,
+                    )
+                )
+
+        super(BaseCalendarEdit, self).__init__(
+            sub_edits,
+            register_edit=register_edit
         )
 
 

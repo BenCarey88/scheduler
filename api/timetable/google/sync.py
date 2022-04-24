@@ -99,7 +99,7 @@ def sync_scheduler_to_google_calendar(
             ).execute()
 
     except HttpError as error:
-        print('An error occurred: %s' % error)   
+        print('An error occurred: %s' % error)
 
 
 def sync_google_calendar_to_scheduler(

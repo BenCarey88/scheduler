@@ -87,6 +87,19 @@ class BaseSerializable(ABC):
         """Initialize serializable instance."""
         self._save_path = None
 
+    @property
+    def _save_type(self):
+        """Get save type of class.
+
+        This property can be overridden in subclasses to allow classes with an
+        EITHER save type to specify the type based on class details - so they
+        can be read from either but we determine how they're written.
+
+        Returns:
+            (SaveType): save type.
+        """
+        return self._SAVE_TYPE
+
     def set_save_path(self, save_path):
         """Set save path for serializable.
 
@@ -189,10 +202,10 @@ class BaseSerializable(ABC):
                 file in most cases, or a .info file for the additional
                 info file sometimes required in directory serialization.
         """
-        if self._SAVE_TYPE not in SaveType._FILE_TYPES:
+        if self._save_type not in SaveType._FILE_TYPES:
             raise SerializationError(
                 "{0} has save type '{1}', so can't be saved to a file".format(
-                    str(self), self._SAVE_TYPE
+                    str(self), self._save_type
                 )
             )
         if not os.path.isdir(os.path.dirname(file_path)):
@@ -315,11 +328,11 @@ class BaseSerializable(ABC):
                     self.__class__.__name__
                 )
             )
-        if self._SAVE_TYPE == SaveType.FILE:
+        if self._save_type == SaveType.FILE:
             self.to_file(path)
-        elif self._SAVE_TYPE == SaveType.DIRECTORY:
+        elif self._save_type == SaveType.DIRECTORY:
             self.to_directory(path)
-        elif self._SAVE_TYPE == SaveType.EITHER:
+        elif self._save_type == SaveType.EITHER:
             # assume that path is a file if it has an extension
             if os.path.splitext(path)[1]:
                 self.to_file(path)
@@ -328,7 +341,7 @@ class BaseSerializable(ABC):
         else:
             raise SerializationError(
                 "{0} has save type '{1}', so can't be saved to a file "
-                "or directory".format(str(self), self._SAVE_TYPE)
+                "or directory".format(str(self), self._save_type)
             )
 
 

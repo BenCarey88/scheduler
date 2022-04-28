@@ -86,6 +86,8 @@ class BaseEdit(object):
                 "Edit object cannot call run when a continuous_run is already "
                 "in progress."
             )
+        if self._has_been_done:
+            raise EditError("Cannot run edit multiple times without undo.")
         self._run()
         self._has_been_done = True
         if self._register_edit:

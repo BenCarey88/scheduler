@@ -3,22 +3,33 @@
 
 class MutableAttribute(object):
     """Wrapper around a class attribute, to allow us to treat it as mutable."""
-    def __init__(self, value):
+    def __init__(self, value, name=None):
         """Initialise attribute.
 
         Args:
             value (variant): value of attribute.
+            name (str or None): name of attribute, if given.
         """
         self._value = value
+        self._name = name
 
     @property
     def value(self):
         """Get attribute value.
 
         Returns:
-            value (variant): value of attribute.
+            (variant): value of attribute.
         """
         return self._value
+
+    @property
+    def name(self):
+        """Get attribute name.
+
+        Returns:
+            (str or None): name of attribute, if given.
+        """
+        return self._name
 
     def set_value(self, value):
         """Set value of attribute.

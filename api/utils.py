@@ -1,6 +1,5 @@
 """Utility functions for scheduler api."""
 
-from collections import OrderedDict
 import sys
 
 
@@ -25,6 +24,19 @@ def catch_exceptions(exceptions=None):
                 return None
         return decorated_function
     return decorator
+
+
+def fallback_value(value, fallback):
+    """Simple function to return value or fallback if value is None.
+
+    Args:
+        value (variant or None): value to return if it's not None.
+        fallback (variant): fallback to return if value is None.
+
+    Returns:
+        (variant): value if value isn't None, else fallback.
+    """
+    return (value if value is not None else fallback)
 
 
 def add_key_at_start(ordered_dict, key, value):

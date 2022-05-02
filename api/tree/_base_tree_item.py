@@ -30,6 +30,7 @@ from .exceptions import (
 class BaseTreeItem(NestedSerializable):
     """Base class representing a tree item."""
     TREE_PATH_SEPARATOR = "/"
+    DEFAULT_CHILD_NAME = "child"
 
     def __init__(self, name, parent=None, id=None):
         """Initialise tree item class.

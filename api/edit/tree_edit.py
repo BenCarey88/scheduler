@@ -70,6 +70,17 @@ class BaseTreeEdit(CompositeEdit):
             )
             edit_list = [ordered_dict_edit, insert_parent_edit]
 
+        elif op_type == ContainerOp.MODIFY:
+            modify_parent_edit = AttributeEdit(
+                {
+                    new_child._parent: tree_item
+                    for name, new_child in diff_dict.values()
+                    if tree_item.get_child(name)
+                },
+                register_edit=False
+            )
+            edit_list = [ordered_dict_edit, modify_parent_edit]
+
         super(BaseTreeEdit, self).__init__(
             edit_list,
             register_edit=register_edit,

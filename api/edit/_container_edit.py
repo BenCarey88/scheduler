@@ -82,6 +82,38 @@ class BaseContainerEdit(BaseEdit):
             edit_flags (list(ContainerEditFlag)): list of edit flags to use in
                 edit.
             register_edit (bool): whether or not to register this edit.
+
+        diff_dict formats:
+            ADD:    {new_key: new_value}          - add new values at new keys
+            INSERT: {new_key: (index, new_value)} - insert key, value at index
+            REMOVE: {old_key: None}               - remove given keys
+            RENAME: {old_key: new_key}            - rename given keys
+            MODIFY: {old_key: new_value}          - add new values at old keys
+            MOVE:   {old_key: new_index}          - move key to given index
+
+            ADD_OR_MODIFY    {key: value}         - add/change value at keys
+            REMOVE_OR_MODIFY {key: value or None} - remove/change value at keys
+
+        diff_list formats:
+            ADD:    [new_item]               - append new item
+            INSERT: [(index, new_item)]      - insert new item at index
+            REMOVE: [item/index]             - remove item/item at given index
+            MODIFY: [(index, new_item)]      - change item at index to new_item
+            MOVE:   [(old_index, new_index)] - move item at index to new index
+
+        recursive diff_dicts:
+            ADD:    if key already exists, check next level and retry
+            INSERT: if key already exists, check next level and retry
+            REMOVE: only remove keys from lowest levels
+            RENAME: only rename keys from lowest levels
+            MODIFY: only modify the lowest level key that matches key in the
+                    ordered_dict
+            MOVE:   only move keys from lowest levels
+
+            All these cases are covered by the _recursion_required method.
+
+        recursive diff_list:
+            Not really tested yet, be cautious with this.
         """
         super(BaseContainerEdit, self).__init__(register_edit)
         self._container = container
@@ -731,10 +763,10 @@ class DictEdit(BaseContainerEdit):
             REMOVE: {old_key: None}               - remove given keys
             RENAME: {old_key: new_key}            - rename given keys
             MODIFY: {old_key: new_value}          - add new values at old keys
-            MOVE:   {old_key: new_index}          - move key to given index#
+            MOVE:   {old_key: new_index}          - move key to given index
 
-            ADD_OR_MODIFY    {key: value}         - add new values at keys
-            REMOVE_OR_MODIFY {key: value or None} - change/remove value at keys
+            ADD_OR_MODIFY    {key: value}         - add/change value at keys
+            REMOVE_OR_MODIFY {key: value or None} - remove/change value at keys
 
         recursive diff_dicts:
             ADD:    if key already exists, check next level and retry
@@ -789,14 +821,14 @@ class ListEdit(BaseContainerEdit):
         diff_list formats:
             ADD:    [new_item]               - append new item
             INSERT: [(index, new_item)]      - insert new item at index
-            REMOVE: [index]                  - remove item at given index
+            REMOVE: [index/item]             - remove item/item at given index
             MODIFY: [(index, new_item)]      - change item at index to new_item
             MOVE:   [(old_index, new_index)] - move item at index to new index
 
         recursive diff_list:
             Not really tested yet, be cautious with this.
         """
-        if not isinstance(list_, list) or not isinstance(diff_list, list_):
+        if not isinstance(list_, list) or not isinstance(diff_list, list):
             raise EditError("list and diff_list arguments must be lists")
         super(ListEdit, self).__init__(
             list_,

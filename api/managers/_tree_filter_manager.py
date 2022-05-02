@@ -1,4 +1,4 @@
-"""Tree manager class to manage filtering tree items for each model.
+"""Tree filter manager class to manage filtering tree items for each model.
 
 Each tab is intended to have its own tree manager class. This allows
 us to maintain ui-specific properties for each tree item without
@@ -6,12 +6,13 @@ editing the underlying tree item data, eg. whether or not the item
 is being filtered for in the current tab.
 """
 
-from scheduler.api.common import user_prefs
 from scheduler.api.tree.filters import NoFilter, FilterByItem
 
+from ._base_managers import BaseTreeManager
 
-class TreeManager(object):
-    """Tree manager class to maintain ui attributes for each tree item.
+
+class TreeFilterManager(BaseTreeManager):
+    """Tree filter manager to maintain filter attributes for each tree item.
 
     This stores attributes for each item in internal data dicts, keyed by tree
     item.
@@ -54,9 +55,7 @@ class TreeManager(object):
             _tree_data (dict(str, dict)): additional tree data for each item.
             _filtered_items (set(str)): set of items we're filtering out.
         """
-        self._name = name
-        self._project_user_prefs = user_prefs
-        self._tree_root = tree_root
+        super(BaseTreeManager, self).__init__(name, user_prefs, tree_root)
         self._tree_data = {}
         self._filtered_items = set()
         self.setup_from_user_prefs()

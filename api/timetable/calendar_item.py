@@ -1,18 +1,24 @@
 """Calendar item class."""
 
 from collections import OrderedDict
+from time import time
+from webbrowser import get
 
 from scheduler.api.common.date_time import (
     Date,
     DateTime,
     DateTimeError,
     Time,
-    TimeDelta
+    TimeDelta,
 )
-from scheduler.api.common.mutable_attribute import MutableAttribute
+from scheduler.api.common.object_wrappers import (
+    host_class_decorator,
+    MutableAttribute,
+    MutableHostedAttribute,
+)
 from scheduler.api.serialization.serializable import (
     NestedSerializable,
-    SaveType
+    SaveType,
 )
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
@@ -331,6 +337,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
         )
 
 
+@host_class_decorator
 class BaseCalendarItem(NestedSerializable):
     """Base calendar item class representing a scheduled task or event.
 
@@ -349,16 +356,27 @@ class BaseCalendarItem(NestedSerializable):
     def __init__(
             self,
             calendar,
+            start_time,
+            end_time,
+            date=None,
+            repeat_pattern=None,
             item_type=None,
             tree_item=None,
             event_category=None,
             event_name=None,
-            is_background=False,
+            is_background=None,
             template_item=None):
         """Initialise item.
 
         Args:
             calendar (Calendar): calendar class instance.
+            start_time (Time): time item starts at.
+            end_time (Time): time item ends at.
+            date (Date or None): date item starts at.
+            repeat_pattern (RepeatPattern or None): repeat pattern of item.
+                This is only used for repeat calendar items, but can be stored
+                in standard calendar items so it's saved when converting to a
+                repeat one.
             item_type (CalendarItemType or None): type of scheduled item.
             tree_item (BaseTreeItem or None): tree item representing task,
                 if item_type is task.
@@ -376,33 +394,33 @@ class BaseCalendarItem(NestedSerializable):
         self._calendar = calendar
         self._task_root = calendar.task_root
         self._template_item = template_item
-        self._type = MutableAttribute(
-            item_type or CalendarItemType.TASK,
-            "type"
+        if template_item is None:
+            # if we can't inherit from a template item, set default values
+            item_type = item_type or CalendarItemType.TASK
+            event_category = event_category or ""
+            event_name = event_name or ""
+            is_background = is_background or False
+
+        self._start_time = MutableAttribute(start_time, "start_time")
+        self._end_time = MutableAttribute(end_time, "end_time")
+        self._date = MutableAttribute(date, "date")
+        self._repeat_pattern = MutableAttribute(
+            repeat_pattern,
+            "repeat_pattern"
         )
-        self._tree_item = MutableAttribute(
-            tree_item,
-            "tree_item"
-        )
+        self._type = MutableAttribute(item_type, "type")
+        self._tree_item = MutableHostedAttribute(tree_item, "tree_item")
         self._event_category = MutableAttribute(
-            event_category or "",
+            event_category,
             "event_category"
         )
-        self._event_name = MutableAttribute(
-            event_name or "",
-            "event_name"    
-        )
-        self._is_background = MutableAttribute(
-            is_background,
-            "is_background"
-        )
+        self._event_name = MutableAttribute(event_name, "event_name")
+        self._is_background = MutableAttribute(is_background, "is_background")
 
     class _Decorators(object):
         """Internal decorators class."""
-        # TODO: if we decide to allow instance overrides of the base class 
-        # properties, this will need to be changed
         @staticmethod
-        def _template_item_decorator(property_func):
+        def template_item_decorator(property_func):
             """Decorator for property method.
 
             Args:
@@ -410,16 +428,82 @@ class BaseCalendarItem(NestedSerializable):
 
             Returns:
                 (function): the decorated function. This returns the equivalent
-                    property of the template item, if one exists, otherwise
-                    it returns the property of this item.
+                    property of the template item, if one exists and the
+                    property of this instance would be None. This is for
+                    convenience to avoid too much unnecessary repetition of
+                    definitions in the RepeatCalendarItemInstance class. It
+                    means that RepeatCalendarItemInstances can rely on their
+                    template class for their attributes unless overridden.
             """
-            def decorated_func(class_instance):
-                if class_instance._template_item is not None:
-                    return property_func(class_instance._template_item)
-                return property_func(class_instance)
+            def decorated_func(self):
+                property_value = property_func(self)
+                if self._template_item is not None and property_value is None:
+                    return property_func(self._template_item)
+                return property_value
             return decorated_func
 
-    _template_item_decorator = _Decorators._template_item_decorator
+    _template_item_decorator = _Decorators.template_item_decorator
+
+    @property
+    @_template_item_decorator
+    def start_time(self):
+        """Get start time of item.
+
+        Returns:
+            (Time): time item starts at.
+        """
+        return self._start_time.value
+
+    @property
+    @_template_item_decorator
+    def end_time(self):
+        """Get end time of item.
+
+        Returns:
+            (Time): time item ends at.
+        """
+        return self._end_time.value
+
+    @property
+    def date(self):
+        """Get date of item.
+
+        Returns:
+            (Date): date item starts at.
+        """
+        return self._date.value
+
+    @property
+    def start_datetime(self):
+        """Get start datetime of item.
+        
+        Returns:
+            (Date or None): datetime item starts at.
+        """
+        if self.date:
+            return DateTime.from_date_and_time(self.date, self.start_time)
+        return None
+
+    @property
+    def end_datetime(self):
+        """Get end datetime of item.
+        
+        Returns:
+            (Date or None): datetime item end at. For repeat items, this is the
+                end datetime of the first repeat.
+        """
+        if self.date:
+            return DateTime.from_date_and_time(self.date, self.start_time)
+        return None
+
+    @property
+    def repeat_pattern(self):
+        """Get repeat pattern of item.
+
+        Returns:
+            (RepeatPattern): item repeat pattern (only used by repeat items).
+        """
+        return self._repeat_pattern.value
 
     @property
     @_template_item_decorator
@@ -541,9 +625,6 @@ class BaseCalendarItem(NestedSerializable):
         Returns:
             (BaseCalendarItem or None): calendar item, if can be initialised.
         """
-        # TODO: create deserialize method in serializable class that works
-        # out how to deserialize based on type
-        # or maybe don't as we might want more flexibility on this?
         item_type = dict_repr.get(cls.TYPE_KEY)
         if not item_type:
             return None
@@ -585,7 +666,8 @@ class CalendarItem(BaseCalendarItem):
             tree_item=None,
             event_category=None,
             event_name=None,
-            is_background=False):
+            is_background=None,
+            repeat_pattern=None):
         """Initialise item.
 
         Args:
@@ -601,69 +683,22 @@ class CalendarItem(BaseCalendarItem):
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
+            repeat_pattern (RepeatPattern or None): repeat pattern - unused but
+                can be saved in this class so it can be copied over to the new
+                one.
         """
         super(CalendarItem, self).__init__(
             calendar,
+            start_datetime.time(),
+            end_datetime.time(),
+            date=start_datetime.date(),
+            repeat_pattern=repeat_pattern,
             item_type=item_type,
             tree_item=tree_item,
             event_category=event_category,
             event_name=event_name,
             is_background=is_background
         )
-        self._start_datetime = MutableAttribute(
-            start_datetime,
-            "start_datetime"
-        )
-        self._end_datetime = MutableAttribute(
-            end_datetime,
-            "end_datetime"
-        )
-
-    @property
-    def start_datetime(self):
-        """Get start datetime.
-
-        Returns:
-            (DateTime): start datetime.
-        """
-        return self._start_datetime.value
-
-    @property
-    def end_datetime(self):
-        """Get end datetime.
-
-        Returns:
-            (DateTime): end datetime.
-        """
-        return self._end_datetime.value
-
-    @property
-    def start_time(self):
-        """Get start time.
-
-        Returns:
-            (Time): start time.
-        """
-        return self.start_datetime.time()
-
-    @property
-    def end_time(self):
-        """Get end time.
-
-        Returns:
-            (Time): end time.
-        """
-        return self.end_datetime.time()
-
-    # TODO: for now this assumes that the event is only on one day
-    @property
-    def date(self):
-        """Get date.
-
-        Returns:
-            (Date): date.
-        """
-        return self.start_datetime.date()
 
     def datetime_string(self):
         """Get string representing start and end date/time of item.
@@ -677,21 +712,46 @@ class CalendarItem(BaseCalendarItem):
             self.end_time.string()
         )
 
-    def get_item_container(self, datetime=None):
+    def get_item_container(self, date=None):
         """Get the list that this item should be contained in.
 
         Args:
-            datetime (DateTime or None): datetime to query at. If not given, use
-                the item's internal start date time.
+            date (Date or None): date to query at. If not given, use the
+                item's internal start date time.
 
         Returns:
             (list): list that calendar item should be contained in.
         """
-        date = self.date
-        if datetime is not None:
-            date = datetime.date()
+        if date is None:
+            date = self.date
         calendar_day = self._calendar.get_day(date)
         return calendar_day._scheduled_items
+
+    def get_repeat_item(self, attr_dict=None):
+        """Get repeat calendar item corresponding to this one.
+
+        Args:
+            attr_dict (dict(MutableAttribute, variant) or None): dictionary of
+                changes to make to attributes.
+
+        Returns:
+            (RepeatCalendarItem): repeat calendar item corresponding to this
+                one, with given attributes.
+        """
+        attr_dict = attr_dict or {}
+        def get_value(attr):
+            return attr_dict.get(attr, attr.value)
+        return RepeatCalendarItem(
+            self._calendar,
+            get_value(self._start_time),
+            get_value(self._end_time),
+            get_value(self._repeat_pattern),
+            item_type=get_value(self._type),
+            tree_item=get_value(self._tree_item),
+            event_category=get_value(self._event_category),
+            event_name=get_value(self._event_name),
+            is_background=get_value(self._is_background),
+        )
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -754,7 +814,7 @@ class RepeatCalendarItem(BaseCalendarItem):
             tree_item=None,
             event_category=None,
             event_name=None,
-            is_background=False):
+            is_background=None):
         """Initialise item.
 
         Args:
@@ -787,53 +847,17 @@ class RepeatCalendarItem(BaseCalendarItem):
         """
         super(RepeatCalendarItem, self).__init__(
             calendar,
+            start_time,
+            end_time,
+            repeat_pattern=repeat_pattern,
             item_type=item_type,
             tree_item=tree_item,
             event_category=event_category,
             event_name=event_name,
             is_background=is_background
         )
-        self._start_time = MutableAttribute(
-            start_time,
-            "start_time"
-        )
-        self._end_time = MutableAttribute(
-            end_time,
-            "end_time"
-        )
-        self._repeat_pattern = MutableAttribute(
-            repeat_pattern,
-            "repeat_pattern"
-        )
         self._instances = OrderedDict()
         self._overridden_instances = {}
-
-    @property
-    def start_time(self):
-        """Get start time.
-
-        Returns:
-            (Time): start time.
-        """
-        return self._start_time.value
-
-    @property
-    def end_time(self):
-        """Get end time.
-
-        Returns:
-            (Time): end time.
-        """
-        return self._end_time.value
-
-    @property
-    def repeat_pattern(self):
-        """Get repeat pattern of item.
-
-        Returns:
-            (CalendarItemRepeatPattern): repeat pattern.
-        """
-        return self._repeat_pattern.value
 
     @property
     def start_date(self):
@@ -931,6 +955,35 @@ class RepeatCalendarItem(BaseCalendarItem):
         self._instances = OrderedDict()
         self._clean_overrides()
 
+    def get_single_item(self, attr_dict=None):
+        """Get single calendar item corresponding to this one.
+
+        Args:
+            attr_dict (dict(MutableAttribute, variant) or None): dictionary of
+                changes to make to attributes.
+
+        Returns:
+            (RepeatCalendarItem): single calendar item corresponding to this
+                one, with given attributes.
+        """
+        attr_dict = attr_dict or {}
+        def get_value(attr):
+            return attr_dict.get(attr, attr.value)
+        date = get_value(self._date)
+        start_time = get_value(self._start_time)
+        end_time = get_value(self._end_time)
+        return CalendarItem(
+            self._calendar,
+            start_datetime=DateTime.from_date_and_time(date, start_time),
+            end_datetime=DateTime.from_date_and_time(date, end_time),
+            item_type=get_value(self._type),
+            tree_item=get_value(self._tree_item),
+            event_category=get_value(self._event_category),
+            event_name=get_value(self._event_name),
+            is_background=get_value(self._is_background),
+            repeat_pattern=get_value(self._repeat_pattern),
+        )
+
     def to_dict(self):
         """Return dictionary representation of class.
 
@@ -1018,17 +1071,12 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         """
         super(RepeatCalendarItemInstance, self).__init__(
             calendar,
+            override_start_datetime.time(),
+            override_end_datetime.time(),
+            date=override_start_datetime.date(),
             template_item=repeat_calendar_item
         )
         self._scheduled_date = scheduled_date
-        self._override_start_datetime = MutableAttribute(
-            override_start_datetime,
-            "override_start_datetime"
-        )
-        self._override_end_datetime = MutableAttribute(
-            override_end_datetime,
-            "override_end_datetime"
-        )
 
     @property
     def repeat_calendar_item(self):
@@ -1041,13 +1089,40 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         return self._template_item
 
     @property
+    def override_start_time(self):
+        """Get start time override.
+
+        Returns:
+            (Time or None): start time override.
+        """
+        return self._start_time.value
+
+    @property
+    def override_end_time(self):
+        """Get end time override.
+
+        Returns:
+            (Time or None): end time override.
+        """
+        return self._end_time.value
+
+    @property
+    def override_date(self):
+        """Get date override.
+        
+        Returns:
+            (Date or None): date override.
+        """
+        return self._date.value
+
+    @property
     def override_start_datetime(self):
         """Get start datetime override.
 
         Returns:
             (DateTime or None): start datetime override.
         """
-        return self._override_start_datetime.value
+        return DateTime.from_date_and_time(self.date, self.override_start_time)
 
     @property
     def override_end_datetime(self):
@@ -1056,7 +1131,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         Returns:
             (DateTime or None): end datetime override.
         """
-        return self._override_end_datetime.value
+        return DateTime.from_date_and_time(self.date, self.override_end_time)
 
     @property
     def scheduled_start_time(self):
@@ -1109,57 +1184,6 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
             self.scheduled_end_time
         )
 
-    @property
-    def start_time(self):
-        """Get start time.
-
-        Returns:
-            (Time): start time.
-        """
-        if self.override_start_datetime:
-            return self.override_start_datetime.time()
-        return self.repeat_calendar_item.start_time
-
-    @property
-    def end_time(self):
-        """Get end time.
-
-        Returns:
-            (Time): end time.
-        """
-        if self.override_end_datetime:
-            return self.override_end_datetime.time()
-        return self.repeat_calendar_item.end_time
-
-    @property
-    def date(self):
-        """Get date item is actually at.
-
-        Returns:
-            (Date): actual date.
-        """
-        if self.override_start_datetime:
-            return self.override_start_datetime.date()
-        return self._scheduled_date
-
-    @property
-    def start_datetime(self):
-        """Get start datetime.
-
-        Returns:
-            (DateTime): start datetime.
-        """
-        return DateTime.from_date_and_time(self.date, self.start_time)
-
-    @property
-    def end_datetime(self):
-        """Get end datetime.
-
-        Returns:
-            (DateTime): end datetime.
-        """
-        return DateTime.from_date_and_time(self.date, self.end_time)
-
     def datetime_string(self):
         """Get string representing start and end date/time of item.
 
@@ -1198,14 +1222,10 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         override_start_datetime = self.override_start_datetime
         override_end_datetime = self.override_end_datetime
         if override_start_datetime is not None:
-            if override_start_datetime.date() != self.scheduled_date:
-                return True
-            if override_start_datetime.time() != self.scheduled_start_time:
+            if override_start_datetime != self.scheduled_start_datetime:
                 return True
         if override_end_datetime is not None:
-            if override_end_datetime.date() != self.scheduled_date:
-                return True
-            if override_end_datetime.time() != self.scheduled_end_time:
+            if override_end_datetime != self.scheduled_end_datetime:
                 return True
         return False
 

@@ -13,7 +13,12 @@ Friend classes: [Calendar, CalendarPeriod, CalendarItem]
 # )
 from ._base_edit import BaseEdit, EditError
 from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
-from ._core_edits import AttributeEdit, SelfInverseSimpleEdit, CompositeEdit
+from ._core_edits import (
+    AttributeEdit,
+    CompositeEdit,
+    SelfInverseSimpleEdit, 
+    HostedDataEdit,
+)
 
 
 # def _add_calendar_item(calendar, calendar_item):
@@ -420,6 +425,47 @@ class BaseModifyCalendarItem(CompositeEdit):
             )
         )
 
+    def _update(
+            self,
+            new_date=None,
+            new_start_time=None,
+            new_end_time=None,
+            edit_replacements=None,
+            edit_additions=None):
+        """Update parameters of edit and run.
+
+        Args:
+            new_date (Date or None): new override date.
+            new_start_time (Time or None): new override start time.
+            new_end_time (Time or None): new override end time.
+            edit_replacements (dict or None): dict of edit replacements to
+                pass to superclass _update if needed.
+            edit_additions (list or None): list of edit additions to pass to
+                superclass _update if needed.
+        """
+        if (new_date is None
+                and new_start_time is None
+                and new_end_time is None):
+            return
+
+        edit_updates = {}
+        attr_updates = {}
+        if new_date is not None:
+            attr_updates[self._calendar_item._date] = new_date
+        if new_start_time is not None:
+            attr_updates[self._calendar_item._start_time] = new_start_time
+        if new_end_time is not None:
+            attr_updates[self._calendar_item._end_time] = new_end_time
+        self._attr_dict.update(attr_updates)
+        edit_updates[self._attribute_edit] = ([attr_updates], {})
+
+        super(ModifyRepeatCalendarItemInstance, self)._update(
+            edit_updates=edit_updates,
+            edit_replacements=edit_replacements,
+            edit_additions=edit_additions,
+        )
+        self._check_validity()
+
 
 class ModifyCalendarItem(BaseModifyCalendarItem):
     """Modify attributes and start and end datetimes of calendar item.
@@ -444,8 +490,8 @@ class ModifyCalendarItem(BaseModifyCalendarItem):
         subedits = []
         self._remove_edit = None
         self._add_edit = None
-        if calendar_item._start_datetime in attr_dict:
-            new_datetime = attr_dict[calendar_item._start_datetime]
+        if calendar_item._date in attr_dict:
+            new_date = attr_dict[calendar_item._date]
             # remove items from old container
             self._remove_edit = ListEdit(
                 calendar_item.get_item_container(),
@@ -456,7 +502,7 @@ class ModifyCalendarItem(BaseModifyCalendarItem):
             )
             # add items to new container
             self._add_edit = ListEdit(
-                calendar_item.get_item_container(new_datetime),
+                calendar_item.get_item_container(new_date),
                 [calendar_item],
                 ContainerOp.ADD,
                 register_edit=False
@@ -470,50 +516,51 @@ class ModifyCalendarItem(BaseModifyCalendarItem):
             register_edit=register_edit,
         )
 
-    def _update(self, new_start_datetime=None, new_end_datetime=None):
+    def _update(self, new_date=None, new_start_time=None, new_end_time=None):
         """Update parameters of edit and run.
 
-        This should only be called if 
-
         Args:
-            new_start_datetime (DateTime or None): new start datetime.
-            new_end_datetime (DateTime or None): new end datetime.
+            new_date (Date or None): new date.
+            new_start_time (Time or None): new start time.
+            new_end_time (Time or None): new end time.
         """
-        if new_start_datetime is None and new_end_datetime is None:
-            return
-        if self._add_edit is None or self._remove_edit is None:
-            raise EditError(
-                "Continuous edits can only be run with ModifyCalendarItem "
-                "class when editing start and/or end datetimes. This edit "
-                "instance was initialized without a datetime change:\n{0}"
-                "".format(self.description)
-            )
-
-        edit_updates = {}
-        attr_updates = {}
-        if new_start_datetime is not None:
-            attr_updates[self._calendar_item._start_datetime] = (
-                new_start_datetime
-            )
-        if new_end_datetime is not None:
-            attr_updates[self._calendar_item._end_datetime] = new_end_datetime
-        self._attr_dict.update(attr_updates)
-        edit_updates[self._attribute_edit] = ([attr_updates], {})
-
         edit_replacements = {}
-        if new_start_datetime is not None:
-            edit_replacements[self._add_edit] = ListEdit(
-                self._calendar_item.get_item_container(new_start_datetime),
-                [self._calendar_item],
-                ContainerOp.ADD,
-                register_edit=False
-            )
+        edit_additions = []
+
+        if new_date is not None:
+            if self._add_edit is None:
+                # remove items from old container
+                self._remove_edit = ListEdit(
+                    self._calendar_item.get_item_container(),
+                    [self._calendar_item],
+                    ContainerOp.REMOVE,
+                    edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
+                    register_edit=False
+                )
+                # add items to new container
+                self._add_edit = ListEdit(
+                    self._calendar_item.get_item_container(new_date),
+                    [self._calendar_item],
+                    ContainerOp.ADD,
+                    register_edit=False
+                )
+                edit_additions.extend([self._remove_edit, self._add_edit])
+
+            else:
+                edit_replacements[self._add_edit] = ListEdit(
+                    self._calendar_item.get_item_container(new_date)
+                    [self._calendar_item],
+                    ContainerOp.ADD,
+                    register_edit=False
+                )
 
         super(ModifyCalendarItem, self)._update(
-            edit_updates=edit_updates,
+            new_date,
+            new_start_time,
+            new_end_time,
             edit_replacements=edit_replacements,
+            edit_additions=edit_additions,
         )
-        self._check_validity()
 
 
 class ModifyRepeatCalendarItem(BaseModifyCalendarItem):
@@ -526,7 +573,7 @@ class ModifyRepeatCalendarItem(BaseModifyCalendarItem):
         """Initialise edit.
 
         Args:
-            calendar_item (CalendarItem): calendar item to modify.
+            calendar_item (RepeatCalendarItem): calendar item to modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
             register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
@@ -571,15 +618,16 @@ class ModifyRepeatCalendarItemInstance(BaseModifyCalendarItem):
         """Initialise edit.
 
         Args:
-            calendar_item (CalendarItem): calendar item to modify.
+            calendar_item (RepeatCalendarItemInstance): calendar item to
+                modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
             register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
         """
         subedits = []
-        if (calendar_item._override_start_datetime in attr_dict
-                or calendar_item._override_end_datetime in attr_dict):
+        if (calendar_item._start_datetime in attr_dict
+                or calendar_item._end_datetime in attr_dict):
             subedits.append(
                 SelfInverseSimpleEdit(
                     calendar_item._clean_override,
@@ -608,49 +656,130 @@ class ModifyRepeatCalendarItemInstance(BaseModifyCalendarItem):
             self
         )._modified_attrs()
 
-        start_key = self._calendar_item._override_start_datetime
-        end_key = self._calendar_item._override_end_datetime
+        date_key = self._calendar_item._date
+        start_key = self._calendar_item._start_time
+        end_key = self._calendar_item._end_time
+        sched_date = self._calendar_item.scheduled_date
         sched_start = self._calendar_item.scheduled_start_datetime
         sched_end = self._calendar_item.scheduled_end_datetime
+        key_schedule_tuples = [
+            (date_key, sched_date),
+            (start_key, sched_start),
+            (end_key, sched_end),
+        ]
 
-        for key, time in [(start_key, sched_start), (end_key, sched_end)]:
+        for key, sched_datetime in key_schedule_tuples:
             if key in modified_attrs:
-                orig_time = self._original_attrs.get(key)
-                new_time = self._original_attrs.get(key)
-                if orig_time is None and new_time == time:
+                orig_datetime = self._original_attrs.get(key)
+                new_datetime = self._original_attrs.get(key)
+                if orig_datetime is None and new_datetime == sched_datetime:
                     modified_attrs.discard(key)
-                elif new_time is None and orig_time == time:
+                elif new_datetime is None and orig_datetime == sched_datetime:
                     modified_attrs.discard(key)
         return modified_attrs
 
-    def _update(self, new_start_datetime=None, new_end_datetime=None):
+    def _update(self, new_date=None, new_start_time=None, new_end_time=None):
         """Update parameters of edit and run.
 
         Args:
-            new_start_datetime (DateTime or None): new start datetime override.
-            new_end_datetime (DateTime or None): new end datetime override.
+            new_date (Date or None): new override date.
+            new_start_time (Time or None): new override start time.
+            new_end_time (Time or None): new override end time.
         """
-        if new_start_datetime is None and new_end_datetime is None:
-            return
-
-        edit_updates = {}
-        attr_updates = {}
-        if new_start_datetime is not None:
-            attr_updates[self._calendar_item._override_start_datetime] = (
-                new_start_datetime
-            )
-        if new_end_datetime is not None:
-            attr_updates[self._calendar_item._override_end_datetime] = (
-                new_end_datetime
-            )
-        self._attr_dict.update(attr_updates)
-        edit_updates[self._attribute_edit] = ([attr_updates], {})
-
         super(ModifyRepeatCalendarItemInstance, self)._update(
-            edit_updates=edit_updates,
+            new_date,
+            new_start_time,
+            new_end_time
         )
         self._calendar_item._clean_override()
-        self._check_validity()
+
+
+# TODO better naming
+class SwitchCalendarItem(CompositeEdit):
+    """Switch one calendar item for another."""
+    def __init__(
+            self,
+            old_calendar_item,
+            new_calendar_item,
+            register_edit=True):
+        """Initialise edit.
+
+        Args:
+            old_calendar_item (CalendarItem): calendar item to replace.
+            new_calendar_item (CalendarItem): calendar item to replace it with.
+            register_edit (bool): whether or not to register this edit in the
+                edit log (ie. whether or not it's a user edit that can be
+                undone).
+        """
+        subedits = []
+        remove_edit = RemoveCalendarItem(
+            old_calendar_item,
+            register_edit=False,
+        )
+        add_edit = AddCalendarItem(
+            new_calendar_item,
+            register_edit=False,
+        )
+        switch_host_edit = HostedDataEdit(
+            old_calendar_item,
+            new_calendar_item,
+            register_edit=False,
+        )
+        subedits.extend([remove_edit, add_edit, switch_host_edit])
+        super(SwitchCalendarItem, self).__init__(
+            subedits,
+            register_edit=register_edit,
+        )
+
+
+class MakeCalendarItemRepeat(SwitchCalendarItem):
+    """Make single calendar item a repeat item, and edit attrs."""
+    def __init__(
+            self,
+            calendar_item,
+            attr_dict,
+            register_edit=True):
+        """Initialise edit.
+
+        Args:
+            calendar_item (CalendarItem): calendar item.
+            attr_dict (dict(MutableAttribute, variant)): additional attrs to
+                edit.
+            register_edit (bool): whether or not to register this edit in the
+                edit log (ie. whether or not it's a user edit that can be
+                undone).
+        """
+        repeat_calendar_item = calendar_item.get_repeat_item(attr_dict)
+        super(MakeCalendarItemRepeat, self).__init__(
+            calendar_item,
+            repeat_calendar_item,
+            register_edit=register_edit,
+        )
+
+
+class MakeCalendarItemSingular(SwitchCalendarItem):
+    """Make single calendar item a repeat item, and edit attrs."""
+    def __init__(
+            self,
+            calendar_item,
+            attr_dict,
+            register_edit=True):
+        """Initialise edit.
+
+        Args:
+            calendar_item (RepeatCalendarItem): calendar item.
+            attr_dict (dict(MutableAttribute, variant)): additional attrs to
+                edit.
+            register_edit (bool): whether or not to register this edit in the
+                edit log (ie. whether or not it's a user edit that can be
+                undone).
+        """
+        single_calendar_item = calendar_item.get_single_item(attr_dict)
+        super(MakeCalendarItemRepeat, self).__init__(
+            calendar_item,
+            single_calendar_item,
+            register_edit=register_edit,
+        )
 
 
 ####################################################

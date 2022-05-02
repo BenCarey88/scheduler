@@ -1,8 +1,10 @@
 """Core edit types, used as building blocks of other edits."""
 
+from atexit import register
 from functools import partial
+from unittest.mock import _NameArgsKwargs
 
-from scheduler.api.common.mutable_attribute import MutableAttribute
+from scheduler.api.common.object_wrappers import MutableAttribute
 from ._base_edit import BaseEdit, EditError
 
 
@@ -125,7 +127,11 @@ class CompositeEdit(BaseEdit):
         for edit in inverse_edits_list:
             edit._inverse_run()
 
-    def _update(self, edit_updates=None, edit_replacements=None):
+    def _update(
+            self,
+            edit_updates=None,
+            edit_replacements=None,
+            edit_additions=None):
         """Update subedits for continuous run functionality.
 
         args:
@@ -134,9 +140,11 @@ class CompositeEdit(BaseEdit):
                 _update methods.
             edit_replacements (dict(BaseEdit, BaseEdit) or None): dictionary
                 of subedits to replace, along with edits to replace them.
+            edit_additions (list(BaseEdit)): additional edits to add.
         """
         edit_updates = edit_updates or {}
         edit_replacements = edit_replacements or {}
+        edit_additions = edit_additions or []
 
         for edit, args_and_kwargs in edit_updates.items():
             if not edit in self._edits_list:
@@ -173,6 +181,18 @@ class CompositeEdit(BaseEdit):
             self._valid_subedits.discard(edit)
             if replacement_edit._is_valid:
                 self._valid_subedits.add(replacement_edit)
+
+        for edit in edit_additions:
+            if edit._register_edit or edit._registered or edit._has_been_done:
+                raise EditError(
+                    "Edits passed to CompositeEdit update cannot be "
+                    "registered individually, and must not have already "
+                    "been run."
+                )
+            self._edits_list.append(edit)
+            edit._run()
+            if edit._is_valid():
+                self._valid_subedits.add(edit)
 
         self._is_valid = bool(self._valid_subedits)
 
@@ -232,3 +252,21 @@ class AttributeEdit(BaseEdit):
             else:
                 self._modified_attrs.discard(value)
         self._is_valid = bool(self._modified_attrs)
+
+
+class HostedDataEdit(SimpleEdit):
+    """Edit to switch the data of a host from one object to another."""
+    def __init__(self, old_data, new_data, register_edit=True):
+        """Initiailize edit.
+
+        Args:
+            old_data (_Hosted): old data of host.
+            new_data (_Hosted): new data of host.
+            reigster_edit (bool): whether or not to register this edit.
+        """
+        self._is_valid = (old_data != new_data)
+        super(HostedDataEdit, self).__init__(
+            run_func=partial(new_data._switch_host, old_data._host),
+            inverse_run_func=partial(old_data._switch_host, new_data._host),
+            register_edit=register_edit,
+        )

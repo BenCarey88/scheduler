@@ -4,7 +4,10 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from uuid import uuid4
 
-from scheduler.api.common.mutable_attribute import MutableAttribute
+from scheduler.api.common.object_wrappers import (
+    host_class_decorator,
+    MutableAttribute,
+)
 from scheduler.api.constants import TASK_COLOURS
 from scheduler.api.edit.tree_edit import (
     AddChildrenEdit,
@@ -23,6 +26,7 @@ from .exceptions import (
 )
 
 
+@host_class_decorator
 class BaseTreeItem(NestedSerializable):
     """Base class representing a tree item."""
     TREE_PATH_SEPARATOR = "/"

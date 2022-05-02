@@ -7,7 +7,7 @@ import json
 import os
 
 from scheduler.api.common.date_time import Date, DateTime, Time
-from scheduler.api.common.mutable_attribute import MutableAttribute
+from scheduler.api.common.object_wrappers import MutableAttribute
 from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit

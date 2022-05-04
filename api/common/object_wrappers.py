@@ -116,7 +116,7 @@ class HostObject(BaseObjectWrapper):
         Returns:
             (bool): whether or not this host is no longer valid.
         """
-        return (self._value == None)
+        return (self._value is None)
 
 
 class _Hosted():
@@ -134,7 +134,7 @@ def host_class_decorator(class_):
 
         @property
         def host(self):
-            """Get host attiribute.
+            """Get host attribute.
 
             Returns:
                 (HostObject): host object.
@@ -145,12 +145,12 @@ def host_class_decorator(class_):
             """Switch out host to a different host.
 
             This should only be used by edit classes that are replacing some
-            class instance with an instance of class. We then need to ensure
-            that the class instance whose host we're stealing is not accessed
-            again as it should be considered deleted once its host is gone.
-            Similarly, this item's old host should never be accessed again, as
-            conceptually hosts should be in one-to-one correspondence with
-            their data.
+            class instance with an instance of another class. We then need to
+            ensure that the class instance whose host we're stealing is not
+            accessed again as it should be considered deleted once its host is
+            gone. Similarly, this item's old host should never be accessed
+            again, as conceptually hosts should be in one-to-one correspondence
+            with their data.
 
             Args:
                 new_host (HostObject): new host to use.
@@ -172,19 +172,19 @@ class MutableHostedAttribute(BaseObjectWrapper):
         """Initialise attribute.
 
         Args:
-            value (HostObject or _Hosted): value of attribute. This can either
+            value (_Hosted or HostObject): value of attribute. This can either
                 be the host object directly, or the underlying class instance
                 that the host object holds (which must be a hosted class)
             name (str or None): name of attribute, if given.
         """
-        if isinstance(value, HostObject):
-            value = value
-        elif isinstance(value, _Hosted):
+        if isinstance(value, _Hosted):
             value = value.host
+        elif isinstance(value, HostObject):
+            value = value
         else:
             raise HostError(
-                "Cannot create MutableHostedAttribute for unhosted class "
-                "instance {0}".format(value.__class__.__name__)
+                "Cannot create MutableHostedAttribute for instance of "
+                "unhosted class {0}".format(value.__class__.__name__)
             )
         super(MutableHostedAttribute, self).__init__(
             value,
@@ -213,7 +213,7 @@ class MutableHostedAttribute(BaseObjectWrapper):
         """Set value of attribute.
 
         Args:
-            value (HostObject or variant): new value to set. If a host object
+            value (_Hosted or HostObject): new value to set. If a host object
                 is given, we set it directly. Otherwise we set the host object
                 to be the host of the new value. Note that this doesn't mutate
                 this class's existing HostObject - that can only be done
@@ -222,12 +222,17 @@ class MutableHostedAttribute(BaseObjectWrapper):
         Returns:
             (bool): True if value was changed, else False.
         """
-        if isinstance(value, HostObject):
+        if isinstance(value, _Hosted):
+            if self.value == value:
+                return False
+            self._host = value.host
+        elif isinstance(value, HostObject):
             if self.host == value:
                 return False
             self._host = value
         else:
-            if self.value == value:
-                return False
-            self._host = value.host
+            raise HostError(
+                "Cannot set MutableHostedAttribute value as instance of "
+                "unhosted class {0}".format(value.__class__.__name__)
+            )
         return True

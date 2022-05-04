@@ -1,14 +1,15 @@
 """Tree edit manager for managing edits on tree items."""
 
 
+from types import new_class
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.edit.tree_edit import (
     InsertChildrenEdit,
-    ModifyChildrenEdit,
     MoveChildrenEdit,
     MoveTreeItemEdit,
     RemoveChildrenEdit,
     RenameChildrenEdit,
+    ReplaceTreeItemEdit,
 )
 from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
@@ -23,25 +24,26 @@ from scheduler.api.tree.task import Task, TaskStatus, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.task_root import TaskRoot
 
-from ._base_managers import BaseTreeManager, class_instance_decorator
+from ._base_managers import BaseTreeManager, require_class
 
 
 class TreeEditManager(BaseTreeManager):
     """Tree edit manager to apply edits to tree items."""
-    _task_only = class_instance_decorator(Task, True)
-    _task_only_no_error = class_instance_decorator(Task, False)
-    _category_only = class_instance_decorator(TaskCategory, True)
-    _category_only_no_error = class_instance_decorator(TaskCategory, False)
-
-    def __init__(self, name, user_prefs, tree_root):
+    def __init__(self, name, user_prefs, tree_root, archive_tree_root):
         """Initialise class.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
+            archive_tree_root (TaskRoot): root archive task object.
         """
-        super(TreeEditManager, self).__init__(name, user_prefs, tree_root)
+        super(TreeEditManager, self).__init__(
+            name,
+            user_prefs,
+            tree_root,
+            archive_tree_root,
+        )
 
     def create_child(
             self,
@@ -125,6 +127,67 @@ class TreeEditManager(BaseTreeManager):
             **kwargs
         )
 
+    def create_new_subtask(
+            self,
+            tree_item,
+            default_name="task",
+            index=None,
+            **kwargs):
+        """Create a new task child.
+
+        This adds a number at the end of the name to allow us to add mutliple
+        new children with different names.
+
+        Args:
+            tree_item (Task or TaskCategory): the tree item to edit.
+            default_name (str): the default name to use (before appending the
+                number).
+            index (int or None): if given, insert child at given index, else
+                add at end of _children dict.
+            **kwargs: kwargs to be passed to child init.
+
+        Returns:
+            (TaskCategory): newly created child.
+        """
+        return self.create_new_child(
+            tree_item,
+            default_name,
+            Task,
+            index,
+            **kwargs,
+        )
+
+    @require_class(TaskCategory, raise_error=False)
+    def create_new_subcategory(
+            self,
+            tree_item,
+            default_name="category",
+            index=None,
+            **kwargs):
+        """Create a new category child.
+
+        This adds a number at the end of the name to allow us to add mutliple
+        new children with different names.
+
+        Args:
+            tree_item (TaskCategory): the tree item to edit.
+            default_name (str): the default name to use (before appending the
+                number).
+            index (int or None): if given, insert child at given index, else
+                add at end of _children dict.
+            **kwargs: kwargs to be passed to child init.
+
+        Returns:
+            (TaskCategory): newly created child.
+        """
+        return self.create_new_child(
+            tree_item,
+            default_name,
+            TaskCategory,
+            index,
+            **kwargs,
+        )
+
     def create_sibling(self, tree_item, name, index=None, **kwargs):
         """Create sibling item for tree item.
 
@@ -206,60 +269,7 @@ class TreeEditManager(BaseTreeManager):
             names,
         )
 
-    # TODO: this isn't used. We need a new switch_class edit that replaces this
-    def replace_child(self, tree_item, name, new_child):
-        """Replace child at given name with new_child.
-
-        Args:
-            tree_item (BaseTreeItem): the tree item to edit.
-            name (str): name of child item to replace.
-            new_child (BaseTreeItem): new tree item to replace the original
-                child.
-
-        Raises:
-            (ChildNameError): if new_child has different name to old one.
-            (MultipleParentsError): if the child has a different tree item as
-                a parent.
-            (UnallowedChildType): if the child_type is not allowed.
-        """
-        if name != new_child.name:
-            raise ChildNameError(
-                "Can't replace child {0} with new child of "
-                "different name {1}".format(name, new_child.name)
-            )
-        if type(new_child) not in tree_item._allowed_child_types:
-            raise UnallowedChildType(tree_item.__class__, type(new_child))
-        if new_child.parent != tree_item:
-            parent_name = new_child.parent.name if new_child.parent else "None"
-            raise MultipleParentsError(
-                "child {0} has incorrect parent: {1} instead of {2}".format(
-                    new_child.name, parent_name, tree_item.name
-                )
-            )
-        ModifyChildrenEdit.create_and_run(
-            tree_item,
-            {name: new_child},
-        )
-
-    def move(self, tree_item, new_index):
-        """Move tree item to new index in parent's _children dict.
-
-        Args:
-            tree_item (BaseTreeItem): the tree item to edit.
-            new_index (int): new index to move to.
-        """
-        if not tree_item.parent:
-            return
-        if new_index >= tree_item.parent.num_children() or new_index < 0:
-            return
-        if new_index == tree_item.index():
-            return
-        MoveChildrenEdit.create_and_run(
-            tree_item.parent,
-            {tree_item.name: new_index},
-        )
-
-    def set_name(self, tree_item, new_name):
+    def set_item_name(self, tree_item, new_name):
         """Set item name.
 
         This setter also updates the item's name in its parent's child dict.
@@ -277,9 +287,82 @@ class TreeEditManager(BaseTreeManager):
                 {tree_item.name: new_name},
             )
         else:
+            # TODO: sort these exceptions
             raise Exception("Cannot rename root tree item")
 
-    @_task_only
+    def move_item_local(self, tree_item, new_index):
+        """Move tree item to new index in parent's _children dict.
+
+        Args:
+            tree_item (BaseTreeItem): the tree item to edit.
+            new_index (int): new index to move to.
+        """
+        if not tree_item.parent:
+            return
+        if new_index >= tree_item.parent.num_children() or new_index < 0:
+            return
+        if new_index == tree_item.index():
+            return
+        MoveChildrenEdit.create_and_run(
+            tree_item.parent,
+            {tree_item.name: new_index},
+        )
+
+    def move_item_by_path(
+            self,
+            path_to_item,
+            path_to_new_parent,
+            index=None):
+        """Move item at given path under parent at given path.
+
+        Args:
+            path_to_item (list(str) or str): path of item to move.
+            path_to_new_parent (list(str) or str): path of parent to move it
+                to.
+            index (int or None): index in new parent's _children dict to move
+                it to. If None, add at end.
+        """
+        item = self._tree_root.get_item_at_path(path_to_item)
+        new_parent = self._tree_root.get_item_at_path(path_to_new_parent)
+        if not item or not new_parent or item.is_ancestor(new_parent):
+            return
+        if index is None:
+            index = new_parent.num_children()
+        if (item.parent != new_parent
+                and item.name in new_parent._children.keys()):
+            return
+        if type(item) not in new_parent._allowed_child_types:
+            return
+        if index < 0 or index > new_parent.num_children():
+            return
+        MoveTreeItemEdit.create_and_run(
+            item,
+            new_parent,
+            index,
+        )
+
+    def change_item_class(self, tree_item):
+        """Toggle item class between Task and TaskCategory.
+
+        Args:
+            tree_item (BaseTreeItem): the tree item to edit.
+        """
+        if tree_item.parent is None:
+            raise Exception("Cannot change item class for root tree item")
+        if isinstance(tree_item, Task):
+            new_class = TaskCategory
+        elif isinstance(tree_item, TaskCategory):
+            new_class = Task
+        else:
+            raise Exception(
+                "Cannot change item class for tree item of type {0}".format(
+                    tree_item.__class__.__name__
+                )
+            )
+        new_tree_item = new_class(tree_item.name)
+        ReplaceTreeItemEdit.create_and_run(tree_item, new_tree_item)
+
+    @require_class(Task, raise_error=True)
     def update_task(
             self,
             task_item,
@@ -317,7 +400,7 @@ class TreeEditManager(BaseTreeManager):
             comment=comment,
         )
 
-    @_task_only_no_error
+    @require_class(Task, raise_error=False)
     def change_task_type(self, task_item, new_type):
         """Change task type to new type.
 

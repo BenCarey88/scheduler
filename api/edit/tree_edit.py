@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from ._core_edits import CompositeEdit, AttributeEdit
+from ._core_edits import CompositeEdit, AttributeEdit, HostedDataEdit
 from ._container_edit import DictEdit, ContainerOp
 
 
@@ -271,7 +271,7 @@ class MoveChildrenEdit(BaseTreeEdit):
 class MoveTreeItemEdit(CompositeEdit):
     """Tree edit for moving a tree item under another parent."""
 
-    def __init__(self, tree_item, new_parent, index, register_edit=True):
+    def __init__(self, tree_item, new_parent, index=None, register_edit=True):
         """Initialise edit item.
 
         This edit assumes that it is legal for tree_item to be a child of
@@ -280,14 +280,22 @@ class MoveTreeItemEdit(CompositeEdit):
         Args:
             tree_item (BaseTreeItem): tree item to move.
             new_parent (BaseTreeItem): new parent to move under.
-            index (int): index to add child at.
+            index (int or None): index to add child at. If None, add at end.
             register_edit (bool): whether or not to register this edit.
         """
-        insert_child_edit = InsertChildrenEdit(
-            new_parent,
-            {tree_item.name: (index, tree_item)},
-            register_edit=False,
-        )
+        if index is not None:
+            insert_child_edit = InsertChildrenEdit(
+                new_parent,
+                {tree_item.name: (index, tree_item)},
+                register_edit=False,
+            )
+        else:
+            insert_child_edit = AddChildrenEdit(
+                new_parent,
+                {tree_item.name: tree_item},
+                register_edit=False,
+            )
+
         if not tree_item.parent:
             super(MoveTreeItemEdit, self).__init__(
                 [insert_child_edit],
@@ -313,4 +321,68 @@ class MoveTreeItemEdit(CompositeEdit):
                 ),
                 index
             )
+        )
+
+
+class ReplaceTreeItemEdit(CompositeEdit):
+    """Replace one tree item with another."""
+    def __init__(
+            self,
+            old_tree_item,
+            new_tree_item,
+            register_edit=True):
+        """Initialise edit.
+
+        This edit assumes that it is legal for tree_item to be a child of
+        new_parent, ie. that tree_item is in new_parent's allowed_child_types.
+
+        Note that this edit also passes all of old_tree_item's children over to
+        new_tree_item. The intended use is on a new_tree_item that has just
+        been made and doesn't have any children of its own.
+
+        Args:
+            old_tree_item (BaseTreeItem): tree item to replace.
+            new_tree_item (BaseTreeItem): tree item to replace it with.
+            register_edit (bool): whether or not to register this edit in the
+                edit log (ie. whether or not it's a user edit that can be
+                undone).
+        """
+        if old_tree_item.parent is None:
+            self._is_valid = False
+            super(ReplaceTreeItemEdit, self).__init__(
+                [],
+                register_edit=register_edit
+            )
+            return
+
+        remove_edit = RemoveChildrenEdit(
+            old_tree_item.parent,
+            [old_tree_item.name],
+            register_edit=False,
+        )
+        add_edit = MoveTreeItemEdit(
+            new_tree_item,
+            old_tree_item.parent,
+            old_tree_item.index(),
+            register_edit=False,
+        )
+        switch_host_edit = HostedDataEdit(
+            old_tree_item,
+            new_tree_item,
+            register_edit=False,
+        )
+        subedits = [remove_edit, add_edit, switch_host_edit]
+        for child in old_tree_item._children.values():
+            subedits.append(
+                MoveTreeItemEdit(child, new_tree_item, register_edit=False)
+            )
+        super(ReplaceTreeItem, self).__init__(
+            subedits,
+            register_edit=register_edit,
+        )
+
+        self._name = "ReplaceTreeItem ({0})".format(old_tree_item.name)
+        self._description = "Replace tree item {0} --> {1}".format(
+            old_tree_item.path,
+            new_tree_item.path,
         )

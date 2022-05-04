@@ -660,8 +660,9 @@ class CalendarItem(BaseCalendarItem):
     def __init__(
             self,
             calendar,
-            start_datetime,
-            end_datetime,
+            start_time,
+            end_time,
+            date,
             item_type=None,
             tree_item=None,
             event_category=None,
@@ -672,8 +673,9 @@ class CalendarItem(BaseCalendarItem):
 
         Args:
             calendar (Calendar): calendar class instance.
-            start_datetime (DateTime): start date time.
-            end_datetime (DateTime): end date time.
+            start_datetime (Time): start time.
+            end_datetime (Time): end time.
+            date (Date): date of item.
             item_type (CalendarItemType or None): type of scheduled item.
             tree_item (BaseTreeItem or None): tree item representing task,
                 if item_type is task.
@@ -689,9 +691,9 @@ class CalendarItem(BaseCalendarItem):
         """
         super(CalendarItem, self).__init__(
             calendar,
-            start_datetime.time(),
-            end_datetime.time(),
-            date=start_datetime.date(),
+            start_time,
+            end_time,
+            date=date,
             repeat_pattern=repeat_pattern,
             item_type=item_type,
             tree_item=tree_item,
@@ -727,32 +729,6 @@ class CalendarItem(BaseCalendarItem):
         calendar_day = self._calendar.get_day(date)
         return calendar_day._scheduled_items
 
-    def get_repeat_item(self, attr_dict=None):
-        """Get repeat calendar item corresponding to this one.
-
-        Args:
-            attr_dict (dict(MutableAttribute, variant) or None): dictionary of
-                changes to make to attributes.
-
-        Returns:
-            (RepeatCalendarItem): repeat calendar item corresponding to this
-                one, with given attributes.
-        """
-        attr_dict = attr_dict or {}
-        def get_value(attr):
-            return attr_dict.get(attr, attr.value)
-        return RepeatCalendarItem(
-            self._calendar,
-            get_value(self._start_time),
-            get_value(self._end_time),
-            get_value(self._repeat_pattern),
-            item_type=get_value(self._type),
-            tree_item=get_value(self._tree_item),
-            event_category=get_value(self._event_category),
-            event_name=get_value(self._event_name),
-            is_background=get_value(self._is_background),
-        )
-
     def to_dict(self):
         """Return dictionary representation of class.
 
@@ -787,8 +763,9 @@ class CalendarItem(BaseCalendarItem):
         return super(CalendarItem, cls).from_dict(
             dict_repr,
             calendar,
-            start_datetime,
-            end_datetime,
+            start_datetime.time(),
+            end_datetime.time(),
+            start_datetime.date(),
         )
 
 
@@ -911,7 +888,7 @@ class RepeatCalendarItem(BaseCalendarItem):
             latest_date = list(self._instances.keys())[-1] + TimeDelta(days=1)
         for _date in self.repeat_pattern.dates_between(latest_date, date):
             if _date in self._overridden_instances.keys():
-                # if date already accounted for by override, just reference it
+                # if date already accounted for by override, just add it
                 self._instances[_date] = self._overridden_instances[_date]
             else:
                 # otherwise create new instance
@@ -954,35 +931,6 @@ class RepeatCalendarItem(BaseCalendarItem):
         """
         self._instances = OrderedDict()
         self._clean_overrides()
-
-    def get_single_item(self, attr_dict=None):
-        """Get single calendar item corresponding to this one.
-
-        Args:
-            attr_dict (dict(MutableAttribute, variant) or None): dictionary of
-                changes to make to attributes.
-
-        Returns:
-            (RepeatCalendarItem): single calendar item corresponding to this
-                one, with given attributes.
-        """
-        attr_dict = attr_dict or {}
-        def get_value(attr):
-            return attr_dict.get(attr, attr.value)
-        date = get_value(self._date)
-        start_time = get_value(self._start_time)
-        end_time = get_value(self._end_time)
-        return CalendarItem(
-            self._calendar,
-            start_datetime=DateTime.from_date_and_time(date, start_time),
-            end_datetime=DateTime.from_date_and_time(date, end_time),
-            item_type=get_value(self._type),
-            tree_item=get_value(self._tree_item),
-            event_category=get_value(self._event_category),
-            event_name=get_value(self._event_name),
-            is_background=get_value(self._is_background),
-            repeat_pattern=get_value(self._repeat_pattern),
-        )
 
     def to_dict(self):
         """Return dictionary representation of class.

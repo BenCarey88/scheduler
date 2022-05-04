@@ -41,21 +41,25 @@ class TreeFilterManager(BaseTreeManager):
     ]
     FILTERED_TASKS_PREF = "task_filters"
 
-    def __init__(self, name, user_prefs, tree_root):
-        """Initialise tree manager. Note that this class actually has no
-        knowledge of the tree item itself, so needs to be used in conjunction
-        with a tree root.
+    def __init__(self, name, user_prefs, tree_root, archive_tree_root):
+        """Initialise tree filter manager.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
+            archive_tree_root (TaskRoot): root archive task object.
 
         Attributes:
             _tree_data (dict(str, dict)): additional tree data for each item.
             _filtered_items (set(str)): set of items we're filtering out.
         """
-        super(BaseTreeManager, self).__init__(name, user_prefs, tree_root)
+        super(BaseTreeManager, self).__init__(
+            name,
+            user_prefs,
+            tree_root,
+            archive_tree_root
+        )
         self._tree_data = {}
         self._filtered_items = set()
         self.setup_from_user_prefs()

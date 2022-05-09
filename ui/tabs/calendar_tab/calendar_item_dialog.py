@@ -69,7 +69,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
         start_time = calendar_item.start_time
         end_time = calendar_item.end_time
         tree_item = calendar_item.tree_item
-        repeat_pattern = calendar_item.repeat_pattern
+        # get_repeat_pattern will return None for single items
+        repeat_pattern = calendar_manager.get_repeat_pattern(calendar_item)
         item_type = calendar_item.type
         event_category = calendar_item.category
         event_name = calendar_item.name

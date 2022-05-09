@@ -64,7 +64,7 @@ class BaseCalendarManager(BaseManager):
             return calendar_item.repeat_calendar_item
 
     @require_class((CalendarItem, RepeatCalendarItem), True)
-    def is_repeat_item(calendar_item):
+    def is_repeat_item(self, calendar_item):
         """Check if item is repeat item or repeat item i.
 
         Args:
@@ -77,7 +77,7 @@ class BaseCalendarManager(BaseManager):
         return isinstance(calendar_item, RepeatCalendarItem)
 
     @require_class((CalendarItem, RepeatCalendarItem), True)
-    def get_repeat_pattern(calendar_item):
+    def get_repeat_pattern(self, calendar_item):
         """Get the repeat pattern of the calendar item, if it's a repeat item.
 
         Args:

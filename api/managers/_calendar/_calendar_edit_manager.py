@@ -157,9 +157,9 @@ class CalendarEditManager(BaseCalendarManager):
         tree_item = fallback_value(tree_item, calendar_item.tree_item)
         event_category = fallback_value(
             event_category,
-            calendar_item.event_category
+            calendar_item.category
         )
-        event_name = fallback_value(event_name, calendar_item.event_name)
+        event_name = fallback_value(event_name, calendar_item.name)
         is_background = fallback_value(
             is_background,
             calendar_item.is_background

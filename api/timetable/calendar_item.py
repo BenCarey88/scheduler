@@ -1086,7 +1086,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
     @property
     def override_date(self):
         """Get date override.
-        
+
         Returns:
             (Date or None): date override.
         """
@@ -1161,6 +1161,17 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
             self.scheduled_end_time
         )
 
+    @property
+    def date(self):
+        """Date instance is at.
+
+        Returns:
+            (Date): date of instance.
+        """
+        if self.override_date:
+            return self.override_date
+        return self.scheduled_date
+
     def datetime_string(self):
         """Get string representing start and end date/time of item.
 
@@ -1206,11 +1217,14 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
                 return True
         return False
 
-    def _clean_override(self):
-        """Remove it from overrides list if it's not an override."""
+    def _compute_override(self):
+        """Check if this is override and add/remove it from overrides list."""
+        overrides = self.repeat_calendar_item._overridden_instances
         if self.is_override():
-            if self.scheduled_date in self.repeat_calendar_item._overrides:
-                del self.repeat_calendar_item._overrides[self.scheduled_date]
+            overrides[self.scheduled_date] = self
+        else:
+            if self.scheduled_date in overrides:
+                del overrides[self.scheduled_date]
 
     def to_dict(self):
         """Return dictionary representation of class.

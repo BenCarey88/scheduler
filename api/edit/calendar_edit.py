@@ -402,11 +402,12 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
                 undone).
         """
         subedits = []
-        if (calendar_item._start_datetime in attr_dict
-                or calendar_item._end_datetime in attr_dict):
+        if (calendar_item._date in attr_dict
+                or calendar_item._start_time in attr_dict
+                or calendar_item._end_time in attr_dict):
             subedits.append(
                 SelfInverseSimpleEdit(
-                    calendar_item._clean_override,
+                    calendar_item._compute_override,
                     register_edit=False,
                 )
             )
@@ -467,7 +468,7 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
             new_start_time,
             new_end_time
         )
-        self._calendar_item._clean_override()
+        self._calendar_item._compute_override()
 
 
 class ReplaceCalendarItemEdit(CompositeEdit):

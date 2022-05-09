@@ -8,7 +8,7 @@ is being filtered for in the current tab.
 
 from scheduler.api.tree.filters import NoFilter, FilterByItem
 
-from ._base_managers import BaseTreeManager
+from ._base_tree_manager import BaseTreeManager
 
 
 class TreeFilterManager(BaseTreeManager):
@@ -54,7 +54,7 @@ class TreeFilterManager(BaseTreeManager):
             _tree_data (dict(str, dict)): additional tree data for each item.
             _filtered_items (set(str)): set of items we're filtering out.
         """
-        super(BaseTreeManager, self).__init__(
+        super(TreeFilterManager, self).__init__(
             name,
             user_prefs,
             tree_root,

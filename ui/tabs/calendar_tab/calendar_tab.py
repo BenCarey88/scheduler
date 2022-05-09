@@ -3,13 +3,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
-from scheduler.api.edit.calendar_edit import ModifyCalendarItemDateTime
-from scheduler.api.timetable.calendar_item import (
-    CalendarItem,
-    CalendarItemType,
-    RepeatCalendarItemInstance
-)
+from scheduler.api.common.date_time import DateTime, Time, TimeDelta
+from scheduler.api.timetable.calendar_item import CalendarItemType
 
 from scheduler.ui.models.timetable_week_model import CalendarWeekModel
 from scheduler.ui.tabs.base_timetable_tab import (
@@ -24,32 +19,18 @@ from .calendar_item_dialog import CalendarItemDialog
 class CalendarTab(BaseTimetableTab):
     """Calendar tab."""
 
-    def __init__(
-            self,
-            tree_root,
-            tree_manager,
-            outliner,
-            calendar,
-            parent=None):
+    def __init__(self, project, parent=None):
         """Setup calendar main view.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            outliner (Outliner): outliner widget.
-            calendar (Calendar): calendar item.
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        calendar_table_view = CalendarView(
-            tree_root,
-            tree_manager,
-            calendar
-        )
+        name = "calendar"
+        calendar_table_view = CalendarView(name, project)
         super(CalendarTab, self).__init__(
-            tree_root,
-            tree_manager,
-            outliner,
-            calendar,
+            name,
+            project,
             calendar_table_view,
             parent=parent,
         )
@@ -129,26 +110,23 @@ class SelectedCalenderItem(object):
     """Wrapper class around the selected calendar item in the table view."""
     def __init__(
             self,
-            calendar,
+            calendar_manager,
             calendar_item,
             orig_mouse_pos):
         """Initialise class.
 
         Args:
-            calendar (Calendar): the calendar.
+            calendar_manager (CalendarManager): the calendar manager.
             calendar_item (CalendarItem): the currently selected calendar item.
             orig_mouse_pos (QtCore.QPoint): mouse position that the selected
                 item started at.
         """
+        self._calendar_manager = calendar_manager
         self._calendar_item = calendar_item
         self.orig_mouse_pos = orig_mouse_pos
         self.orig_start_time = calendar_item.start_time
         self.orig_end_time = calendar_item.end_time
         self.orig_date = calendar_item.date
-        self.edit = ModifyCalendarItemDateTime(
-            calendar,
-            calendar_item
-        )
         self.is_being_moved = False
 
     @property
@@ -186,15 +164,20 @@ class SelectedCalenderItem(object):
             new_end_date_time (DateTime): new end time for item.
         """
         if not self.is_being_moved:
-            self.edit.begin_continuous_run()
+            self._calendar_manager.begin_move_item(self._calendar_item)
             self.is_being_moved = True
-        self.edit.update_continuous_run(new_start_datetime, new_end_datetime)
+        self._calendar_manager.update_move_item(
+            self._calendar_item,
+            new_start_datetime.date(),
+            new_start_datetime.time(),
+            new_end_datetime.time(),
+        )
 
     def deselect(self):
         """Call when we've finished using this item."""
-        self.edit.end_continuous_run()
+        self._calendar_manager.end_move_item(self._calendar_item)
 
-    def get_calendar_item_to_modify(self):
+    def get_item_to_modify(self):
         """Get the calendar item to open with the calendar item dialog.
 
         Returns:
@@ -202,10 +185,7 @@ class SelectedCalenderItem(object):
                 that it's an instance of, in the case of repeat calendar item
                 instances.
         """
-        if isinstance(self._calendar_item, CalendarItem):
-            return self._calendar_item
-        elif isinstance(self._calendar_item, RepeatCalendarItemInstance):
-            return self._calendar_item.repeat_calendar_item
+        return self._calendar_manager.get_item_to_modify(self._calendar_item)
 
 
 class CalendarView(BaseWeekTableView):
@@ -218,26 +198,24 @@ class CalendarView(BaseWeekTableView):
 
     def __init__(
             self,
-            tree_root,
-            tree_manager,
-            calendar,
+            name,
+            project,
             parent=None):
         """Initialise calendar view.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            calendar (Calendar): calendar object.
+            name (str): name of tab this is used in.
+            project (Project): the project we're working on.
             calendar_week (CalendarWeek): calendar week for view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(CalendarView, self).__init__(
-            tree_root,
-            tree_manager,
-            calendar,
-            CalendarWeekModel(calendar),
+            name,
+            project,
+            CalendarWeekModel(project.calendar),
             parent=parent,
         )
+        self.calendar_manager = project.get_calendar_manager()
         self.selection_rect = None
 
         self.setItemDelegate(CalendarDelegate(self))
@@ -761,7 +739,7 @@ class CalendarView(BaseWeekTableView):
         for rect, calendar_item in foreground_rects + background_rects:
             if rect.contains(pos):
                 self.selected_calendar_item = SelectedCalenderItem(
-                    self.calendar,
+                    self.calendar_manager,
                     calendar_item,
                     pos
                 )
@@ -832,16 +810,11 @@ class CalendarView(BaseWeekTableView):
         """
         if self.selection_rect:
             if self.selection_rect.time_range.total_seconds() != 0:
-                new_calendar_item = CalendarItem(
-                    self.calendar,
-                    self.selection_rect.start_datetime,
-                    self.selection_rect.end_datetime,
-                )
                 item_editor = CalendarItemDialog(
-                    self.tree_root,
                     self.tree_manager,
-                    self.calendar,
-                    new_calendar_item,
+                    self.calendar_manager,
+                    start_datetime=self.selection_rect.start_datetime,
+                    end_datetime=self.selection_rect.end_datetime,
                 )
                 item_editor.exec()
             self.selection_rect = None
@@ -853,12 +826,11 @@ class CalendarView(BaseWeekTableView):
                 self.selected_calendar_item.deselect()
             else:
                 # otherwise, we want to open the editor
+                item = self.selected_calendar_item.get_item_to_modify()
                 item_editor = CalendarItemDialog(
-                    self.tree_root,
                     self.tree_manager,
-                    self.calendar,
-                    self.selected_calendar_item.get_calendar_item_to_modify(),
-                    as_editor=True,
+                    self.calendar_manager,
+                    calendar_item=item,
                 )
                 item_editor.exec()
             self.selected_calendar_item = None

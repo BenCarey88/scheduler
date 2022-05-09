@@ -9,7 +9,7 @@ from scheduler.api import constants as api_constants
 from scheduler.api import utils as api_utils
 from scheduler.api.common import user_prefs
 from scheduler.api.edit import edit_log
-from scheduler.api.managers.tree_manager import TreeManager
+# from scheduler.api.managers import CalendarManager, TreeManager
 from scheduler.api.project import Project
 
 from . import constants as ui_constants
@@ -65,21 +65,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             user_prefs.get_app_user_pref(self.SPLITTER_SIZES, [1, 1])
         )
 
-        self.tasks_tab = self.create_tab_and_outliner(
-            "Tasks",
-            TaskTab
-        )
-        self.calendar_tab = self.create_tab_and_outliner(
-            "Calendar",
-            CalendarTab,
-            self.calendar
-        )
-        self.tracker_tab = self.create_tab_and_outliner(
-            "Tracker",
-            TrackerTab,
-            self.calendar,
-            self.tracker
-        )
+        self.tasks_tab = self.create_tab_and_outliner(TaskTab)
+        self.calendar_tab = self.create_tab_and_outliner(CalendarTab)
+        self.tracker_tab = self.create_tab_and_outliner(TrackerTab)
         # self.suggestions_tab = self.create_tab_and_outliner(
         #     "Suggestions",
         #     SuggestionsTab
@@ -96,7 +84,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     # TODO: neaten up args for this? Maybe add calendar to everything? 
     # Or remove this function altogether?
-    def create_tab_and_outliner(self, tab_name, tab_class, *args, **kwargs):
+    def create_tab_and_outliner(self, tab_class, *args, **kwargs):
         """Create tab and outliner combo for given tab_type.
 
         Args:
@@ -106,23 +94,15 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             kwargs (dict): additional kwargs to pass to tab init.
 
         Returns:
-            (QtWidgets.QTabWidget): the tab widgter.
+            (QtWidgets.QTabWidget): the tab widget.
         """
-        tab_tree_manager = TreeManager(
-            "{0}_tree_manager".format(tab_name),
-            self.project_user_prefs,
-            self.tree_root
-        )
-        outliner = Outliner(self.tree_root, tab_tree_manager)
-        self.outliner_stack.addWidget(outliner)
         tab = tab_class(
-            self.tree_root,
-            tab_tree_manager,
-            outliner,
+            self.project,
             *args,
             **kwargs
         )
-        self.tabs_widget.addTab(tab, tab_name)
+        self.outliner_stack.addWidget(tab.outliner)
+        self.tabs_widget.addTab(tab, tab.name)
         return tab
 
     def setup_menu(self):

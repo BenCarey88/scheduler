@@ -1,34 +1,20 @@
-#TODO: rename as just EventDialog
+"""Calendar item dialog for creating and editing calendar items."""
 
 
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time
-from scheduler.api.edit.calendar_edit import (
-    AddCalendarItem,
-    ChangeCalendarItemRepeatType,
-    ModifyCalendarItem,
-    RemoveCalendarItem,
-)
 from scheduler.api.timetable.calendar_item import (
     CalendarItem,
     CalendarItemRepeatPattern,
     CalendarItemType,
-    RepeatCalendarItem
 )
-from scheduler.api.tree.task import Task
 
 from scheduler.ui import utils
 from scheduler.ui.models.full_task_tree_model import FullTaskTreeModel
-from scheduler.ui.models.task_category_model import TaskCategoryModel
-from scheduler.ui.models.task_model import TaskModel
-from scheduler.ui.widgets.outliner import Outliner
 
 
-# TODO: current idea seems to be to make this class just be called and executed
-# - we don't need access to anything from it as it handles the edits itself, so
-# we should be able to make all methods private.
 class CalendarItemDialog(QtWidgets.QDialog):
     """Dialog for creating or editing calendar items."""
     END_TIME_KEY = "End"
@@ -36,36 +22,58 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
     def __init__(
             self,
-            tree_root,
             tree_manager,
-            calendar,
-            calendar_item,
-            as_editor=False,
+            calendar_manager,
+            calendar_item=None,
+            start_datetime=None,
+            end_datetime=None,
+            tree_item=None,
             parent=None):
         """Initialise dialog.
 
         Args:
-            tree_root (TreeRoot): the task tree root object.
             tree_manager (TreeManager): the task tree manager object.
             calendar (calendar): the calendar object.
-            calendar_item (BaseCalendarItem): calendar item we're editing or
-                creating. Can be single item or repeat item template.
-            as_editor (bool): whether or not we're editing an existing item,
-                or adding a new one.
+            calendar_item (BaseCalendarItem or None): calendar item we're
+                editing, if this is in edit mode. If None, we're in create
+                mode. Can be a single item or repeat item template.
+            start_datetime (DateTime or None): start datetime to initialize
+                with, if we're not passing a calendar item.
+            end_datetime (DateTime or None): end datetime to initialize with,
+                with, if we're not passing a calendar item.
+            tree_item (Task or None): tree item to initialize with, if we're
+                not passing a calendar item.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
+        if (calendar_item is None and 
+                (start_datetime is None or end_datetime is None)):
+            raise Exception(
+                "Must either pass a calendar item or start and end datetimes"
+            )
         super(CalendarItemDialog, self).__init__(parent=parent)
-        self._calendar = calendar
+        self._calendar = calendar_manager.calendar
+        self._calendar_manager = calendar_manager
         self._calendar_item = calendar_item
-        # TODO: these isinstances are dotted all over the place in the ui,
-        # should be much better ways of dealing with this on the api side
-        if isinstance(calendar_item, CalendarItem):
-            date = calendar_item.date
-        else:
-            date = calendar_item.start_date
+        self.is_editor = (calendar_item is not None)
+
+        if calendar_item is None:
+            # create a temp calendar item just to get default values
+            calendar_item = CalendarItem(
+                self._calendar,
+                start_datetime.time(),
+                end_datetime.time(),
+                start_datetime.date(),
+                tree_item=tree_item,
+            )
+        date = calendar_item.date
         start_time = calendar_item.start_time
         end_time = calendar_item.end_time
-        self.is_editor = as_editor
+        tree_item = calendar_item.tree_item
+        repeat_pattern = calendar_item.repeat_pattern
+        item_type = calendar_item.type
+        event_category = calendar_item.category
+        event_name = calendar_item.name
+        is_background = calendar_item.is_background
 
         flags = QtCore.Qt.WindowFlags(
             QtCore.Qt.WindowTitleHint | QtCore.Qt.WindowCloseButtonHint
@@ -88,12 +96,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
             QtCore.QDate(date.year, date.month, date.day)
         )
 
-        repeat_pattern = None
-        if isinstance(calendar_item, RepeatCalendarItem):
-            repeat_pattern = calendar_item.repeat_pattern
         self.repeat_pattern_widget = RepeatPatternWidget(repeat_pattern)
         main_layout.addWidget(self.repeat_pattern_widget)
-
 
         self.time_editors = {
             self.START_TIME_KEY: QtWidgets.QTimeEdit(),
@@ -139,10 +143,9 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         task_label = QtWidgets.QLabel("")
         self.task_combo_box = TaskTreeComboBox(
-            tree_root,
             tree_manager,
             task_label,
-            calendar_item.tree_item,
+            tree_item,
         )
         task_selection_layout.addStretch()
         task_selection_layout.addWidget(task_label)
@@ -156,12 +159,12 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         event_category_label = QtWidgets.QLabel("Category")
         self.event_category_line_edit = QtWidgets.QLineEdit()
-        if calendar_item.category:
-            self.event_category_line_edit.setText(calendar_item.category)
+        if event_category:
+            self.event_category_line_edit.setText(event_category)
         event_name_label = QtWidgets.QLabel("Name")
         self.event_name_line_edit = QtWidgets.QLineEdit()
-        if calendar_item.name:
-            self.event_name_line_edit.setText(calendar_item.name)
+        if event_name:
+            self.event_name_line_edit.setText(event_name)
         event_layout.addStretch()
         event_layout.addWidget(event_category_label)
         event_layout.addWidget(self.event_category_line_edit)
@@ -169,18 +172,18 @@ class CalendarItemDialog(QtWidgets.QDialog):
         event_layout.addWidget(event_name_label)
         event_layout.addWidget(self.event_name_line_edit)
         event_layout.addStretch()
-        if self._calendar_item.type == CalendarItemType.EVENT:
+        if item_type == CalendarItemType.EVENT:
             self.tab_widget.setCurrentIndex(1)
 
         self.background_checkbox = QtWidgets.QCheckBox("Set as background")
-        if calendar_item.is_background:
+        if is_background:
             self.background_checkbox.setCheckState(2)
         main_layout.addWidget(self.background_checkbox)
 
         main_layout.addSpacing(10)
 
         buttons_layout = QtWidgets.QHBoxLayout()
-        if as_editor:
+        if self.is_editor:
             self.delete_button = QtWidgets.QPushButton("Delete Calendar Item")
             buttons_layout.addWidget(self.delete_button)
             self.delete_button.clicked.connect(self.delete_item_and_close)
@@ -345,63 +348,45 @@ class CalendarItemDialog(QtWidgets.QDialog):
             self.close()
             return
         if self.is_editor:
-            # TODO: stop using isinstance to determine if item is a repeat
-            if self.is_repeat == isinstance(self._calendar_item, CalendarItem):
-                edit_class = ChangeCalendarItemRepeatType
-            else:
-                edit_class = ModifyCalendarItem
-            # Note that we rely on the edit to discard irrelevant attrs here
-            # TODO: this is grim. All the edits here need serious reworking
-            # because they're getting really confusing.
-            # note that currently the bottom two args are irrelevant for
-            # ModifyCalendarItem init and just get swallowed in that case.
-            edit_class.create_and_run(
-                self._calendar,
+            self._calendar_manager.modify_calendar_item(
                 self._calendar_item,
-                new_start_datetime=self.start_datetime,
-                new_end_datetime=self.end_datetime,
-                new_type=self.type,
-                new_tree_item=self.tree_item,
-                new_event_category=self.category,
-                new_event_name=self.name,
-                new_is_background=self.is_background,
-                new_start_time=self.start_time,
-                new_end_time=self.end_time,
-                new_repeat_pattern=self.repeat_pattern,
-                repeat_pattern=self.repeat_pattern,
+                self.is_repeat,
                 date=self.date,
+                start_time=self.start_time,
+                end_time=self.end_time,
+                repeat_pattern=self.repeat_pattern,
+                item_type=self.type,
+                tree_item=self.tree_item,
+                event_category=self.category,
+                event_name=self.name,
+                is_background=self.is_background,
             )
         else:
-            # TODO: feels odd that this just discards the item we're editing
-            # should maybe make the item an optional field of this class and
-            # pass in the item params as arguments when creating instead?
             if self.is_repeat:
-                self._calendar_item = RepeatCalendarItem(
+                self._calendar_manager.create_repeat_calendar_item(
                     self._calendar,
                     self.start_time,
                     self.end_time,
                     self.repeat_pattern,
-                    self.type,
-                    self.tree_item,
-                    self.category,
-                    self.name,
-                    self.is_background
+                    item_type=self.type,
+                    tree_item=self.tree_item,
+                    event_category=self.category,
+                    event_name=self.name,
+                    is_background=self.is_background,
                 )
             else:
-                self._calendar_item = CalendarItem(
+                self._calendar_manager.create_calendar_item(
                     self._calendar,
-                    self.start_datetime,
-                    self.end_datetime,
-                    self.type,
-                    self.tree_item,
-                    self.category,
-                    self.name,
-                    self.is_background,
+                    self.start_time,
+                    self.end_time,
+                    self.date,
+                    item_type=self.type,
+                    tree_item=self.tree_item,
+                    event_category=self.category,
+                    event_name=self.name,
+                    is_background=self.is_background,
+                    repeat_pattern=self.repeat_pattern,
                 )
-            AddCalendarItem.create_and_run(
-                self._calendar,
-                self._calendar_item
-            )
         self.accept()
         self.close()
 
@@ -410,10 +395,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         Called when user clicks delete.
         """
-        RemoveCalendarItem.create_and_run(
-            self._calendar,
-            self._calendar_item
-        )
+        self._calendar_manager.remove_calendar_item(self._calendar_item)
         self.reject()
         self.close()
 
@@ -585,12 +567,11 @@ class TreeComboBox(QtWidgets.QComboBox):
 class TaskTreeComboBox(TreeComboBox):
     def __init__(
             self,
-            tree_root,
             tree_manager,
             label,
             tree_item=None,
             parent=None):
-        model = FullTaskTreeModel(tree_root, tree_manager)
+        model = FullTaskTreeModel(tree_manager)
         tree_view = QtWidgets.QTreeView()
         tree_view.setModel(model)
         super(TaskTreeComboBox, self).__init__(
@@ -598,4 +579,4 @@ class TaskTreeComboBox(TreeComboBox):
             tree_item,
             parent=parent
         )
-        self.setup(model, tree_view, tree_root)
+        self.setup(model, tree_view, tree_manager.tree_root)

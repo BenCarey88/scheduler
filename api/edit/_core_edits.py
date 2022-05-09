@@ -1,8 +1,6 @@
 """Core edit types, used as building blocks of other edits."""
 
-from atexit import register
 from functools import partial
-from unittest.mock import _NameArgsKwargs
 
 from scheduler.api.common.object_wrappers import MutableAttribute
 from ._base_edit import BaseEdit, EditError
@@ -121,7 +119,7 @@ class CompositeEdit(BaseEdit):
     def _inverse_run(self):
         """Run each inverse edit in reverse order of edits_list."""
         if self._reverse_order_for_inverse:
-            inverse_edits_list = reversed(self.edits_list)
+            inverse_edits_list = reversed(self._edits_list)
         else:
             inverse_edits_list = self._edits_list
         for edit in inverse_edits_list:
@@ -191,7 +189,7 @@ class CompositeEdit(BaseEdit):
                 )
             self._edits_list.append(edit)
             edit._run()
-            if edit._is_valid():
+            if edit._is_valid:
                 self._valid_subedits.add(edit)
 
         self._is_valid = bool(self._valid_subedits)
@@ -247,6 +245,8 @@ class AttributeEdit(BaseEdit):
                 )
         self._attr_dict.update(attr_dict)
         for attr, value in self._attr_dict.items():
+            if attr not in self._orig_attr_dict:
+                self._orig_attr_dict[attr] = attr.value
             if attr.set_value(value):
                 self._modified_attrs.add(value)
             else:

@@ -19,14 +19,12 @@ class TaskCategoryModel(BaseTreeModel):
 
     def __init__(
             self,
-            root_category,
             tree_manager,
             hide_filtered_items=False,
             parent=None):
         """Initialise task category tree model.
 
         Args:
-            root_category (TaskRoot): task root tree item.
             tree_manager (TreeManager): tree manager item.
             hide_filtered_items (bool): if True, use the child_filter from the
                 tree manager to filter out all items whose checkboxes are
@@ -37,7 +35,6 @@ class TaskCategoryModel(BaseTreeModel):
         if hide_filtered_items and tree_manager.child_filter:
             child_filters.append(tree_manager.child_filter)
         super(TaskCategoryModel, self).__init__(
-            root_category,
             tree_manager,
             parent=parent,
             filters=child_filters

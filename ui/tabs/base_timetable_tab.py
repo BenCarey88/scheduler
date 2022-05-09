@@ -18,37 +18,33 @@ class BaseTimetableTab(BaseTab):
 
     def __init__(
             self,
-            tree_root,
-            tree_manager,
-            outliner,
-            calendar,
+            name,
+            project,
             main_view,
             parent=None):
-        """Initialize tab.
+        """Initialise tab.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            outliner (Outliner): outliner widget associated with this tab.
-            calendar (Calendar): calendar object.
+            name (str): name of tab (to pass to manager classes).
+            project (Project): the project we're working on.
             main_view (QtGui.QAbstractItemView): main_view to provide
                 timetable view of items.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseTimetableTab, self).__init__(
-            tree_root,
-            tree_manager,
-            outliner,
+            name,
+            project,
             parent=parent,
         )
-        calendar_week = calendar.get_current_week(
+        self.calendar = project.calendar
+        calendar_week = self.calendar.get_current_week(
             starting_day=self.WEEK_START_DAY
         )
 
         self.navigation_panel = NavigationPanel(
-            calendar,
+            self.calendar,
             calendar_week,
-            self
+            parent=self
         )
         self.main_view = main_view
         self.main_view.set_to_week(calendar_week)
@@ -69,27 +65,25 @@ class BaseWeekTableView(QtWidgets.QTableView):
 
     def __init__(
             self,
-            tree_root,
-            tree_manager,
-            calendar,
-            calendar_week_model,
+            name,
+            project,
+            timetable_week_model,
             parent=None):
         """Initialize class instance.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            calendar (Calendar): calendar object.
-            calendar_week_model (BaseWeekModel): the model we're using for
+            name (str): name of tab this is used in.
+            project (Project): the project we're working on.
+            timetable_week_model (BaseWeekModel): the model we're using for
                 this view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseWeekTableView, self).__init__(parent=parent)
-        self.tree_root = tree_root
-        self.tree_manager = tree_manager
-        self.calendar = calendar
-        self.calendar_week = calendar.get_current_week()
-        self.setModel(calendar_week_model)
+        self.tree_manager = project.get_tree_manager(name)
+        self.tree_root = self.tree_manager.tree_root
+        self.calendar = project.calendar
+        self.calendar_week = self.calendar.get_current_week()
+        self.setModel(timetable_week_model)
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
     def set_to_week(self, calendar_week):

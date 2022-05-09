@@ -3,6 +3,7 @@
 import os
 
 from .common.user_prefs import ProjectUserPrefs
+from .managers import CalendarManager, TreeManager
 from .serialization.serializable import (
     CustomSerializable,
     SaveType,
@@ -163,6 +164,8 @@ class Project(CustomSerializable):
         """
         self.set_project_path(project_root_path)
         self._load_project_data()
+        self._tree_managers = {}
+        self._calendar_manager = None
 
     def set_project_path(self, project_root_path):
         """Set project path to given directory.
@@ -197,8 +200,8 @@ class Project(CustomSerializable):
             self._task_root,
         )
         # TODO: set up archive stuff
-        self._archived_task_root = None
-        self._archived_calendar = None
+        self._archive_task_root = None
+        self._archive_calendar = None
 
     @property
     def root_directory(self):
@@ -237,6 +240,24 @@ class Project(CustomSerializable):
         return self._tracker
 
     @property
+    def archive_task_root(self):
+        """Get archive task root.
+
+        Returns:
+            (TaskRoot): archived task root object.
+        """
+        return self._archive_task_root
+
+    @property
+    def archive_calendar(self):
+        """Get archive calendar.
+
+        Returns:
+            (Calendar): archived calendar object.
+        """
+        return self._archive_calendar
+
+    @property
     def user_prefs(self):
         """Get project user prefs.
 
@@ -244,6 +265,39 @@ class Project(CustomSerializable):
             (ProjectUserPrefs): user prefs object.
         """
         return self._user_prefs
+
+    def get_tree_manager(self, name):
+        """Get a tree manager for this project with the given name.
+
+        Args:
+            name (str): name of manager object.
+
+        Returns:
+            (TreeManager): tree manager for managing tree edits and filtering.
+        """
+        if self._tree_managers.get(name) is None:
+            self._tree_managers[name] = TreeManager(
+                name,
+                self.user_prefs,
+                self.task_root,
+                self.archive_task_root,
+            )
+        return self._tree_managers.get(name)
+
+    def get_calendar_manager(self):
+        """Get calendar manager for this project.
+
+        Returns:
+            (CalendarManager): calendar manager for managing calendar edits
+                and filtering.
+        """
+        if self._calendar_manager is None:
+            self._calendar_manager = CalendarManager(
+                self.user_prefs,
+                self.calendar,
+                self.archive_calendar,
+            )
+        return self._calendar_manager
 
     # TODO: find a way to avoid writing entire tree, should be able to just
     # save edited components

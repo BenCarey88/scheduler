@@ -27,18 +27,17 @@ class Outliner(QtWidgets.QTreeView):
         QtCore.QModelIndex
     )
 
-    def __init__(self, tree_root, tree_manager, parent=None):
+    def __init__(self, tree_manager, parent=None):
         """Initialise task outliner.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for outliner model.
             tree_manager (TreeManager): tree manager item.
             parent (QtGui.QWidget or None): QWidget parent of widget. 
         """
         super(Outliner, self).__init__(parent)
 
         self.tree_manager = tree_manager
-        self.root = tree_root
+        self.root = tree_manager.tree_root
         self._allow_key_events = True
         self._hide_filtered_items = False
 
@@ -143,7 +142,6 @@ class Outliner(QtWidgets.QTreeView):
         # the model every time, so should try to remove this in future.
         # BUT will need to add in an update filters function.
         self._model = TaskCategoryModel(
-            self.root,
             self.tree_manager,
             hide_filtered_items=self._hide_filtered_items,
             parent=self

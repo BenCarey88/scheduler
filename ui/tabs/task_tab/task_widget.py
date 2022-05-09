@@ -15,7 +15,6 @@ class TaskWidget(QtWidgets.QTreeView):
 
     This widget holds the tree view for the various tasks.
     """
-
     def __init__(self, task_item, tab, parent=None):
         """Initialise task category widget.
 
@@ -30,7 +29,7 @@ class TaskWidget(QtWidgets.QTreeView):
 
         # setup model and delegate
         self.setItemDelegate(TaskDelegate(self))
-        model = TaskModel(task_item, tab.tree_manager, parent=parent)
+        model = TaskModel(tab.tree_manager, task_item, parent=parent)
         self.setModel(model)
         self.expandAll()
         model.dataChanged.connect(self.tab.update)

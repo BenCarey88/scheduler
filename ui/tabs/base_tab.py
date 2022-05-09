@@ -2,6 +2,10 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.managers import TreeManager
+
+from scheduler.ui.widgets.outliner import Outliner
+
 
 class BaseTab(QtWidgets.QWidget):
     """Base Tab class.
@@ -12,20 +16,18 @@ class BaseTab(QtWidgets.QWidget):
     """
     MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
 
-    def __init__(self, tree_root, tree_manager, outliner, parent=None):
+    def __init__(self, name, project, parent=None):
         """Initialise tab.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager item.
-            outliner (Outliner): outliner widget associated with this tab.
+            name (str): name of tab (to pass to manager classes).
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseTab, self).__init__(parent)
-
-        self.tree_manager = tree_manager
-        self.tree_root = tree_root
-        self.outliner = outliner
+        self.name = name
+        self.tree_manager = project.get_tree_manager(name)
+        self.outliner = Outliner(self.tree_manager, parent=self)
 
         self.outer_layout = QtWidgets.QVBoxLayout()
         self.setLayout(self.outer_layout)
@@ -40,10 +42,7 @@ class BaseTab(QtWidgets.QWidget):
     # TODO: neaten this section - should they probably both just always update
     # everything? ie. no need for the separate outliner and tab update functions?
     def _update_outliner(self):
-        """Update outliner to sync with model.
-
-        This function returns focus back to this tab widget after updating.
-        """
+        """Update outliner to sync with model, then return focus to this."""
         self.outliner.update()
         self.setFocus()
 

@@ -182,9 +182,9 @@ def serializer_from_type(type_, as_key=False, *args, **kwargs):
     Returns:
         (BaseSerializer): the default serializer for that type.
     """
-    type_mappings = TYPE_MAPPINGS.items()
+    type_mappings = list(TYPE_MAPPINGS.items())
     if as_key:
-        type_mappings = KEY_TYPE_MAPPINGS.items() + type_mappings
+        type_mappings = list(KEY_TYPE_MAPPINGS.items()) + list(type_mappings)
     for serializer, type_tuple in type_mappings:
         for base_type in type_tuple:
             if issubclass(type_, base_type):

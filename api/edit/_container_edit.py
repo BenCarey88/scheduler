@@ -664,13 +664,13 @@ class BaseContainerEdit(BaseEdit):
             list_.pop(index)
         else:
             # Remove by index
+            index = index_or_value
             if not isinstance(index, int):
                 raise EditError(
                     "List remove edits need index diff_list inputs. If you "
                     "wish to remove items by value, use the REMOVE_BY_VALUE "
                     "ContainerEditFlag."
                 )
-            index = index_or_value
             if index < 0 or index >= len(list_):
                 return False
             value = list_.pop(index)

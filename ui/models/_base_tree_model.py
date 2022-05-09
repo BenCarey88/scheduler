@@ -10,15 +10,22 @@ from scheduler.api.tree.exceptions import DuplicateChildNameError
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
 
-    def __init__(self, tree_root, tree_manager, filters=None, parent=None):
+    def __init__(
+            self,
+            tree_manager,
+            tree_root=None,
+            filters=None,
+            parent=None):
         """Initialise base tree model.
 
         Args:
-            tree_root (BaseTreeItem): model root tree item. We actually treat
-                its children as the roots of this model, but we pass in the
-                parent of those children for easier calculations.
             tree_manager (TreeManager): tree manager item, used to manage the
                 ui specific attributes of the tree.
+            tree_root (BaseTreeItem or None): model root tree item - if None,
+                we use the TaskRoot item from the tree manager. We actually
+                treat the given root's children as the roots of this model,
+                but we pass in the parent of those children for easier
+                calculations.
             filters (list(scheduler.api.tree.filters.BaseFilter)): filters
                 for reducing number of children in model. These will be added
                 to the filter from the tree_manager.
@@ -30,8 +37,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         # directly? might mean a lot of repeated code though which is annoying
         # so not sure if it's the best option, will need to think, keeping
         # them as separate objects for now.
-        self.root = tree_root
         self.tree_manager = tree_manager
+        self.root = tree_manager.tree_root if tree_root is None else tree_root
         self._base_filters = filters or []
         with self.root.filter_children(self.child_filters):
             self.tree_roots = self.root.get_all_children()

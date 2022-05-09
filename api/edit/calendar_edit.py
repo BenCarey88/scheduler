@@ -102,10 +102,16 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
                 edit log (ie. whether or not it's a user edit that can be
                 undone).
         """
+        updateable_attrs = [
+            calendar_item._start_time,
+            calendar_item._end_time,
+            calendar_item._date,
+        ]
         self._calendar_item = calendar_item
         self._attr_dict = attr_dict
         self._original_attrs = {}
-        for attr in attr_dict:
+        for attr in list(attr_dict.keys()) + updateable_attrs:
+            # note we need to record updateable attrs here for update to work
             self._original_attrs[attr] = attr.value
         self._check_validity()
 
@@ -247,7 +253,7 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
         if calendar_item._date in attr_dict:
             new_date = attr_dict[calendar_item._date]
             # remove items from old container
-            self._remove_edit = self._get_remove_edits(calendar_item)
+            self._remove_edit = self._get_remove_edit(calendar_item)
             self._add_edit = self._get_add_edit(calendar_item, new_date)
             subedits.extend([self._remove_edit, self._add_edit])
 

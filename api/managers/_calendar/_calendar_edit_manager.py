@@ -1,39 +1,37 @@
 """Calendar edit manager class to manage calendar item edits."""
 
-from scheduler.api.common.date_time import DateTime
 from scheduler.api.edit.calendar_edit import (
     AddCalendarItemEdit,
     RemoveCalendarItemEdit,
     ModifyCalendarItemEdit,
     ModifyRepeatCalendarItemEdit,
     ModifyRepeatCalendarItemInstanceEdit,
-    ReplaceCalendaritemEdit,
+    ReplaceCalendarItemEdit,
 )
 from scheduler.api.timetable.calendar_item import(
+    BaseCalendarItem,
     CalendarItem,
     CalendarItemError,
-    CalendarItemRepeatPattern,
     RepeatCalendarItem,
     RepeatCalendarItemInstance,
 )
 from scheduler.api.utils import fallback_value
 
-from ._base_managers import BaseCalendarManager, require_class
+from .._base_manager import require_class
+from ._base_calendar_manager import BaseCalendarManager
 
 
 class CalendarEditManager(BaseCalendarManager):
     """Calendar edit manager to apply edits to calendar items."""
-    def __init__(self, name, user_prefs, calendar, archive_calendar):
+    def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.
 
         Args:
-            name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar item.
             archive_calendar (Calendar): archive calendar object.
         """
         super(CalendarEditManager, self).__init__(
-            name,
             user_prefs,
             calendar,
             archive_calendar,
@@ -80,6 +78,7 @@ class CalendarEditManager(BaseCalendarManager):
         """
         return self._create_calendar_item(RepeatCalendarItem, *args, **kwargs)
 
+    @require_class(BaseCalendarItem, True)
     def remove_calendar_item(self, calendar_item):
         """Remove calendar item from calendar.
 
@@ -191,7 +190,7 @@ class CalendarEditManager(BaseCalendarManager):
                 is_background=is_background,
                 repeat_pattern=repeat_pattern,
             )
-        ReplaceCalendaritemEdit.create_and_run(
+        ReplaceCalendarItemEdit.create_and_run(
             calendar_item,
             new_calendar_item,
         )
@@ -211,6 +210,12 @@ class CalendarEditManager(BaseCalendarManager):
             start_time (DateTime or None): new start date time.
             end_time (DateTime or None): new end date time.
         """
+        # if date is None:
+        #     date = calendar_item.date
+        # if start_time is None:
+        #     start_time = calendar_item.start_time
+        # if end_time is None:
+        #     end_time = calendar_item.end_time
         attr_dict = {
             calendar_item._date: date,
             calendar_item._start_time: start_time,

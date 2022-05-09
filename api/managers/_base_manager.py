@@ -41,44 +41,18 @@ def require_class(require_class, raise_error=False):
 
 class BaseManager(object):
     """Base manager class that all others inherit from."""
-    def __init__(self, name, user_prefs):
+    def __init__(self, user_prefs, name="", suffix="manager"):
         """Initialize class.
 
         Args:
             name (str): name of manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
+            suffix (str): string to append to name.
         """
-        self._name = name
+        if suffix and name:
+            self._name = "{0}_{1}".format(name, suffix)
+        elif name:
+            self._name = name
+        else:
+            self._name = suffix
         self._project_user_prefs = user_prefs
-
-
-class BaseTreeManager(object):
-    """Base tree manager class to build tree manager classes from."""
-    def __init__(self, name, user_prefs, tree_root, archive_tree_root):
-        """Initialize class.
-
-        Args:
-            name (str): name of tree manager.
-            user_prefs (ProjectUserPrefs): project user prefs class.
-            tree_root (TaskRoot): root task object.
-            archive_tree_root (TaskRoot): root archive task object.
-        """
-        self._tree_root = tree_root
-        self._archive_tree_root = archive_tree_root
-        super(BaseTreeManager, self).__init__(name, user_prefs)
-
-
-class BaseCalendarManager(object):
-    """Base calendar manager class to build calendar managers from."""
-    def __init__(self, name, user_prefs, calendar, archive_calendar):
-        """Initialize class.
-
-        Args:
-            name (str): name of tree manager.
-            user_prefs (ProjectUserPrefs): project user prefs class.
-            calendar (Calendar): calendar object.
-            archive_calendar (Calendar): archive calendar object.
-        """
-        self._calendar = calendar
-        self._archive_calendar = archive_calendar
-        super(BaseCalendarManager, self).__init__(name, user_prefs, calendar)

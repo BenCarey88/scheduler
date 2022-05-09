@@ -24,7 +24,8 @@ from scheduler.api.tree.task import Task, TaskStatus, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.task_root import TaskRoot
 
-from ._base_managers import BaseTreeManager, require_class
+from .._base_manager import require_class
+from ._base_tree_manager import BaseTreeManager
 
 
 class TreeEditManager(BaseTreeManager):

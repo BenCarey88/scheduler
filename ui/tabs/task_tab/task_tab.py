@@ -13,21 +13,19 @@ from .task_category_widget import TaskCategoryWidget
 class TaskTab(BaseTab):
     """Task Tab main view."""
 
-    def __init__(self, tree_root, tree_manager, outliner, parent=None):
+    def __init__(self, project, parent=None):
         """Setup task main view.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            outliner (Outliner): outliner widget.
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TaskTab, self).__init__(
-            tree_root,
-            tree_manager,
-            outliner,
+            "tasks",
+            project,
             parent=parent
         )
+        self.tree_root = project.task_root
         self.task_widget_tree = OrderedDict()
         self.category_widget_tree = OrderedDict()
         self._active_task_id = None

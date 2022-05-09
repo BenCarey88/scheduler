@@ -25,36 +25,21 @@ from scheduler.ui import constants, utils
 
 class TrackerTab(BaseTimetableTab):
     """Tracker tab."""
-
     def __init__(
             self,
-            tree_root,
-            tree_manager,
-            outliner,
-            calendar,
-            tracker,
+            project,
             parent=None):
         """Setup timetable main view.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            outliner (Outliner): outliner widget.
-            calendar (Calendar): calendar object.
-            tracker (Tracker): tracker object.
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        tracker_view = TrackerView(
-            tree_root,
-            tree_manager,
-            calendar,
-            tracker
-        )
+        name = "tracker"
+        tracker_view = TrackerView(name, project)
         super(TrackerTab, self).__init__(
-            tree_root,
-            tree_manager,
-            outliner,
-            calendar,
+            name,
+            project,
             tracker_view,
             parent=parent,
         )
@@ -63,31 +48,22 @@ class TrackerTab(BaseTimetableTab):
 
 class TrackerView(BaseWeekTableView):
     """Tracker table view."""
-    def __init__(
-            self,
-            tree_root,
-            tree_manager,
-            calendar,
-            tracker,
-            parent=None):
+    def __init__(self, name, project, parent=None):
         """Initialise tracker delegate item.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            calendar (Calendar): calendar object.
-            tracker (Tracker): tracker object.
+            name (str): name of tab.
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TrackerView, self).__init__(
-            tree_root,
-            tree_manager,
-            calendar,
-            TrackerWeekModel(calendar),
+            name,
+            project,
+            TrackerWeekModel(project.calendar),
             parent=parent,
         )
         utils.set_style(self, "tracker_view.qss")
-        self.setItemDelegate(TrackerDelegate(self, tracker))
+        self.setItemDelegate(TrackerDelegate(self, project.tracker))
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
         )

@@ -366,7 +366,7 @@ class NestedSerializable(BaseSerializable):
             class items. This should be used in the to_dict and from_dict
             methods too. It is also used to determine if this class can
             read/write subdirs when serializaing as a directory.
-        _SUBDIR_CLASS (class or None): class to use for serializing /
+        _SUBDIR_CLASS (class, None): class to use for serializing /
             deserializing subdirectories in the given directory. If None, use
             this class.
         _SUBDIR_DICT_TYPE (type): type to store deserialized subdirectory

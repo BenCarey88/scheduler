@@ -129,14 +129,15 @@ class EditLog(object):
             self._log.append(edit)
             return True
 
-    def get_latest_edit_id(self):
-        """Get id of most recent edit.
+    def get_latest_edit(self):
+        """Get most recent edit.
 
         Returns:
-            (str): id of most recent edit.
+            (BaseEdit or None): most recent edit, if one exists.
         """
         if self._log:
-            return self._log[-1].id
+            return self._log[-1]
+        return None
 
     def get_log_text(self, long=True):
         """Get string representation of all edits in edit log.
@@ -194,13 +195,13 @@ def redo():
     return EDIT_LOG.redo()
 
 
-def latest_edit_id():
-    """Get id of most recent edit.
+def latest_edit():
+    """Get most recent edit.
 
     Returns:
-        (str): id of most recent edit.
+        (BaseEdit or None): most recent edit, if one exists.
     """
-    return EDIT_LOG.get_latest_edit_id()
+    return EDIT_LOG.get_latest_edit()
 
 
 def print_edit_log(long=True):

@@ -5,7 +5,7 @@ class HostError(Exception):
     """Generic exception for host class related errors."""
 
 
-class _BaseObjectWrapper(object):
+class BaseObjectWrapper(object):
     """Basic wrapper around an object."""
     def __init__(self, value, name=None):
         """Initialise attribute.
@@ -66,7 +66,7 @@ class _BaseObjectWrapper(object):
         return (self._value is None)
 
 
-class MutableAttribute(_BaseObjectWrapper):
+class MutableAttribute(BaseObjectWrapper):
     """Wrapper around a class attribute, to allow us to treat it as mutable.
 
     This is intended to be used for any attributes that a user can edit, so
@@ -74,7 +74,7 @@ class MutableAttribute(_BaseObjectWrapper):
     """
 
 
-class _HostObject(_BaseObjectWrapper):
+class _HostObject(BaseObjectWrapper):
     """Wrapper that hosts another object.
 
     This is intended to be used by any class that can be edited to become a
@@ -119,7 +119,7 @@ class _HostObject(_BaseObjectWrapper):
         return (self._value is None)
 
 
-class Hosted():
+class Hosted(object):
     """Base for classes that have a host attribute."""
     def __init__(self, *args, **kwargs):
         """Initialize class."""
@@ -154,7 +154,7 @@ class Hosted():
         new_host.set_data(self)
 
 
-class MutableHostedAttribute(_BaseObjectWrapper):
+class MutableHostedAttribute(BaseObjectWrapper):
     """Wrapper around a _HostObject that allows us to treat it as mutable.
 
     This is just a mutable attribute around a host object. It is for class

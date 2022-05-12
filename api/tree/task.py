@@ -50,6 +50,8 @@ class Task(BaseTreeItem):
     TYPE_KEY = "type"
     VALUE_TYPE_KEY = "value_type"
 
+    DEFAULT_NAME = "task"
+
     def __init__(
             self,
             name,
@@ -85,36 +87,36 @@ class Task(BaseTreeItem):
         # new attribute and method names for convenience
         # TODO: it's a faff to keep adding these redefinitions
         # remove all the ones that aren't necessary.
-        self.create_subtask = partial(
-            self.create_child,
-            task_type=self.type
-        )
-        self.create_new_subtask = partial(
-            self.create_new_child,
-            default_name="subtask",
-            task_type=self.type,
-        )
-        # TODO: task type stuff getting messy - if this attribute remains a
-        # thing, we should ensure that any child added through add_child has
-        # the same type.
-        self.add_subtask = self.add_child
-        self.create_sibling_task = partial(
-            self.create_sibling,
-            task_type=self.type,
-        )
-        self.create_new_sibling_task = partial(
-            self.create_new_sibling,
-            default_name = "task",
-            task_type=self.type,
-        )
-        self.add_sibling_task = self.add_sibling
-        self.remove_subtask = self.remove_child
-        self.remove_subtasks = self.remove_children
-        self.get_subtask = self.get_child
-        self.get_subtask_at_index = self.get_child_at_index
-        self.get_all_subtasks = self.get_all_children
-        self.num_subtasks = self.num_children
-        self.num_subtask_descendants = self.num_descendants
+        # self.create_subtask = partial(
+        #     self.create_child,
+        #     task_type=self.type
+        # )
+        # self.create_new_subtask = partial(
+        #     self.create_new_child,
+        #     default_name="subtask",
+        #     task_type=self.type,
+        # )
+        # # TODO: task type stuff getting messy - if this attribute remains a
+        # # thing, we should ensure that any child added through add_child has
+        # # the same type.
+        # self.add_subtask = self.add_child
+        # self.create_sibling_task = partial(
+        #     self.create_sibling,
+        #     task_type=self.type,
+        # )
+        # self.create_new_sibling_task = partial(
+        #     self.create_new_sibling,
+        #     default_name = "task",
+        #     task_type=self.type,
+        # )
+        # self.add_sibling_task = self.add_sibling
+        # self.remove_subtask = self.remove_child
+        # self.remove_subtasks = self.remove_children
+        # self.get_subtask = self.get_child
+        # self.get_subtask_at_index = self.get_child_at_index
+        # self.get_all_subtasks = self.get_all_children
+        # self.num_subtasks = self.num_children
+        # self.num_subtask_descendants = self.num_descendants
 
     @property
     def _subtasks(self):
@@ -311,7 +313,7 @@ class Task(BaseTreeItem):
         return json_dict
 
     @classmethod
-    def from_dict(cls, json_dict, name, parent=None):
+    def from_dict(cls, json_dict, name, history_data=None, parent=None):
         """Initialise class from dictionary representation.
 
         The json_dict is expected to be structured as described in the to_dict
@@ -320,6 +322,8 @@ class Task(BaseTreeItem):
         Args:
             json_dict (OrderedDict): dictionary representation.
             name (str): name of task.
+            history_data (HistoryData or None): history data struct to fill
+                with task history.
             parent (Task, TaskCategory or None): parent of task.
 
         Returns:
@@ -337,10 +341,18 @@ class Task(BaseTreeItem):
             task_history,
             value_type
         )
+        if history_data:
+            for date, subdict in task._history.iter_date_dicts():
+                history_data.add_data(date, task, subdict)
 
         subtasks = json_dict.get(cls.TASKS_KEY, {})
         for subtask_name, subtask_dict in subtasks.items():
-            subtask = cls.from_dict(subtask_dict, subtask_name, task)
+            subtask = cls.from_dict(
+                subtask_dict,
+                subtask_name,
+                history_data=history_data,
+                parent=task,
+            )
             task._children[subtask_name] = subtask
         return task
 
@@ -415,6 +427,16 @@ class TaskHistory(object):
             (dict): subdict of internal dict for given date.
         """
         return self._dict.get(date, {})
+
+    def iter_date_dicts(self):
+        """iterate through task history dicts for each recorded date.
+        
+        Yields:
+            (Date): date of history.
+            (dict): subdict of internal dict for that date.
+        """
+        for date, subdict in self._dict.items():
+            yield date, subdict
 
     def get_status_at_date(self, date):
         """Get task status at given date.

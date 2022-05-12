@@ -13,6 +13,7 @@ from scheduler.api.serialization.serializable import (
     SerializableFileTypes
 )
 from .calendar_item import CalendarItem
+from .planned_item import PlannedItem
 
 
 class BaseCalendarPeriod(NestedSerializable):
@@ -49,7 +50,9 @@ class BaseCalendarPeriod(NestedSerializable):
 class CalendarDay(BaseCalendarPeriod):
     """Class representing a day of calendar data."""
     _SAVE_TYPE = SaveType.FILE
+    PLANNED_ITEMS_KEY = "planned_items"
     CALENDAR_ITEMS_KEY = "calendar_items"
+    HISTORY_KEY = "history"
 
     def __init__(self, calendar, date, calendar_month=None):
         """Initialise calendar day object.
@@ -69,7 +72,9 @@ class CalendarDay(BaseCalendarPeriod):
             date.year,
             date.month
         )
+        self._planned_items = []
         self._scheduled_items = []
+        self._history = {}
 
     @property
     def date(self):
@@ -121,13 +126,16 @@ class CalendarDay(BaseCalendarPeriod):
         Returns:
             (dict): dictionary representation.
         """
-        if not self._scheduled_items:
-            return {}
-        return {
-            self.CALENDAR_ITEMS_KEY: [
+        dict_repr = {}
+        if self._planned_items:
+            dict_repr[self.PLANNED_ITEMS_KEY] = [
+                item.to_dict() for item in self._planned_items
+            ]
+        if self._scheduled_items:
+            dict_repr[self.CALENDAR_ITEMS_KEY] = [
                 item.to_dict() for item in self._scheduled_items
             ]
-        }
+        return dict_repr
 
     @classmethod
     def from_dict(cls, dict_repr, calendar, calendar_month, day_name):
@@ -153,12 +161,21 @@ class CalendarDay(BaseCalendarPeriod):
             return None
         calendar_day = cls(calendar, date, calendar_month)
 
+        planned_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
+        planned_items = [
+            PlannedItem.from_dict(planned_item_dict, calendar, date)
+            for planned_item_dict in planned_items_list
+        ]
+        calendar_day._planned_items = planned_items
+
         scheduled_items_list = dict_repr.get(cls.CALENDAR_ITEMS_KEY, [])
         scheduled_items = [
             CalendarItem.from_dict(scheduled_item_dict, calendar)
             for scheduled_item_dict in scheduled_items_list
         ]
         calendar_day._scheduled_items = scheduled_items
+
+        calendar_day._history = calendar.task_root.get_history_for_date(date)
         return calendar_day
 
 

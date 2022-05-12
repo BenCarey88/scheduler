@@ -28,7 +28,7 @@ class TaskTab(BaseTab):
         self.tree_root = project.task_root
         self.task_widget_tree = OrderedDict()
         self.category_widget_tree = OrderedDict()
-        self._active_task_id = None
+        self._active_task = None
         self.selected_subtask_item = None
         self.selected_task_item = None
         self._scroll_value = None
@@ -47,11 +47,11 @@ class TaskTab(BaseTab):
         """
         scroll_value = self.scroll_area.verticalScrollBar().value()
         _selected_subtask_item = None
-        _active_task_id = None
+        _active_task = None
         if self.selected_subtask_item:
             _selected_subtask_item = self.selected_subtask_item
-        if self._active_task_id:
-            _active_task_id = self._active_task_id
+        if self._active_task:
+            _active_task = self._active_task
 
         self.task_widget_tree = OrderedDict()
         self.category_widget_tree = OrderedDict()
@@ -59,8 +59,8 @@ class TaskTab(BaseTab):
         self._fill_main_view()
         self._fill_scroll_area(scroll_value)
 
-        if _active_task_id and _selected_subtask_item:
-            self._active_task_id = _active_task_id
+        if _active_task and _selected_subtask_item:
+            self._active_task = _active_task
             self.selected_subtask_item = _selected_subtask_item
             if self.active_task_widget:
                 self.active_task_widget.select_subtask_item()
@@ -89,11 +89,12 @@ class TaskTab(BaseTab):
                     self.main_view_layout.addSpacing(40)
                     minimum_height += 40
                 widget = TaskCategoryWidget(
+                    self.tree_manager,
                     category,
                     tab=self,
                     parent=self,
                 )
-                self.category_widget_tree[category.id] = widget
+                self.category_widget_tree[category] = widget
                 self.main_view_layout.addWidget(widget)
                 minimum_height += widget.minimumHeight() + 10
         self.main_view.setMinimumSize(
@@ -114,7 +115,7 @@ class TaskTab(BaseTab):
         if scroll_value:
             self.scroll_area.verticalScrollBar().setValue(scroll_value)
 
-    def switch_active_task_widget(self, task_item_id, new_index, old_index):
+    def switch_active_task_widget(self, task_item, new_index, old_index):
         """Change active task widget to new one.
 
         This is called whenever an item from a task widget is selected.
@@ -125,13 +126,13 @@ class TaskTab(BaseTab):
         as attributes can result in trying to access a deleted widget.
 
         Args:
-            task_item_id (str): id of task whose widget we should set active.
+            task_item (Task): task whose widget we should set active.
             new_index (QtCore.QModelIndex): index of new task model item.
             old_index (QtCore.QModelIndex): index of old task model item.
         """
         if self.active_task_widget:
             self.active_task_widget.selectionModel().clearSelection()
-        self._active_task_id = task_item_id
+        self._active_task = task_item
         selected_subtask_item = new_index.internalPointer()
         if selected_subtask_item:
             self.selected_subtask_item  = selected_subtask_item
@@ -143,8 +144,8 @@ class TaskTab(BaseTab):
         Returns:
             (TaskWidget or None): active task widget.
         """
-        if self._active_task_id:
-            return self.task_widget_tree.get(self._active_task_id, None)
+        if self._active_task:
+            return self.task_widget_tree.get(self._active_task, None)
         return None
 
     # TODO: change name to task_header_widget
@@ -157,7 +158,7 @@ class TaskTab(BaseTab):
         """
         if self.selected_task_item:
             return self.category_widget_tree.get(
-                self.selected_task_item.id,
+                self.selected_task_item,
                 None,
             )
         return None
@@ -176,7 +177,7 @@ class TaskTab(BaseTab):
         tree_item = new_index.internalPointer()
         if not tree_item:
             return
-        widget = self.category_widget_tree.get(tree_item.id)
+        widget = self.category_widget_tree.get(tree_item)
         if not widget:
             return
         point = widget.mapTo(self.scroll_area, QtCore.QPoint(0,0))
@@ -205,8 +206,9 @@ class TaskTab(BaseTab):
                         parent=self
                     )
                     if continue_deletion:
-                        self.selected_subtask_item.parent.remove_child(
-                            self.selected_subtask_item.name
+                        self.tree_manager.remove_child(
+                            self.selected_subtask_item.parent,
+                            self.selected_subtask_item.name,
                         )
                         self.update()
 
@@ -214,10 +216,14 @@ class TaskTab(BaseTab):
             # ctrl+plus: add new child
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 if self.selected_subtask_item:
-                    self.selected_subtask_item.create_new_subtask()
+                    self.tree_manager.create_new_subtask(
+                        self.selected_subtask_item
+                    )
                     self.update()
                 elif self.selected_task_item:
-                    self.selected_task_item.create_new_subtask()
+                    self.tree_manager.create_new_subtask(
+                        self.selected_task_item
+                    )
                     self.update()
                     # Ignore dodgy naming, active cat widget can be a top-level task
                     task_widget = self.active_category_widget
@@ -226,8 +232,9 @@ class TaskTab(BaseTab):
             # ctrl+del: force remove item
             elif event.key() == QtCore.Qt.Key_Delete:
                 if self.selected_subtask_item:
-                    self.selected_subtask_item.parent.remove_child(
-                        self.selected_subtask_item.name
+                    self.tree_manager.remove_child(
+                        self.selected_subtask_item.parent,
+                        self.selected_subtask_item.name,
                     )
                     self.update()
 
@@ -240,7 +247,9 @@ class TaskTab(BaseTab):
             # ctrl+shift+plus: add new sibling
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 if self.selected_subtask_item:
-                    self.selected_subtask_item.create_new_sibling_task()
+                    self.tree_manager.create_sibling(
+                        self.selected_subtask_item,
+                    )
                     self.update()
 
         super(TaskTab, self).keyPressEvent(event)

@@ -1,8 +1,6 @@
 """Calendar item class."""
 
 from collections import OrderedDict
-from time import time
-from webbrowser import get
 
 from scheduler.api.common.date_time import (
     Date,
@@ -16,6 +14,7 @@ from scheduler.api.common.object_wrappers import (
     MutableAttribute,
     MutableHostedAttribute,
 )
+from scheduler.api.serialization import item_registry
 from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
@@ -351,6 +350,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
     NAME_KEY = "name"
     CATEGORY_KEY = "category"
     BACKGROUND_KEY = "background"
+    ID_KEY = "id"
 
     def __init__(
             self,
@@ -415,6 +415,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         )
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
+        self._id = None
 
     class _Decorators(object):
         """Internal decorators class."""
@@ -445,10 +446,10 @@ class BaseCalendarItem(Hosted, NestedSerializable):
 
     @property
     def calendar(self):
-        """Get calendar item.
+        """Get calendar object.
 
         Returns:
-            (Calendar): the calendar item.
+            (Calendar): the calendar object.
         """
         return self._calendar
 
@@ -505,6 +506,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         return None
 
     @property
+    @_template_item_decorator
     def repeat_pattern(self):
         """Get repeat pattern of item.
 
@@ -603,6 +605,24 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             "get_item_container is implemented in calendar item subclasses."
         )
 
+    def get_id(self):
+        """Generate unique id for object.
+
+        This should be used only during the serialization process, so that
+        the data used for the id string is up to date. Note that once this
+        is run the id string is fixed, allowing it to be referenced by other
+        classes during serialization (see the item_registry module for
+        more information on how this is done).
+
+        Returns:
+            (str): unique id.
+        """
+        if self._id is None:
+            self._id = item_registry.generate_unique_id(
+                "{0} {1}".format(self.name, self.datetime_string())
+            )
+        return self._id
+
     def to_dict(self):
         """Return dictionary representation of class.
 
@@ -622,6 +642,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
                 dict_repr[self.NAME_KEY] = self._event_name.value
         if self._is_background:
             dict_repr[self.BACKGROUND_KEY] = self._is_background.value
+        dict_repr[self.ID_KEY] = self._id
         return dict_repr
 
     @classmethod
@@ -646,7 +667,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         name = dict_repr.get(cls.NAME_KEY)
         is_background = dict_repr.get(cls.BACKGROUND_KEY, False)
 
-        return cls(
+        calendar_item = cls(
             calendar,
             *date_args,
             item_type=item_type,
@@ -655,6 +676,10 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             event_name=name,
             is_background=is_background,
         )
+        id = dict_repr.get(cls.ID_KEY, None)
+        if id is not None:
+            item_registry.register_item(id, calendar_item)
+        return calendar_item
 
 
 class CalendarItem(BaseCalendarItem):

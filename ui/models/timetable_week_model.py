@@ -1,11 +1,9 @@
 """Timetable week model."""
 
-from collections import namedtuple
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
-from scheduler.api.timetable.calendar import Calendar
 
 
 class BaseWeekModel(QtCore.QAbstractItemModel):

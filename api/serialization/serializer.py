@@ -1,7 +1,7 @@
 """Classes to define conversion of various types to json-compatible types."""
 
 
-from scheduler.api.common.id_registry import get_object_by_id, get_object_id
+# from scheduler.api.common.id_registry import get_object_by_id, get_object_id
 
 
 class SerializerError(Exception):
@@ -151,61 +151,61 @@ class TreeSerializer(BaseSerializer):
         return self._tree_root.get_item_at_path(obj)
 
 
-class IdSerializer(BaseSerializer):
-    """Serialize and deserialize items by id.
+# class IdSerializer(BaseSerializer):
+#     """Serialize and deserialize items by id.
 
-    Types:
-        Id
-    """
-    def __init__(self, serializer, *args, **kwargs):
-        """Initialize id serializer.
+#     Types:
+#         Id
+#     """
+#     def __init__(self, serializer, *args, **kwargs):
+#         """Initialize id serializer.
 
-        This serializer uses get_object_by_id to convert the id into another
-        object, then uses another serializer to serialize that object.
+#         This serializer uses get_object_by_id to convert the id into another
+#         object, then uses another serializer to serialize that object.
 
-        Args:
-            serializer (BaseSerializer): serializer to use on object once
-                we've found it based on id.
-            args (list): additional args, to be ignored.
-            kwargs (dict): additional_kwargs, to be ignored.
-        """
-        super(IdSerializer, self).__init__()
-        self._serializer = serializer
+#         Args:
+#             serializer (BaseSerializer): serializer to use on object once
+#                 we've found it based on id.
+#             args (list): additional args, to be ignored.
+#             kwargs (dict): additional_kwargs, to be ignored.
+#         """
+#         super(IdSerializer, self).__init__()
+#         self._serializer = serializer
 
-    def serialize(self, id):
-        object = get_object_by_id(id)
-        if object:
-            return self._serializer.serialize(object)
-        return None
+#     def serialize(self, id):
+#         object = get_object_by_id(id)
+#         if object:
+#             return self._serializer.serialize(object)
+#         return None
 
-    def deserialize(self, obj):
-        object = self._serializer.deserialize(obj)
-        return get_object_id(object)
+#     def deserialize(self, obj):
+#         object = self._serializer.deserialize(obj)
+#         return get_object_id(object)
 
-    def string(self):
-        """Serialize serializer class as string.
+#     def string(self):
+#         """Serialize serializer class as string.
 
-        Returns:
-            (str): serialized serializer.
-        """
-        return "{0}({1})".format(
-            self.__class__.__name__,
-            self._serializer.__class__.__name__
-        )
+#         Returns:
+#             (str): serialized serializer.
+#         """
+#         return "{0}({1})".format(
+#             self.__class__.__name__,
+#             self._serializer.__class__.__name__
+#         )
 
-    @classmethod
-    def from_string(cls, string, *args, **kwargs):
-        """Get serializer from string.
+#     @classmethod
+#     def from_string(cls, string, *args, **kwargs):
+#         """Get serializer from string.
 
-        Args:
-            string (str): string repr of serializer, as defined in its
-                string method.
-            args (list): additional args to pass to subserializer init.
-            kwargs (dict): additional kwargs to pass to subserializer init.
-        """
-        string = string[len(cls.__name__)+1:-1]
-        subserializer = get_serializer_from_string(string, *args, **kwargs)
-        return cls(subserializer)
+#         Args:
+#             string (str): string repr of serializer, as defined in its
+#                 string method.
+#             args (list): additional args to pass to subserializer init.
+#             kwargs (dict): additional kwargs to pass to subserializer init.
+#         """
+#         string = string[len(cls.__name__)+1:-1]
+#         subserializer = get_serializer_from_string(string, *args, **kwargs)
+#         return cls(subserializer)
 
 
 # TODO: should we make these strings smaller, eg. just letters with an ! or etc
@@ -213,7 +213,7 @@ class IdSerializer(BaseSerializer):
 # make it something that doesn't disrupt readability of the serialized files
 # should probably also reserve the final strings, so that users can't
 # accidentally create them.
-# ALTOUGH it's really the serializer marker thing from default module that
+# ALTHOUGH it's really the serializer marker thing from default module that
 # needs to be reserved. Same discussion applies to that too.
 def convert_serializer_to_string(serializer):
     """Convert serializer to string.
@@ -243,7 +243,7 @@ def get_serializer_from_string(string, *args, **kwargs):
         BaseSerializer,
         DateTimeSerializer,
         TreeSerializer,
-        IdSerializer,
+        # IdSerializer,
     ]
     for serializer in serializers:
         if string.startswith(serializer.__name__):

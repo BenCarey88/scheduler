@@ -174,12 +174,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         item = index.internalPointer()
         if not item:
             return False
-        try:
-            item.set_name(value)
+        if self.tree_manager.set_item_name(item, value):
             self.dataChanged.emit(index, index)
             return True
-        except DuplicateChildNameError:
-            return False
+        return False
 
     def flags(self, index):
         """Get flags for given item item.
@@ -315,7 +313,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         # TODO: wrap all this into a can_accept_child function in tree_manager
 
         # if it's a different parent but already has this kid name, no can do
-        if (parent.id != item.parent.id 
+        if (parent != item.parent
                 and item.name in parent._children.keys()):
             return False
 
@@ -390,14 +388,20 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             return False
 
         # TODO: implement this as __eq__ for BaseTreeItem class
-        if item.parent.id == parent.id:
+        if item.parent == parent:
             # if item is being dropped further along its parents childlist
             # then row needs to be reduced by 1
             if row > item.index():
                 row -= 1
 
         self.beginResetModel()
-        root.move_tree_item(encoded_path, parent.path, row)
+        success = self.tree_manager.move_item_by_path(
+            encoded_path,
+            parent.path,
+            row
+        )
         self.endResetModel()
-        self.dataChanged.emit(parent_index, parent_index)
-        return True
+        if success:
+            self.dataChanged.emit(parent_index, parent_index)
+            return True
+        return False

@@ -19,7 +19,6 @@ from .tabs.task_tab import TaskTab
 from .tabs.tracker_tab import TrackerTab
 # from .tabs.suggestions_tab import SuggestionsTab
 from .utils import custom_message_dialog, set_style, simple_message_dialog
-from .widgets.outliner import Outliner
 
 
 class SchedulerWindow(QtWidgets.QMainWindow):
@@ -45,8 +44,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         edit_log.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
-        self.saved_edit_id = edit_log.latest_edit_id()
-        self.autosaved_edit_id = edit_log.latest_edit_id()
+        self.saved_edit = edit_log.latest_edit()
+        self.autosaved_edit = edit_log.latest_edit()
         self.startTimer(ui_constants.SHORT_TIMER_INTERVAL)
 
     def setup_tabs(self):
@@ -130,6 +129,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """
         user_prefs.set_app_user_pref(self.CURRENT_TAB_PREF, index)
         self.outliner_stack.setCurrentIndex(index)
+        self.outliner_stack.currentWidget().update()
         self.tabs_widget.currentWidget().update()
 
     def on_splitter_moved(self, new_pos, index):
@@ -171,7 +171,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def save(self):
         """Save scheduler data."""
-        if self.saved_edit_id != edit_log.latest_edit_id():
+        if self.saved_edit != edit_log.latest_edit():
             self.project.write()
         # self.notes_tab.save()
 
@@ -192,7 +192,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def _autosave(self):
         """Autosave backup file if needed."""
-        if self.autosaved_edit_id != edit_log.latest_edit_id():
+        if self.autosaved_edit != edit_log.latest_edit():
             self.project.autosave()
 
     def timerEvent(self, event):
@@ -214,7 +214,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         user_prefs.save_app_user_prefs()
         # TODO: THIS NEEDS ERROR CATCHING:
         self.project.write_user_prefs()
-        if self.saved_edit_id != edit_log.latest_edit_id():
+        if self.saved_edit != edit_log.latest_edit():
             result = custom_message_dialog(
                 "Unsaved Changes",
                 buttons=[

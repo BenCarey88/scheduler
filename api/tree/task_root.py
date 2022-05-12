@@ -45,18 +45,19 @@ class TaskRoot(TaskCategory):
         super(TaskRoot, self).__init__(name=name, parent=None)
         self._directory_path = directory_path
         self._allowed_child_types = [TaskCategory]
+        self._history_data = None
 
         # use category in place of subcategory in category function names
-        self.create_category = self.create_subcategory
-        self.create_new_category = self.create_subcategory
-        self.add_category = self.add_subcategory
-        self.remove_category = self.remove_subcategory
-        self.remove_categories = self.remove_subcategories
-        self.get_category = self.get_subcategory
-        self.get_category_at_index = self.get_subcategory_at_index
-        self.get_all_categories = self.get_all_subcategories
-        self.num_categories = self.num_subcategories
-        self.num_category_descendants = self.num_subcategory_descendants
+        # self.create_category = self.create_subcategory
+        # self.create_new_category = self.create_subcategory
+        # self.add_category = self.add_subcategory
+        # self.remove_category = self.remove_subcategory
+        # self.remove_categories = self.remove_subcategories
+        # self.get_category = self.get_subcategory
+        # self.get_category_at_index = self.get_subcategory_at_index
+        # self.get_all_categories = self.get_all_subcategories
+        # self.num_categories = self.num_subcategories
+        # self.num_category_descendants = self.num_subcategory_descendants
 
     @property
     def _categories(self):
@@ -108,34 +109,45 @@ class TaskRoot(TaskCategory):
     # TODO: maybe build up an open qs/to-do list page rather than scattering
     # unneat todo questions around lol - I think the in-code TODOs should be
     # reserved for things we definitely want to implement
-    def move_tree_item(self, path_to_item, path_to_new_parent, index=None):
-        """Move item at given path under parent at given path.
+    # def move_tree_item(self, path_to_item, path_to_new_parent, index=None):
+    #     """Move item at given path under parent at given path.
+
+    #     Args:
+    #         path_to_item (list(str) or str): path list of item to move.
+    #         path_to_new_parent (list(str) or str): path list of parent to move it to.
+    #         index (int or None): index in new parent's _children dict to move
+    #             it to. If None, add at end.
+    #     """
+    #     item = self.get_item_at_path(path_to_item)
+    #     new_parent = self.get_item_at_path(path_to_new_parent)
+    #     if not item or not new_parent or item.is_ancestor(new_parent):
+    #         return
+    #     if index is None:
+    #         index = new_parent.num_children()
+    #     if (item.parent.id != new_parent.id
+    #             and item.name in new_parent._children.keys()):
+    #         return
+    #     if type(item) not in new_parent._allowed_child_types:
+    #         return
+    #     if index < 0 or index > new_parent.num_children():
+    #         return
+    #     MoveTreeItemEdit.create_and_run(
+    #         item,
+    #         new_parent,
+    #         index,
+    #         register_edit=self._register_edits,
+    #     )
+
+    def get_history_for_date(self, date):
+        """Get task history dict at given date.
 
         Args:
-            path_to_item (list(str) or str): path list of item to move.
-            path_to_new_parent (list(str) or str): path list of parent to move it to.
-            index (int or None): index in new parent's _children dict to move
-                it to. If None, add at end.
+            date (Date): date to add at.
+
+        Returns:
+            (dict): history dict for given day.
         """
-        item = self.get_item_at_path(path_to_item)
-        new_parent = self.get_item_at_path(path_to_new_parent)
-        if not item or not new_parent or item.is_ancestor(new_parent):
-            return
-        if index is None:
-            index = new_parent.num_children()
-        if (item.parent.id != new_parent.id
-                and item.name in new_parent._children.keys()):
-            return
-        if type(item) not in new_parent._allowed_child_types:
-            return
-        if index < 0 or index > new_parent.num_children():
-            return
-        MoveTreeItemEdit.create_and_run(
-            item,
-            new_parent,
-            index,
-            register_edit=self._register_edits,
-        )
+        return self._history_data.get_history_for_date(date)
 
     @classmethod
     def from_dict(cls, json_dict, name=None):
@@ -152,8 +164,44 @@ class TaskRoot(TaskCategory):
             (TaskRoot): task root class for given dict.
         """
         name = name or cls.ROOT_NAME
-        return super(TaskRoot, cls).from_dict(
+        history_data = HistoryData()
+        task_root = super(TaskRoot, cls).from_dict(
             json_dict,
             name=name,
+            history_data=history_data,
             parent=None
         )
+        task_root._history_data = history_data
+        return task_root
+
+
+class HistoryData(object):
+    """Struct to store history data for tasks by day, to add to calendar.
+
+    This is built up when reading the items from dict, and then passed
+    to the calendar afterwards.
+    """
+    def __init__(self):
+        """Initialize structure."""
+        self._dict = {}
+
+    def add_data(self, date, task, history_dict):
+        """Add history for given tree item at given date.
+
+        Args:
+            date (Date): date to add at.
+            task (Task): tree item to add history for.
+            history_dict (dict): dict representing history for item.
+        """
+        self._dict.setdefault(date, {})[task] = history_dict
+
+    def get_history_for_date(self, date):
+        """Get history at given date.
+
+        Args:
+            date (Date): date to add at.
+
+        Returns:
+            (dict): history dict for given day.
+        """
+        return self._dict.get(date, {})

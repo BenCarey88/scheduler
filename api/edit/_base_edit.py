@@ -47,7 +47,7 @@ class BaseEdit(object):
         self._has_been_done = False
         self._name = "Unnamed Edit"
         self._description = ""
-        self._id = uuid4()
+        # self._id = uuid4()
 
     @classmethod
     def create_and_run(cls, *args, **kwargs):
@@ -195,14 +195,14 @@ class BaseEdit(object):
         self._run()
         self._has_been_done = True
 
-    @property
-    def id(self):
-        """Get id of edit, to be used as an index in the edit log.
+    # @property
+    # def id(self):
+    #     """Get id of edit, to be used as an index in the edit log.
 
-        Returns:
-            (str): edit id.
-        """
-        return self._id
+    #     Returns:
+    #         (str): edit id.
+    #     """
+    #     return self._id
 
     @property
     def name(self):

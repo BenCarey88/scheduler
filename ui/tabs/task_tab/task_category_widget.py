@@ -21,16 +21,24 @@ class TaskCategoryWidget(QtWidgets.QFrame):
     """
     MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
 
-    def __init__(self, task_item, tab, recursive_depth=0, parent=None):
+    def __init__(
+            self,
+            tree_manager,
+            task_item,
+            tab,
+            recursive_depth=0,
+            parent=None):
         """Initialise task category widget.
 
         Args:
+            tree_manager (TreeManager): tree manager item.
             task_item (Task or TaskCategory): task or task category tree item.
             tab (TaskTab): task tab this widget is a descendant of.
             recursive_depth (int): how far down the tree this item is.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TaskCategoryWidget, self).__init__(parent)
+        self.tree_manager = tree_manager
         self.task_item = task_item
         self.tab = tab
 
@@ -66,7 +74,7 @@ class TaskCategoryWidget(QtWidgets.QFrame):
         )
 
         if type(task_item) == TaskCategory:
-            child_filter = self.tab.tree_manager.child_filter
+            child_filter = self.tree_manager.child_filter
             child_filters = [child_filter] if child_filter else []
             # TODO: this should probably be done by tree manager
             with task_item.filter_children(child_filters):
@@ -74,22 +82,24 @@ class TaskCategoryWidget(QtWidgets.QFrame):
                     # TODO: naming is dodgy: the top level tasks are actually
                     # TaskCategoryWidgets here rather than TaskWidgets
                     widget = TaskCategoryWidget(
+                        self.tree_manager,
                         child,
                         tab=tab,
                         recursive_depth=recursive_depth+1,
                         parent=self
                     )
-                    self.tab.category_widget_tree[child.id] = widget
+                    self.tab.category_widget_tree[child] = widget
                     self.outer_layout.addWidget(widget)
                     self._height += widget._height
 
         elif type(task_item) == Task:
             widget = TaskWidget(
+                self.tree_manager,
                 task_item,
                 tab=tab,
                 parent=self
             )
-            self.tab.task_widget_tree[task_item.id] = widget
+            self.tab.task_widget_tree[task_item] = widget
             self.outer_layout.addWidget(widget)
             self._height += widget.height()
 
@@ -101,10 +111,14 @@ class TaskCategoryWidget(QtWidgets.QFrame):
         # model - ie. would probably be better if all updates to the tree
         # items are done through the model? so this functions would call
         # the model's update_name method or something like that.
-        try:
-            self.task_item.set_name(self.line_edit.text())
+        # ^ open question tbh, not sure about that anymore
+        success = self.tree_manager.set_item_name(
+            self.task_item,
+            self.line_edit.text(),
+        )
+        if success:
             self.tab.MODEL_UPDATED_SIGNAL.emit()
-        except Exception:
+        else:
             self.line_edit.setText(self.task_item.name)
 
     def eventFilter(self, object, event):

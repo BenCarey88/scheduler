@@ -26,7 +26,7 @@ from .exceptions import (
 class BaseTreeItem(Hosted, NestedSerializable):
     """Base class representing a tree item."""
     TREE_PATH_SEPARATOR = "/"
-    DEFAULT_CHILD_NAME = "child"
+    DEFAULT_NAME = "tree_item"
 
     # TODO: remove id argument
     def __init__(self, name, parent=None, id=None):
@@ -41,11 +41,11 @@ class BaseTreeItem(Hosted, NestedSerializable):
                 Task to a TaskCategory).
         """
         super(BaseTreeItem, self).__init__()
-        self._name = MutableAttribute(name)
-        self._parent = MutableAttribute(parent)
+        self._name = MutableAttribute(name, "name")
+        self._parent = MutableAttribute(parent, "parent")
         self._children = OrderedDict()
         self._register_edits = True
-        self.id = id or uuid4()
+        # self.id = id or uuid4()
         # base class must be overridden, has no allowed child types.
         self._allowed_child_types = []
 
@@ -119,6 +119,14 @@ class BaseTreeItem(Hosted, NestedSerializable):
             return self.parent.colour
         return None
 
+    def __str__(self):
+        """Get string representation of self.
+
+        Returns:
+            (str): string repr of self.
+        """
+        return self.path
+
     @contextmanager
     def filter_children(self, filters):
         """Contextmanager to filter _children dict temporarily.
@@ -181,265 +189,265 @@ class BaseTreeItem(Hosted, NestedSerializable):
         )
         return child
 
-    def create_new_child(
-            self,
-            default_name="child",
-            child_type=None,
-            index=None,
-            **kwargs):
-        """Create a new child with a default name.
+    # def create_new_child(
+    #         self,
+    #         default_name="child",
+    #         child_type=None,
+    #         index=None,
+    #         **kwargs):
+    #     """Create a new child with a default name.
 
-        This adds a number at the end of the name to allow us to add mutliple
-        new children with different names.
+    #     This adds a number at the end of the name to allow us to add mutliple
+    #     new children with different names.
 
-        Args:
-            default_name (str): the default name to use (before appending
-                the number).
-            child_type (class or None): class to use for child init. If None,
-                use current class.
-            index (int or None): if given, insert child at given index, else
-                add at end of _children dict.
-            **kwargs: kwargs to be passed to child init.
+    #     Args:
+    #         default_name (str): the default name to use (before appending
+    #             the number).
+    #         child_type (class or None): class to use for child init. If None,
+    #             use current class.
+    #         index (int or None): if given, insert child at given index, else
+    #             add at end of _children dict.
+    #         **kwargs: kwargs to be passed to child init.
 
-        Returns:
-            (BaseTreeItem): newly created child. In subclasses, this will use
-                the type of the subclass.
-        """
-        suffix = 1
-        while (default_name + str(suffix).zfill(3)) in self._children.keys():
-            suffix += 1
-        return self.create_child(
-            default_name + str(suffix).zfill(3),
-            child_type,
-            index=index,
-            **kwargs
-        )
+    #     Returns:
+    #         (BaseTreeItem): newly created child. In subclasses, this will use
+    #             the type of the subclass.
+    #     """
+    #     suffix = 1
+    #     while (default_name + str(suffix).zfill(3)) in self._children.keys():
+    #         suffix += 1
+    #     return self.create_child(
+    #         default_name + str(suffix).zfill(3),
+    #         child_type,
+    #         index=index,
+    #         **kwargs
+    #     )
 
-    def add_child(self, child, index=None):
-        """Add an existing child to this item's children dict.
+    # def add_child(self, child, index=None):
+    #     """Add an existing child to this item's children dict.
 
-        Args:
-            child (BaseTreeItem): child item to add.
-            index (int or None): if given, insert child at given index, else
-                add at end of _children dict.
+    #     Args:
+    #         child (BaseTreeItem): child item to add.
+    #         index (int or None): if given, insert child at given index, else
+    #             add at end of _children dict.
 
-        Raises:
-            (DuplicateChildNameError): if a child with given name already
-                exists.
-            (MultipleParentsError): if the child has a different tree item as
-                a parent.
-        """
-        if child.name in self._children:
-            raise DuplicateChildNameError(self.name, child.name)
-        if type(child) not in self._allowed_child_types:
-            raise UnallowedChildType(self.__class__, type(child))
-        if not child.parent:
-            child._parent.set_value(self)
-        if child.parent != self:
-            raise MultipleParentsError(
-                "child {0} has incorrect parent: {1} instead of {2}".format(
-                    child.name, child.parent.name, self.name
-                )
-            )
-        if index is None:
-            index = len(self._children)
-        if index > len(self._children):
-            raise IndexError("Index given is larger than number of children.")
-        InsertChildrenEdit.create_and_run(
-            self,
-            {child.name: (index, child)},
-            register_edit=self._register_edits,
-        )
+    #     Raises:
+    #         (DuplicateChildNameError): if a child with given name already
+    #             exists.
+    #         (MultipleParentsError): if the child has a different tree item as
+    #             a parent.
+    #     """
+    #     if child.name in self._children:
+    #         raise DuplicateChildNameError(self.name, child.name)
+    #     if type(child) not in self._allowed_child_types:
+    #         raise UnallowedChildType(self.__class__, type(child))
+    #     if not child.parent:
+    #         child._parent.set_value(self)
+    #     if child.parent != self:
+    #         raise MultipleParentsError(
+    #             "child {0} has incorrect parent: {1} instead of {2}".format(
+    #                 child.name, child.parent.name, self.name
+    #             )
+    #         )
+    #     if index is None:
+    #         index = len(self._children)
+    #     if index > len(self._children):
+    #         raise IndexError("Index given is larger than number of children.")
+    #     InsertChildrenEdit.create_and_run(
+    #         self,
+    #         {child.name: (index, child)},
+    #         register_edit=self._register_edits,
+    #     )
 
-    def create_sibling(self, name, index=None, **kwargs):
-        """Create sibling item for self.
+    # def create_sibling(self, name, index=None, **kwargs):
+    #     """Create sibling item for self.
 
-        Args:
-            name (str): the name of the sibling.
-            index (int or None): if given, insert sibling at given index, else
-                add at end of _children dict.
-            **kwargs: kwargs to be passed to sibling init.
+    #     Args:
+    #         name (str): the name of the sibling.
+    #         index (int or None): if given, insert sibling at given index, else
+    #             add at end of _children dict.
+    #         **kwargs: kwargs to be passed to sibling init.
 
-        Returns:
-            (BaseTreeItem or None): newly created sibling, if one could be
-                created, else None. In subclasses, this will use the type
-                of the subclass.
-        """
-        if not self.parent:
-            return None
-        return self.parent.create_child(
-            name,
-            child_type=self.__class__,
-            index=index,
-            **kwargs
-        )
+    #     Returns:
+    #         (BaseTreeItem or None): newly created sibling, if one could be
+    #             created, else None. In subclasses, this will use the type
+    #             of the subclass.
+    #     """
+    #     if not self.parent:
+    #         return None
+    #     return self.parent.create_child(
+    #         name,
+    #         child_type=self.__class__,
+    #         index=index,
+    #         **kwargs
+    #     )
 
-    def create_new_sibling(self, default_name="sibling", index=None, **kwargs):
-        """Create sibling item for self.
+    # def create_new_sibling(self, default_name="sibling", index=None, **kwargs):
+    #     """Create sibling item for self.
 
-        Args:
-            default_name (str): the default name to use (before appending
-                the number).
-            index (int or None): if given, insert sibling at given index, else
-                add at end of _children dict.
-            **kwargs: kwargs to be passed to sibling init.
+    #     Args:
+    #         default_name (str): the default name to use (before appending
+    #             the number).
+    #         index (int or None): if given, insert sibling at given index, else
+    #             add at end of _children dict.
+    #         **kwargs: kwargs to be passed to sibling init.
 
-        Returns:
-            (BaseTreeItem or None): newly created sibling, if one could be
-                created, else None. In subclasses, this will use the type
-                of the subclass.
-        """
-        if not self.parent:
-            return None
-        return self.parent.create_new_child(
-            default_name,
-            child_type=self.__class__,
-            index=index,
-            **kwargs
-        )
+    #     Returns:
+    #         (BaseTreeItem or None): newly created sibling, if one could be
+    #             created, else None. In subclasses, this will use the type
+    #             of the subclass.
+    #     """
+    #     if not self.parent:
+    #         return None
+    #     return self.parent.create_new_child(
+    #         default_name,
+    #         child_type=self.__class__,
+    #         index=index,
+    #         **kwargs
+    #     )
 
-    def add_sibling(self, sibling, index=None):
-        """Add sibling item for self.
+    # def add_sibling(self, sibling, index=None):
+    #     """Add sibling item for self.
 
-        Args:
-            sibling (BaseTreeItem): the sibling to add.
-            index (int or None): if given, insert sibling at given index, else
-                add at end of _children dict.
-        """
-        if not self.parent:
-            return
-        self.parent.add_child(sibling, index=index)
+    #     Args:
+    #         sibling (BaseTreeItem): the sibling to add.
+    #         index (int or None): if given, insert sibling at given index, else
+    #             add at end of _children dict.
+    #     """
+    #     if not self.parent:
+    #         return
+    #     self.parent.add_child(sibling, index=index)
 
-    def remove_child(self, name):
-        """Remove an existing child from this item's children dict.
+    # def remove_child(self, name):
+    #     """Remove an existing child from this item's children dict.
 
-        Args:
-            name (str): name of child item to remove.
-        """
-        if name in self._children.keys():
-            RemoveChildrenEdit.create_and_run(
-                self,
-                [name],
-                register_edit=self._register_edits,
-            )
+    #     Args:
+    #         name (str): name of child item to remove.
+    #     """
+    #     if name in self._children.keys():
+    #         RemoveChildrenEdit.create_and_run(
+    #             self,
+    #             [name],
+    #             register_edit=self._register_edits,
+    #         )
 
-    def remove_children(self, names):
-        """Remove existing children from this item's children dict.
+    # def remove_children(self, names):
+    #     """Remove existing children from this item's children dict.
 
-        Args:
-            name (list(str)): name of child items to remove.
-        """
-        names = [name for name in names if name in self._children.keys()]
-        RemoveChildrenEdit.create_and_run(
-            self,
-            names,
-            register_edit=self._register_edits,
-        )
+    #     Args:
+    #         name (list(str)): name of child items to remove.
+    #     """
+    #     names = [name for name in names if name in self._children.keys()]
+    #     RemoveChildrenEdit.create_and_run(
+    #         self,
+    #         names,
+    #         register_edit=self._register_edits,
+    #     )
 
-    def replace_child(self, name, new_child):
-        """Replace child at given name with new_child.
+    # def replace_child(self, name, new_child):
+    #     """Replace child at given name with new_child.
 
-        Args:
-            name (str): name of child item to replace.
-            new_child (BaseTreeItem): new tree item to replace the original
-                child.
+    #     Args:
+    #         name (str): name of child item to replace.
+    #         new_child (BaseTreeItem): new tree item to replace the original
+    #             child.
 
-        Raises:
-            (ChildNameError): if new_child has different name to old one.
-            (MultipleParentsError): if the child has a different tree item as
-                a parent.
-        """
-        if name != new_child.name:
-            raise ChildNameError(
-                "Can't replace child {0} with new child of "
-                "different name {1}".format(name, new_child.name)
-            )
-        if type(new_child) not in self._allowed_child_types:
-            raise UnallowedChildType(self.__class__, type(new_child))
-        if not new_child.parent:
-            new_child._parent.set_value(self)
-        if new_child.parent != self:
-            raise MultipleParentsError(
-                "child {0} has incorrect parent: {1} instead of {2}".format(
-                    new_child.name, new_child.parent.name, self.name
-                )
-            )
-        ModifyChildrenEdit.create_and_run(
-            self,
-            {name: new_child},
-            register_edit=self._register_edits,
-        )
+    #     Raises:
+    #         (ChildNameError): if new_child has different name to old one.
+    #         (MultipleParentsError): if the child has a different tree item as
+    #             a parent.
+    #     """
+    #     if name != new_child.name:
+    #         raise ChildNameError(
+    #             "Can't replace child {0} with new child of "
+    #             "different name {1}".format(name, new_child.name)
+    #         )
+    #     if type(new_child) not in self._allowed_child_types:
+    #         raise UnallowedChildType(self.__class__, type(new_child))
+    #     if not new_child.parent:
+    #         new_child._parent.set_value(self)
+    #     if new_child.parent != self:
+    #         raise MultipleParentsError(
+    #             "child {0} has incorrect parent: {1} instead of {2}".format(
+    #                 new_child.name, new_child.parent.name, self.name
+    #             )
+    #         )
+    #     ModifyChildrenEdit.create_and_run(
+    #         self,
+    #         {name: new_child},
+    #         register_edit=self._register_edits,
+    #     )
 
-    def move(self, new_index):
-        """Move this item to new index in parent's _children dict.
+    # def move(self, new_index):
+    #     """Move this item to new index in parent's _children dict.
 
-        Args:
-            new_index (int): new index to move to.
-        """
-        if not self.parent:
-            return
-        if new_index >= self.parent.num_children() or new_index < 0:
-            return
-        if new_index == self.index():
-            return
-        MoveChildrenEdit.create_and_run(
-            self.parent,
-            {self.name: new_index},
-            register_edit=self._register_edits,
-        )
+    #     Args:
+    #         new_index (int): new index to move to.
+    #     """
+    #     if not self.parent:
+    #         return
+    #     if new_index >= self.parent.num_children() or new_index < 0:
+    #         return
+    #     if new_index == self.index():
+    #         return
+    #     MoveChildrenEdit.create_and_run(
+    #         self.parent,
+    #         {self.name: new_index},
+    #         register_edit=self._register_edits,
+    #     )
 
-    def change_child_tree_type(self, child_name, new_tree_class):
-        """Attempt to change child tree class to a different tree class.
+    # def change_child_tree_type(self, child_name, new_tree_class):
+    #     """Attempt to change child tree class to a different tree class.
 
-        Args:
-            child_name (str): name of child to change.
-            new_tree_class (class): new tree class to use for child.
+    #     Args:
+    #         child_name (str): name of child to change.
+    #         new_tree_class (class): new tree class to use for child.
 
-        Raises:
-            (UnallowedChildType): if the new_tree_class is not an allowed
-                child type of the this class OR if some of the children
-                of the given child are unallowed child types for the new
-                tree class.
-        """
-        if new_tree_class not in self._allowed_child_types:
-            raise UnallowedChildType(self.__class__, new_tree_class)
-        child = self.get_child(child_name)
-        if not child or isinstance(child, new_tree_class):
-            return
-        new_child = new_tree_class(child_name)
-        for grandchild in child.get_all_children():
-            grandchild_class = type(grandchild)
-            if grandchild_class not in new_child._allowed_child_types:
-                raise UnallowedChildType(grandchild_class)
-            grandchild_copy = grandchild_class.from_dict(
-                grandchild.to_dict()
-            )
-            new_child._children[grandchild_copy.name] = grandchild_copy
-        self.replace_child(child_name, new_child)
+    #     Raises:
+    #         (UnallowedChildType): if the new_tree_class is not an allowed
+    #             child type of the this class OR if some of the children
+    #             of the given child are unallowed child types for the new
+    #             tree class.
+    #     """
+    #     if new_tree_class not in self._allowed_child_types:
+    #         raise UnallowedChildType(self.__class__, new_tree_class)
+    #     child = self.get_child(child_name)
+    #     if not child or isinstance(child, new_tree_class):
+    #         return
+    #     new_child = new_tree_class(child_name)
+    #     for grandchild in child.get_all_children():
+    #         grandchild_class = type(grandchild)
+    #         if grandchild_class not in new_child._allowed_child_types:
+    #             raise UnallowedChildType(grandchild_class)
+    #         grandchild_copy = grandchild_class.from_dict(
+    #             grandchild.to_dict()
+    #         )
+    #         new_child._children[grandchild_copy.name] = grandchild_copy
+    #     self.replace_child(child_name, new_child)
 
-    def set_name(self, new_name):
-        """Set item name.
+    # def set_name(self, new_name):
+    #     """Set item name.
 
-        This setter also updates the item's name in its parent's child dict.
+    #     This setter also updates the item's name in its parent's child dict.
 
-        Args:
-            new_name (str): new item name.
+    #     Args:
+    #         new_name (str): new item name.
 
-        Raises:
-            (DuplicateChildNameError): if the new name is the same as one of its
-                siblings.
-        """
-        parent = self.parent
-        if parent:
-            if parent.get_child(new_name):
-                raise DuplicateChildNameError(parent.name, new_name)
-            RenameChildrenEdit.create_and_run(
-                parent,
-                {self.name: new_name},
-                register_edit=self._register_edits,
-            )
-        else:
-            raise Exception("Cannot rename root tree item")
+    #     Raises:
+    #         (DuplicateChildNameError): if the new name is the same as one of its
+    #             siblings.
+    #     """
+    #     parent = self.parent
+    #     if parent:
+    #         if parent.get_child(new_name):
+    #             raise DuplicateChildNameError(parent.name, new_name)
+    #         RenameChildrenEdit.create_and_run(
+    #             parent,
+    #             {self.name: new_name},
+    #             register_edit=self._register_edits,
+    #         )
+    #     else:
+    #         raise Exception("Cannot rename root tree item")
 
     def get_child(self, name):
         """Get child by name.

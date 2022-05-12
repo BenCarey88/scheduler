@@ -47,6 +47,8 @@ class TaskCategory(BaseTreeItem):
     CATEGORIES_KEY = _SUBDIR_KEY
     TASKS_KEY = "tasks"
 
+    DEFAULT_NAME = "category"
+
     def __init__(self, name, parent=None):
         """Initialise category class.
 
@@ -59,101 +61,101 @@ class TaskCategory(BaseTreeItem):
         self._allowed_child_types = [TaskCategory, Task]
 
         # subcategory methods
-        self.create_subcategory = self.create_child
-        self.create_new_subcategory = partial(
-            self.create_new_child,
-            default_name="subcategory"
-        )
-        self.add_subcategory = self.add_child
-        self.create_sibling_category = self.create_sibling
-        self.create_new_sibling_category = partial(
-            self.create_new_sibling,
-            default_name="category"
-        )
-        self.add_sibling_category = self.add_sibling
-        self.remove_subcategory = self.run_method_with_filter(
-            self.remove_child,
-            TaskCategoryFilter,
-        )
-        self.remove_subcategories = self.run_method_with_filter(
-            self.remove_children,
-            TaskCategoryFilter,
-        )
-        self.get_subcategory = self.run_method_with_filter(
-            self.get_child,
-            TaskCategoryFilter
-        )
-        self.get_subcategory_at_index = self.run_method_with_filter(
-            self.get_child_at_index,
-            TaskCategoryFilter
-        )
-        self.get_all_subcategories = self.run_method_with_filter(
-            self.get_all_children,
-            TaskCategoryFilter
-        )
-        self.num_subcategories = self.run_method_with_filter(
-            self.num_children,
-            TaskCategoryFilter
-        )
-        self.num_subcategory_descendants = self.run_method_with_filter(
-            self.num_descendants,
-            TaskCategoryFilter
-        )
+        # self.create_subcategory = self.create_child
+        # self.create_new_subcategory = partial(
+        #     self.create_new_child,
+        #     default_name="subcategory"
+        # )
+        # self.add_subcategory = self.add_child
+        # self.create_sibling_category = self.create_sibling
+        # self.create_new_sibling_category = partial(
+        #     self.create_new_sibling,
+        #     default_name="category"
+        # )
+        # self.add_sibling_category = self.add_sibling
+        # self.remove_subcategory = self.run_method_with_filter(
+        #     self.remove_child,
+        #     TaskCategoryFilter,
+        # )
+        # self.remove_subcategories = self.run_method_with_filter(
+        #     self.remove_children,
+        #     TaskCategoryFilter,
+        # )
+        # self.get_subcategory = self.run_method_with_filter(
+        #     self.get_child,
+        #     TaskCategoryFilter
+        # )
+        # self.get_subcategory_at_index = self.run_method_with_filter(
+        #     self.get_child_at_index,
+        #     TaskCategoryFilter
+        # )
+        # self.get_all_subcategories = self.run_method_with_filter(
+        #     self.get_all_children,
+        #     TaskCategoryFilter
+        # )
+        # self.num_subcategories = self.run_method_with_filter(
+        #     self.num_children,
+        #     TaskCategoryFilter
+        # )
+        # self.num_subcategory_descendants = self.run_method_with_filter(
+        #     self.num_descendants,
+        #     TaskCategoryFilter
+        # )
 
-        # task methods
-        self.create_task = partial(
-            self.create_child,
-            child_type=Task,
-        )
-        self.create_new_task = partial(
-            self.create_new_child,
-            default_name="task",
-            child_type=Task,
-        )
-        self.add_task = self.add_child
-        self.remove_task = self.run_method_with_filter(
-            self.remove_child,
-            TaskFilter
-        )
-        self.remove_tasks = self.run_method_with_filter(
-            self.remove_children,
-            TaskFilter
-        )
-        self.get_task = self.run_method_with_filter(
-            self.get_child,
-            TaskFilter
-        )
-        self.get_task_at_index = self.run_method_with_filter(
-            self.get_child_at_index,
-            TaskFilter
-        )
-        self.get_all_tasks = self.run_method_with_filter(
-            self.get_all_children,
-            TaskFilter
-        )
-        self.num_tasks = self.run_method_with_filter(
-            self.num_children,
-            TaskFilter
-        )
-        self.num_task_descendants = self.run_method_with_filter(
-            self.num_descendants,
-            TaskFilter
-        )
+        # # task methods
+        # self.create_task = partial(
+        #     self.create_child,
+        #     child_type=Task,
+        # )
+        # self.create_new_task = partial(
+        #     self.create_new_child,
+        #     default_name="task",
+        #     child_type=Task,
+        # )
+        # self.add_task = self.add_child
+        # self.remove_task = self.run_method_with_filter(
+        #     self.remove_child,
+        #     TaskFilter
+        # )
+        # self.remove_tasks = self.run_method_with_filter(
+        #     self.remove_children,
+        #     TaskFilter
+        # )
+        # self.get_task = self.run_method_with_filter(
+        #     self.get_child,
+        #     TaskFilter
+        # )
+        # self.get_task_at_index = self.run_method_with_filter(
+        #     self.get_child_at_index,
+        #     TaskFilter
+        # )
+        # self.get_all_tasks = self.run_method_with_filter(
+        #     self.get_all_children,
+        #     TaskFilter
+        # )
+        # self.num_tasks = self.run_method_with_filter(
+        #     self.num_children,
+        #     TaskFilter
+        # )
+        # self.num_task_descendants = self.run_method_with_filter(
+        #     self.num_descendants,
+        #     TaskFilter
+        # )
 
-    def run_method_with_filter(self, method, filter_class):
-        """Decorator to run method with filtered child_dict.
+    # def run_method_with_filter(self, method, filter_class):
+    #     """Decorator to run method with filtered child_dict.
 
-        Args:
-            method (function): method to decorate.
-            filter_class (BaseFilter class): type of filter to use.
+    #     Args:
+    #         method (function): method to decorate.
+    #         filter_class (BaseFilter class): type of filter to use.
 
-        Returns:
-            (function): decorated method.
-        """
-        def decorated_method(*args, **kwargs):
-            with self.filter_children([filter_class()]):
-                return method(*args, **kwargs)
-        return decorated_method
+    #     Returns:
+    #         (function): decorated method.
+    #     """
+    #     def decorated_method(*args, **kwargs):
+    #         with self.filter_children([filter_class()]):
+    #             return method(*args, **kwargs)
+    #     return decorated_method
 
     @property
     def _subcategories(self):
@@ -231,7 +233,7 @@ class TaskCategory(BaseTreeItem):
         return json_dict
 
     @classmethod
-    def from_dict(cls, json_dict, name, parent=None):
+    def from_dict(cls, json_dict, name, history_data=None, parent=None):
         """Initialise class from dictionary representation.
 
         The json_dict is expected to be structured as described in the to_dict
@@ -240,6 +242,8 @@ class TaskCategory(BaseTreeItem):
         Args:
             json_dict (OrderedDict): dictionary representation.
             name (str): name of category.
+            history_data (HistoryData or None): history data struct to pass
+                to children __init__s.
             parent (Category or None): parent of current category, if it's a
                 subcategory.
 
@@ -252,12 +256,18 @@ class TaskCategory(BaseTreeItem):
             subcategory = TaskCategory.from_dict(
                 subcategory_dict,
                 subcategory_name,
-                category
+                history_data=history_data,
+                parent=category,
             )
             category._children[subcategory_name] = subcategory
         tasks = json_dict.get(cls.TASKS_KEY, {})
         for task_name, task_dict in tasks.items():
-            task = Task.from_dict(task_dict, task_name, category)
+            task = Task.from_dict(
+                task_dict,
+                task_name,
+                history_data=history_data,
+                parent=category
+            )
             if task_name in category._children:
                 raise DuplicateChildNameError(
                     "Serialized category {0} has a subcategory and a task "

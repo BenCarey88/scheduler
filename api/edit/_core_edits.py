@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from scheduler.api.common.object_wrappers import MutableAttribute
+from scheduler.api.common.object_wrappers import BaseObjectWrapper, Hosted
 from ._base_edit import BaseEdit, EditError
 
 
@@ -209,10 +209,10 @@ class AttributeEdit(BaseEdit):
         self._attr_dict = attr_dict
         self._orig_attr_dict = {}
         for attr in self._attr_dict:
-            if not isinstance(attr, MutableAttribute):
+            if not isinstance(attr, BaseObjectWrapper):
                 raise EditError(
                     "attr_dict in AttributeEdit must be keyed by "
-                    "MutableAttribute objects."
+                    "MutableAttributes or MutableHostedAttributes."
                 )
             self._orig_attr_dict[attr] = attr.value
         self._modified_attrs = set()
@@ -238,10 +238,10 @@ class AttributeEdit(BaseEdit):
                 attributes with new values to update them to.
         """
         for attr in attr_dict:
-            if not isinstance(attr, MutableAttribute):
+            if not isinstance(attr, BaseObjectWrapper):
                 raise EditError(
                     "attr_dict in AttributeEdit must be keyed by "
-                    "MutableAttribute objects."
+                    "MutableAttributes or MutableHostedAttributes."
                 )
         self._attr_dict.update(attr_dict)
         for attr, value in self._attr_dict.items():
@@ -260,13 +260,18 @@ class HostedDataEdit(SimpleEdit):
         """Initiailize edit.
 
         Args:
-            old_data (_Hosted): old data of host.
-            new_data (_Hosted): new data of host.
+            old_data (Hosted): old data of host.
+            new_data (Hosted): new data of host.
             reigster_edit (bool): whether or not to register this edit.
         """
+        if (not isinstance(old_data, Hosted)
+                or not isinstance(new_data, Hosted)):
+            raise EditError(
+                "args passed to HostedDataEdit must be Hosted class objects."
+            )
         self._is_valid = (old_data != new_data)
         super(HostedDataEdit, self).__init__(
-            run_func=partial(new_data._switch_host, old_data._host),
-            inverse_run_func=partial(old_data._switch_host, new_data._host),
+            run_func=partial(new_data._switch_host, old_data.host),
+            inverse_run_func=partial(old_data._switch_host, new_data.host),
             register_edit=register_edit,
         )

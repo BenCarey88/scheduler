@@ -15,15 +15,17 @@ class TaskWidget(QtWidgets.QTreeView):
 
     This widget holds the tree view for the various tasks.
     """
-    def __init__(self, task_item, tab, parent=None):
+    def __init__(self, tree_manager, task_item, tab, parent=None):
         """Initialise task category widget.
 
         Args:
+            tree_manager (TreeManager): tree manager item.
             task_item (Task): task category tree item.
             tab (TaskTab): task tab this widget is a descendant of.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TaskWidget, self).__init__(parent)
+        self.tree_manager = tree_manager
         self.task_item = task_item
         self.tab = tab
 
@@ -70,7 +72,7 @@ class TaskWidget(QtWidgets.QTreeView):
             QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
         )
         self.selectionModel().currentChanged.connect(
-            partial(self.tab.switch_active_task_widget, self.task_item.id)
+            partial(self.tab.switch_active_task_widget, self.task_item)
         )
 
         self.select_subtask_item()
@@ -124,8 +126,12 @@ class TaskWidget(QtWidgets.QTreeView):
                 if current_item:
                     index = current_item.index()
                     if index is not None:
-                        current_item.move(index - 1)
-                        self.tab.update()
+                        success = self.tree_manager.move_item_local(
+                            current_item,
+                            index - 1
+                        )
+                        if success:
+                            self.tab.update()
                         #self.setFocus()
                         return
             # ctrl+down: move task down an index
@@ -134,8 +140,12 @@ class TaskWidget(QtWidgets.QTreeView):
                 if current_item:
                     index = current_item.index()
                     if index is not None:
-                        current_item.move(index + 1)
-                        self.tab.update()
+                        success = self.tree_manager.move_item_local(
+                            current_item,
+                            index + 1
+                        )
+                        if success:
+                            self.tab.update()
                         #self.setFocus()
                         return
 

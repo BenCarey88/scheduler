@@ -4,14 +4,14 @@ from collections import OrderedDict
 
 from scheduler.api.tree._base_tree_item import BaseTreeItem
 from scheduler.api.common.date_time import BaseDateTimeWrapper, TimeDelta
-from scheduler.api.common.id_registry import Id, get_object_by_id
+# from scheduler.api.common.id_registry import Id, get_object_by_id
 
 from .serializer import (
     BaseSerializer,
     DateTimeSerializer,
     NumberSerializer,
     TreeSerializer,
-    IdSerializer,
+    # IdSerializer,
     convert_serializer_to_string,
     get_serializer_from_string,
 )
@@ -162,7 +162,7 @@ TYPE_MAPPINGS = OrderedDict([
     (BaseSerializer, (str, float, int, list, dict,)),
     (DateTimeSerializer, (BaseDateTimeWrapper, TimeDelta,)),
     (TreeSerializer, (BaseTreeItem,)),
-    (IdSerializer, (Id,)),
+    # (IdSerializer, (Id,)),
 ])
 KEY_TYPE_MAPPINGS = OrderedDict([
     (NumberSerializer, (int, float,))
@@ -205,10 +205,10 @@ def default_serializer(value, as_key=False, *args, **kwargs):
     Returns:
         (BaseSerializer): the default serializer for that type.
     """
-    if isinstance(value, Id):
-        obj = get_object_by_id(value)
-        subserializer = default_serializer(obj, as_key, *args, **kwargs)
-        args.insert(0, subserializer)
+    # if isinstance(value, Id):
+    #     obj = get_object_by_id(value)
+    #     subserializer = default_serializer(obj, as_key, *args, **kwargs)
+    #     args.insert(0, subserializer)
     return serializer_from_type(type(value), as_key, *args, **kwargs)
 
 

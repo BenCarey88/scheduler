@@ -226,7 +226,10 @@ class Outliner(QtWidgets.QTreeView):
                     )
                     if continue_deletion:
                         for item in selected_items:
-                            item.parent.remove_child(item.name)
+                            self.tree_manager.remove_child(
+                                item.parent,
+                                item.name,
+                            )
                     # note we reset model rather than update here
                     # as we don't want to keep selection
                     self.reset_view()
@@ -236,17 +239,14 @@ class Outliner(QtWidgets.QTreeView):
             # ctrl+plus: add new task
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 current_item = self._get_current_item()
-                if current_item:
-                    if isinstance(current_item, (TaskCategory, TaskRoot)):
-                        current_item.create_new_task()
+                if current_item is not None:
+                    if self.tree_manager.create_new_subtask(current_item):
                         self.update()
                         self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+asterisk: add new subcategory
             elif event.key() in (QtCore.Qt.Key_Asterisk, QtCore.Qt.Key_8):
                 current_item = self._get_current_item()
-                if (current_item
-                        and type(current_item) in [TaskCategory, TaskRoot]):
-                    current_item.create_new_subcategory()
+                if self.tree_manager.create_new_subcategory(current_item):
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+up: move task up an index
@@ -255,10 +255,12 @@ class Outliner(QtWidgets.QTreeView):
                 if current_item:
                     index = current_item.index()
                     if index is not None:
-                        current_item.move(index - 1)
+                        self.tree_manager.move_item_local(
+                            current_item,
+                            index - 1,
+                        )
                         self.update()
                         self.MODEL_UPDATED_SIGNAL.emit()
-                        return
             # ctrl+down: move task down an index
             elif event.key() == QtCore.Qt.Key_Down:
                 current_item = self._get_current_item()
@@ -268,13 +270,15 @@ class Outliner(QtWidgets.QTreeView):
                         current_item.move(index + 1)
                         self.update()
                         self.MODEL_UPDATED_SIGNAL.emit()
-                        return
             # ctrl+del: force remove item
             elif event.key() == QtCore.Qt.Key_Delete:
                 selected_items = self._get_selected_items()
                 if selected_items:
                     for item in selected_items:
-                        item.parent.remove_child(item.name)
+                        self.tree_manager.remove_child(
+                            item.parent,
+                            item.name,
+                        )
                     # note we reset model rather than update here
                     # as we don't want to keep selection
                     self.reset_view()
@@ -282,11 +286,7 @@ class Outliner(QtWidgets.QTreeView):
             # ctrl+r: switch task to routine
             elif event.key() == QtCore.Qt.Key_R:
                 current_item = self._get_current_item()
-                if current_item and isinstance(current_item, Task):
-                    if current_item.type == TaskType.ROUTINE:
-                        current_item.change_task_type(TaskType.GENERAL)
-                    elif current_item.type == TaskType.GENERAL:
-                        current_item.change_task_type(TaskType.ROUTINE)
+                if self.tree_manager.change_task_type(current_item):
                     self.update()
                     self.MODEL_UPDATED_SIGNAL.emit()
             # ctrl+h: hide or unhide filtered items in outliner
@@ -310,11 +310,8 @@ class Outliner(QtWidgets.QTreeView):
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 current_item = self._get_current_item()
                 if current_item:
-                    if type(current_item) == TaskCategory:
-                        current_item.create_new_sibling_category()
-                    elif type(current_item) == Task:
-                        current_item.create_new_sibling_task()
-                    self.update()
-                    self.MODEL_UPDATED_SIGNAL.emit()
+                    if self.tree_manager.create_new_sibling(current_item):
+                        self.update()
+                        self.MODEL_UPDATED_SIGNAL.emit()
 
         super(Outliner, self).keyPressEvent(event)

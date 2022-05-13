@@ -642,7 +642,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
                 dict_repr[self.NAME_KEY] = self._event_name.value
         if self._is_background:
             dict_repr[self.BACKGROUND_KEY] = self._is_background.value
-        dict_repr[self.ID_KEY] = self._id
+        dict_repr[self.ID_KEY] = self.get_id()
         return dict_repr
 
     @classmethod

@@ -55,7 +55,7 @@ class BaseObjectWrapper(object):
         Returns:
             (bool): False if attribute value is None, else True.
         """
-        return (self._value is None)
+        return (self.value is not None)
 
     def __nonzero__(self):
         """Override bool operator (python 2.x).
@@ -63,7 +63,7 @@ class BaseObjectWrapper(object):
         Returns:
             (bool): False if attribute value is None, else True.
         """
-        return (self._value is None)
+        return self.__bool__()
 
 
 class MutableAttribute(BaseObjectWrapper):

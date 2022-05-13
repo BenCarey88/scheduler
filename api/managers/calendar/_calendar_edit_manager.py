@@ -39,18 +39,18 @@ class CalendarEditManager(BaseCalendarManager):
         self._item_being_moved = None
         self._continuous_edit = None
 
-    def _create_calendar_item(self, item_type, *args, **kwargs):
+    def _create_calendar_item(self, item_class, *args, **kwargs):
         """Create calendar item and add to calendar.
 
         Args:
-            item_type (class): calendar item to create
+            item_class (class): calendar item to create
             *args (list): args to be passed to item init.
             **kwargs (dict): kwargs to be passed to item init.
 
         Returns:
             (CalendarItem): newly created calendar item.
         """
-        item = item_type(*args, **kwargs)
+        item = item_class(*args, **kwargs)
         AddCalendarItemEdit.create_and_run(item)
         return item
 

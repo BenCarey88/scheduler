@@ -22,14 +22,15 @@ class ItemRegistry(object):
                 run when an item of the given id is registered.
             _new_ids (list(str)): this is used to store newly generated ids
                 made during serialization. It allows us to ensure all new ids
-                created are unique.
+                created are unique. It's independent of the id keys in the
+                _items dict, so ids can change between sessions.
         """
         self._items = {}
         self._callbacks = {}
         self._new_ids = []
 
     def generate_unique_id(self, base_name):
-        """Generate a unique id string using the base_name as a start point.
+        """Generate a unique id string using the base_name.
 
         Args:
             base_name (str): base name of id string.
@@ -39,7 +40,7 @@ class ItemRegistry(object):
         """
         id = base_name
         suffix = 1
-        while id in self._items.keys() or id in self._new_ids:
+        while id in self._new_ids:
             id = "{0}{1}".format(base_name, str(suffix).zfill(2))
             suffix += 1
         self._new_ids.append(id)

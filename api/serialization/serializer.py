@@ -247,7 +247,7 @@ def get_serializer_from_string(string, *args, **kwargs):
     ]
     for serializer in serializers:
         if string.startswith(serializer.__name__):
-            return serializer.from_string(*args, **kwargs)
+            return serializer.from_string(string, *args, **kwargs)
     raise SerializerError(
         "Cannot find serializer from string {0}".format(string)
     )

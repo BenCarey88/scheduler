@@ -82,7 +82,7 @@ class TaskRoot(TaskCategory):
         elif isinstance(path, list):
             path_list = path
         else:
-            return
+            return None
         if len(path_list) == 0:
             return None
         if path_list[0] != self.name:

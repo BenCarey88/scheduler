@@ -15,16 +15,14 @@ class BaseEdit(object):
     In general, subclasses need to implement _run and _inverse_run.
     """
 
-    def __init__(self, register_edit=True):
+    def __init__(self):
         """Initialise edit.
 
-        Args:
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
-
         Attributes:
-            _register_edit (bool): see arg.
+            _register_edit (bool): whether or not to register this edit in the
+                edit log (ie. whether or not it's a user edit that can be
+                undone). By default this is true, but can be changed by
+                creating the eidt with the class method create_unregistered.
             _registered (bool): determines if the edit has been registered
                 or not.
             _continuous_run_in_progress (bool): tells us if the edit is
@@ -40,7 +38,7 @@ class BaseEdit(object):
             _id (str): id of edit, used to compare to other edits, and used as
                 an index in edit_log.
         """
-        self._register_edit = register_edit
+        self._register_edit = True
         self._registered = False
         self._continuous_run_in_progress = False
         self._is_valid = True
@@ -61,7 +59,7 @@ class BaseEdit(object):
 
         Exceptions to this rule are:
             - when creating an unregistered edit as part of a composite edit
-            - when creaating an edit to be used as part of a continuous run
+            - when creating an edit to be used as part of a continuous run
 
         Args:
             args (tuple): args to pass to __init__.
@@ -69,6 +67,21 @@ class BaseEdit(object):
         """
         edit = cls(*args, **kwargs)
         edit.run()
+
+    @classmethod
+    def create_unregistered(cls, *args, **kwargs):
+        """Create an unregistered edit. Used for subedits of composite edits.
+
+        Args:
+            args (tuple): args to pass to __init__.
+            kwargs (dict): kwargs to pass to __init__.
+
+        Returns:
+            (BaseEdit): the edit object.
+        """
+        edit = cls(*args, **kwargs)
+        edit._register_edit = False
+        return edit
 
     def run(self):
         """Call edit function externally, and register with edit log if needed.
@@ -88,16 +101,13 @@ class BaseEdit(object):
             )
         if self._has_been_done:
             raise EditError("Cannot run edit multiple times without undo.")
+        if self._register_edit and EDIT_LOG.is_locked:
+            # don't run registerable edits if they can't be added to log
+            return
         self._run()
         self._has_been_done = True
         if self._register_edit:
-            EDIT_LOG.add_edit(self)
-            # TODO: check if add_edit was successful and return if not.
-        # Then move self._run and self._has_been_done down here
-        # So that edits we want to register only run when the log is unlocked
-        # this can't be done yet as currently initialising the task tree is
-        # done through edits, which we should definitely change.
-        self._registered = self._register_edit
+            self._registered = EDIT_LOG.add_edit(self)
 
     def begin_continuous_run(self):
         """Run edit continuously.
@@ -112,6 +122,9 @@ class BaseEdit(object):
                 "Edit object cannot be run externally after registration."
             )
         if self._register_edit:
+            if EDIT_LOG.is_locked:
+                # don't run registerable edits if they can't be added to log
+                return
             EDIT_LOG.begin_add_edit(self)
         self._run()
         self._continuous_run_in_progress = True
@@ -140,8 +153,8 @@ class BaseEdit(object):
         if not self._continuous_run_in_progress:
             return
         if self._register_edit:
-            EDIT_LOG.end_add_edit()
             self._has_been_done = True
+            self._registered = EDIT_LOG.end_add_edit()
         self._continuous_run_in_progress = False
 
     def _run(self):

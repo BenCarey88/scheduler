@@ -9,7 +9,7 @@ from ._container_edit import DictEdit, ContainerOp
 class BaseTreeEdit(CompositeEdit):
     """Edit that can be called on a tree item."""
 
-    def __init__(self, tree_item, diff_dict, op_type, register_edit=True):
+    def __init__(self, tree_item, diff_dict, op_type):
         """Initialise base tree edit.
 
         Args:
@@ -18,79 +18,69 @@ class BaseTreeEdit(CompositeEdit):
                 to the tree item's child dict. How to interpret this dictionary
                 depends on the operation type.
             operation_type (ContainerOp): The type of edit operation to do.
-            register_edit (bool): whether or not to register this edit.
         """
-        ordered_dict_edit = DictEdit(
+        ordered_dict_edit = DictEdit.create_unregistered(
             tree_item._children,
             diff_dict,
             op_type,
-            register_edit=False,
         )
         edit_list = [ordered_dict_edit]
 
         if op_type == ContainerOp.RENAME:
-            name_change_edit = AttributeEdit(
+            name_change_edit = AttributeEdit.create_unregistered(
                 {
                     tree_item.get_child(old_name)._name: new_name
                     for old_name, new_name in diff_dict.items()
                     if tree_item.get_child(old_name)
                 },
-                register_edit=False
             )
             edit_list = [name_change_edit, ordered_dict_edit]
 
         elif op_type == ContainerOp.REMOVE:
-            remove_parent_edit = AttributeEdit(
+            remove_parent_edit = AttributeEdit.create_unregistered(
                 {
                     tree_item.get_child(name)._parent: None
                     for name in diff_dict
                     if tree_item.get_child(name)
                 },
-                register_edit=False
             )
             edit_list = [remove_parent_edit, ordered_dict_edit]
 
         elif op_type == ContainerOp.ADD:
-            add_parent_edit = AttributeEdit(
+            add_parent_edit = AttributeEdit.create_unregistered(
                 {
                     new_child._parent: tree_item
                     for new_child in diff_dict.values()
                 },
-                register_edit=False
             )
             edit_list = [ordered_dict_edit, add_parent_edit]
 
         elif op_type == ContainerOp.INSERT:
-            insert_parent_edit = AttributeEdit(
+            insert_parent_edit = AttributeEdit.create_unregistered(
                 {
                     new_child._parent: tree_item
                     for _, new_child in diff_dict.values()
                 },
-                register_edit=False
             )
             edit_list = [ordered_dict_edit, insert_parent_edit]
 
         elif op_type == ContainerOp.MODIFY:
-            modify_parent_edit = AttributeEdit(
+            modify_parent_edit = AttributeEdit.create_unregistered(
                 {
                     new_child._parent: tree_item
                     for name, new_child in diff_dict.values()
                     if tree_item.get_child(name)
                 },
-                register_edit=False
             )
             edit_list = [ordered_dict_edit, modify_parent_edit]
 
-        super(BaseTreeEdit, self).__init__(
-            edit_list,
-            register_edit=register_edit,
-        )
+        super(BaseTreeEdit, self).__init__(edit_list)
 
 
 class AddChildrenEdit(BaseTreeEdit):
     """Tree edit for adding children."""
 
-    def __init__(self, tree_item, children_to_add, register_edit=True):
+    def __init__(self, tree_item, children_to_add):
         """Initialise edit item.
 
         Args:
@@ -98,13 +88,11 @@ class AddChildrenEdit(BaseTreeEdit):
             children_to_add (dict(str, BaseTreeItem)): dict of children
                 to add, keyed by names. This can be ordered or not, depending
                 on whether we care which is added first.
-            register_edit (bool): whether or not to register this edit.
         """
         super(AddChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_add),
             op_type=ContainerOp.ADD,
-            register_edit=register_edit,
         )
 
         self._name = "AddChildren ({0})".format(tree_item.name)
@@ -117,7 +105,7 @@ class AddChildrenEdit(BaseTreeEdit):
 class InsertChildrenEdit(BaseTreeEdit):
     """Tree edit for adding children."""
 
-    def __init__(self, tree_item, children_to_insert, register_edit=True):
+    def __init__(self, tree_item, children_to_insert):
         """Initialise edit item.
 
         Args:
@@ -126,13 +114,11 @@ class InsertChildrenEdit(BaseTreeEdit):
                 dict representing children to insert and where to insert them.
                 This can be ordered or not, depending on whether we care which
                 is inserted first.
-            register_edit (bool): whether or not to register this edit.
         """
         super(InsertChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_insert),
             op_type=ContainerOp.INSERT,
-            register_edit=register_edit,
         )
 
         self._name = "InsertChildren ({0})".format(tree_item.name)
@@ -150,14 +136,13 @@ class InsertChildrenEdit(BaseTreeEdit):
 class RemoveChildrenEdit(BaseTreeEdit):
     """Tree edit for removing children."""
 
-    def __init__(self, tree_item, children_to_remove, register_edit=True):
+    def __init__(self, tree_item, children_to_remove):
         """Initialise edit item.
 
         Args:
             tree_item (BaseTreeItem): the tree item this edit is being run on.
             children_to_remove (list(str)): list of names of children to
                 remove.
-            register_edit (bool): whether or not to register this edit.
         """
         super(RemoveChildrenEdit, self).__init__(
             tree_item=tree_item,
@@ -165,7 +150,6 @@ class RemoveChildrenEdit(BaseTreeEdit):
                 [(name, None) for name in children_to_remove]
             ),
             op_type=ContainerOp.REMOVE,
-            register_edit=register_edit,
         )
 
         self._name = "RemoveChildren ({0})".format(tree_item.name)
@@ -178,20 +162,18 @@ class RemoveChildrenEdit(BaseTreeEdit):
 class RenameChildrenEdit(BaseTreeEdit):
     """Tree edit for renaming children."""
 
-    def __init__(self, tree_item, children_to_rename, register_edit=True):
+    def __init__(self, tree_item, children_to_rename):
         """Initialise edit item.
 
         Args:
             tree_item (BaseTreeItem): the tree item this edit is being run on.
             children_to_remove (dict(str, str)): dict of old names of children
                 and new ones to replace them with. Can be ordered or not.
-            register_edit (bool): whether or not to register this edit.
         """
         super(RenameChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_rename),
             op_type=ContainerOp.RENAME,
-            register_edit=register_edit,
         )
 
         self._name = "RenameChildren ({0})".format(tree_item.name)
@@ -209,7 +191,7 @@ class RenameChildrenEdit(BaseTreeEdit):
 class ModifyChildrenEdit(BaseTreeEdit):
     """Tree edit for swapping children of given names with new children."""
 
-    def __init__(self, tree_item, children_to_modify, register_edit=True):
+    def __init__(self, tree_item, children_to_modify):
         """Initialise edit item.
 
         Args:
@@ -217,13 +199,11 @@ class ModifyChildrenEdit(BaseTreeEdit):
             children_to_modify (dict(str, BaseTreeItem)): dict of names of
                 children and new tree items to replace them with. Can be
                 ordered or not.
-            register_edit (bool): whether or not to register this edit.
         """
         super(ModifyChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_modify),
             op_type=ContainerOp.MODIFY,
-            register_edit=register_edit,
         )
 
         self._name = "ModifyChildren ({0})".format(tree_item.name)
@@ -238,7 +218,7 @@ class ModifyChildrenEdit(BaseTreeEdit):
 class MoveChildrenEdit(BaseTreeEdit):
     """Tree edit for moving positions of children."""
 
-    def __init__(self, tree_item, children_to_move, register_edit=True):
+    def __init__(self, tree_item, children_to_move):
         """Initialise edit item.
 
         Args:
@@ -247,13 +227,11 @@ class MoveChildrenEdit(BaseTreeEdit):
                 move and new positions to move them to. This can be ordered or
                 not, depending on whether we care about which child is moved
                 first. Can be ordered or not.
-            register_edit (bool): whether or not to register this edit.
         """
         super(MoveChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_move),
             op_type=ContainerOp.MOVE,
-            register_edit=register_edit,
         )
 
         self._name = "MoveChildren ({0})".format(tree_item.name)
@@ -271,7 +249,7 @@ class MoveChildrenEdit(BaseTreeEdit):
 class MoveTreeItemEdit(CompositeEdit):
     """Tree edit for moving a tree item under another parent."""
 
-    def __init__(self, tree_item, new_parent, index=None, register_edit=True):
+    def __init__(self, tree_item, new_parent, index=None):
         """Initialise edit item.
 
         This edit assumes that it is legal for tree_item to be a child of
@@ -281,35 +259,29 @@ class MoveTreeItemEdit(CompositeEdit):
             tree_item (BaseTreeItem): tree item to move.
             new_parent (BaseTreeItem): new parent to move under.
             index (int or None): index to add child at. If None, add at end.
-            register_edit (bool): whether or not to register this edit.
         """
         if index is not None:
-            insert_child_edit = InsertChildrenEdit(
+            insert_child_edit = InsertChildrenEdit.create_unregistered(
                 new_parent,
                 {tree_item.name: (index, tree_item)},
-                register_edit=False,
             )
         else:
-            insert_child_edit = AddChildrenEdit(
+            insert_child_edit = AddChildrenEdit.create_unregistered(
                 new_parent,
                 {tree_item.name: tree_item},
-                register_edit=False,
             )
 
         if not tree_item.parent:
             super(MoveTreeItemEdit, self).__init__(
                 [insert_child_edit],
-                register_edit=register_edit,
             )
         else:
-            remove_child_edit = RemoveChildrenEdit(
+            remove_child_edit = RemoveChildrenEdit.create_unregistered(
                 tree_item.parent,
                 [tree_item.name],
-                register_edit=False,
             )
             super(MoveTreeItemEdit, self).__init__(
                 [remove_child_edit, insert_child_edit],
-                register_edit=register_edit,
             )
 
         self._name = "MoveTreeItem ({0})".format(tree_item.name)
@@ -326,11 +298,7 @@ class MoveTreeItemEdit(CompositeEdit):
 
 class ReplaceTreeItemEdit(CompositeEdit):
     """Replace one tree item with another."""
-    def __init__(
-            self,
-            old_tree_item,
-            new_tree_item,
-            register_edit=True):
+    def __init__(self, old_tree_item, new_tree_item):
         """Initialise edit.
 
         This edit assumes that it is legal for tree_item to be a child of
@@ -343,43 +311,31 @@ class ReplaceTreeItemEdit(CompositeEdit):
         Args:
             old_tree_item (BaseTreeItem): tree item to replace.
             new_tree_item (BaseTreeItem): tree item to replace it with.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
         if old_tree_item.parent is None:
             self._is_valid = False
-            super(ReplaceTreeItemEdit, self).__init__(
-                [],
-                register_edit=register_edit
-            )
+            super(ReplaceTreeItemEdit, self).__init__([])
             return
 
-        remove_edit = RemoveChildrenEdit(
+        remove_edit = RemoveChildrenEdit.create_unregistered(
             old_tree_item.parent,
             [old_tree_item.name],
-            register_edit=False,
         )
-        add_edit = MoveTreeItemEdit(
+        add_edit = MoveTreeItemEdit.create_unregistered(
             new_tree_item,
             old_tree_item.parent,
             old_tree_item.index(),
-            register_edit=False,
         )
-        switch_host_edit = HostedDataEdit(
+        switch_host_edit = HostedDataEdit.create_unregistered(
             old_tree_item,
             new_tree_item,
-            register_edit=False,
         )
         subedits = [remove_edit, add_edit, switch_host_edit]
         for child in old_tree_item._children.values():
             subedits.append(
-                MoveTreeItemEdit(child, new_tree_item, register_edit=False)
+                MoveTreeItemEdit.create_unregistered(child, new_tree_item)
             )
-        super(ReplaceTreeItem, self).__init__(
-            subedits,
-            register_edit=register_edit,
-        )
+        super(ReplaceTreeItemEdit, self).__init__(subedits)
 
         self._name = "ReplaceTreeItem ({0})".format(old_tree_item.name)
         self._description = "Replace tree item {0} --> {1}".format(

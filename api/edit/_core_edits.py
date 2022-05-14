@@ -12,8 +12,7 @@ class SimpleEdit(BaseEdit):
             self,
             run_func,
             inverse_run_func,
-            object_to_edit=None,
-            register_edit=True):
+            object_to_edit=None):
         """Initialise edit with run and inverse functions.
 
         Args:
@@ -25,10 +24,8 @@ class SimpleEdit(BaseEdit):
             object_to_edit (variant or None): the object(s) to be edited.
                 If given, this will be passed as an argument to run_func
                 and inverse_run_func.
-            register_edit (bool): whether or not to register this edit in
-                the EDIT_LOG.
         """
-        super(SimpleEdit, self).__init__(register_edit=register_edit)
+        super(SimpleEdit, self).__init__()
         if object_to_edit is not None:
             self._run = partial(run_func, object_to_edit)
             self._inverse_run = partial(inverse_run_func, object_to_edit)
@@ -44,8 +41,7 @@ class SelfInverseSimpleEdit(SimpleEdit):
             self,
             run_func,
             object_to_edit=None,
-            use_inverse_flag=False,
-            register_edit=True):
+            use_inverse_flag=False):
         """Initialise edit with run function.
 
         Args:
@@ -55,12 +51,10 @@ class SelfInverseSimpleEdit(SimpleEdit):
                 boolean inverse flag, determining whether the function is being
                 used for _run, or inverse _run (depending on the value of
                 use_inverse_flag)
-            object_to_edit (variant or None): the object(s) to be edited. If given,
-                this will be passed as an argument to run_func.
-            use_inverse_flag (bool): if True, run_func accepts an inverse argument
-                determining whether or not it's running as an inverse.
-            register_edit (bool): whether or not to register this edit in
-                the EDIT_LOG.
+            object_to_edit (variant or None): the object(s) to be edited.
+                If given, this will be passed as an argument to run_func.
+            use_inverse_flag (bool): if True, run_func accepts an inverse
+                argument determining whether or not it's running as an inverse.
         """
         if use_inverse_flag:
             _run_func=partial(run_func, inverse=False)
@@ -71,7 +65,6 @@ class SelfInverseSimpleEdit(SimpleEdit):
             run_func=_run_func,
             inverse_run_func=_inverse_run_func,
             object_to_edit=object_to_edit,
-            register_edit=register_edit
         )
 
 
@@ -81,8 +74,7 @@ class CompositeEdit(BaseEdit):
     def __init__(
             self,
             edits_list,
-            reverse_order_for_inverse=True,
-            register_edit=True):
+            reverse_order_for_inverse=True):
         """Initialize composite edit.
 
         The edits passed to the edits_list must have their register flag
@@ -92,9 +84,8 @@ class CompositeEdit(BaseEdit):
             edits_list (list(BaseEdit)): list of edits to compose.
             reverse_order_for_inverse (bool): if True, we reverse the order
                 of the edits for the inverse.
-            reigster_edit (bool): whether or not to register this edit.
         """
-        super(CompositeEdit, self).__init__(register_edit)
+        super(CompositeEdit, self).__init__()
         self._is_valid = bool(edits_list)
         for edit in edits_list:
             if edit._register_edit or edit._registered or edit._has_been_done:
@@ -197,15 +188,14 @@ class CompositeEdit(BaseEdit):
 
 class AttributeEdit(BaseEdit):
     """Edit that changes a MutableAttribute object to a new value."""
-    def __init__(self, attr_dict, register_edit=True):
+    def __init__(self, attr_dict):
         """Initiailize edit.
 
         Args:
             attr_dict (dict(MutableAttribute, variant)): dictionary of
                 attributes with new values to set them to.
-            reigster_edit (bool): whether or not to register this edit.
         """
-        super(AttributeEdit, self).__init__(register_edit)
+        super(AttributeEdit, self).__init__()
         self._attr_dict = attr_dict
         self._orig_attr_dict = {}
         for attr in self._attr_dict:
@@ -256,13 +246,12 @@ class AttributeEdit(BaseEdit):
 
 class HostedDataEdit(SimpleEdit):
     """Edit to switch the data of a host from one object to another."""
-    def __init__(self, old_data, new_data, register_edit=True):
+    def __init__(self, old_data, new_data):
         """Initiailize edit.
 
         Args:
             old_data (Hosted): old data of host.
             new_data (Hosted): new data of host.
-            reigster_edit (bool): whether or not to register this edit.
         """
         if (not isinstance(old_data, Hosted)
                 or not isinstance(new_data, Hosted)):
@@ -273,5 +262,4 @@ class HostedDataEdit(SimpleEdit):
         super(HostedDataEdit, self).__init__(
             run_func=partial(new_data._switch_host, old_data.host),
             inverse_run_func=partial(old_data._switch_host, new_data.host),
-            register_edit=register_edit,
         )

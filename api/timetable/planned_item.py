@@ -39,7 +39,7 @@ class PlannedItem(NestedSerializable):
 
         Args:
             calendar (Calendar): calendar item.
-            date (Date): date item is scheduled for.
+            date (Date): date item is planned for.
             tree_item (BaseTreeItem): the task that this item represents.
             size (PlannedItemSize or None): size of item.
             importance (PlannedItemImportance or None): importance of item.

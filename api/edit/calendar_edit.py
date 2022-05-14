@@ -14,24 +14,17 @@ from ._core_edits import (
 
 class AddCalendarItemEdit(ListEdit):
     """Add calendar item to calendar."""
-    def __init__(
-            self,
-            calendar_item,
-            register_edit=True):
+    def __init__(self, calendar_item):
         """Initialise edit.
 
         Args:
             calendar_item (BaseCalendarItem): the calendar item to add. Can
                 be a single calendar item instance or a repeating item.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
         super(AddCalendarItemEdit, self).__init__(
             calendar_item.get_item_container(),
             [calendar_item],
             ContainerOp.ADD,
-            register_edit=register_edit,
         )
         self._name = "AddCalendarItem ({0})".format(calendar_item.name)
         self._description = (
@@ -45,25 +38,18 @@ class AddCalendarItemEdit(ListEdit):
 
 class RemoveCalendarItemEdit(ListEdit):
     """Remove calendar item from calendar."""
-    def __init__(
-            self,
-            calendar_item,
-            register_edit=True):
+    def __init__(self, calendar_item):
         """Initialise edit.
 
         Args:
             calendar_item (BaseCalendarItem): calendar item to remove. Can be
                 a single item or a repeat template.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
         super(RemoveCalendarItemEdit, self).__init__(
             calendar_item.get_item_container(),
             [calendar_item],
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
-            register_edit=register_edit,
         )
         self._name = "RemoveCalendarItem ({0})".format(calendar_item.name)
         self._description = (
@@ -87,8 +73,7 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
             calendar_item,
             attr_dict,
             subedits=None,
-            reverse_order_for_inverse=True,
-            register_edit=True):
+            reverse_order_for_inverse=True):
         """Initialise edit.
 
         Args:
@@ -98,9 +83,6 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
                 may need for dealing with specific attribute changes.
             reverse_order_for_inverse (bool): whether or not inverse edit
                 should reverse order of subedits.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
         updateable_attrs = [
             calendar_item._start_time,
@@ -115,14 +97,13 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
             self._original_attrs[attr] = attr.value
         self._check_validity()
 
-        self._attribute_edit = AttributeEdit(attr_dict, register_edit=False)
+        self._attribute_edit = AttributeEdit.create_unregistered(attr_dict)
         subedits = subedits or []
         subedits.insert(0, self._attribute_edit)
 
         super(BaseModifyCalendarItemEdit, self).__init__(
             subedits,
             reverse_order_for_inverse=reverse_order_for_inverse,
-            register_edit=register_edit,
         )
         self._name = "ModifyCalendarItem ({0})".format(calendar_item.name)
 
@@ -233,19 +214,12 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
     This edit can be performed continuously via drag and drop and hence must
     allow continuous editing to respond to user updates.
     """
-    def __init__(
-            self,
-            calendar_item,
-            attr_dict,
-            register_edit=True):
+    def __init__(self, calendar_item, attr_dict):
         """Initialise edit.
 
         Args:
             calendar_item (CalendarItem): calendar item to modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
         subedits = []
         self._remove_edit = None
@@ -261,7 +235,6 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
             calendar_item,
             attr_dict,
             subedits=subedits,
-            register_edit=register_edit,
         )
 
     @staticmethod
@@ -274,12 +247,11 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
         Returns:
             (ListEdit): edit to remove calendar item from old container.
         """
-        return ListEdit(
+        return ListEdit.create_unregistered(
             calendar_item.get_item_container(),
             [calendar_item],
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
-            register_edit=False
         )
 
     @staticmethod
@@ -293,11 +265,10 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
         Returns:
             (ListEdit): edit to add calendar item to new container.
         """
-        return ListEdit(
+        return ListEdit.create_unregistered(
             calendar_item.get_item_container(new_date),
             [calendar_item],
             ContainerOp.ADD,
-            register_edit=False
         )
 
     def _update(self, new_date=None, new_start_time=None, new_end_time=None):
@@ -341,34 +312,25 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
 
 class ModifyRepeatCalendarItemEdit(BaseModifyCalendarItemEdit):
     """Modify attributes of repeat calendar item."""
-    def __init__(
-            self,
-            calendar_item,
-            attr_dict,
-            register_edit=True):
+    def __init__(self, calendar_item, attr_dict):
         """Initialise edit.
 
         Args:
             calendar_item (RepeatCalendarItem): calendar item to modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
         subedits = []
         if calendar_item._repeat_pattern in attr_dict:
             subedits.append(
-                SelfInverseSimpleEdit(
+                SelfInverseSimpleEdit.create_unregistered(
                     calendar_item._clear_instances,
-                    register_edit=False,
                 )
             )
         if (calendar_item._start_time in attr_dict
                 or calendar_item._end_time in attr_dict):
             subedits.append(
-                SelfInverseSimpleEdit(
+                SelfInverseSimpleEdit.create_unregistered(
                     calendar_item._clean_overrides,
-                    register_edit=False,
                 )
             )
         super(ModifyRepeatCalendarItemEdit, self).__init__(
@@ -376,7 +338,6 @@ class ModifyRepeatCalendarItemEdit(BaseModifyCalendarItemEdit):
             attr_dict,
             subedits=subedits,
             reverse_order_for_inverse=False,
-            register_edit=register_edit,
         )
 
 
@@ -389,33 +350,27 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
     def __init__(
             self,
             calendar_item,
-            attr_dict,
-            register_edit=True):
+            attr_dict):
         """Initialise edit.
 
         Args:
             calendar_item (RepeatCalendarItemInstance): calendar item to
                 modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
         subedits = []
         if (calendar_item._date in attr_dict
                 or calendar_item._start_time in attr_dict
                 or calendar_item._end_time in attr_dict):
             subedits.append(
-                SelfInverseSimpleEdit(
+                SelfInverseSimpleEdit.create_unregistered(
                     calendar_item._compute_override,
-                    register_edit=False,
                 )
             )
         super(ModifyRepeatCalendarItemInstanceEdit, self).__init__(
             calendar_item,
             attr_dict,
             reverse_order_for_inverse=False,
-            register_edit=register_edit,
         )
 
     def _modified_attrs(self):
@@ -473,37 +428,26 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
 
 class ReplaceCalendarItemEdit(CompositeEdit):
     """Replace one calendar item with another."""
-    def __init__(
-            self,
-            old_calendar_item,
-            new_calendar_item,
-            register_edit=True):
+    def __init__(self, old_calendar_item, new_calendar_item):
         """Initialise edit.
 
         Args:
             old_calendar_item (BaseCalendarItem): calendar item to replace.
             new_calendar_item (BaseCalendarItem): calendar item to replace
                 it with.
-            register_edit (bool): whether or not to register this edit in the
-                edit log (ie. whether or not it's a user edit that can be
-                undone).
         """
-        remove_edit = RemoveCalendarItemEdit(
+        remove_edit = RemoveCalendarItemEdit.create_unregistered(
             old_calendar_item,
-            register_edit=False,
         )
-        add_edit = AddCalendarItemEdit(
+        add_edit = AddCalendarItemEdit.create_unregistered(
             new_calendar_item,
-            register_edit=False,
         )
-        switch_host_edit = HostedDataEdit(
+        switch_host_edit = HostedDataEdit.create_unregistered(
             old_calendar_item,
             new_calendar_item,
-            register_edit=False,
         )
         super(ReplaceCalendarItemEdit, self).__init__(
             [remove_edit, add_edit, switch_host_edit],
-            register_edit=register_edit,
         )
 
         self._name = "ReplaceCalendarItem ({0})".format(old_calendar_item.name)

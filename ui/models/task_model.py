@@ -112,8 +112,7 @@ class TaskModel(BaseTreeModel):
             task_item = index.internalPointer()
             if not task_item:
                 return False
-            # TODO: this should be property of task item rather than TaskStatus
-            task_item.update_task()
+            self.tree_manager.update_task(task_item)
             self.dataChanged.emit(index, index)
             return True
         return super(TaskModel, self).setData(index, value, role)

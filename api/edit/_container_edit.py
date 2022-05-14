@@ -62,8 +62,7 @@ class BaseContainerEdit(BaseEdit):
             diff_container,
             op_type,
             recursive=False,
-            edit_flags=None,
-            register_edit=True):
+            edit_flags=None):
         """Initialise edit item.
 
         Args:
@@ -81,7 +80,6 @@ class BaseContainerEdit(BaseEdit):
                 depends on op_type.
             edit_flags (list(ContainerEditFlag)): list of edit flags to use in
                 edit.
-            register_edit (bool): whether or not to register this edit.
 
         diff_dict formats:
             ADD:    {new_key: new_value}          - add new values at new keys
@@ -115,7 +113,7 @@ class BaseContainerEdit(BaseEdit):
         recursive diff_list:
             Not really tested yet, be cautious with this.
         """
-        super(BaseContainerEdit, self).__init__(register_edit)
+        super(BaseContainerEdit, self).__init__()
         self._container = container
         self._container_type = type(container)
         self._diff_container = diff_container
@@ -738,8 +736,7 @@ class DictEdit(BaseContainerEdit):
             diff_dict,
             op_type,
             recursive=False,
-            edit_flags=None,
-            register_edit=True):
+            edit_flags=None):
         """Initialise edit item.
 
         Args:
@@ -755,7 +752,6 @@ class DictEdit(BaseContainerEdit):
                 operation there. Interpretation depends on op_type.
             edit_flags (list(ContainerEditFlag)): list of edit flags to use in
                 edit.
-            register_edit (bool): whether or not to register this edit.
 
         diff_dict formats:
             ADD:    {new_key: new_value}          - add new values at new keys
@@ -789,7 +785,6 @@ class DictEdit(BaseContainerEdit):
             op_type,
             recursive=recursive,
             edit_flags=edit_flags,
-            register_edit=register_edit
         )
 
 
@@ -801,8 +796,7 @@ class ListEdit(BaseContainerEdit):
             diff_list,
             op_type,
             recursive=False,
-            edit_flags=None,
-            register_edit=True):
+            edit_flags=None):
         """Initialise edit item.
 
         Args:
@@ -816,7 +810,6 @@ class ListEdit(BaseContainerEdit):
                 apply the edit operation to each of those sublists.
             edit_flags (list(ContainerEditFlag)): list of edit flags to use in
                 edit.
-            register_edit (bool): whether or not to register this edit.
 
         diff_list formats:
             ADD:    [new_item]               - append new item
@@ -836,7 +829,6 @@ class ListEdit(BaseContainerEdit):
             op_type,
             recursive=recursive,
             edit_flags=edit_flags,
-            register_edit=register_edit,
         )
 
 
@@ -846,8 +838,7 @@ class TimelineEdit(CompositeEdit):
             self,
             timeline,
             diff_dict,
-            op_type,
-            register_edit=True):
+            op_type):
         """Initialise edit item.
 
         Args:
@@ -856,7 +847,6 @@ class TimelineEdit(CompositeEdit):
                 object. How to interpret this list depends on the operation
                 type.
             operation_type (ContainerOp): The type of edit operation to do.
-            register_edit (bool): whether or not to register this edit.
 
         diff_dict formats:
             ADD:    {time: [item]}             - add item at time
@@ -870,19 +860,18 @@ class TimelineEdit(CompositeEdit):
         """
         if op_type in (
                 ContainerOp.ADD, ContainerOp.INSERT, ContainerOp.REMOVE):
-            edit = BaseContainerEdit(
+            edit = BaseContainerEdit.create_unregistered(
                 timeline._dict,
                 diff_dict,
                 op_type,
                 recursive=True,
                 edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
-                register_edit=False
             )
-            super(TimelineEdit, self).__init__([edit], register_edit)
+            super(TimelineEdit, self).__init__([edit])
 
         elif op_type == ContainerOp.MODIFY:
             # convert diff list to use indexes instead of items
-            modify_edit = BaseContainerEdit(
+            modify_edit = BaseContainerEdit.create_unregistered(
                 timeline._dict,
                 OrderedDict([
                     (time, [(item_list.index(i1), i2) for i1, i2 in item_list])
@@ -890,9 +879,8 @@ class TimelineEdit(CompositeEdit):
                 ]),
                 op_type,
                 recursive=True,
-                register_edit=False
             )
-            super(TimelineEdit, self).__init__([modify_edit], register_edit)
+            super(TimelineEdit, self).__init__([modify_edit])
 
         elif op_type == ContainerOp.MOVE:
             # remove anything that tries to move to same time
@@ -901,14 +889,13 @@ class TimelineEdit(CompositeEdit):
                 for time, item_list in diff_dict.items()
             ]),
             # remove items from current time
-            remove_edit = TimelineEdit(
+            remove_edit = TimelineEdit.create_unregistered(
                 timeline,
                 OrderedDict([
                     (time, [item for item, _ in item_list])
                     for time, item_list in diff_dict.items()
                 ]),
                 ContainerOp.REMOVE,
-                register_edit=False
             )
             # add items to new time
             add_diff_dict = OrderedDict()
@@ -920,13 +907,11 @@ class TimelineEdit(CompositeEdit):
                     if item in diff_list:
                         continue
                     diff_list.append(item)
-            add_edit = TimelineEdit(
+            add_edit = TimelineEdit.create_unregistered(
                 timeline,
                 add_diff_dict,
                 ContainerOp.ADD,
-                register_edit=False
             )
             super(TimelineEdit, self).__init__(
                 [remove_edit, add_edit],
-                register_edit
             )

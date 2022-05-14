@@ -63,7 +63,9 @@ class TrackerView(BaseWeekTableView):
             parent=parent,
         )
         utils.set_style(self, "tracker_view.qss")
-        self.setItemDelegate(TrackerDelegate(self, project.tracker))
+        self.setItemDelegate(
+            TrackerDelegate(self, project.tracker, self.tree_manager)
+        )
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
         )
@@ -134,16 +136,19 @@ class TrackerView(BaseWeekTableView):
 
 class TrackerDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for tracker."""
-    def __init__(self, table, tracker, parent=None):
+    def __init__(self, table, tracker, tree_manager, parent=None):
         """Initialise task delegate item.
         
         Args:
             table (QtWidgets.QTableView): table widget this is delegate of.
             tracker (Tracker): tracker object.
+            tree_manager (TreeManager): tree manager object.
+            parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(TrackerDelegate, self).__init__(parent)
         self.table = table
         self.tracker = tracker
+        self.tree_manager = tree_manager
 
     @property
     def calendar_week(self):
@@ -295,11 +300,11 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             qtime = value_widget.time()
             value=str(Time(qtime.hour(), qtime.minute(), qtime.second()))
 
-        UpdateTaskHistoryEdit.create_and_run(
+        self.tree_manager.update_task(
             task,
             date_time,
-            new_value=value,
-            new_status=status
+            status,
+            value,
         )
 
     def createEditor(self, parent, option, index):

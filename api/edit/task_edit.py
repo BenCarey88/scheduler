@@ -10,17 +10,15 @@ from ._container_edit import DictEdit, ContainerOp
 class ChangeTaskTypeEdit(AttributeEdit):
     """Task edit to change type of a task."""
 
-    def __init__(self, task_item, new_type, register_edit=True):
+    def __init__(self, task_item, new_type):
         """Initialise edit.
 
         Args:
             task_item (Task): the task item this edit is being run on.
             new_type (TaskType): new type to change to.
-            register_edit (bool): whether or not to register this edit.
         """
         super(ChangeTaskTypeEdit, self).__init__(
             {item._type: new_type for item in task_item.get_family()},
-            register_edit=register_edit,
         )
 
         self._name = "ChangeTaskType ({0})".format(task_item.name)
@@ -40,8 +38,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             date_time,
             new_status=None,
             new_value=None,
-            comment=None,
-            register_edit=True):
+            comment=None):
         """Initialise base tree edit.
 
         Args:
@@ -50,11 +47,9 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             new_status (TaskStatus or None): new status to update with.
             new_value (variant or None): value to set for task at given time.
             comment (str or None): comment to add to task history, if given.
-            register_edit (bool): whether or not to register this edit.
         """
-        change_status_edit = AttributeEdit(
+        change_status_edit = AttributeEdit.create_unregistered(
             {task_item._status: new_status},
-            register_edit=False,
         )
 
         history = task_item.history
@@ -69,12 +64,11 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             date_dict[history.COMMENTS_KEY] = OrderedDict({
                 date_time.time(): comment
             })
-        history_edit = DictEdit(
+        history_edit = DictEdit.create_unregistered(
             history._dict,
             diff_dict,
             ContainerOp.ADD_OR_MODIFY,
             recursive=True,
-            register_edit=False,
         )
 
         # For now, we only update task status if this is for current date
@@ -84,12 +78,10 @@ class UpdateTaskHistoryEdit(CompositeEdit):
         if date_time.date() == Date.now():
             super(UpdateTaskHistoryEdit, self).__init__(
                 [change_status_edit, history_edit],
-                register_edit=register_edit,
             )
         else:
             super(UpdateTaskHistoryEdit, self).__init__(
                 [history_edit],
-                register_edit=register_edit,
             )
         self._is_valid = bool(new_value or new_status or comment)
         self._name = "UpdateTaskHistory ({0})".format(task_item.name)

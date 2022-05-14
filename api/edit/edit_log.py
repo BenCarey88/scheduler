@@ -44,6 +44,15 @@ class EditLog(object):
         """
         return (self.__registration_locked or bool(self._edit_to_add))
 
+    @property
+    def is_locked(self):
+        """Check whether edit log is locked.
+
+        Returns:
+            (bool): whether or not edit log registration is locked.
+        """
+        return self._registration_locked
+
     def open_registry(self):
         """Open edit registry so edits can be added."""
         self.__registration_locked = False

@@ -44,7 +44,7 @@ class BaseTreeItem(Hosted, NestedSerializable):
         self._name = MutableAttribute(name, "name")
         self._parent = MutableAttribute(parent, "parent")
         self._children = OrderedDict()
-        self._register_edits = True
+        # self._register_edits = True
         # self.id = id or uuid4()
         # base class must be overridden, has no allowed child types.
         self._allowed_child_types = []
@@ -147,47 +147,47 @@ class BaseTreeItem(Hosted, NestedSerializable):
         finally:
             self._children = _children
 
-    def create_child(
-            self,
-            name,
-            child_type=None,
-            index=None,
-            **kwargs):
-        """Create child item and add to children dict.
+    # def create_child(
+    #         self,
+    #         name,
+    #         child_type=None,
+    #         index=None,
+    #         **kwargs):
+    #     """Create child item and add to children dict.
 
-        Args:
-            name (str): name of child.
-            child_type (class or None): class to use for child init. If None,
-                use current class.
-            index (int or None): if given, insert child at given index, else
-                add at end of _children dict.
-            **kwargs: kwargs to be passed to child init.
+    #     Args:
+    #         name (str): name of child.
+    #         child_type (class or None): class to use for child init. If None,
+    #             use current class.
+    #         index (int or None): if given, insert child at given index, else
+    #             add at end of _children dict.
+    #         **kwargs: kwargs to be passed to child init.
 
-        Raises:
-            (DuplicateChildNameError): if a child with given name already
-                exists.
-            (UnallowedChildType): if the child_type is not allowed.
+    #     Raises:
+    #         (DuplicateChildNameError): if a child with given name already
+    #             exists.
+    #         (UnallowedChildType): if the child_type is not allowed.
 
-        Returns:
-            (BaseTreeItem): newly created child. In subclasses, this will use
-                the type of the subclass.
-        """
-        if name in self._children:
-            raise DuplicateChildNameError(self.name, name)
-        child_type = child_type or self.__class__
-        if child_type not in self._allowed_child_types:
-            raise UnallowedChildType(self.__class__, child_type)
-        child = child_type(name, parent=self, **kwargs)
-        if index is None:
-            index = len(self._children)
-        if index > len(self._children):
-            raise IndexError("Index given is larger than number of children.")
-        InsertChildrenEdit.create_and_run(
-            self,
-            {name: (index, child)},
-            register_edit=self._register_edits,
-        )
-        return child
+    #     Returns:
+    #         (BaseTreeItem): newly created child. In subclasses, this will use
+    #             the type of the subclass.
+    #     """
+    #     if name in self._children:
+    #         raise DuplicateChildNameError(self.name, name)
+    #     child_type = child_type or self.__class__
+    #     if child_type not in self._allowed_child_types:
+    #         raise UnallowedChildType(self.__class__, child_type)
+    #     child = child_type(name, parent=self, **kwargs)
+    #     if index is None:
+    #         index = len(self._children)
+    #     if index > len(self._children):
+    #         raise IndexError("Index given is larger than number of children.")
+    #     InsertChildrenEdit.create_and_run(
+    #         self,
+    #         {name: (index, child)},
+    #         register_edit=self._register_edits,
+    #     )
+    #     return child
 
     # def create_new_child(
     #         self,

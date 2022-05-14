@@ -17,7 +17,14 @@ from ._core_edits import (
 
 
 class AddPlannedItemEdit(ListEdit):
-    """"""
+    """Add planned item to calendar."""
+    def __init__(self, planned_item):
+        """Initialise edit.
+
+        Args:
+            calendar_item (BaseCalendarItem): the calendar item to add. Can
+                be a single calendar item instance or a repeating item.
+        """
 
 class RemovePlannedItemEdit(ListEdit):
     """"""

@@ -391,17 +391,19 @@ class TreeEditManager(BaseTreeManager):
     def update_task(
             self,
             task_item,
-            status=None,
             date_time=None,
+            status=None,
+            value=None,
             comment=None):
         """Update task history and status.
 
         Args:
             task_item (Task): task item to edit.
-            status (TaskStatus or None): status to update task with. If None
-                given, we calculate the next one.
             date (DateTime or None): datetime object to update task history
                 with.
+            status (TaskStatus or None): status to update task with. If None
+                given, we calculate the next one.
+            value (variant or None): value to set for task at given time.
             comment (str): comment to add to history if needed.
 
         Returns:
@@ -425,6 +427,7 @@ class TreeEditManager(BaseTreeManager):
             task_item,
             date_time,
             status,
+            value,
             comment=comment,
         )
         return True

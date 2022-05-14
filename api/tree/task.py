@@ -232,50 +232,50 @@ class Task(BaseTreeItem):
         """
         return isinstance(self.parent, Task)
 
-    def update_task(self, status=None, date_time=None, comment=None):
-        """Update task history and status.
+    # def update_task(self, status=None, date_time=None, comment=None):
+    #     """Update task history and status.
 
-        Args:
-            status (TaskStatus or None): status to update task with. If None
-                given, we calculate the next one.
-            date (DateTime or None): datetime object to update task history
-                with.
-            comment (str): comment to add to history if needed.
-        """
-        if status is None:
-            current_status = self.status
-            if current_status == TaskStatus.UNSTARTED:
-                if self.type == TaskType.ROUTINE:
-                    status = TaskStatus.COMPLETE
-                else:
-                    status = TaskStatus.IN_PROGRESS
-            elif current_status == TaskStatus.IN_PROGRESS:
-                status = TaskStatus.COMPLETE
-            elif current_status == TaskStatus.COMPLETE:
-                status = TaskStatus.UNSTARTED
+    #     Args:
+    #         status (TaskStatus or None): status to update task with. If None
+    #             given, we calculate the next one.
+    #         date (DateTime or None): datetime object to update task history
+    #             with.
+    #         comment (str): comment to add to history if needed.
+    #     """
+    #     if status is None:
+    #         current_status = self.status
+    #         if current_status == TaskStatus.UNSTARTED:
+    #             if self.type == TaskType.ROUTINE:
+    #                 status = TaskStatus.COMPLETE
+    #             else:
+    #                 status = TaskStatus.IN_PROGRESS
+    #         elif current_status == TaskStatus.IN_PROGRESS:
+    #             status = TaskStatus.COMPLETE
+    #         elif current_status == TaskStatus.COMPLETE:
+    #             status = TaskStatus.UNSTARTED
 
-        if date_time is None:
-            date_time = DateTime.now()
-        UpdateTaskHistoryEdit.create_and_run(
-            self,
-            date_time,
-            status,
-            comment=comment,
-            register_edit=self._register_edits,
-        )
+    #     if date_time is None:
+    #         date_time = DateTime.now()
+    #     UpdateTaskHistoryEdit.create_and_run(
+    #         self,
+    #         date_time,
+    #         status,
+    #         comment=comment,
+    #         register_edit=self._register_edits,
+    #     )
 
-    def change_task_type(self, new_type):
-        """Change task type to new type.
+    # def change_task_type(self, new_type):
+    #     """Change task type to new type.
 
-        Args:
-            new_type (TaskType): new type to change to.
-        """
-        if new_type != self.type:
-            ChangeTaskTypeEdit.create_and_run(
-                self,
-                new_type,
-                self._register_edits
-            )
+    #     Args:
+    #         new_type (TaskType): new type to change to.
+    #     """
+    #     if new_type != self.type:
+    #         ChangeTaskTypeEdit.create_and_run(
+    #             self,
+    #             new_type,
+    #             self._register_edits
+    #         )
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.

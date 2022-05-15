@@ -205,3 +205,14 @@ class HistoryData(object):
             (dict): history dict for given day.
         """
         return self._dict.get(date, {})
+
+    def _update_for_task(self, date, task):
+        """Update dict to get history for task at given date.
+
+        Args:
+            date (Date): date to update at.
+            task (Task): task to get history for.
+        """
+        history_dict = task.history.get_dict_at_date(date)
+        if history_dict != self._dict.get(date, {}).get(task):
+            self._dict.setdefault(date, {})[task] = history_dict

@@ -122,29 +122,6 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
         """Check if edit is valid."""
         self._is_valid = bool(self._modified_attrs())
 
-    def _get_attr_value_change_string(self, attr):
-        """Get string describing value change for attribute.
-
-        Args:
-            attr (MutableAttribute): attribute to check.
-
-        Returns:
-            (str or None): string describing value change for attribute,
-                unless attribute is unnamed, or value is unchanged, in which
-                case return None.
-        """
-        if not attr.name:
-            return None
-        orig_value = self._original_attrs.get(attr, attr.value)
-        new_value = self._attr_dict.get(attr, attr.value)
-        if orig_value == new_value:
-            return None
-        return "{0}: {1} --> {2}".format(
-            attr.name,
-            str(orig_value),
-            str(new_value)
-        )
-
     @property
     def description(self):
         """Get description of item.
@@ -154,16 +131,9 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
         Returns:
             (str): description.
         """
-        attr_change_strings = [
-            self._get_attr_value_change_string(attr)
-            for attr in self._attr_dict
-        ]
-        return (
-            "Edit attributes of {0} {1}:\n\t\t{2}".format(
-                self._calendar_item.__class__.__name__,
-                self._calendar_item.name,
-                "\n\t\t".join([a for a in attr_change_strings if a])
-            )
+        return self._attribute_edit.get_description(
+            self._calendar_item,
+            self._calendar_item.name
         )
 
     def _update(
@@ -226,7 +196,7 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
         self._add_edit = None
         if calendar_item._date in attr_dict:
             new_date = attr_dict[calendar_item._date]
-            # remove items from old container
+            # remove items from old container and add to new one
             self._remove_edit = self._get_remove_edit(calendar_item)
             self._add_edit = self._get_add_edit(calendar_item, new_date)
             subedits.extend([self._remove_edit, self._add_edit])
@@ -392,8 +362,8 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
         start_key = self._calendar_item._start_time
         end_key = self._calendar_item._end_time
         sched_date = self._calendar_item.scheduled_date
-        sched_start = self._calendar_item.scheduled_start_datetime
-        sched_end = self._calendar_item.scheduled_end_datetime
+        sched_start = self._calendar_item.scheduled_start_time
+        sched_end = self._calendar_item.scheduled_end_time
         key_schedule_tuples = [
             (date_key, sched_date),
             (start_key, sched_start),
@@ -403,11 +373,12 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
         for key, sched_datetime in key_schedule_tuples:
             if key in modified_attrs:
                 orig_datetime = self._original_attrs.get(key)
-                new_datetime = self._original_attrs.get(key)
+                new_datetime = self._attr_dict.get(key)
                 if orig_datetime is None and new_datetime == sched_datetime:
                     modified_attrs.discard(key)
                 elif new_datetime is None and orig_datetime == sched_datetime:
                     modified_attrs.discard(key)
+
         return modified_attrs
 
     def _update(self, new_date=None, new_start_time=None, new_end_time=None):

@@ -243,6 +243,63 @@ class AttributeEdit(BaseEdit):
                 self._modified_attrs.discard(value)
         self._is_valid = bool(self._modified_attrs)
 
+    def _get_attr_value_change_string(self, attr):
+        """Get string describing value change for attribute.
+
+        Args:
+            attr (MutableAttribute): attribute to check.
+
+        Returns:
+            (str or None): string describing value change for attribute,
+                unless attribute is unnamed, or value is unchanged, in which
+                case return None.
+        """
+        if not attr.name:
+            return None
+        orig_value = self._orig_attr_dict.get(attr, attr.value)
+        new_value = self._attr_dict.get(attr, attr.value)
+        if orig_value == new_value:
+            return None
+        return "{0}: {1} --> {2}".format(
+            attr.name,
+            str(orig_value),
+            str(new_value)
+        )
+
+    def get_description(self, object_=None, object_name=None):
+        """Get description for attr edit.
+
+        Implemented as separate function rather than as description property
+        because base edits shouldn't have descriptions. However, this can be
+        used by subclasses.
+
+        Args:
+            object_ (variant or None): the object we're editing attributes of,
+                if given.
+            object_name (str or None): the name of the object, if given. 
+
+        Returns:
+            (str): description.
+        """
+        attr_change_strings = [
+            self._get_attr_value_change_string(attr)
+            for attr in self._attr_dict
+        ]
+        start_string = "Edit attributes"
+        if object_ is not None or object_name:
+            start_string += " of "
+        if object_ is not None:
+            start_string += object_.__class__.__name__ + " "
+        if object_name:
+            start_string += object_name
+        start_string += "\n\t\t"
+        return (
+            "{0}{1}".format(
+                start_string,
+                "\n\t\t".join([a for a in attr_change_strings if a])
+            )
+        )
+
 
 class HostedDataEdit(SimpleEdit):
     """Edit to switch the data of a host from one object to another."""

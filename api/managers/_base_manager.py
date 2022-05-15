@@ -56,3 +56,40 @@ class BaseManager(object):
         else:
             self._name = suffix
         self._project_user_prefs = user_prefs
+
+
+class BaseTimeTableManager(BaseManager):
+    """Base manager for all timetable classes."""
+    def __init__(self, user_prefs, calendar, archive_calendar, name=""):
+        """Initialize class.
+
+        Args:
+            user_prefs (ProjectUserPrefs): project user prefs class.
+            calendar (Calendar): calendar object.
+            archive_calendar (Calendar): archive calendar object.
+            name (str): manager name.
+        """
+        self._calendar = calendar
+        self._archive_calendar = archive_calendar
+        super(BaseTimeTableManager, self).__init__(
+            user_prefs,
+            name=name,
+        )
+
+    @property
+    def calendar(self):
+        """Get calendar object.
+
+        Returns:
+            (Calendar): calendar object.
+        """
+        return self._calendar
+
+    @property
+    def archive_calendar(self):
+        """Get archived calendar object.
+
+        Returns:
+            (Calendar): archived calendar object.
+        """
+        return self._archive_calendar

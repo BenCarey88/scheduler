@@ -82,6 +82,8 @@ class TaskTab(BaseTab):
         minimum_height = 0
         child_filter = self.tree_manager.child_filter
         child_filters = [child_filter] if child_filter else []
+        # TODO: replace this and line below with:
+        # child_list = self.tree_manager.get_all_children(self.tree_root)
         with self.tree_root.filter_children(child_filters):
             child_list = self.tree_root.get_all_children()
             for i, category in enumerate(child_list):

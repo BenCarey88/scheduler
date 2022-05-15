@@ -1,11 +1,11 @@
 """Planner manager class."""
 
-from ._calendar_edit_manager import CalendarEditManager
-from ._calendar_filter_manager import CalendarFilterManager
+from ._planner_edit_manager import PlannerEditManager
+from ._planner_filter_manager import PlannerFilterManager
 
 
-class CalendarManager(CalendarEditManager, CalendarFilterManager):
-    """Calendar edit manager to edit calendar items."""
+class PlannerManager(PlannerEditManager, PlannerFilterManager):
+    """Planner edit manager to edit calendar items."""
     def __init__(self, user_prefs, calendar, archive_calendar=None):
         """Initialize class.
 
@@ -14,7 +14,7 @@ class CalendarManager(CalendarEditManager, CalendarFilterManager):
             calendar (Calendar): calendar item.
             archive_calendar (Calendar): archive calendar object.
         """
-        super(CalendarManager, self).__init__(
+        super(PlannerManager, self).__init__(
             user_prefs,
             calendar,
             archive_calendar,

@@ -79,6 +79,15 @@ class PlannedItem(NestedSerializable):
         return self._tree_item.value
 
     @property
+    def name(self):
+        """Get name of item.
+
+        Returns:
+            (str): name of item.
+        """
+        return self.tree_item.name
+
+    @property
     def size(self):
         """Get size of item.
 
@@ -104,6 +113,21 @@ class PlannedItem(NestedSerializable):
             (list(BaseCalendarItem)): associated calendar items.
         """
         return [item.value for item in self._scheduled_items]
+
+    def get_item_container(self, date=None):
+        """Get the list that this item should be contained in.
+
+        Args:
+            date (Date or None): date to query at. If not given, use the
+                item's internal date.
+
+        Returns:
+            (list): list that planned item should be contained in.
+        """
+        if date is None:
+            date = self.date
+        calendar_day = self._calendar.get_day(date)
+        return calendar_day._planned_items
 
     def _add_scheduled_item(self, scheduled_item):
         """Add scheduled item (to be used during deserialization).

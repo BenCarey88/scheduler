@@ -1,9 +1,10 @@
 """Task edits to be applied to task items."""
 
 from collections import OrderedDict
+from functools import partial
 
 from scheduler.api.common.date_time import Date
-from ._core_edits import AttributeEdit, CompositeEdit
+from ._core_edits import AttributeEdit, CompositeEdit, SelfInverseSimpleEdit
 from ._container_edit import DictEdit, ContainerOp
 
 
@@ -48,10 +49,6 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             new_value (variant or None): value to set for task at given time.
             comment (str or None): comment to add to task history, if given.
         """
-        change_status_edit = AttributeEdit.create_unregistered(
-            {task_item._status: new_status},
-        )
-
         history = task_item.history
         date = date_time.date()
         date_dict = OrderedDict()
@@ -70,19 +67,22 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             ContainerOp.ADD_OR_MODIFY,
             recursive=True,
         )
+        update_task_edit = SelfInverseSimpleEdit.create_unregistered(
+            history._update_task_status
+        )
+        subedits = [history_edit, update_task_edit]
+        if not history.get_dict_at_date(date):
+            # add to root history data dict too if not been added yet
+            global_history_edit = SelfInverseSimpleEdit.create_unregistered(
+                partial(
+                    task_item.root._history_data._update_for_task,
+                    date,
+                    task_item
+                )
+            )
+            subedits.append(global_history_edit)
 
-        # For now, we only update task status if this is for current date
-        # TODO: this logic is gross though tbh, and not really accurate for
-        # what we want. This should probably just be broken into two different
-        # edits (one for task status, one for history)
-        if date_time.date() == Date.now():
-            super(UpdateTaskHistoryEdit, self).__init__(
-                [change_status_edit, history_edit],
-            )
-        else:
-            super(UpdateTaskHistoryEdit, self).__init__(
-                [history_edit],
-            )
+        super(UpdateTaskHistoryEdit, self).__init__(subedits)
         self._is_valid = bool(new_value or new_status or comment)
         self._name = "UpdateTaskHistory ({0})".format(task_item.name)
 

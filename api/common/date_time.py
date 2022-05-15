@@ -94,6 +94,42 @@ class TimeDelta(object):
                 seconds=seconds
             )
 
+    def __eq__(self, time_delta):
+        """Check if this is equal to another timedelta object.
+
+        Args:
+            time_delta (TimeDelta): object to check equality with.
+
+        Returns:
+            (bool): whether this equals time_delta.
+        """
+        if isinstance(time_delta, TimeDelta):
+            return (
+                self._timedelta_obj == time_delta._timedelta_obj
+                and self._years == time_delta._years
+                and self._months == time_delta._months
+            )
+        return False
+
+    def __ne__(self, time_delta):
+        """Check if this is not equal to another date time object.
+
+        Args:
+            time_delta (TimeDelta): object to check equality with.
+
+        Returns:
+            (bool): whether this does not equal time_delta.
+        """
+        return (not self.__eq__(time_delta))
+
+    def __hash__(self):
+        """Hash this object using the timedelta_obj hash.
+
+        Returns:
+            (int): the object hash.
+        """
+        return hash((self._timedelta_obj, self._years, self._months))
+
     def __add__(self, timedelta_or_datetime):
         """Add this to another timedelta, or to a BaseDateTimeWrapper object.
 

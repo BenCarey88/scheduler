@@ -70,13 +70,61 @@ class CalendarItemRepeatPattern(NestedSerializable):
             raise CalendarItemError(
                 "CalendarItemRepeat timedelta_gap is too small for given range"
             )
-        self.start_date = inital_date_pattern[0]
         self._pattern_size = len(inital_date_pattern)
         self._gap = timedelta_gap
         self._gap_multiplier = 1
         self._dates = [date for date in inital_date_pattern]
         self._repeat_type = repeat_type or self.DAY_REPEAT
         self._end_date = end_date
+
+    def _get_hashable_attrs(self):
+        """Get hashable attributes of object.
+
+        Returns:
+            (tuple): self._initial_date_pattern, self._gap, self._end_date
+                and self._repeat_type
+        """
+        return (
+            tuple(self._initial_date_pattern),
+            self._gap,
+            self._end_date,
+            self._repeat_type
+        )
+
+    def __eq__(self, repeat_pattern):
+        """Check if this is equal to another class instance.
+
+        Args:
+            repeat_pattern (CalendarItemRepeatPattern): other instance to
+                compare to.
+
+        Returns:
+            (bool): whether or not instances are equal.        
+        """
+        return (
+            isinstance(repeat_pattern, CalendarItemRepeatPattern) and
+            self._get_hashable_attrs() == repeat_pattern._get_hashable_attrs()
+        )
+
+    def __ne__(self, repeat_pattern):
+        """Check if this is not equal to another class instance.
+
+        Args:
+            repeat_pattern (CalendarItemRepeatPattern): other instance to
+                compare to.
+
+        Returns:
+            (bool): whether or not instances are not equal.        
+        """
+        return not self.__eq__(repeat_pattern)
+
+    def __hash__(self):
+        """Get hash of repeat type.
+
+        Returns:
+            (int): hashed value.
+        """
+        return hash(self._get_hashable_attrs())
 
     @property
     def initial_dates(self):
@@ -86,6 +134,15 @@ class CalendarItemRepeatPattern(NestedSerializable):
             (list(Date)): list of days of initial pattern.
         """
         return self._initial_date_pattern
+
+    @property
+    def start_date(self):
+        """Get start date of repeat pattern.
+        
+        Returns:
+            (Date): date repeat pattern starts at.
+        """
+        return self._initial_date_pattern[0]
 
     @property
     def repeat_type(self):
@@ -591,12 +648,12 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             "datetime_string is implemented in calendar item subclasses."
         )
 
-    def get_item_container(self, datetime=None):
+    def get_item_container(self, date=None):
         """Get the list that this item should be contained in.
 
         Args:
-            datetime (DateTime or None): datetime to query at. If not given, use
-                the item's internal start date time.
+            date (Date or None): date to query at. If not given, use the
+                item's internal start date time.
 
         Returns:
             (list): list that calendar item should be contained in.
@@ -755,7 +812,7 @@ class CalendarItem(BaseCalendarItem):
 
         Args:
             date (Date or None): date to query at. If not given, use the
-                item's internal start date time.
+                item's internal start date.
 
         Returns:
             (list): list that calendar item should be contained in.
@@ -902,12 +959,12 @@ class RepeatCalendarItem(BaseCalendarItem):
             self.repeat_pattern.summary_string(),
         )
 
-    def get_item_container(self, datetime=None):
+    def get_item_container(self, date=None):
         """Get the list that this item should be contained in.
 
         Args:
-            datetime (DateTime or None): datetime to query at. In this class,
-                this arg is ignored.
+            date (Date or None): date to query at. If not given, use the
+                item's internal start date time.
 
         Returns:
             (list): list that calendar item should be contained in.
@@ -965,7 +1022,7 @@ class RepeatCalendarItem(BaseCalendarItem):
         """
         override_tuples = list(self._overridden_instances.items())
         for scheduled_date, instance in override_tuples:
-            if (not self._repeat_pattern.check_date(scheduled_date)
+            if (not self.repeat_pattern.check_date(scheduled_date)
                     or not instance.is_override()):
                 del self._overridden_instances[scheduled_date]
 
@@ -1209,12 +1266,12 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
             self.end_time.string()
         )
 
-    def get_item_container(self, datetime=None):
+    def get_item_container(self, date=None):
         """Get the list that this item should be contained in.
 
         Args:
-            datetime (DateTime or None): datetime to query at. If not given,
-                use the internal date.
+            date (Date or None): date to query at. If not given, use the
+                item's internal start date time.
 
         Returns:
             (list): list that calendar item should be contained in.

@@ -7,10 +7,10 @@ from scheduler.api.timetable.calendar_item import(
     RepeatCalendarItemInstance,
 )
 
-from .._base_manager import BaseManager, require_class
+from .._base_manager import BaseTimeTableManager, require_class
 
 
-class BaseCalendarManager(BaseManager):
+class BaseCalendarManager(BaseTimeTableManager):
     """Base calendar manager class to build calendar managers from."""
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.
@@ -20,30 +20,12 @@ class BaseCalendarManager(BaseManager):
             calendar (Calendar): calendar object.
             archive_calendar (Calendar): archive calendar object.
         """
-        self._calendar = calendar
-        self._archive_calendar = archive_calendar
         super(BaseCalendarManager, self).__init__(
             user_prefs,
-            suffix="calendar_manager",
+            calendar,
+            archive_calendar,
+            name="calendar_manager",
         )
-
-    @property
-    def calendar(self):
-        """Get calendar object.
-
-        Returns:
-            (Calendar): calendar object.
-        """
-        return self._calendar
-
-    @property
-    def archive_calendar(self):
-        """Get archived calendar object.
-
-        Returns:
-            (Calendar): archived calendar object.
-        """
-        return self._archive_calendar
 
     @require_class((CalendarItem, RepeatCalendarItemInstance), True)
     def get_item_to_modify(self, calendar_item):

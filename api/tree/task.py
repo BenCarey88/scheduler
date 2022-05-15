@@ -468,6 +468,21 @@ class TaskHistory(object):
         """
         return self.get_dict_at_date(date).get(self.VALUE_KEY, None)
 
+    def _update_task_status(self):
+        """Update task status to reflect today's date history.
+
+        This is intended to be used by edit classes only, as it modifies the
+        value of the task status mutable attribute.
+
+        Returns:
+            (bool): whether or not status was changed.
+        """
+        status = self.get_status_at_date(Date.now())
+        if status != self._task.status:
+            self._task._status.set_value(status)
+            return True
+        return False
+
     def to_dict(self):
         """Convert class to serialized json dict.
 
@@ -479,7 +494,6 @@ class TaskHistory(object):
         json_dict = OrderedDict()
         for date, subdict in self._dict.items():
             json_subdict = {}
-            json_dict[date.string()] = json_subdict
             if self.STATUS_KEY in subdict:
                 json_subdict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
             if self.VALUE_KEY in subdict:
@@ -489,6 +503,8 @@ class TaskHistory(object):
                 json_subdict[self.COMMENTS_KEY] = json_comments_subdict
                 for time, comment in subdict[self.COMMENTS_KEY].items():
                     json_comments_subdict[time.string()] = comment
+            if json_subdict:
+                json_dict[date.string()] = json_subdict
         return json_dict
 
     @classmethod

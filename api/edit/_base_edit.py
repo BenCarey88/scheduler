@@ -22,7 +22,7 @@ class BaseEdit(object):
             _register_edit (bool): whether or not to register this edit in the
                 edit log (ie. whether or not it's a user edit that can be
                 undone). By default this is true, but can be changed by
-                creating the eidt with the class method create_unregistered.
+                creating the edit with the class method create_unregistered.
             _registered (bool): determines if the edit has been registered
                 or not.
             _continuous_run_in_progress (bool): tells us if the edit is

@@ -6,7 +6,6 @@ from types import new_class
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time
-from scheduler.api.edit.task_edit import UpdateTaskHistoryEdit
 from scheduler.api.tree.task import (
     Task,
     TaskHistory,
@@ -88,7 +87,7 @@ class TrackerView(BaseWeekTableView):
     def update(self):
         """Update widget and viewport."""
         self.open_editors()
-        self.viewport().update()
+        super(TrackerView, self).update()
 
     def resize_table(self):
         """Resize table view."""

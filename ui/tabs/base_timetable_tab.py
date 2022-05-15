@@ -57,7 +57,7 @@ class BaseTimetableTab(BaseTab):
 
     def update(self):
         """Update widget."""
-        self.main_view.viewport().update()
+        self.main_view.update()
 
 
 class BaseWeekTableView(QtWidgets.QTableView):
@@ -94,5 +94,9 @@ class BaseWeekTableView(QtWidgets.QTableView):
         """
         self.calendar_week = calendar_week
         self.model().set_calendar_week(calendar_week)
+        self.update()
+
+    def update(self):
+        """Update view."""
         self.viewport().update()
         self.horizontalHeader().viewport().update()

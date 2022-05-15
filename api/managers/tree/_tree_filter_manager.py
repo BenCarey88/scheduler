@@ -62,9 +62,9 @@ class TreeFilterManager(BaseTreeManager):
         )
         self._tree_data = {}
         self._filtered_items = set()
-        self.setup_from_user_prefs()
+        self._setup_from_user_prefs()
 
-    def setup_from_user_prefs(self):
+    def _setup_from_user_prefs(self):
         """Setup filtering based on user prefs."""
         filter_attrs = self._project_user_prefs.get_attribute(
             [self._name, self.FILTERED_TASKS_PREF], {}
@@ -73,6 +73,8 @@ class TreeFilterManager(BaseTreeManager):
             if tree_item and attr_dict:
                 for attr, value in attr_dict.items():
                     self._tree_data.setdefault(tree_item, {})[attr] = value
+                    if attr == self.IS_SELECTED_FOR_FILTERING and value==True:
+                        self._filtered_items.add(tree_item)
 
     def has_attribute(self, tree_item, attribute):
         """Check if tree item already has attribute defined in internal dict.
@@ -101,7 +103,7 @@ class TreeFilterManager(BaseTreeManager):
         default = self.ATTRIBUTE_DEFAULTS.get(attribute)
         return item_dict.setdefault(attribute, default)
 
-    def set_attribute(self, tree_item, attribute,  value):
+    def set_attribute(self, tree_item, attribute, value):
         """Set the attribute for the given tree item.
 
         Args:

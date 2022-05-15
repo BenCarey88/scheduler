@@ -1,34 +1,24 @@
 """Tacker tab."""
 
 from functools import partial
-from types import new_class
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date, DateTime, Time
-from scheduler.api.tree.task import (
-    Task,
-    TaskHistory,
-    TaskStatus,
-    TaskValueType
-)
+from scheduler.api.common.date_time import DateTime, Time
+from scheduler.api.tree.task import TaskValueType
 
 from scheduler.ui.models.timetable_week_model import TrackerWeekModel
 from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseWeekTableView
 )
-from scheduler.ui.tabs.base_tab import BaseTab
 from scheduler.ui import constants, utils
 
 
 class TrackerTab(BaseTimetableTab):
     """Tracker tab."""
-    def __init__(
-            self,
-            project,
-            parent=None):
-        """Setup timetable main view.
+    def __init__(self, project, parent=None):
+        """Setup tracker tab.
 
         Args:
             project (Project): the project we're working on.
@@ -48,7 +38,7 @@ class TrackerTab(BaseTimetableTab):
 class TrackerView(BaseWeekTableView):
     """Tracker table view."""
     def __init__(self, name, project, parent=None):
-        """Initialise tracker delegate item.
+        """Initialise tracker table view.
 
         Args:
             name (str): name of tab.

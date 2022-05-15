@@ -3,7 +3,7 @@
 import os
 
 from .common.user_prefs import ProjectUserPrefs
-from .managers import CalendarManager, TreeManager
+from .managers import CalendarManager, PlannerManager, TreeManager
 from .serialization.serializable import (
     CustomSerializable,
     SaveType,
@@ -166,6 +166,7 @@ class Project(CustomSerializable):
         self._load_project_data()
         self._tree_managers = {}
         self._calendar_manager = None
+        self._planner_manager = None
 
     def set_project_path(self, project_root_path):
         """Set project path to given directory.
@@ -298,6 +299,21 @@ class Project(CustomSerializable):
                 self.archive_calendar,
             )
         return self._calendar_manager
+
+    def get_planner_manager(self):
+        """Get calendar manager for this project.
+
+        Returns:
+            (PlannerManager): planner manager for managing planner edits
+                and filtering.
+        """
+        if self._planner_manager is None:
+            self._planner_manager = PlannerManager(
+                self.user_prefs,
+                self.calendar,
+                self.archive_calendar,
+            )
+        return self._planner_manager
 
     # TODO: find a way to avoid writing entire tree, should be able to just
     # save edited components

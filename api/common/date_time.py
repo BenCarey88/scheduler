@@ -42,8 +42,8 @@ class TimeDelta(object):
     We implement two additions to the datetime.timedelta usage:
         - datetime.timedelta doesn't allow month or year values since these can
             represent varying amounts of time. We implement these by storing
-            them as extra attributes which we only interpret depending on the
-            during addition/subtraction with a Date, Time or DateTime object.
+            them as extra attributes which we only interpret during
+            addition/subtraction with a Date, Time or DateTime object.
             Note though that if these are used we'll no longer be able to use
             methods like total_seconds or the days property.
         - datetime.timedelta classes can only be added to datetime or date

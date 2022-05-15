@@ -927,7 +927,7 @@ class Date(BaseDateTimeWrapper):
         """Get weekday.
 
         Returns:
-            (int): integerr from 0 to 6 representing weekday.
+            (int): integer from 0 to 6 representing weekday.
         """
         return self._datetime_obj.weekday()
 

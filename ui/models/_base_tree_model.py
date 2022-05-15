@@ -387,7 +387,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not item:
             return False
 
-        # TODO: implement this as __eq__ for BaseTreeItem class
         if item.parent == parent:
             # if item is being dropped further along its parents childlist
             # then row needs to be reduced by 1

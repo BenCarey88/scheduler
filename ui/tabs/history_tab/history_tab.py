@@ -1,6 +1,6 @@
 """History tab."""
 
-from functools import partial
+from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -9,6 +9,7 @@ from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseWeekTableView
 )
+from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 
 
 class HistoryTab(BaseTimetableTab):
@@ -21,11 +22,18 @@ class HistoryTab(BaseTimetableTab):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         name = "history"
-        history_view = HistoryView(name, project)
+        main_views_dict = OrderedDict([
+            (
+                (DateType.WEEK, ViewType.TIMETABLE),
+                HistoryView(name, project)
+            ),
+        ])
         super(HistoryTab, self).__init__(
             name,
             project,
-            history_view,
+            main_views_dict,
+            DateType.WEEK,
+            ViewType.TIMETABLE,
             parent=parent,
         )
 

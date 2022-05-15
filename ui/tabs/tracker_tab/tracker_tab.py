@@ -1,5 +1,6 @@
 """Tacker tab."""
 
+from collections import OrderedDict
 from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -12,6 +13,7 @@ from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseWeekTableView
 )
+from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import constants, utils
 
 
@@ -25,11 +27,18 @@ class TrackerTab(BaseTimetableTab):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         name = "tracker"
-        tracker_view = TrackerView(name, project)
+        main_views_dict = OrderedDict([
+            (
+                (DateType.WEEK, ViewType.TIMETABLE),
+                TrackerView(name, project)
+            ),
+        ])
         super(TrackerTab, self).__init__(
             name,
             project,
-            tracker_view,
+            main_views_dict,
+            DateType.WEEK,
+            ViewType.TIMETABLE,
             parent=parent,
         )
         utils.set_style(self, "tracker.qss")
@@ -63,15 +72,6 @@ class TrackerView(BaseWeekTableView):
         )
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.open_editors()
-
-    def set_to_week(self, week):
-        """Set view to use given week.
-
-        Args:
-            week (CalendarWeek): the calendar week to use.
-        """
-        super(TrackerView, self).set_to_week(week)
         self.open_editors()
 
     def update(self):

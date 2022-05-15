@@ -1,6 +1,6 @@
 """Planner tab."""
 
-from functools import partial
+from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -9,6 +9,7 @@ from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseWeekTableView
 )
+from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
 
 
@@ -22,11 +23,18 @@ class PlannerTab(BaseTimetableTab):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         name = "planner"
-        planner_view = PlannerView(name, project)
+        main_views_dict = OrderedDict([
+            (
+                (DateType.WEEK, ViewType.TIMETABLE),
+                PlannerView(name, project)
+            ),
+        ])
         super(PlannerTab, self).__init__(
             name,
             project,
-            planner_view,
+            main_views_dict,
+            DateType.WEEK,
+            ViewType.TIMETABLE,
             parent=parent,
         )
         utils.set_style(self, "planner.qss")

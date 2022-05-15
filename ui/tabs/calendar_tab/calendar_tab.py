@@ -1,6 +1,7 @@
 """Calendar Tab."""
 
 
+from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time, TimeDelta
@@ -11,6 +12,7 @@ from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseWeekTableView
 )
+from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import constants, utils
 
 from .calendar_item_dialog import CalendarItemDialog
@@ -27,11 +29,18 @@ class CalendarTab(BaseTimetableTab):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         name = "calendar"
-        calendar_table_view = CalendarView(name, project)
+        main_views_dict = OrderedDict([
+            (
+                (DateType.WEEK, ViewType.TIMETABLE),
+                CalendarView(name, project)
+            ),
+        ])
         super(CalendarTab, self).__init__(
             name,
             project,
-            calendar_table_view,
+            main_views_dict,
+            DateType.WEEK,
+            ViewType.TIMETABLE,
             parent=parent,
         )
         utils.set_style(self, "calendar.qss")
@@ -206,7 +215,6 @@ class CalendarView(BaseWeekTableView):
         Args:
             name (str): name of tab this is used in.
             project (Project): the project we're working on.
-            calendar_week (CalendarWeek): calendar week for view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(CalendarView, self).__init__(

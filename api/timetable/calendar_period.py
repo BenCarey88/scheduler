@@ -46,6 +46,41 @@ class BaseCalendarPeriod(NestedSerializable):
         """
         return self._calendar
 
+    def next(self):
+        """Get calendar period starting immediately after this one ends.
+
+        Returns:
+            (BaseCalendarPeriod): instance of this class starting after
+                end of this one.
+        """
+        raise NotImplementedError(
+            "next is implemented in BaseCalendarPeriod subclasses."
+        )
+
+    def prev(self):
+        """Get calendar period starting immediately before this one begins.
+
+        Returns:
+            (BaseCalendarPeriod): instance of this class starting before
+                start of this one.
+        """
+        raise NotImplementedError(
+            "prev is implemented in BaseCalendarPeriod subclasses."
+        )
+
+    def contains(self, calendar_period):
+        """Check if this calendar period contains another.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period to check.
+
+        Returns:
+            (bool): whether or not calendar period is contained in this.
+        """
+        raise NotImplementedError(
+            "contains is implemented in BaseCalendarPeriod subclasses."
+        )
+
 
 class CalendarDay(BaseCalendarPeriod):
     """Class representing a day of calendar data."""
@@ -95,6 +130,24 @@ class CalendarDay(BaseCalendarPeriod):
         return self._date.string()
 
     @property
+    def calendar_month(self):
+        """Get calendar month that day is contained in.
+
+        Returns:
+            (CalendarMonth): calendar month that day is contained in.
+        """
+        return self._calendar_month
+
+    @property
+    def calendar_year(self):
+        """Get calendar year that day is contained in.
+
+        Returns:
+            (CalendarYear): calendar year that day is contained in.
+        """
+        return self._calendar_month._calendar_year
+
+    @property
     def header_name(self):
         """Get name to use in headers for this day.
 
@@ -119,6 +172,34 @@ class CalendarDay(BaseCalendarPeriod):
                 yield item_instance
         for item in self._scheduled_items:
             yield item
+
+    def next(self):
+        """Get calendar day immediately after this one.
+
+        Returns:
+            (CalendarDay): calendar day after this one.
+        """
+        return self.calendar.get_day(self.date + TimeDelta(days=1))
+
+    def prev(self):
+        """Get calendar day immediately before this one.
+
+        Returns:
+            (CalendarDay): calendar day before this one.
+        """
+        return self.calendar.get_day(self.date - TimeDelta(days=1))
+
+    def contains(self, calendar_period):
+        """Check if this calendar period contains another.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period to check.
+
+        Returns:
+            (bool): whether or not calendar period is contained in this.
+        """
+        # calendar day doesn't contain any other calendar periods
+        return False
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -185,6 +266,9 @@ class CalendarWeek(BaseCalendarPeriod):
     Note that unlike the other classes in this module, this one is not fixed -
     it gets generated on the fly when needed to be viewed, and the starting
     day may be changed.
+
+    This means that we can't store any data on it, it essentially just stores
+    refs to other calendar periods.
     """
     _SAVE_TYPE = SaveType.DIRECTORY
     _ORDER_FILE = "week{0}".format(SerializableFileTypes.ORDER)
@@ -215,6 +299,40 @@ class CalendarWeek(BaseCalendarPeriod):
         self._start_date = start_date
         self._length = length
         self.__calendar_days = None
+
+    def __eq__(self, calendar_week):
+        """Check if equal to other calendar week.
+
+        Args:
+            calendar_week (CalendarWeek): other calendar week to compare to.
+
+        Returns:
+            (bool): whether calendar week is equal to this one.
+        """
+        return (
+            isinstance(calendar_week, CalendarWeek)
+            and self._start_date == calendar_week._start_date
+            and self._length == calendar_week._length
+        )
+
+    def __ne__(self, calendar_week):
+        """Check if not equal to other calendar week.
+
+        Args:
+            calendar_week (CalendarWeek): other calendar week to compare to.
+
+        Returns:
+            (bool): whether calendar week is not equal to this one.
+        """
+        return not self.__eq__(calendar_week)
+
+    def __hash__(self):
+        """Hash class instance.
+
+        Returns:
+            (int): hash value.
+        """
+        return hash((self._start_date, self._length))
 
     @property
     def _calendar_days(self):
@@ -249,6 +367,24 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return self._start_date + TimeDelta(days=self._length-1)
 
+    @property
+    def start_day(self):
+        """Get start day of calendar week.
+
+        Returns:
+            (CalendarDay): start calendar day.
+        """
+        return self.calendar.get_day(self.start_date)
+
+    @property
+    def end_day(self):
+        """Get end day of calendar week.
+
+        Returns:
+            (CalendarDay): end calendar day.
+        """
+        return self.calendar.get_day(self.end_date)
+
     # TODO: maybe replace with just week 1, week 2 etc. and sim. for day name?
     @property
     def name(self):
@@ -279,7 +415,7 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return list(self.iter_days())[index]
 
-    def next_week(self):
+    def next(self):
         """Get calendar week starting immediately after this one.
 
         This returns a standard seven-day week, with starting day immediately
@@ -290,7 +426,7 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return CalendarWeek(self.calendar, self.end_date + TimeDelta(days=1))
 
-    def prev_week(self):
+    def prev(self):
         """Get calendar week starting immediately before this one.
 
         This returns a standard seven-day week, with ending day immediately
@@ -302,6 +438,21 @@ class CalendarWeek(BaseCalendarPeriod):
         return CalendarWeek(
             self.calendar,
             self.start_date - TimeDelta(days=Date.NUM_WEEKDAYS)
+        )
+
+    def contains(self, calendar_period):
+        """Check if this calendar period contains another.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period to check.
+
+        Returns:
+            (bool): whether or not calendar period is contained in this.
+        """
+        return (
+            isinstance(calendar_period, CalendarDay)
+            and calendar_period.date >= self.start_date
+            and calendar_period.date <= self.end_date
         )
 
     def week_starting_next_day(self):
@@ -435,6 +586,39 @@ class CalendarMonth(BaseCalendarPeriod):
         """
         return Date.month_string_from_int(self._month, short=False)
 
+    @property
+    def start_day(self):
+        """Get start day of calendar month.
+
+        Returns:
+            (CalendarDay): start calendar day.
+        """
+        return self.calendar.get_day(Date(self._year, self._month, 1))
+
+    @property
+    def calendar_year(self):
+        """Get calendar year that month is contained in.
+
+        Returns:
+            (CalendarYear): calendar year that month is contained in.
+        """
+        return self._calendar_year
+
+    def get_start_week(self, starting_day=0):
+        """Get first week of month.
+
+        Args:
+            starting_day (int or str): integer or string representing starting
+                day for week. If None, we start at the starting day.
+
+        Returns:
+            (CalendarWeek): calendar week.
+        """
+        return self.calendar.get_week_containing_date(
+            self.start_day.date,
+            starting_day=starting_day,
+        )
+
     def get_calendar_weeks(self, starting_day=0):
         """Get calendar weeks list.
 
@@ -482,6 +666,46 @@ class CalendarMonth(BaseCalendarPeriod):
         """
         for week in self.get_calendar_weeks(starting_day):
             yield week
+
+    def next(self):
+        """Get calendar month immediately after this one.
+
+        Returns:
+            (CalendarMonth): calendar month after this one.
+        """
+        new_date = self._start_date + TimeDelta(months=1)
+        return self.calendar.get_month(new_date.year, new_date.month)
+
+    def prev(self):
+        """Get calendar month immediately before this one.
+
+        Returns:
+            (CalendarMonth): calendar month before this one.
+        """
+        new_date = self._start_date - TimeDelta(months=1)
+        return self.calendar.get_month(new_date.year, new_date.month)
+
+    def contains(self, calendar_period):
+        """Check if this calendar period contains another.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period to check.
+
+        Returns:
+            (bool): whether or not calendar period is contained in this.
+        """
+        if isinstance(calendar_period, CalendarDay):
+            return (
+                calendar_period.date.year == self._year
+                and calendar_period.date.month == self._month
+            )
+        if isinstance(calendar_period, CalendarWeek):
+            # count week as contained if there's any crossover
+            return (
+                self.contains(calendar_period.start_day)
+                or self.contains(calendar_period.end_day)
+            )
+        return False
 
     def to_dict(self):
         """Serialize class as dict.
@@ -582,6 +806,39 @@ class CalendarYear(BaseCalendarPeriod):
         """
         return str(self._year)
 
+    @property
+    def year(self):
+        """Get year number.
+
+        Returns:
+            (int): the year.
+        """
+        return self._year
+
+    @property
+    def start_day(self):
+        """Get start day of calendar year.
+
+        Returns:
+            (CalendarDay): start calendar day.
+        """
+        return self.calendar.get_day(Date(self._year, 1, 1))
+
+    def get_start_week(self, starting_day=0):
+        """Get first week of year.
+
+        Args:
+            starting_day (int or str): integer or string representing starting
+                day for week. If None, we start at the starting day.
+
+        Returns:
+            (CalendarWeek): calendar week.
+        """
+        return self.calendar.get_week_containing_date(
+            self.start_day.date,
+            starting_day=starting_day,
+        )
+
     def iter_months(self):
         """Iterate through months in class.
 
@@ -590,6 +847,43 @@ class CalendarYear(BaseCalendarPeriod):
         """
         for month in self._calendar_months.values():
             yield month
+
+    def next(self):
+        """Get calendar year immediately after this one.
+
+        Returns:
+            (CalendarYear): calendar year after this one.
+        """
+        return self.calendar.get_year(self._year + 1)
+
+    def prev(self):
+        """Get calendar year immediately before this one.
+
+        Returns:
+            (CalendarYear): calendar year before this one.
+        """
+        return self.calendar.get_year(self._year + 1)
+
+    def contains(self, calendar_period):
+        """Check if this calendar period contains another.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period to check.
+
+        Returns:
+            (bool): whether or not calendar period is contained in this.
+        """
+        if isinstance(calendar_period, CalendarDay):
+            return calendar_period.date.year == self._year
+        if isinstance(calendar_period, CalendarWeek):
+            # count week as contained if there's any crossover
+            return (
+                self.contains(calendar_period.start_day)
+                or self.contains(calendar_period.end_day)
+            )
+        if isinstance(calendar_period, CalendarMonth):
+            return calendar_period._year == self._year
+        return False
 
     def to_dict(self):
         """Serialize class as dict.

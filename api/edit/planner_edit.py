@@ -3,7 +3,7 @@
 Friend classes: [PlannedItem]
 """
 
-from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
+from ._container_edit import DictEdit, ContainerOp, ContainerEditFlag
 from ._core_edits import (
     AttributeEdit,
     CompositeEdit,
@@ -16,7 +16,7 @@ from ._core_edits import (
 # UpdateTaskHistoryEdit class
 
 
-class AddPlannedItemEdit(ListEdit):
+class AddPlannedItemEdit(DictEdit):
     """Add planned item to calendar."""
     def __init__(self, planned_item, index=None):
         """Initialise edit.

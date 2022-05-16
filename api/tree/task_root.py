@@ -198,13 +198,17 @@ class HistoryData(object):
     def get_history_for_date(self, date):
         """Get history at given date.
 
+        Note that this adds a subdict to the internal if one doesn't exist
+        so that this any edits to this dictionary will be seen in the returned
+        dict too.
+
         Args:
             date (Date): date to add at.
 
         Returns:
             (dict): history dict for given day.
         """
-        return self._dict.get(date, {})
+        return self._dict.setdefault(date, {})
 
     def _update_for_task(self, date, task):
         """Update dict to get history for task at given date.

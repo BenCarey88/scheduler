@@ -43,11 +43,20 @@ class Calendar(NestedSerializable):
                 calendar items.
         """
         super(Calendar, self).__init__()
-        self.task_root = task_root
+        self._task_root = task_root
         self._years = {}
         self._months = {}
         self._days = {}
         self._repeat_items = []
+
+    @property
+    def task_root(self):
+        """Get task root object.
+
+        Returns:
+            (TaskRoot): the task root object.
+        """
+        return self._task_root
 
     def _add_day(self, calendar_day):
         """Add calendar day to calendar days dict.

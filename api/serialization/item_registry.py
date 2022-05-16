@@ -18,7 +18,7 @@ class ItemRegistry(object):
             _items (dict(str, variant)): dictionary of registered items.
                 These are registered during deserialization and shouldn't
                 need to be touched again after that.
-            _callbacks (dict(str, function)): dictionary of callbacks to
+            _callbacks (dict(str, list(function))): dictionary of callbacks to
                 run when an item of the given id is registered.
             _new_ids (list(str)): this is used to store newly generated ids
                 made during serialization. It allows us to ensure all new ids
@@ -61,8 +61,7 @@ class ItemRegistry(object):
                 "Item with id {0} already exists in registry".format(id)
             )
         self._items[id] = item
-        callback = self._callbacks.get(id, None)
-        if callback is not None:
+        for callback in self._callbacks.get(id, []):
             callback(item)
 
     def register_callback(self, id, callback):
@@ -77,7 +76,7 @@ class ItemRegistry(object):
         if item is not None:
             callback(item)
         else:
-            self._callbacks[id] = callback
+            self._callbacks.setdefault(id, []).append(callback)
 
     def clear(self):
         """Clear registry, for use with a new project."""

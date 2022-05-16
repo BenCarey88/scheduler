@@ -8,8 +8,10 @@ from scheduler.api.common.date_time import DateTime, Time, TimeDelta
 from scheduler.api.timetable.calendar_item import CalendarItemType
 
 from scheduler.ui.models.timetable_week_model import CalendarWeekModel
+from scheduler.ui.models.timetable_day_model import BaseDayModel
 from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
+    BaseDayTableView,
     BaseWeekTableView
 )
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
@@ -33,6 +35,13 @@ class CalendarTab(BaseTimetableTab):
             (
                 (DateType.WEEK, ViewType.TIMETABLE),
                 CalendarView(name, project)
+            ),
+            # FOR TESTING
+            (
+                (DateType.DAY, ViewType.TIMETABLE),
+                BaseDayTableView(
+                    name, project, BaseDayModel(project.calendar)
+                )
             ),
         ])
         super(CalendarTab, self).__init__(

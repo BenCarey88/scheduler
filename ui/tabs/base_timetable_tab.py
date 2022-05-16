@@ -161,6 +161,44 @@ class BaseTableView(QtWidgets.QTableView):
         self.horizontalHeader().viewport().update()
 
 
+class BaseDayTableView(BaseTableView):
+    """Base day table view for timetable tabs."""
+
+    def __init__(
+            self,
+            name,
+            project,
+            timetable_day_model,
+            parent=None):
+        """Initialize class instance.
+
+        Args:
+            name (str): name of tab this is used in.
+            project (Project): the project we're working on.
+            timetable_day_model (BaseDayModel): the model we're using for
+                this view.
+            parent (QtGui.QWidget or None): QWidget parent of widget.
+        """
+        super(BaseDayTableView, self).__init__(
+            name,
+            project,
+            timetable_day_model,
+            parent=parent
+        )
+        self.calendar_day = self.calendar.get_day(Date.now())
+        self.set_to_calendar_period = self.set_to_day
+
+    def set_to_day(self, calendar_day):
+        """Set view to given calendar_day.
+
+        Args:
+            calendar_day (CalendarDay): calendar day to set to.
+        """
+        self.calendar_day = calendar_day
+        self.model().set_calendar_day(calendar_day)
+        self.update()
+
+
 class BaseWeekTableView(BaseTableView):
     """Base week table view for timetable tabs."""
 

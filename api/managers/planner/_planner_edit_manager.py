@@ -80,7 +80,8 @@ class PlannerEditManager(BasePlannerManager):
     def modify_planned_item(
             self,
             planned_item,
-            date=None,
+            start_date=None,
+            end_date=None,
             tree_item=None,
             size=None,
             importance=None):
@@ -88,13 +89,15 @@ class PlannerEditManager(BasePlannerManager):
 
         Args:
             planned_item (PlannedItem): planned item to remove.
-            date (Date): date item is planned for.
+            start_date (Date): date item is planned to start.
+            end_date (Date): date item is planned to end.
             tree_item (BaseTreeItem): the task that this item represents.
             size (PlannedItemSize or None): size of item.
             importance (PlannedItemImportance or None): importance of item.
         """
         attr_dict = {
-            planned_item._date: date,
+            planned_item._start_date: start_date,
+            planned_item._end_date: end_date,
             planned_item._tree_item: tree_item,
             planned_item._size: size,
             planned_item._importance: importance,

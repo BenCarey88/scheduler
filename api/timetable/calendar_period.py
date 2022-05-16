@@ -1,6 +1,7 @@
 """Classes representing a time period of calendar data."""
 
 from collections import OrderedDict
+from api.timetable.planned_item import PlannedItem
 
 from scheduler.api.common.date_time import (
     Date,
@@ -13,7 +14,6 @@ from scheduler.api.serialization.serializable import (
     SerializableFileTypes
 )
 from .calendar_item import CalendarItem
-from .planned_item import PlannedItem
 
 
 class BaseCalendarPeriod(NestedSerializable):
@@ -72,7 +72,8 @@ class BaseCalendarPeriod(NestedSerializable):
         """Check if this calendar period contains another.
 
         Args:
-            calendar_period (BaseCalendarPeriod): calendar period to check.
+            calendar_period (BaseCalendarPeriod or Date): calendar period
+                or date to check.
 
         Returns:
             (bool): whether or not calendar period is contained in this.
@@ -81,13 +82,38 @@ class BaseCalendarPeriod(NestedSerializable):
             "contains is implemented in BaseCalendarPeriod subclasses."
         )
 
+    @property
+    def name(self):
+        """Get name of class to use in serialization.
+
+        Returns:
+            (str): name of class.
+        """
+        raise NotImplementedError(
+            "name property is implemented in BaseCalendarPeriod subclasses."
+        )
+
+    @property
+    def full_name(self):
+        """Get full name of class to use inserialization.
+
+        In most cases this is just name - the difference is that fullname
+        must give enough information to work out the calendar period on its
+        own, so if the name doesn't carry all the information, fullname must
+        be reimplemented.
+
+        Returns:
+            (str): full name of class.
+        """
+        return self.name
+
 
 class CalendarDay(BaseCalendarPeriod):
     """Class representing a day of calendar data."""
     _SAVE_TYPE = SaveType.FILE
-    PLANNED_ITEMS_KEY = "planned_items"
     CALENDAR_ITEMS_KEY = "calendar_items"
-    HISTORY_KEY = "history"
+    PLANNED_ITEMS_KEY = "planned_items"
+    PLANNED_WEEK_ITEMS_KEY = "planned_week_items"
 
     def __init__(self, calendar, date, calendar_month=None):
         """Initialise calendar day object.
@@ -100,6 +126,13 @@ class CalendarDay(BaseCalendarPeriod):
         Attrs:
             _scheduled_items (list(BaseCalendarItem)): all calendar item
                 instances scheduled on this day.
+            _planned_items (list(PlannedItem)): all items planned for this
+                day.
+            _planned_week_items (list(PlannedWeekItem)): all week items
+                planned for the week that starts on this day. These are
+                stored here because the week object isn't stored globally
+                in the calendar.
+            _history (dict): history for this day.
         """
         super(CalendarDay, self).__init__(calendar)
         self._date = date
@@ -107,9 +140,10 @@ class CalendarDay(BaseCalendarPeriod):
             date.year,
             date.month
         )
-        self._planned_items = []
         self._scheduled_items = []
-        self._history = {}
+        self._planned_items = []
+        self._planned_week_items = []
+        self._history = calendar.task_root.get_history_for_date(date)
 
     @property
     def date(self):
@@ -173,6 +207,15 @@ class CalendarDay(BaseCalendarPeriod):
         for item in self._scheduled_items:
             yield item
 
+    def iter_planned_items(self):
+        """Iterate through planned day items.
+
+        Yields:
+            (PlannedItem): next planned item.
+        """
+        for item in self._planned_items:
+            yield item
+
     def next(self):
         """Get calendar day immediately after this one.
 
@@ -193,7 +236,8 @@ class CalendarDay(BaseCalendarPeriod):
         """Check if this calendar period contains another.
 
         Args:
-            calendar_period (BaseCalendarPeriod): calendar period to check.
+            calendar_period (BaseCalendarPeriod or Date): calendar period
+                or date to check.
 
         Returns:
             (bool): whether or not calendar period is contained in this.
@@ -208,13 +252,17 @@ class CalendarDay(BaseCalendarPeriod):
             (dict): dictionary representation.
         """
         dict_repr = {}
+        if self._scheduled_items:
+            dict_repr[self.CALENDAR_ITEMS_KEY] = [
+                item.to_dict() for item in self._scheduled_items
+            ]
         if self._planned_items:
             dict_repr[self.PLANNED_ITEMS_KEY] = [
                 item.to_dict() for item in self._planned_items
             ]
-        if self._scheduled_items:
-            dict_repr[self.CALENDAR_ITEMS_KEY] = [
-                item.to_dict() for item in self._scheduled_items
+        if self._planned_week_items:
+            dict_repr[self.PLANNED_WEEK_ITEMS_KEY] = [
+                item.to_dict() for item in self._planned_week_items
             ]
         return dict_repr
 
@@ -242,13 +290,6 @@ class CalendarDay(BaseCalendarPeriod):
             return None
         calendar_day = cls(calendar, date, calendar_month)
 
-        planned_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
-        planned_items = [
-            PlannedItem.from_dict(planned_item_dict, calendar, date)
-            for planned_item_dict in planned_items_list
-        ]
-        calendar_day._planned_items = planned_items
-
         scheduled_items_list = dict_repr.get(cls.CALENDAR_ITEMS_KEY, [])
         scheduled_items = [
             CalendarItem.from_dict(scheduled_item_dict, calendar)
@@ -256,8 +297,39 @@ class CalendarDay(BaseCalendarPeriod):
         ]
         calendar_day._scheduled_items = scheduled_items
 
-        calendar_day._history = calendar.task_root.get_history_for_date(date)
+        planned_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
+        planned_items = [
+            PlannedItem.from_dict(planned_item_dict, calendar)
+            for planned_item_dict in planned_items_list
+        ]
+        calendar_day._planned_items = planned_items
+
+        planned_week_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
+        planned_week_items = [
+            PlannedItem.from_dict(planned_item_dict, calendar)
+            for planned_item_dict in planned_week_items_list
+        ]
+        calendar_day._planned_week_items = planned_week_items
+
         return calendar_day
+
+    @classmethod
+    def from_name(cls, calendar, name):
+        """Get calendar day using name string.
+
+        Args:
+            calendar (Calendar): calendar object.
+            name (str): name of day.
+
+        Returns:
+            (CalendarDay or None): calendar day corresponding to name,
+                or None if couldn't be initialized.
+        """
+        try:
+            date = Date.from_string(name)
+        except DateTimeError:
+            return None
+        return calendar.get_day(date)
 
 
 class CalendarWeek(BaseCalendarPeriod):
@@ -268,7 +340,8 @@ class CalendarWeek(BaseCalendarPeriod):
     day may be changed.
 
     This means that we can't store any data on it, it essentially just stores
-    refs to other calendar periods.
+    refs to other calendar periods. Items planned/scheduled for this week
+    have to be worked out on the fly from months/days.
     """
     _SAVE_TYPE = SaveType.DIRECTORY
     _ORDER_FILE = "week{0}".format(SerializableFileTypes.ORDER)
@@ -415,6 +488,15 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return list(self.iter_days())[index]
 
+    def iter_planned_items(self):
+        """Iterate through planned week items.
+
+        Yields:
+            (PlannedItem): next planned item.
+        """
+        for item in self.start_day._planned_week_items:
+            yield item
+
     def next(self):
         """Get calendar week starting immediately after this one.
 
@@ -444,11 +526,14 @@ class CalendarWeek(BaseCalendarPeriod):
         """Check if this calendar period contains another.
 
         Args:
-            calendar_period (BaseCalendarPeriod): calendar period to check.
+            calendar_period (BaseCalendarPeriod or Date): calendar period
+                or date to check.
 
         Returns:
             (bool): whether or not calendar period is contained in this.
         """
+        if isinstance(calendar_period, Date):
+            return self.contains(self.calendar.get_day(calendar_period))
         return (
             isinstance(calendar_period, CalendarDay)
             and calendar_period.date >= self.start_date
@@ -530,17 +615,40 @@ class CalendarWeek(BaseCalendarPeriod):
                 calendar._add_day(calendar_day)
         return calendar_week
 
+    @classmethod
+    def from_name(cls, calendar, name):
+        """Get calendar week using name string.
+
+        Args:
+            calendar (Calendar): calendar object.
+            name (str): name of week.
+
+        Returns:
+            (CalendarWeek or None): calendar week corresponding to name,
+                or None if couldn't be initialized.
+        """
+        try:
+            start_date_string, end_date_string = name.split(" to ")
+            start_date = Date.from_string(start_date_string)
+            end_date = Date.from_string(end_date_string)
+        except (DateTimeError, ValueError):
+            return None
+        length = (end_date - start_date).days + 1
+        return cls(calendar, start_date, length)
+
 
 class CalendarMonth(BaseCalendarPeriod):
     """Class representing a month of calendar data."""
     _SAVE_TYPE = SaveType.DIRECTORY
     _ORDER_FILE = "month{0}".format(SerializableFileTypes.ORDER)
+    _INFO_FILE = "planned_items{0}".format(SerializableFileTypes.INFO)
     _MARKER_FILE = _ORDER_FILE
     _SUBDIR_KEY = "weeks"
     _SUBDIR_CLASS = CalendarWeek
     _SUBDIR_DICT_TYPE = OrderedDict
 
     WEEKS_KEY = _SUBDIR_KEY
+    PLANNED_ITEMS_KEY = "planned_items"
 
     def __init__(self, calendar, year, month, calendar_year=None):
         """Initialise calendar month object.
@@ -550,6 +658,10 @@ class CalendarMonth(BaseCalendarPeriod):
             year (int): the year number.
             month (int): the month number.
             calendar_year (CalendarYear or None): calendar year object.
+
+        Attrs:
+            _planned_items (list(PlannedItem)): items planned for this
+                month.
         """
         super(CalendarMonth, self).__init__(calendar)
         self._year = year
@@ -561,6 +673,7 @@ class CalendarMonth(BaseCalendarPeriod):
             self._year
         )
         self.__calendar_days = None
+        self._planned_items = []
 
     @property
     def _calendar_days(self):
@@ -585,6 +698,18 @@ class CalendarMonth(BaseCalendarPeriod):
             (str): month name.
         """
         return Date.month_string_from_int(self._month, short=False)
+
+    @property
+    def name(self):
+        """Get full name to use for month.
+
+        Returns:
+            (str): month name, including year.
+        """
+        return "{0} {1}".format(
+            Date.month_string_from_int(self._month, short=False),
+            str(self._year)
+        )
 
     @property
     def start_day(self):
@@ -667,6 +792,15 @@ class CalendarMonth(BaseCalendarPeriod):
         for week in self.get_calendar_weeks(starting_day):
             yield week
 
+    def iter_planned_items(self):
+        """Iterate through planned month items.
+
+        Yields:
+            (PlannedItem): next planned item.
+        """
+        for item in self._planned_items:
+            yield item
+
     def next(self):
         """Get calendar month immediately after this one.
 
@@ -689,11 +823,14 @@ class CalendarMonth(BaseCalendarPeriod):
         """Check if this calendar period contains another.
 
         Args:
-            calendar_period (BaseCalendarPeriod): calendar period to check.
+            calendar_period (BaseCalendarPeriod or Date): calendar period
+                or Date to check.
 
         Returns:
             (bool): whether or not calendar period is contained in this.
         """
+        if isinstance(calendar_period, Date):
+            return self.contains(self.calendar.get_day(calendar_period))
         if isinstance(calendar_period, CalendarDay):
             return (
                 calendar_period.date.year == self._year
@@ -714,14 +851,19 @@ class CalendarMonth(BaseCalendarPeriod):
             (dict): nested json dict representing calendar object and its
                 contained calendar period objects.
         """
+        dict_repr = {}
         weeks_dict = OrderedDict()
         for week in self.get_calendar_weeks():
             week_dict = week.to_dict()
             if week_dict:
                 weeks_dict[week.name] = week_dict
+        if self._planned_items:
+            dict_repr[self.PLANNED_ITEMS_KEY] = [
+                item.to_dict() for item in self._planned_items
+            ]
         if weeks_dict:
-            return {self.WEEKS_KEY: weeks_dict}
-        return {}
+            dict_repr[self.WEEKS_KEY] = weeks_dict
+        return dict_repr
 
     @classmethod
     def from_dict(cls, dict_repr, calendar, calendar_year, month_name):
@@ -746,8 +888,7 @@ class CalendarMonth(BaseCalendarPeriod):
             month,
             calendar_year
         )
-        weeks_dict = dict_repr.get(cls.WEEKS_KEY, {})
-        for week_name, week_dict in weeks_dict.items():
+        for week_name, week_dict in dict_repr.get(cls.WEEKS_KEY, {}).items():
             # Note that we don't need to do anything with this, we're just
             # calling the week's from_dict method so it can add the days to
             # the calendar
@@ -757,19 +898,45 @@ class CalendarMonth(BaseCalendarPeriod):
                 calendar_month,
                 week_name
             )
+        calendar_month._planned_items = [
+            PlannedItem.from_dict(dict_)
+            for dict_ in dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
+        ]
         return calendar_month
+
+    @classmethod
+    def from_name(cls, calendar, full_name):
+        """Get calendar month using name string.
+
+        Args:
+            calendar (Calendar): calendar object.
+            full_name (str): full_name of month.
+
+        Returns:
+            (CalendarMonth or None): calendar month corresponding to name,
+                or None if couldn't be initialized.
+        """
+        try:
+            month, year = full_name.split(" ")
+            month = Date.month_int_from_string(month)
+            year = int(year)
+        except (DateTimeError, ValueError):
+            return None
+        return calendar.get_month(year, month)
 
 
 class CalendarYear(BaseCalendarPeriod):
     """Class representing a year of calendar data."""
     _SAVE_TYPE = SaveType.DIRECTORY
     _ORDER_FILE = "year{0}".format(SerializableFileTypes.ORDER)
+    _INFO_FILE = "planned_items{0}".format(SerializableFileTypes.INFO)
     _MARKER_FILE = _ORDER_FILE
     _SUBDIR_KEY = "months"
     _SUBDIR_CLASS = CalendarMonth
     _SUBDIR_DICT_TYPE = OrderedDict
 
     MONTHS_KEY = _SUBDIR_KEY
+    PLANNED_ITEMS_KEY = "planned_items"
 
     def __init__(self, calendar, year):
         """Initialise calendar year object.
@@ -777,11 +944,16 @@ class CalendarYear(BaseCalendarPeriod):
         Args:
             calendar_obj (Calendar): the calendar parent item.
             year (int): the year number.
+
+        Attrs:
+            _planned_items (list(PlannedItem)): items planned for this
+                month.
         """
         super(CalendarYear, self).__init__(calendar)
         self._year = year
         self._length = Date.NUM_MONTHS
         self.__calendar_months = None
+        self._planned_items = []
 
     @property
     def _calendar_months(self):
@@ -848,6 +1020,15 @@ class CalendarYear(BaseCalendarPeriod):
         for month in self._calendar_months.values():
             yield month
 
+    def iter_planned_items(self):
+        """Iterate through planned month items.
+
+        Yields:
+            (PlannedItem): next planned item.
+        """
+        for item in self._planned_items:
+            yield item
+
     def next(self):
         """Get calendar year immediately after this one.
 
@@ -868,11 +1049,14 @@ class CalendarYear(BaseCalendarPeriod):
         """Check if this calendar period contains another.
 
         Args:
-            calendar_period (BaseCalendarPeriod): calendar period to check.
+            calendar_period (BaseCalendarPeriod or Date): calendar period
+                or Date to check.
 
         Returns:
             (bool): whether or not calendar period is contained in this.
         """
+        if isinstance(calendar_period, Date):
+            return self.contains(self.calendar.get_day(calendar_period))
         if isinstance(calendar_period, CalendarDay):
             return calendar_period.date.year == self._year
         if isinstance(calendar_period, CalendarWeek):
@@ -892,14 +1076,19 @@ class CalendarYear(BaseCalendarPeriod):
             (dict): nested json dict representing calendar year object and its
                 contained calendar month objects.
         """
+        dict_repr = {}
         months_dict = OrderedDict()
         for month in self._calendar_months.values():
             month_dict = month.to_dict()
             if month_dict:
                 months_dict[month.name] = month_dict
         if months_dict:
-            return {self.MONTHS_KEY: months_dict}
-        return {}
+            dict_repr[self.MONTHS_KEY] = months_dict
+        if self._planned_items:
+            dict_repr[self.PLANNED_ITEMS_KEY] = [
+                item.to_dict() for item in self._planned_items
+            ]
+        return dict_repr
 
     @classmethod
     def from_dict(cls, dict_repr, calendar, year_name):
@@ -928,4 +1117,26 @@ class CalendarYear(BaseCalendarPeriod):
             )
             if calendar_month:
                 calendar._add_month(calendar_month)
+        calendar_year._planned_items = [
+            PlannedItem.from_dict(dict_, calendar)
+            for dict_ in dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
+        ]
         return calendar_year
+
+    @classmethod
+    def from_name(cls, calendar, name):
+        """Get calendar year using name string.
+
+        Args:
+            calendar (Calendar): calendar object.
+            name (str): name of year.
+
+        Returns:
+            (CalendarYear or None): calendar year corresponding to name,
+                or None if couldn't be initialized.
+        """
+        try:
+            year = int(name)
+        except ValueError:
+            return None
+        return calendar.get_year(year)

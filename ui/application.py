@@ -6,7 +6,6 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants as api_constants
-from scheduler.api import utils as api_utils
 from scheduler.api.common import user_prefs
 from scheduler.api.edit import edit_log
 # from scheduler.api.managers import CalendarManager, TreeManager
@@ -34,9 +33,10 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.project = Project.read(user_prefs.get_active_project())
 
         # TODO: make consistent across repo 'tree root' /'task root'
-        self.tree_root = self.project.task_root
-        self.calendar = self.project.calendar
-        self.tracker = self.project.tracker
+        # self.tree_root = self.project.task_root
+        # self.calendar = self.project.calendar
+        # self.planner = self.project.planner
+        # self.tracker = self.project.tracker
         self.project_user_prefs = self.project.user_prefs
 
         edit_log.open_edit_registry()
@@ -239,8 +239,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             # or at least give some indication it's happening?
             # and/or maybe also add a check for when last commit was (only do one
             # a day / one every few days / whatever)
-            # TODO: this should also be a method in project class
-            error = api_utils.backup_git_repo(self.project.root_directory)
+            error = self.project.git_backup()
             if error:
                 simple_message_dialog(
                     "Git backup failed for {0}".format(

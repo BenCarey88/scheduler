@@ -14,6 +14,7 @@ from .serialization import file_utils
 from .timetable.calendar import Calendar
 from .timetable.tracker import Tracker
 from .tree.task_root import TaskRoot
+from .utils import backup_git_repo
 
 
 class ProjectTree(object):
@@ -374,3 +375,11 @@ class Project(CustomSerializable):
     def write_user_prefs(self):
         """Write project user prefs file."""
         self._user_prefs.write(self._project_tree.project_user_prefs_file)
+
+    def git_backup(self):
+        """Backup project data with git push.
+
+        Returns:
+            (str or None): error message, if an error occurred.
+        """
+        return backup_git_repo(self.root_directory)

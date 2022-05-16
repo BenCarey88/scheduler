@@ -85,8 +85,12 @@ class NavigationPanel(QtWidgets.QWidget):
         self.setLayout(layout)
 
         self.date_label = QtWidgets.QLabel(self.get_date_label())
-        prev_button = QtWidgets.QPushButton("<")
-        next_button = QtWidgets.QPushButton(">")
+        prev_button = QtWidgets.QPushButton("<<")
+        next_button = QtWidgets.QPushButton(">>")
+        self.prev_weekday_button = QtWidgets.QPushButton("<")
+        self.next_weekday_button = QtWidgets.QPushButton(">")
+        self.prev_weekday_button.setFixedWidth(30)
+        self.next_weekday_button.setFixedWidth(30)
         self.date_type_dropdown = QtWidgets.QComboBox()
         self.date_type_dropdown.setModel(
             QtCore.QStringListModel(list(self.view_types_dict.keys()))
@@ -100,20 +104,34 @@ class NavigationPanel(QtWidgets.QWidget):
 
         layout.addWidget(self.date_label)
         layout.addStretch()
+        layout.addWidget(self.prev_weekday_button)
         layout.addWidget(prev_button)
         layout.addWidget(next_button)
+        layout.addWidget(self.next_weekday_button)
         layout.addStretch()
         layout.addWidget(self.date_type_dropdown)
         layout.addWidget(self.view_type_dropdown)
 
         prev_button.clicked.connect(self.change_to_prev_period)
         next_button.clicked.connect(self.change_to_next_period)
+        self.prev_weekday_button.clicked.connect(
+            self.change_to_prev_weekday
+        )
+        self.next_weekday_button.clicked.connect(
+            self.change_to_next_weekday
+        )
         self.date_type_dropdown.currentTextChanged.connect(
             self.change_date_type
         )
         self.view_type_dropdown.currentTextChanged.connect(
             self.change_view_type
         )
+
+    def update(self):
+        """Update widget."""
+        self.date_label.setText(self.get_date_label())
+        self.prev_weekday_button.setHidden(self.date_type != DateType.WEEK)
+        self.next_weekday_button.setHidden(self.date_type != DateType.WEEK)
 
     @staticmethod
     def get_current_calendar_period(calendar, date_type, starting_weekday=0):
@@ -252,15 +270,31 @@ class NavigationPanel(QtWidgets.QWidget):
                 self.calendar_period = period.start_day.calendar_year
 
     def change_to_prev_period(self):
-        """Set calendar view to use previous week."""
+        """Set calendar view to use previous period."""
         self.calendar_period = self.calendar_period.prev()
-        self.date_label.setText(self.get_date_label())
+        self.update()
         self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
 
     def change_to_next_period(self):
-        """Set calendar view to use next week."""
+        """Set calendar view to use next period."""
         self.calendar_period = self.calendar_period.next()
-        self.date_label.setText(self.get_date_label())
+        self.update()
+        self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
+
+    def change_to_prev_weekday(self):
+        """Set calendar week view to use previous week."""
+        if self.date_type != DateType.WEEK:
+            return
+        self.calendar_period = self.calendar_period.week_starting_prev_day()
+        self.update()
+        self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
+
+    def change_to_next_weekday(self):
+        """Set calendar week view to use next week."""
+        if self.date_type != DateType.WEEK:
+            return
+        self.calendar_period = self.calendar_period.week_starting_next_day()
+        self.update()
         self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
 
     def change_date_type(self, date_type):
@@ -284,8 +318,8 @@ class NavigationPanel(QtWidgets.QWidget):
             self.date_type_dropdown.setCurrentText(self.view_type)
         self.view_type = self.view_type_dropdown.currentText()
         self.cached_view_types_dict[self.date_type] = self.view_type
+        self.update()
         self.DATE_TYPE_CHANGED_SIGNAL.emit(date_type, self.calendar_period)
-        self.date_label.setText(self.get_date_label())
 
     def change_view_type(self, view_type):
         """Change view type."""

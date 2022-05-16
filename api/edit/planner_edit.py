@@ -3,20 +3,12 @@
 Friend classes: [PlannedItem]
 """
 
-from ._container_edit import DictEdit, ContainerOp, ContainerEditFlag
-from ._core_edits import (
-    AttributeEdit,
-    CompositeEdit,
-    SelfInverseSimpleEdit, 
-    HostedDataEdit,
-)
+from scheduler.api.common.object_wrappers import MutableHostedAttribute
+from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
+from ._core_edits import AttributeEdit, CompositeEdit
 
 
-# TODO: calendar history edit - should just be extra part of
-# UpdateTaskHistoryEdit class
-
-
-class AddPlannedItemEdit(DictEdit):
+class AddPlannedItemEdit(ListEdit):
     """Add planned item to calendar."""
     def __init__(self, planned_item, index=None):
         """Initialise edit.
@@ -104,14 +96,14 @@ class ModifyPlannedItemEdit(CompositeEdit):
         """
         attribute_edit = AttributeEdit.create_unregistered(attr_dict)
         subedits = attribute_edit
-        if planned_item._date in attr_dict:
-            new_date = attr_dict[planned_item._date]
+        if planned_item._calendar_period in attr_dict:
+            new_calendar_period = attr_dict[planned_item._calendar_period]
             # remove items from old container and add to new one
             remove_edit = RemovePlannedItemEdit.create_unregistered(
                 planned_item
             )
             add_edit = ListEdit.create_unregistered(
-                planned_item.get_item_container(new_date),
+                planned_item.get_item_container(new_calendar_period),
                 [planned_item],
                 ContainerOp.ADD,
             )
@@ -122,4 +114,106 @@ class ModifyPlannedItemEdit(CompositeEdit):
         self._description = attribute_edit.get_description(
             planned_item,
             planned_item.name
+        )
+
+
+class SchedulePlannedItemEdit(ListEdit):
+    """Add an associated calendar item to a planned item."""
+    def __init__(self, planned_item, calendar_item):
+        """Initialise edit.
+
+        Args:
+            planned_item (PlannedItem): the planned item to associate to.
+            calendar_item (CalendarItem): the calendar item to associate.
+        """
+        super(SchedulePlannedItemEdit, self).__init__(
+            planned_item._scheduled_items,
+            [MutableHostedAttribute(calendar_item)],
+            ContainerOp.ADD,
+        )
+        self._name = "SchedulePlannedItem ({0})".format(planned_item.name)
+        self._description = (
+            "Schedule {0} {1} for {2} {3}".format(
+                calendar_item.__class__.__name__,
+                calendar_item.name,
+                planned_item.__class__.__name__,
+                planned_item.name,
+            )
+        )
+
+
+class UnschedulePlannedItemEdit(ListEdit):
+    """Remove an associated calendar item from a planned item."""
+    def __init__(self, planned_item, calendar_item):
+        """Initialise edit.
+
+        Args:
+            planned_item (PlannedItem): the planned item to remove from.
+            calendar_item (CalendarItem): the calendar item to remove.
+        """
+        # note that we need to remove by index as the attribute is mutable
+        index = planned_item.scheduled_items.index(calendar_item)
+        super(UnschedulePlannedItemEdit, self).__init__(
+            planned_item._scheduled_items,
+            [index],
+            ContainerOp.REMOVE,
+        )
+        self._name = "UnschedulePlannedItem ({0})".format(planned_item.name)
+        self._description = (
+            "Unschedule {0} {1} from {2} {3}".format(
+                calendar_item.__class__.__name__,
+                calendar_item.name,
+                planned_item.__class__.__name__,
+                planned_item.name,
+            )
+        )
+
+
+class AddPlannedItemChild(ListEdit):
+    """Add an associated planned item child to a planned item."""
+    def __init__(self, planned_item, planned_item_child,):
+        """Initialise edit.
+
+        Args:
+            planned_item (PlannedItem): the planned item to add to.
+            planned_item_child (PlannedItem): the planned item child to add.
+        """
+        super(AddPlannedItemEdit, self).__init__(
+            planned_item._planned_items,
+            [planned_item_child],
+            ContainerOp.ADD,
+        )
+        self._name = "AddPlannedItemChild to ({0})".format(planned_item.name)
+        self._description = (
+            "Add {0} {1} to {2} {3}".format(
+                planned_item_child.__class__.__name__,
+                planned_item_child.name,
+                planned_item.__class__.__name__,
+                planned_item.name,
+            )
+        )
+
+
+class RemovePlannedItemChild(ListEdit):
+    """Remove an associated planned item child from a planned item."""
+    def __init__(self, planned_item, planned_item_child,):
+        """Initialise edit.
+
+        Args:
+            planned_item (PlannedItem): the planned item to remove from.
+            planned_item_child (PlannedItem): the planned item child to remove.
+        """
+        super(RemovePlannedItemChild, self).__init__(
+            planned_item._planned_items,
+            [planned_item_child],
+            ContainerOp.ADD,
+        )
+        self._name = "AddPlannedItemChild to ({0})".format(planned_item.name)
+        self._description = (
+            "Add {0} {1} to {2} {3}".format(
+                planned_item_child.__class__.__name__,
+                planned_item_child.name,
+                planned_item.__class__.__name__,
+                planned_item.name,
+            )
         )

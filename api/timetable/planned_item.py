@@ -9,6 +9,7 @@ from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
 )
+from scheduler.api import utils
 
 
 class PlannedItemTimePeriod(object):
@@ -37,53 +38,52 @@ class PlannedItem(NestedSerializable):
     """Class for items in planner tab."""
     _SAVE_TYPE = SaveType.NESTED
 
-    START_DATE_KEY = "start_date"
-    END_DATE_KEY = "end_date"
     TREE_ITEM_KEY = "tree_item"
-    TIME_PERIODS_KEY = "time_periods"
+    TIME_PERIOD_KEY = "time_period"
     SIZE_KEY = "size"
     IMPORTANCE_KEY = "importance"
     CALENDAR_ITEMS_KEY = "calendar_items"
+    PLANNED_CHILDREN_KEY = "planned_children"
     ID_KEY = "id"
 
     def __init__(
             self,
-            planner,
-            start_date,
-            end_date,
+            calendar,
+            calendar_period,
             tree_item,
-            time_periods=None,
             size=None,
             importance=None):
         """Initialize class.
 
         Args:
             calendar (Calendar): calendar item.
-            start_date (Date): start date item is planned for.
-            end_date (Date): end date item is planned for.
+            calendar_period (BaseCalendarPeriod): calendar period this is
+                associated to.
             tree_item (BaseTreeItem): the task that this item represents.
             time_periods (list(PlannedItemTimePeriod) or None): time periods
                 this planned item should be included in.
             size (PlannedItemSize or None): size of item.
             importance (PlannedItemImportance or None): importance of item.
+
+        Attrs:
+            _planned_children (PlannedItem): associated items planned for
+                shorter time periods. Generally these will be other instances
+                of the same tree item or of its children.
+            _scheduled_items (CalendarItem): associated calendar items for
+                this planned item. In general, this should normally be blank
+                for anything except a day planned item - the expectation is
+                that if you plan an item for over a week, say, then you would
+                add a day planned child item which is associated to the
+                calendar item. We don't need to be rigid on this however.
         """
-        self._planner = planner
-        self._start_date = MutableAttribute(start_date)
-        self._end_date = MutableAttribute(end_date)
+        self._calendar = calendar
+        self._calendar_period = MutableAttribute(calendar_period)
         self._tree_item = MutableHostedAttribute(tree_item)
         self._size = MutableAttribute(size)
         self._importance = MutableAttribute(importance)
-        self._time_periods = time_periods or []
+        self._planned_children = []
         self._scheduled_items = []
-
-    @property
-    def planner(self):
-        """Get planner object.
-
-        Returns:
-            (Planner): the planner object.
-        """
-        return self._planner
+        self._id = None
 
     @property
     def calendar(self):
@@ -92,25 +92,25 @@ class PlannedItem(NestedSerializable):
         Returns:
             (Calendar): the calendar object.
         """
-        return self._planner.calendar
+        return self._calendar
 
     @property
-    def start_date(self):
-        """Get start date item is planned for.
+    def calendar_period(self):
+        """Get calendar period that item is planned for.
 
         Returns:
-            (Date): start date item is planned for.
+            (BaseCalendarPeriod): period that item is planned for.
         """
-        return self._start_date.value
+        return self._calendar_period.value
 
     @property
-    def end_date(self):
-        """Get end date item is planned for.
+    def time_period(self):
+        """Get time period type that item is planned for.
 
         Returns:
-            (Date): end date item is planned for.
+            (PlannedItemTimePeriod): period type item is planned for.
         """
-        return self._start_date.value
+        return self.calendar_period.get_time_period_type()
 
     @property
     def tree_item(self):
@@ -149,15 +149,6 @@ class PlannedItem(NestedSerializable):
         return self._importance.value
 
     @property
-    def time_periods(self):
-        """Get time periods this is planned for.
-
-        Returns:
-            (list(PlannedItemTimePeriod)): time periods.
-        """
-        return self._time_periods
-
-    @property
     def scheduled_items(self):
         """Get scheduled items associated to this one.
 
@@ -166,81 +157,33 @@ class PlannedItem(NestedSerializable):
         """
         return [item.value for item in self._scheduled_items]
 
-    def is_planned_for_day(self, day):
-        """Check if this is planned for given day.
-
-        Args:
-            day (CalendarDay): calendar day to check.
+    @property
+    def planned_children(self):
+        """Get child items associated to this one.
 
         Returns:
-            (bool): whether or not planned for given day.
+            (list(PlannedItem)): associated child items.
         """
-        return (
-            PlannedItemTimePeriod.DAY in self.time_periods
-            and (self.start_date <= day.date <= self.end_date)
+        return self._planned_children
+
+    def get_item_container(self, calendar_period=None):
+        """Get the dict that this item should be contained in.
+
+        Args:
+            calendar_period (BaseCalendarPeriod or None): calendar period
+                to query at. If None, use self.calendar_period.
+
+        Returns:
+            (dict)): dict that planned item should be contained in.
+        """
+        calendar_period = utils.fallback_value(
+            calendar_period,
+            self.calendar_period
         )
-
-    def is_planned_for_week(self, week):
-        """Check if this is planned for given week.
-
-        Args:
-            week (CalendarWeek): calendar week to check.
-
-        Returns:
-            (bool): whether or not planned for given week.
-        """
-        if PlannedItemTimePeriod.WEEK not in self.time_periods:
-            return False
-        if week.contains(self.start_date) or week.contains(self.end_date):
-            return True
-        if self.start_date <= week.start_date <= self.end_date:
-            return True
-        return False
-
-    def is_planned_for_month(self, month):
-        """Check if this is planned for given month.
-
-        Args:
-            month (CalendarMonth): calendar month to check.
-
-        Returns:
-            (bool): whether or not planned for given month.
-        """
-        if PlannedItemTimePeriod.MONTH not in self.time_periods:
-            return False
-        if month.contains(self.start_date) or month.contains(self.end_date):
-            return True
-        if self.start_date <= month.start_day.date <= self.end_date:
-            return True
-        return False
-
-    def is_planned_for_year(self, year):
-        """Check if this is planned for given year.
-
-        Args:
-            year (CalendarYear): calendar year to check.
-
-        Returns:
-            (bool): whether or not planned for given year.
-        """
-        if PlannedItemTimePeriod.YEAR not in self.time_periods:
-            return False
-        if year.contains(self.start_date) or year.contains(self.end_date):
-            return True
-        if self.start_date <= year.start_day.date <= self.end_date:
-            return True
-        return False
-
-    def get_item_containers(self):
-        """Get the dicts that this item should be contained in.
-
-        Returns:
-            (list(dict)): list that planned item should be contained in.
-        """
-        containers = []
-        if PlannedItemTimePeriod.DAY in self._time_periods:
-            containers.append(self.planner._planned_day_items)
-        return self.planner._planned_items
+        if isinstance(calendar_period, CalendarWeek):
+            return calendar_period.day_start._planned_week_items
+        else:
+            return self.calendar_period._planned_items
 
     def _add_scheduled_item(self, scheduled_item):
         """Add scheduled item (to be used during deserialization).
@@ -254,7 +197,17 @@ class PlannedItem(NestedSerializable):
                 MutableHostedAttribute(scheduled_item)
             )
 
-    def get_id(self):
+    def _add_planned_child(self, planned_item):
+        """Add planned item child (to be used during deserialization).
+
+        Args:
+            planned_item (PlannedItem): planned item to associate as child
+                of this planned item.
+        """
+        if planned_item not in self._planned_children:
+            self._planned_children.append(planned_item)
+
+    def _get_id(self):
         """Generate unique id for object.
 
         This should be used only during the serialization process, so that
@@ -271,43 +224,41 @@ class PlannedItem(NestedSerializable):
         return self._id
 
     @classmethod
-    def from_dict(cls, dict_repr, planner):
+    def from_dict(cls, dict_repr, calendar, calendar_period):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
-            planner (Planner): root planner object.
+            calendar (Calendar): root calendar object.
+            calendar_period (BaseCalendarPeriod): the calendar period
+                this is in.
 
         Returns:
             (PlannedItem): planned item.
         """
-        start_date = dict_repr.get(cls.START_DATE_KEY)
-        end_date = dict_repr.get(cls.END_DATE_KEY)
-        tree_item = planner.task_root.get_item_at_path(
+        tree_item = calendar.task_root.get_item_at_path(
             dict_repr.get(cls.TREE_ITEM_KEY)
         )
-        time_periods = dict_repr.get(cls.TIME_PERIODS_KEY, None)
         size = dict_repr.get(cls.SIZE_KEY, None)
         importance = dict_repr.get(cls.IMPORTANCE_KEY, None)
         planned_item = cls(
-            planner,
-            start_date,
-            end_date,
+            calendar,
+            calendar_period,
             tree_item,
-            time_periods,
             size=size,
             importance=importance,
         )
 
-        scheduled_item_ids = dict_repr.get(cls.CALENDAR_ITEMS_KEY, [])
-        for id in scheduled_item_ids:
+        for scheduled_item_id in dict_repr.get(cls.CALENDAR_ITEMS_KEY, []):
             item_registry.register_callback(
-                id,
+                scheduled_item_id,
                 planned_item._add_scheduled_item
             )
-        planned_item_id = dict_repr.get(cls.ID_KEY, None)
-        if planned_item_id is not None:
-            item_registry.register_item(planned_item_id, planned_item)
+        for planned_item_id in dict_repr.get(cls.PLANNED_CHILDREN_KEY, []):
+            item_registry.register_callback(
+                planned_item_id,
+                planned_item._add_planned_child
+            )
         return planned_item
 
     def to_dict(self):
@@ -317,20 +268,22 @@ class PlannedItem(NestedSerializable):
             (dict): dictionary representation.
         """
         dict_repr = {
-            self.START_DATE_KEY: self.start_date,
-            self.END_DATE_KEY: self.end_date,
+            self.TIME_PERIOD_KEY: self.time_period,
             self.TREE_ITEM_KEY: self.tree_item.path,
+            self.ID_KEY: self._get_id(),
         }
-        if self._time_periods:
-            dict_repr[self.TIME_PERIODS_KEY] = self._time_periods
         if self._size:
             dict_repr[self.SIZE_KEY] = self.size
         if self._importance:
             dict_repr[self.IMPORTANCE_KEY] = self.importance
         if self._scheduled_items:
             dict_repr[self.CALENDAR_ITEMS_KEY] = [
-                calendar_item.get_id()
+                calendar_item._get_id()
                 for calendar_item in self.scheduled_items
             ]
-        dict_repr[self.ID_KEY] = self.get_id()
+        if self._planned_children:
+            dict_repr[self.PLANNED_CHILDREN_KEY] = [
+                planned_item._get_id()
+                for planned_item in self.planned_children
+            ]
         return dict_repr

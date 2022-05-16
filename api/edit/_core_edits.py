@@ -68,6 +68,7 @@ class SelfInverseSimpleEdit(SimpleEdit):
         )
 
 
+# TODO: use check_validity function for these classes.
 class CompositeEdit(BaseEdit):
     """Edit made up of a combination of other edit types."""
 

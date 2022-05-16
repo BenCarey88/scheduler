@@ -662,7 +662,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             "get_item_container is implemented in calendar item subclasses."
         )
 
-    def get_id(self):
+    def _get_id(self):
         """Generate unique id for object.
 
         This should be used only during the serialization process, so that
@@ -699,7 +699,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
                 dict_repr[self.NAME_KEY] = self._event_name.value
         if self._is_background:
             dict_repr[self.BACKGROUND_KEY] = self._is_background.value
-        dict_repr[self.ID_KEY] = self.get_id()
+        dict_repr[self.ID_KEY] = self._get_id()
         return dict_repr
 
     @classmethod

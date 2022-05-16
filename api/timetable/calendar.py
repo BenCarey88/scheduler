@@ -180,7 +180,7 @@ class Calendar(NestedSerializable):
         )
 
     def get_week_containing_date(self, date, starting_day=0):
-        """Get calendar weeks list.
+        """Get week containing given date.
 
         Args:
             date (Date): date to get week for.
@@ -195,6 +195,17 @@ class Calendar(NestedSerializable):
         days_offset = (date.weekday - starting_day) % Date.NUM_WEEKDAYS
         starting_date = date - TimeDelta(days=days_offset)
         return CalendarWeek(self, starting_date)
+
+    def get_week_starting_with_date(self, date):
+        """Get week that starts with given date.
+
+        Args:
+            date (Date): date to get week for.
+
+        Returns:
+            (CalendarWeek): calendar week objects that contains given date.
+        """
+        return self.get_week_containing_date(date, date.weekday)
 
     def get_current_week(self, starting_day=0):
         """Get current calendar week.
@@ -267,6 +278,7 @@ class Calendar(NestedSerializable):
         Returns:
             (Calendar): calendar instance.
         """
+        print ("TRYING")
         calendar = cls(task_root)
         years_dict = dict_repr.get(cls.YEARS_KEY, {})
         for year_name, year_dict in years_dict.items():

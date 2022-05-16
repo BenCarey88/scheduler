@@ -1,7 +1,7 @@
 """Classes representing a time period of calendar data."""
 
 from collections import OrderedDict
-from api.timetable.planned_item import PlannedItem
+from api.timetable.planned_item import PlannedItem, PlannedItemTimePeriod
 
 from scheduler.api.common.date_time import (
     Date,
@@ -106,6 +106,22 @@ class BaseCalendarPeriod(NestedSerializable):
             (str): full name of class.
         """
         return self.name
+
+    def get_time_period_type(self):
+        """Get time period type of item.
+
+        This is mostly here just to get around some circular import issues
+        with the planned_item class.
+
+        Returns:
+            (PlannedItemTimePeriod)
+        """
+        return {
+            CalendarDay: PlannedItemTimePeriod.DAY,
+            CalendarWeek: PlannedItemTimePeriod.WEEK,
+            CalendarMonth: PlannedItemTimePeriod.MONTH,
+            CalendarYear: PlannedItemTimePeriod.YEAR,
+        }.get(type(self))
 
 
 class CalendarDay(BaseCalendarPeriod):
@@ -299,14 +315,18 @@ class CalendarDay(BaseCalendarPeriod):
 
         planned_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
         planned_items = [
-            PlannedItem.from_dict(planned_item_dict, calendar)
+            PlannedItem.from_dict(planned_item_dict, calendar, calendar_day)
             for planned_item_dict in planned_items_list
         ]
         calendar_day._planned_items = planned_items
 
         planned_week_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
         planned_week_items = [
-            PlannedItem.from_dict(planned_item_dict, calendar)
+            PlannedItem.from_dict(
+                planned_item_dict,
+                calendar,
+                calendar.get_week_starting_with_date(calendar_day.date)
+            )
             for planned_item_dict in planned_week_items_list
         ]
         calendar_day._planned_week_items = planned_week_items
@@ -899,7 +919,7 @@ class CalendarMonth(BaseCalendarPeriod):
                 week_name
             )
         calendar_month._planned_items = [
-            PlannedItem.from_dict(dict_)
+            PlannedItem.from_dict(dict_, calendar, calendar_month)
             for dict_ in dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
         ]
         return calendar_month
@@ -1118,7 +1138,7 @@ class CalendarYear(BaseCalendarPeriod):
             if calendar_month:
                 calendar._add_month(calendar_month)
         calendar_year._planned_items = [
-            PlannedItem.from_dict(dict_, calendar)
+            PlannedItem.from_dict(dict_, calendar, calendar_year)
             for dict_ in dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
         ]
         return calendar_year

@@ -95,7 +95,6 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
         for attr in list(attr_dict.keys()) + updateable_attrs:
             # note we need to record updateable attrs here for update to work
             self._original_attrs[attr] = attr.value
-        self._check_validity()
 
         self._attribute_edit = AttributeEdit.create_unregistered(attr_dict)
         subedits = subedits or []
@@ -175,7 +174,6 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
             edit_replacements=edit_replacements,
             edit_additions=edit_additions,
         )
-        self._check_validity()
 
 
 class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):

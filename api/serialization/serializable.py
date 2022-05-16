@@ -306,7 +306,11 @@ class BaseSerializable(ABC):
         """
         try:
             return cls.read(path, *args, **kwargs)
-        except SerializationError:
+        except SerializationError as e:
+            print (
+                "Could not read class instance at path {0}"
+                " - hit error {1}".format(path, e.message)
+            )
             instance = cls(*args, **kwargs)
             if cls._STORE_SAVE_PATH:
                 # this may cause crashes during write if the wrong errors
@@ -518,21 +522,23 @@ class NestedSerializable(BaseSerializable):
         return_dict = cls._DICT_TYPE()
         if cls._INFO_FILE:
             info_file_path = os.path.join(directory_path, cls._INFO_FILE)
-            return_dict = cls._read_json_file(
-                info_file_path,
-                as_ordered_dict=(cls._DICT_TYPE==OrderedDict)
-            )
+            if os.path.exists(info_file_path):
+                return_dict = cls._read_json_file(
+                    info_file_path,
+                    as_ordered_dict=(cls._DICT_TYPE==OrderedDict)
+                )
 
         # get order from order file if given
         if cls._ORDER_FILE:
             order_file_path = os.path.join(directory_path, cls._ORDER_FILE)
-            order = cls._read_json_file(order_file_path)
-            if not isinstance(order, list):
-                raise SerializationError(
-                    "Order file {0} is not formatted as a json list".format(
-                        order_file_path
+            if os.path.exists(order_file_path):
+                order = cls._read_json_file(order_file_path)
+                if not isinstance(order, list):
+                    raise SerializationError(
+                        "Order file {0} is not formatted as json list".format(
+                            order_file_path
+                        )
                     )
-                )
         else:
             # remove file formatting from each name in dir
             order = [

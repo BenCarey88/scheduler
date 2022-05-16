@@ -83,6 +83,14 @@ class BaseEdit(object):
         edit._register_edit = False
         return edit
 
+    def _check_validity(self):
+        """Check if edit is valid. This is done after run and update.
+
+        This can be used to check validitiy of the edits. Override this in
+        base class for validity checks.
+        """
+        pass
+
     def run(self):
         """Call edit function externally, and register with edit log if needed.
 
@@ -105,6 +113,7 @@ class BaseEdit(object):
             # don't run registerable edits if they can't be added to log
             return
         self._run()
+        self._check_validity()
         self._has_been_done = True
         if self._register_edit:
             self._registered = EDIT_LOG.add_edit(self)
@@ -152,6 +161,7 @@ class BaseEdit(object):
             )
         if not self._continuous_run_in_progress:
             return
+        self._check_validity()
         if self._register_edit:
             self._has_been_done = True
             self._registered = EDIT_LOG.end_add_edit()

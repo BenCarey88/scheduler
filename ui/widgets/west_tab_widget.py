@@ -4,8 +4,9 @@ thanks to:
 https://stackoverflow.com/questions/51230544/pyqt5-how-to-set-tabwidget-west-but-keep-the-text-horizontal/51230694#51230694
 """
 
-
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from scheduler.ui import utils
 
 
 class WestTabBar(QtWidgets.QTabBar):
@@ -46,6 +47,7 @@ class WestTabWidget(QtWidgets.QTabWidget):
         self.setTabPosition(QtWidgets.QTabWidget.West)
         self.setTabShape(QtWidgets.QTabWidget.TabShape.Rounded)
         self.setIconSize(QtCore.QSize(40, 40))
+        utils.set_style(self, "west_tab_widget.qss")
 
     def addTab(self, tab, icon, name):
         pixmap = icon.pixmap(50, 50)

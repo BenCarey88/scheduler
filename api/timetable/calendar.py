@@ -278,7 +278,6 @@ class Calendar(NestedSerializable):
         Returns:
             (Calendar): calendar instance.
         """
-        print ("TRYING")
         calendar = cls(task_root)
         years_dict = dict_repr.get(cls.YEARS_KEY, {})
         for year_name, year_dict in years_dict.items():

@@ -1,0 +1,66 @@
+
+/* SUGGESTION:
+make separate stylesheets for each tab and outliner widget - gives more control.
+*/
+
+QLineEdit {
+    background-color: white;
+}
+
+QTabBar::tab {
+    /* border-top-left-radius: 7px;
+    border-bottom-left-radius: 7px;
+    
+    min-width: 8ex;
+    padding: 5px;
+    padding-top: 15px;
+    padding-bottom: 15px;
+    padding-right: 15px;
+    border-top: 1px solid rgb(0, 0, 0);
+    border-left: 1px solid rgb(0, 0, 0);
+    border-bottom: 1px solid rgb(0, 0, 0);
+    margin: 0px;
+    padding-bottom: 30px;
+    padding-left: 5px; */
+    font: 20px;
+    height: 40px;
+    width: 150px;
+}
+
+QTabBar::tab:selected {
+    background-color: rgb(253,250,250);
+}
+
+QTabBar::tab:!selected {
+    /* margin-top: 5px; */
+    /* background: qlineargradient(x1:0.5, y1:1, x2:0.5, y2:0, stop:0 rgb(253,250,250), stop:0.2 rgb(253,250,250), stop:1 rgb(250,244,229)); */
+    color: rgb(93,109,109);
+}
+
+/* QFrame {
+    border: 1px dotted grey;
+} */
+
+/* QTreeView::item:hover {
+    background: lightgray;
+}
+QTreeView::item:selected {
+    background-color: lightskyblue;
+    border: 1px solid #bfcde4;
+}
+QTreeView {
+    show-decoration-selected: 0;
+} */
+
+/* QTreeView::branch:open:has-children:!has-siblings {
+    image: url(../icons/search.png);
+}
+QTreeView::branch:closed:has-children:!has-siblings {
+    image: url(../icons/search.png);
+}
+QTreeView::branch:open:has-children {
+    image: url(../icons/search.png);
+}
+QTreeView::branch:closed:has-children {
+    image: url(../icons/search.png);
+} */

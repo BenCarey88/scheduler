@@ -6,3 +6,7 @@ QLabel{
     font: 20px;
     background-color: lightcyan;
 }
+
+QComboBox{
+    font: 18px;
+}

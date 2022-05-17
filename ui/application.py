@@ -101,7 +101,16 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             **kwargs
         )
         self.outliner_stack.addWidget(tab.outliner)
-        self.tabs_widget.addTab(tab, tab.name)
+        tab_icon = QtGui.QIcon(
+            os.path.join(
+                os.path.dirname(__file__), "icons", "{0}.png".format(tab.name)
+            ),
+        )
+        self.tabs_widget.addTab(
+            tab,
+            tab_icon,
+            tab.name.capitalize()
+        )
         return tab
 
     def setup_menu(self):
@@ -253,7 +262,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 def run_application():
     """Open application window."""
     app = QtWidgets.QApplication(sys.argv)
-    set_style(app, "stylesheet.qss")
+    set_style(app, "application.qss")
     window = SchedulerWindow()
     window.showMaximized()
     app.exec_()

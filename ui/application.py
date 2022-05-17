@@ -15,6 +15,7 @@ from . import constants as ui_constants
 from .tabs import CalendarTab, HistoryTab, PlannerTab, TaskTab, TrackerTab
 # from .tabs.notes_tab import NotesTab
 # from .tabs.suggestions_tab import SuggestionsTab
+from .widgets.west_tab_widget import WestTabWidget
 from .utils import custom_message_dialog, set_style, simple_message_dialog
 
 
@@ -53,9 +54,12 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         splitter.setChildrenCollapsible(False)
 
         self.outliner_stack = QtWidgets.QStackedWidget(self)
-        self.tabs_widget = QtWidgets.QTabWidget(self)
-        splitter.addWidget(self.outliner_stack)
+        self.tabs_widget = WestTabWidget(self)
+        # self.tabs_widget.setIconSize(QtCore.QSize(40, 40))
+        # self.tabs_widget.setTabPosition(self.tabs_widget.TabPosition.West)
+        # splitter.addWidget(self.outliner_stack)
         splitter.addWidget(self.tabs_widget)
+        splitter.addWidget(self.outliner_stack)
 
         splitter.splitterMoved.connect(self.on_splitter_moved)
         splitter.setSizes(
@@ -100,8 +104,28 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             *args,
             **kwargs
         )
-        self.outliner_stack.addWidget(tab.outliner)
-        self.tabs_widget.addTab(tab, tab.name)
+        # self.outliner_stack.addWidget(tab.outliner)
+        # tab_icon = QtGui.QIcon(
+        #     os.path.join(
+        #         os.path.dirname(__file__), "icons", "{0}.png".format(tab.name)
+        #     ),
+        # )
+        # self.tabs_widget.addTab(
+        #     tab,
+        #     tab_icon,
+        #     "" #tab.name.capitalize()
+        # )
+        self.outliner_stack.addWidget(tab)
+        tab_icon = QtGui.QIcon(
+            os.path.join(
+                os.path.dirname(__file__), "icons", "{0}.png".format(tab.name)
+            ),
+        )
+        self.tabs_widget.addTab(
+            tab.outliner,
+            tab_icon,
+            "" #tab.name.capitalize()
+        )
         return tab
 
     def setup_menu(self):
@@ -141,7 +165,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """
         user_prefs.set_app_user_pref(
             self.SPLITTER_SIZES,
-            [self.outliner_stack.width(), self.tabs_widget.width()]
+            #[self.outliner_stack.width(), self.tabs_widget.width()]
+            [self.tabs_widget.width(), self.outliner_stack.width()]
         )
 
     def keyPressEvent(self, event):
@@ -253,7 +278,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 def run_application():
     """Open application window."""
     app = QtWidgets.QApplication(sys.argv)
-    set_style(app, "stylesheet.qss")
+    set_style(app, "application.qss")
     window = SchedulerWindow()
     window.showMaximized()
     app.exec_()

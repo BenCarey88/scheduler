@@ -720,7 +720,7 @@ class CalendarMonth(BaseCalendarPeriod):
         return Date.month_string_from_int(self._month, short=False)
 
     @property
-    def name(self):
+    def full_name(self):
         """Get full name to use for month.
 
         Returns:
@@ -749,12 +749,21 @@ class CalendarMonth(BaseCalendarPeriod):
         """
         return self._calendar_year
 
+    @property
+    def num_days(self):
+        """Get number of days in month.
+
+        Returns:
+            (int): number of days in month.
+        """
+        return self._length
+
     def get_start_week(self, starting_day=0):
         """Get first week of month.
 
         Args:
             starting_day (int or str): integer or string representing starting
-                day for week. If None, we start at the starting day.
+                day for week.
 
         Returns:
             (CalendarWeek): calendar week.
@@ -1021,7 +1030,7 @@ class CalendarYear(BaseCalendarPeriod):
 
         Args:
             starting_day (int or str): integer or string representing starting
-                day for week. If None, we start at the starting day.
+                day for week.
 
         Returns:
             (CalendarWeek): calendar week.

@@ -5,15 +5,15 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.models.timetable import TrackerWeekModel
-from scheduler.ui.tabs.base_timetable_tab import (
-    BaseTimetableTab,
+from scheduler.ui.tabs.base_calendar_tab import (
+    BaseCalendarTab,
     BaseWeekTableView
 )
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
 
 
-class PlannerTab(BaseTimetableTab):
+class PlannerTab(BaseCalendarTab):
     """Planner tab."""
     def __init__(self, project, parent=None):
         """Setup planner tab.

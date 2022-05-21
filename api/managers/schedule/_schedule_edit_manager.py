@@ -1,6 +1,6 @@
 """Schedule edit manager class to manage scheduled item edits."""
 
-from scheduler.api.edit.scheduler_edit import (
+from scheduler.api.edit.schedule_edit import (
     AddScheduledItemEdit,
     RemoveScheduledItemEdit,
     ModifyScheduledItemEdit,

@@ -8,8 +8,8 @@ from scheduler.api.common.date_time import DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import ScheduledItemType
 
 from scheduler.ui.models.timetable import SchedulerDayModel, SchedulerWeekModel
-from scheduler.ui.tabs.base_timetable_tab import (
-    BaseTimetableTab,
+from scheduler.ui.tabs.base_calendar_tab import (
+    BaseCalendarTab,
     BaseDayTableView,
     BaseWeekTableView
 )
@@ -19,7 +19,7 @@ from scheduler.ui import constants, utils
 from .scheduled_item_dialog import ScheduledItemDialog
 
 
-class SchedulerTab(BaseTimetableTab):
+class SchedulerTab(BaseCalendarTab):
     """Calendar tab."""
 
     def __init__(self, project, parent=None):

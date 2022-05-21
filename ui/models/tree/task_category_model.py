@@ -52,7 +52,7 @@ class TaskCategoryModel(BaseTreeModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if index.column() == 0:
+        if self.get_column_name(index) == self.NAME_COLUMN:
             if role == QtCore.Qt.ItemDataRole.CheckStateRole:
                 item = index.internalPointer()
                 if item:
@@ -88,7 +88,8 @@ class TaskCategoryModel(BaseTreeModel):
         Returns:
             (bool): True if setting data was successful, else False.
         """
-        if index.column() == 0 and role == QtCore.Qt.CheckStateRole:
+        if (role == QtCore.Qt.CheckStateRole
+                and self.get_column_name(index) == self.NAME_COLUMN):
             if not index.isValid():
                 return False
             item = index.internalPointer()
@@ -121,7 +122,7 @@ class TaskCategoryModel(BaseTreeModel):
         """
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
-        if index.column() == 0:
+        if self.get_column_name(index) == self.NAME_COLUMN:
             item = index.internalPointer()
             parent_item = item.parent
             if parent_item and self.tree_manager.is_filtered_out(parent_item):

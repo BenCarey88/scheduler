@@ -13,9 +13,7 @@ class TaskModel(BaseTreeModel):
 
     This model is intended to be used in the main panel of the Task Tab.
     """
-    ITEM_COLUMN = "Item"
     STATUS_COLUMN = "Status"
-    COLUMNS = [ITEM_COLUMN, STATUS_COLUMN]
 
     def __init__(self, tree_manager, root_task, parent=None):
         """Initialise task tree model.
@@ -25,12 +23,12 @@ class TaskModel(BaseTreeModel):
             tree_manager (TreeManager): tree manager item.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        self.columns = self.COLUMNS
         super(TaskModel, self).__init__(
             tree_manager,
             tree_root=root_task,
             parent=parent
         )
+        self.columns = [self.NAME_COLUMN, self.STATUS_COLUMN]
 
     @property
     def child_filters(self):
@@ -46,14 +44,6 @@ class TaskModel(BaseTreeModel):
             return self._base_filters + [id_filter]
         return self._base_filters
 
-    def columnCount(self, index):
-        """Get number of columns of given item
-
-        Returns:
-            (int): number of columns.
-        """
-        return len(self.columns)
-
     def data(self, index, role):
         """Get data for given item item and role.
 
@@ -64,14 +54,12 @@ class TaskModel(BaseTreeModel):
         Returns:
             (QtCore.QVariant): data for given item and role.
         """
-        if not index.isValid():
+        column_name = self.get_column_name(index)
+        if column_name is None:
             return QtCore.QVariant()
-        if index.column() < 0 or index.column() >= len(self.columns):
-            return QtCore.QVariant()
-        column = self.columns[index.column()]
 
         # Item column
-        if column == self.ITEM_COLUMN:
+        if column_name == self.NAME_COLUMN:
             if role == QtCore.Qt.ItemDataRole.ForegroundRole:
                 item = index.internalPointer()
                 if item:
@@ -94,7 +82,7 @@ class TaskModel(BaseTreeModel):
                     return font
 
         # Status column
-        if column == self.STATUS_COLUMN:
+        if column_name == self.STATUS_COLUMN:
             if role == QtCore.Qt.ItemDataRole.CheckStateRole:
                 item = index.internalPointer()
                 if item:
@@ -117,9 +105,8 @@ class TaskModel(BaseTreeModel):
         Returns:
             (bool): True if setting data was successful, else False.
         """
-        if index.column() == 1 and role == QtCore.Qt.CheckStateRole:
-            if not index.isValid():
-                return False
+        if (role == QtCore.Qt.CheckStateRole and
+                self.get_column_name(index) == self.STATUS_COLUMN):
             task_item = index.internalPointer()
             if not task_item:
                 return False
@@ -139,7 +126,7 @@ class TaskModel(BaseTreeModel):
         """
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
-        if index.column() == 1:
+        if self.get_column_name(index) == self.STATUS_COLUMN:
             # TODO: work out how to create a selection of base flags
             # and then just add/remove some for each model subclass
             return (

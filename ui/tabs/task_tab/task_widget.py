@@ -187,14 +187,13 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtWidgets.QWidget): editor widget.
         """
-        if index.isValid():
-            if index.column() == 0:
-                item = index.internalPointer()
-                if item:
-                    editor = QtWidgets.QLineEdit(parent)
-                    # TODO: is this needed since sets text from model anyway?
-                    editor.setText(item.name)
-                    return editor
+        if self.model().get_column_name(index) == self.model().NAME_COLUMN:
+            item = index.internalPointer()
+            if item:
+                editor = QtWidgets.QLineEdit(parent)
+                # TODO: is this needed since model sets text anyway?
+                editor.setText(item.name)
+                return editor
         return super().createEditor(parent, option, index)
 
     # @staticmethod

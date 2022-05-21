@@ -9,7 +9,7 @@ from scheduler.api.tree.exceptions import DuplicateChildNameError
 
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
-    ITEM_COLUMN = "Item"
+    NAME_COLUMN = "Name"
 
     def __init__(
             self,
@@ -32,18 +32,13 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 to the filter from the tree_manager.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        # TODO: down the line is there an argument that everything should be
-        # managed through the tree manager? ie. every other ui class should
-        # call that instead of the Task, TaskCategory and TaskRoot items
-        # directly? might mean a lot of repeated code though which is annoying
-        # so not sure if it's the best option, will need to think, keeping
-        # them as separate objects for now.
+        super(BaseTreeModel, self).__init__(parent)
         self.tree_manager = tree_manager
         self.root = tree_manager.tree_root if tree_root is None else tree_root
         self._base_filters = filters or []
         with self.root.filter_children(self.child_filters):
             self.tree_roots = self.root.get_all_children()
-        super(BaseTreeModel, self).__init__(parent)
+        self.columns = [self.NAME_COLUMN]
 
     @property
     def child_filters(self):
@@ -54,6 +49,25 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 the ones passed during initialization.
         """
         return self._base_filters
+
+    def get_column_name(self, index):
+        """Get name of column at index.
+
+        This framework is designed to allow us to change the order
+        of the columns. All checks for which column we're in should
+        use this get_column_name method so that changing the order
+        of self.columns will change the order of the columns in the
+        model.
+
+        Args:
+            index (QtCore.QModelIndex): index to query.
+
+        Returns:
+            (str or None): name of column, if exists.
+        """
+        if index.isValid() and 0 <= index.column() < len(self.columns):
+            return self.columns[index.column()]
+        return None
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -112,10 +126,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Returns:
             (int): number of children.
         """
-        if parent_index.column() > 0:
-            return 0
         if not parent_index.isValid():
             return len(self.tree_roots)
+        if self.get_column_name(parent_index) != self.NAME_COLUMN:
+            return 0
         parent_item = parent_index.internalPointer()
         with parent_item.filter_children(self.child_filters):
             return parent_item.num_children()
@@ -128,7 +142,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Returns:
             (int): number of columns.
         """
-        return 1
+        return len(self.columns)
 
     def data(self, index, role):
         """Get data for given item item and role.
@@ -142,14 +156,13 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if (index.column() == 0 and 
+        if (self.get_column_name(index) == self.NAME_COLUMN and
                 (role == QtCore.Qt.ItemDataRole.DisplayRole or
                  role == QtCore.Qt.ItemDataRole.EditRole)):
             item = index.internalPointer()
             if item:
                 return item.name
         return QtCore.QVariant()
-        # return self.get_item_role(item, role)
 
     def setData(self, index, value, role):
         """Set data at given index to given value.
@@ -169,7 +182,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not value:
             # can't set tree item with empty name
             return False
-        if index.column() != 0:
+        if self.get_column_name(index) != self.NAME_COLUMN:
             # in base class, we can only set data on the name column
             return False
         item = index.internalPointer()
@@ -191,7 +204,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
-        if index.column() == 0:
+        if self.get_column_name(index) == self.NAME_COLUMN:
             return (
                 QtCore.Qt.ItemFlag.ItemIsEnabled | 
                 QtCore.Qt.ItemFlag.ItemIsSelectable |

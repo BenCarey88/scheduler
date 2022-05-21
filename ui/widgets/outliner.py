@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.task_root import TaskRoot
-from scheduler.ui.models.task_category_model import TaskCategoryModel
+from scheduler.ui.models.tree import TaskCategoryModel
 from scheduler.ui.utils import simple_message_dialog
 
 

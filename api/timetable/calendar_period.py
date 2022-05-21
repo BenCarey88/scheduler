@@ -1,7 +1,6 @@
 """Classes representing a time period of calendar data."""
 
 from collections import OrderedDict
-from api.timetable.planned_item import PlannedItem, PlannedItemTimePeriod
 
 from scheduler.api.common.date_time import (
     Date,
@@ -14,6 +13,7 @@ from scheduler.api.serialization.serializable import (
     SerializableFileTypes
 )
 from .calendar_item import CalendarItem
+from .planned_item import PlannedItem, PlannedItemTimePeriod
 
 
 class BaseCalendarPeriod(NestedSerializable):
@@ -122,6 +122,16 @@ class BaseCalendarPeriod(NestedSerializable):
             CalendarMonth: PlannedItemTimePeriod.MONTH,
             CalendarYear: PlannedItemTimePeriod.YEAR,
         }.get(type(self))
+
+    def get_planned_items_container(self):
+        """Get list that planned items for this period are stored in.
+
+        This is overridden for calendar weeks.
+
+        Returns:
+            (list(PlannedItem)): list that planned items are stored in.
+        """
+        return self._planned_items
 
 
 class CalendarDay(BaseCalendarPeriod):
@@ -581,6 +591,14 @@ class CalendarWeek(BaseCalendarPeriod):
             self.calendar,
             self.start_date - TimeDelta(days=1)
         )
+
+    def get_planned_items_container(self):
+        """Get list that planned items for this period are stored in.
+
+        Returns:
+            (list(PlannedItem)): list that planned items are stored in.
+        """
+        return self.day_start._planned_week_items
 
     def to_dict(self):
         """Return dictionary representation of class.

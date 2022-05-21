@@ -4,7 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.ui.models.task_model import TaskModel
+from scheduler.ui.models.tree import TaskModel
 
 
 TASK_DELEGATE_HEIGHT = 20

@@ -13,8 +13,11 @@ class TaskModel(BaseTreeModel):
 
     This model is intended to be used in the main panel of the Task Tab.
     """
+    ITEM_COLUMN = "Item"
+    STATUS_COLUMN = "Status"
+    COLUMNS = [ITEM_COLUMN, STATUS_COLUMN]
 
-    def __init__(self, tree_manager, root_task, num_cols=2, parent=None):
+    def __init__(self, tree_manager, root_task, parent=None):
         """Initialise task tree model.
 
         Args:
@@ -22,7 +25,7 @@ class TaskModel(BaseTreeModel):
             tree_manager (TreeManager): tree manager item.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        self.num_cols = num_cols
+        self.columns = self.COLUMNS
         super(TaskModel, self).__init__(
             tree_manager,
             tree_root=root_task,
@@ -49,7 +52,7 @@ class TaskModel(BaseTreeModel):
         Returns:
             (int): number of columns.
         """
-        return self.num_cols
+        return len(self.columns)
 
     def data(self, index, role):
         """Get data for given item item and role.
@@ -63,7 +66,12 @@ class TaskModel(BaseTreeModel):
         """
         if not index.isValid():
             return QtCore.QVariant()
-        if index.column() == 0:
+        if index.column() < 0 or index.column() >= len(self.columns):
+            return QtCore.QVariant()
+        column = self.columns[index.column()]
+
+        # Item column
+        if column == self.ITEM_COLUMN:
             if role == QtCore.Qt.ItemDataRole.ForegroundRole:
                 item = index.internalPointer()
                 if item:
@@ -84,13 +92,16 @@ class TaskModel(BaseTreeModel):
                     font = QtGui.QFont()
                     font.setItalic(True)
                     return font
-        if index.column() == 1:
+
+        # Status column
+        if column == self.STATUS_COLUMN:
             if role == QtCore.Qt.ItemDataRole.CheckStateRole:
                 item = index.internalPointer()
                 if item:
                     return constants.TASK_STATUS_CHECK_STATES.get(
                         item.status
                     )
+
         return super(TaskModel, self).data(index, role)
 
     def setData(self, index, value, role):

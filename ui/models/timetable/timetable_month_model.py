@@ -93,6 +93,27 @@ class BaseMonthModel(BaseTimetableModel):
         )
         return self.calendar.get_day(month_start_date + time_delta)
 
+    def data(self, index, role):
+        """Get data for given item item and role.
+        
+        Args:
+            index (QtCore.QModelIndex): index of item item.
+            role (QtCore.Qt.Role): role we want data for.
+
+        Returns:
+            (QtCore.QVariant): data for given item and role.
+        """
+        if index.isValid():
+            day = self.day_from_row_and_column(index.row(), index.column())
+            if role == QtCore.Qt.ItemDataRole.TextAlignmentRole:
+                return (
+                    QtCore.Qt.AlignmentFlag.AlignTop |
+                    QtCore.Qt.AlignmentFlag.AlignLeft
+                )
+            if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                return day.date.ordinal_string()
+        return QtCore.QVariant()
+
     def flags(self, index):
         """Get flags for given item item.
 
@@ -102,7 +123,6 @@ class BaseMonthModel(BaseTimetableModel):
         Returns:
             (QtCore.Qt.Flag): Qt flags for item.
         """
-        index = QtCore.QModelIndex()
         if index.isValid():
             day = self.day_from_row_and_column(index.row(), index.column())
             if day.calendar_month == self.calendar_month:

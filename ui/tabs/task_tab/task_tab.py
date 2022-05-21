@@ -7,8 +7,9 @@ from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory, TaskFilter
 
 from scheduler.ui.tabs.base_tab import BaseTab
-from scheduler.ui.utils import simple_message_dialog, suppress_signals
+from scheduler.ui.utils import simple_message_dialog
 from .task_category_widget import TaskCategoryWidget
+
 
 class TaskTab(BaseTab):
     """Task Tab main view."""

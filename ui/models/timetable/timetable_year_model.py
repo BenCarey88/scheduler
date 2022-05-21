@@ -46,6 +46,46 @@ class BaseYearModel(BaseTimetableModel):
         """
         return self.calendar_period
 
+    def month_from_row_and_column(self, row, column):
+        """Get month at given row and column.
+
+        Args:
+            row (int): row to check.
+            column (int): column to check.
+
+        Returns:
+            (CalendarMonth): calendar month.
+        """
+        month_num = column + row * self.num_cols + 1
+        return self.calendar.get_month(
+            self.calendar_year.year,
+            month_num
+        )
+
+    def data(self, index, role):
+        """Get data for given item item and role.
+        
+        Args:
+            index (QtCore.QModelIndex): index of item item.
+            role (QtCore.Qt.Role): role we want data for.
+
+        Returns:
+            (QtCore.QVariant): data for given item and role.
+        """
+        if index.isValid():
+            calendar_month = self.month_from_row_and_column(
+                index.row(),
+                index.column()
+            )
+            if role == QtCore.Qt.ItemDataRole.TextAlignmentRole:
+                return (
+                    QtCore.Qt.AlignmentFlag.AlignTop |
+                    QtCore.Qt.AlignmentFlag.AlignLeft
+                )
+            if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                return calendar_month.name
+        return QtCore.QVariant()
+
 
 class TrackerYearModel(BaseYearModel):
     """Year model used by tracker."""

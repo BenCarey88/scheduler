@@ -7,8 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.common.date_time import DateTime, Time, TimeDelta
 from scheduler.api.timetable.calendar_item import CalendarItemType
 
-from scheduler.ui.models.timetable_week_model import CalendarWeekModel
-from scheduler.ui.models.timetable_day_model import BaseDayModel
+from scheduler.ui.models.timetable import CalendarDayModel, CalendarWeekModel
 from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseDayTableView,
@@ -40,7 +39,7 @@ class CalendarTab(BaseTimetableTab):
             (
                 (DateType.DAY, ViewType.TIMETABLE),
                 BaseDayTableView(
-                    name, project, BaseDayModel(project.calendar)
+                    name, project, CalendarDayModel(project.calendar)
                 )
             ),
         ])

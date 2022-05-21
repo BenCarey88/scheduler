@@ -1,42 +1,32 @@
-"""Timetable day model."""
-
+"""Planned items list model."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date
 
+class PlannerListModel(QtCore.QAbstractListModel):
+    """Model for planned items list."""
 
-class BaseDayModel(QtCore.QAbstractItemModel):
-    """Base model for day timetable."""
-    TIME_INTERVAL = 1
-
-    def __init__(self, calendar, calendar_day=None, parent=None):
-        """Initialise calendar week model.
+    def __init__(self, calendar_period, parent=None):
+        """Initialise calendar model.
 
         Args:
             calendar (Calendar): the calendar this is using.
-            calendar_day (CalendarDay or None): the calendar day this
-                is modelling. If not given, use current day.
+            calendar_period (BaseCalendarPeriod): the calendar period this
+                is modelling.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        super(BaseDayModel, self).__init__(parent)
-        self.calendar_day = calendar_day or calendar.get_day(Date.now())
-        self.num_rows = int(
-            (Date.DAY_END - Date.DAY_START) / self.TIME_INTERVAL
-        )
-        self.num_cols = 1
-        self.week_data = [
-            [(i, j) for i in range(self.num_cols)]
-            for j in range(self.num_rows)
-        ]
+        super(PlannerListModel, self).__init__(parent)
+        self.calendar = calendar_period.calendar
+        self.calendar_period = calendar_period
+        self.columns = ["Item", "Importance", "Size"]
 
-    def set_calendar_day(self, calendar_day):
-        """Set model to use given calendar day.
+    def set_calendar_period(self, calendar_period):
+        """Set model to use given calendar period.
 
         Args:
-            calendar_day (CalendarDay): calendar day to set to.
+            calendar_period (CalendarPeriod): calendar period to set to.
         """
-        self.calendar_day = calendar_day
+        self.calendar_period = calendar_period
         self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     def index(self, row, column, parent_index):
@@ -50,11 +40,11 @@ class BaseDayModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.QModelIndex): child QModelIndex.
         """
-        return self.createIndex(
-            row,
-            column,
-            self.week_data[row][column]
-        )
+        if self.hasIndex(row, column, parent_index):
+            item_list = self.calendar_period.get_planned_items_container()
+            if 0 <= row < len(item_list):
+                return self.createIndex(row, column, item_list[row])
+        return QtCore.QModelIndex()
 
     def parent(self, index):
         """Get index of parent item of given child.
@@ -81,16 +71,14 @@ class BaseDayModel(QtCore.QAbstractItemModel):
     def columnCount(self, index):
         """Get number of columns of given item.
 
-        This is set to 1 in base class but can be overridden if needed.
-        
         Returns:
             (int): number of columns.
         """
-        return self.num_cols
+        return len(self.columns)
 
     def data(self, index, role):
         """Get data for given item item and role.
-        
+
         Args:
             index (QtCore.QModelIndex): index of item item.
             role (QtCore.Qt.Role): role we want data for.
@@ -122,23 +110,4 @@ class BaseDayModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.Qt.Flag): Qt flags for item.
         """
-        return (
-            QtCore.Qt.ItemFlag.ItemIsEnabled # | 
-            # QtCore.Qt.ItemFlag.ItemIsSelectable
-        )
-
-    def headerData(self, section, orientation, role):
-        """Get header data.
-        
-        Args:
-            section (int): row we want header data for.
-            orientation (QtCore.Qt.Orientaion): orientation of widget.
-            role (QtCore.Qt.Role): role we want header data for.
-
-        Returns:
-            (QtCore.QVariant): header data.
-        """
-        if role == QtCore.Qt.ItemDataRole.DisplayRole:
-            if orientation == QtCore.Qt.Horizontal:
-                return self.calendar_day.header_name
-        return QtCore.QVariant()
+        return QtCore.Qt.ItemFlag.ItemIsEnabled

@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.ui.models.timetable_week_model import TrackerWeekModel
+from scheduler.ui.models.timetable import TrackerWeekModel
 from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseWeekTableView

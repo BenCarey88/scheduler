@@ -42,7 +42,7 @@ class EditLog(object):
         Returns:
             (bool): whether or not edit registration is locked.
         """
-        return (self.__registration_locked or bool(self._edit_to_add))
+        return (self.__registration_locked or self._edit_to_add is not None)
 
     @property
     def is_locked(self):
@@ -66,8 +66,10 @@ class EditLog(object):
         """
         __registration_locked = self.__registration_locked
         self.__registration_locked = True
-        yield
-        self.__registration_locked = __registration_locked
+        try:
+            yield
+        finally:
+            self.__registration_locked = __registration_locked
 
     def add_edit(self, edit):
         """Add edit object to list.

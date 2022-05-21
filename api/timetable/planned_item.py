@@ -180,10 +180,7 @@ class PlannedItem(NestedSerializable):
             calendar_period,
             self.calendar_period
         )
-        if isinstance(calendar_period, CalendarWeek):
-            return calendar_period.day_start._planned_week_items
-        else:
-            return self.calendar_period._planned_items
+        return self.calendar_period.get_planned_items_container()
 
     def _add_scheduled_item(self, scheduled_item):
         """Add scheduled item (to be used during deserialization).

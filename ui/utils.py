@@ -17,9 +17,25 @@ def suppress_signals(*QObjects_list):
     previous_state = {}
     for obj in QObjects_list:
         previous_state[obj] = obj.blockSignals(True)
-    yield
-    for obj in QObjects_list:
-        obj.blockSignals(previous_state[obj])
+    try:
+        yield
+    finally:
+        for obj in QObjects_list:
+            obj.blockSignals(previous_state[obj])
+
+
+@contextmanager
+def override_cursor(cursor_type):
+    """contextmanager to temporarily set the cursor to a different type.
+
+    Args:
+        cursor_type (QtCore.Qt.CursorShape) Qt cursor to use.
+    """
+    QtGui.QApplication.setOverrideCursor(cursor_type)
+    try:
+        yield
+    finally:
+        QtGui.QApplication.restoreOverrideCursor()
 
 
 def simple_message_dialog(message, informative_text=None, parent=None):

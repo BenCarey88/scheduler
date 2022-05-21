@@ -9,6 +9,7 @@ from scheduler.api.tree.exceptions import DuplicateChildNameError
 
 class BaseTreeModel(QtCore.QAbstractItemModel):
     """Base tree model."""
+    ITEM_COLUMN = "Item"
 
     def __init__(
             self,

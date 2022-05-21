@@ -72,6 +72,8 @@ class BaseTimetableModel(QtCore.QAbstractTableModel):
         Returns:
             (QtCore.QModelIndex): child QModelIndex.
         """
+        if not self.hasIndex(row, column, parent_index):
+            return QtCore.QModelIndex()
         return self.createIndex(
             row,
             column,

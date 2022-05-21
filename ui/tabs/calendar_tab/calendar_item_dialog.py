@@ -12,7 +12,7 @@ from scheduler.api.timetable.calendar_item import (
 )
 
 from scheduler.ui import utils
-from scheduler.ui.models.full_task_tree_model import FullTaskTreeModel
+from scheduler.ui.models.tree import FullTaskTreeModel
 
 
 class CalendarItemDialog(QtWidgets.QDialog):
@@ -342,11 +342,9 @@ class CalendarItemDialog(QtWidgets.QDialog):
         """
         if self.is_repeat and self.repeat_pattern is None:
             utils.simple_message_dialog(
-                "Repeat pattern given is invalid. Rejecting edit.",
+                "Repeat pattern given is invalid.",
                 parent=self
             )
-            self.reject()
-            self.close()
             return
         if self.is_editor:
             self._calendar_manager.modify_calendar_item(

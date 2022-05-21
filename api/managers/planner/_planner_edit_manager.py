@@ -1,4 +1,4 @@
-"""Planner edit manager class to manage calendar item edits."""
+"""Planner edit manager class to manage planned item edits."""
 
 from scheduler.api.edit.planner_edit import (
     AddPlannedItemEdit,
@@ -13,13 +13,13 @@ from ._base_planner_manager import BasePlannerManager
 
 
 class PlannerEditManager(BasePlannerManager):
-    """Planner edit manager to apply edits to calendar items."""
+    """Planner edit manager to apply edits to planned items."""
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.
 
         Args:
             user_prefs (ProjectUserPrefs): project user prefs class.
-            calendar (Calendar): calendar item.
+            calendar (Calendar): calendar object.
             archive_calendar (Calendar): archive calendar object.
         """
         super(PlannerEditManager, self).__init__(
@@ -36,7 +36,7 @@ class PlannerEditManager(BasePlannerManager):
             **kwargs (dict): kwargs to be passed to item init.
 
         Returns:
-            (CalendarItem): newly created calendar item.
+            (PlannedItem): newly created planned item.
         """
         item = PlannedItem(*args, **kwargs)
         AddPlannedItemEdit.create_and_run(item)
@@ -51,7 +51,7 @@ class PlannerEditManager(BasePlannerManager):
             **kwargs (dict): kwargs to be passed to item init.
 
         Returns:
-            (CalendarItem): newly created calendar item.
+            (PlannedItem): newly created planned item.
         """
         item = PlannedItem(*args, **kwargs)
         AddPlannedItemEdit.create_and_run(item, index)
@@ -89,7 +89,7 @@ class PlannerEditManager(BasePlannerManager):
         Args:
             planned_item (PlannedItem): planned item to remove.
             calendar_period (BaseCalendarPeriod or None): calendar period
-                item is scheduled over.
+                item is planned over.
             tree_item (BaseTreeItem or None): the task that this item
                 represents.
             size (PlannedItemSize or None): size of item.

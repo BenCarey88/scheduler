@@ -14,7 +14,7 @@ class ItemDialog(QtWidgets.QDialog):
     def __init__(
             self,
             tree_manager,
-            calendar_manager,
+            schedule_manager,
             item=None,
             tree_item=None,
             parent=None):
@@ -23,15 +23,15 @@ class ItemDialog(QtWidgets.QDialog):
         Args:
             tree_manager (TreeManager): the task tree manager object.
             calendar (calendar): the calendar object.
-            item (BaseCalendarItem, PlannedItem or None): item we're
+            item (BaseScheduledItem, PlannedItem or None): item we're
                 editing, if in edit mode. If None, we're in create mode.
             tree_item (Task or None): tree item to initialize with, if we're
-                not passing a calendar item. If None, user has to choose.
+                not passing a scheduled item. If None, user has to choose.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
         super(ItemDialog, self).__init__(parent=parent)
-        self._calendar = calendar_manager.calendar
-        self._calendar_manager = calendar_manager
+        self._calendar = schedule_manager.calendar
+        self._schedule_manager = schedule_manager
         self._item = item
         self.is_editor = (item is not None)
 
@@ -45,7 +45,7 @@ class ItemDialog(QtWidgets.QDialog):
         return self.task_combo_box.selected_task_item
 
     def accept_and_close(self):
-        """Run add or modify calendar item edit.
+        """Run add or modify scheduled item edit.
 
         Called when user clicks accept.
         """
@@ -54,7 +54,7 @@ class ItemDialog(QtWidgets.QDialog):
         )
 
     def delete_item_and_close(self):
-        """Run remove calendar item edit.
+        """Run remove scheduled item edit.
 
         Called when user clicks delete.
         """

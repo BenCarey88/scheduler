@@ -7,12 +7,12 @@ from .calendar_period import (
     CalendarMonth,
     CalendarYear,
 )
-from .calendar_item import (
-    CalendarItem,
-    CalendarItemRepeatPattern,
-    RepeatCalendarItem,
-    RepeatCalendarItemInstance,
-    CalendarItemType,
+from .scheduled_item import (
+    ScheduledItem,
+    ScheduledItemRepeatPattern,
+    RepeatScheduledItem,
+    RepeatScheduledItemInstance,
+    ScheduledItemType,
 )
 from .planned_item import (
     PlannedItem,

@@ -1,1 +1,1 @@
-"""Functionality for syncing calendar items with google calendar."""
+"""Functionality for syncing scheduled items with google calendar."""

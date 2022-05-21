@@ -1,31 +1,31 @@
 """Filters for items in timetable."""
 
-from .calendar_item import CalendarItemType
+from .scheduled_item import ScheduledItemType
 
 
 class BaseFilter(object):
     """Base filter (does nothing)."""
-    def filter_function(self, calendar_items):
-        return calendar_items
+    def filter_function(self, scheduled_items):
+        return scheduled_items
 
 
 class NoTaskItems(BaseFilter):
     """Filter to only non-task items."""
-    def filter_function(self, calendar_items):
+    def filter_function(self, scheduled_items):
         filtered_list = []
-        for item in calendar_items:
-            if item.type != CalendarItemType.Task:
-                filtered_list.append(calendar_items)
+        for item in scheduled_items:
+            if item.type != ScheduledItemType.Task:
+                filtered_list.append(scheduled_items)
         return filtered_list
 
 
 class OnlyTaskEvents(BaseFilter):
     """Filter to only include task events."""
-    def filter_function(self, calendar_items):
+    def filter_function(self, scheduled_items):
         filtered_list = []
-        for event in calendar_items:
-            if event.type == CalendarItemType.Task:
-                filtered_list.append(calendar_items)
+        for event in scheduled_items:
+            if event.type == ScheduledItemType.Task:
+                filtered_list.append(scheduled_items)
         return filtered_list
 
 
@@ -41,11 +41,11 @@ class TaskTreeFilter(BaseFilter):
         self.tree_root = tree_root
         self.tree_filters = tree_filters
 
-    def filter_function(self, calendar_items):
+    def filter_function(self, scheduled_items):
         """If event is a task that's not in the filtered tree, remove it."""
         filtered_list = []
-        for item in calendar_items:
-            if item.type == CalendarItemType.Task:
+        for item in scheduled_items:
+            if item.type == ScheduledItemType.Task:
                 tree_item = item.tree_item
                 if not tree_item:
                     continue

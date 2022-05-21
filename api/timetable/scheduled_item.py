@@ -1,4 +1,4 @@
-"""Calendar item class."""
+"""Scheduled item class."""
 
 from collections import OrderedDict
 
@@ -24,18 +24,18 @@ from scheduler.api.tree.task_category import TaskCategory
 
 
 #TODO standardize exceptions
-class CalendarItemError(Exception):
-    """Generic exception for calendar item errors."""
+class ScheduledItemError(Exception):
+    """Generic exception for scheduled item errors."""
 
 
-class CalendarItemType():
-    """Struct defining types of calendar items."""
+class ScheduledItemType():
+    """Struct defining types of scheduled items."""
     TASK = "task"
     EVENT = "event"
 
 
-class CalendarItemRepeatPattern(NestedSerializable):
-    """Class to determine the dates of a repeating calendar item."""
+class ScheduledItemRepeatPattern(NestedSerializable):
+    """Class to determine the dates of a repeating scheduled item."""
     _SAVE_TYPE = SaveType.NESTED
 
     INITIAL_DATES_KEY = "initial_dates"
@@ -64,11 +64,11 @@ class CalendarItemRepeatPattern(NestedSerializable):
             repeat_type (str or None): type of repeating used.
             end_date (Date or None): end date, if one exists.
         """
-        super(CalendarItemRepeatPattern, self).__init__()
+        super(ScheduledItemRepeatPattern, self).__init__()
         self._initial_date_pattern = inital_date_pattern
         if inital_date_pattern[0] + timedelta_gap <= inital_date_pattern[-1]:
-            raise CalendarItemError(
-                "CalendarItemRepeat timedelta_gap is too small for given range"
+            raise ScheduledItemError(
+                "ScheduledItemRepeat timedelta_gap is too small for given range"
             )
         self._pattern_size = len(inital_date_pattern)
         self._gap = timedelta_gap
@@ -95,14 +95,14 @@ class CalendarItemRepeatPattern(NestedSerializable):
         """Check if this is equal to another class instance.
 
         Args:
-            repeat_pattern (CalendarItemRepeatPattern): other instance to
+            repeat_pattern (ScheduledItemRepeatPattern): other instance to
                 compare to.
 
         Returns:
             (bool): whether or not instances are equal.        
         """
         return (
-            isinstance(repeat_pattern, CalendarItemRepeatPattern) and
+            isinstance(repeat_pattern, ScheduledItemRepeatPattern) and
             self._get_hashable_attrs() == repeat_pattern._get_hashable_attrs()
         )
 
@@ -110,7 +110,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
         """Check if this is not equal to another class instance.
 
         Args:
-            repeat_pattern (CalendarItemRepeatPattern): other instance to
+            repeat_pattern (ScheduledItemRepeatPattern): other instance to
                 compare to.
 
         Returns:
@@ -165,7 +165,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
             end_date (Date or None): end date, if one exists.
 
         Returns:
-            (CalendarItemRepeat): class instance.
+            (ScheduledItemRepeat): class instance.
         """
         return cls(
             inital_date_pattern,
@@ -179,14 +179,14 @@ class CalendarItemRepeatPattern(NestedSerializable):
         """Initialise class as set of weekdays with week gap in between.
 
         Args:
-            starting_day (Date): first date of calendar item.
+            starting_day (Date): first date of scheduled item.
             weekdays (list(str)): list of weekdays that this will
                 repeat on.
             week_gap (int): number of weeks before repeating.
             end_date (Date or None): end date, if one exists.
 
         Returns:
-            (CalendarItemRepeat): class instance.
+            (ScheduledItemRepeat): class instance.
         """
         weekdays = [
             Date.weekday_int_from_string(weekday) for weekday in weekdays
@@ -217,7 +217,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
             end_date (Date or None): end date, if one exists.
 
         Returns:
-            (CalendarItemRepeat): class instance.
+            (ScheduledItemRepeat): class instance.
         """
         return cls(
             inital_date_pattern,
@@ -237,7 +237,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
             end_date (Date or None): end date, if one exists.
 
         Returns:
-            (CalendarItemRepeat): class instance.
+            (ScheduledItemRepeat): class instance.
         """
         return cls(
             inital_date_pattern,
@@ -369,7 +369,7 @@ class CalendarItemRepeatPattern(NestedSerializable):
             dict_repr (dict): dictionary representing class.
 
         Returns:
-            (CalendarItemRepeatPattern or None): repeat pattern, if can be
+            (ScheduledItemRepeatPattern or None): repeat pattern, if can be
                 initialised.
         """
         initial_dates = [
@@ -393,8 +393,8 @@ class CalendarItemRepeatPattern(NestedSerializable):
         )
 
 
-class BaseCalendarItem(Hosted, NestedSerializable):
-    """Base calendar item class representing a scheduled task or event.
+class BaseScheduledItem(Hosted, NestedSerializable):
+    """Base scheduled item class representing a scheduled task or event.
 
     This class doesn't include any datetime information as the way this data
     is used and serialized varies depending on whether the item repeats or not,
@@ -430,10 +430,10 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             end_time (Time or None): time item ends at.
             date (Date or None): date item starts at.
             repeat_pattern (RepeatPattern or None): repeat pattern of item.
-                This is only used for repeat calendar items, but can be stored
-                in standard calendar items so it's saved when converting to a
+                This is only used for repeat scheduled items, but can be stored
+                in standard scheduled items so it's saved when converting to a
                 repeat one.
-            item_type (CalendarItemType or None): type of scheduled item.
+            item_type (ScheduledItemType or None): type of scheduled item.
             tree_item (BaseTreeItem or None): tree item representing task,
                 if item_type is task.
             event_category (str or None): name to be used for category of item,
@@ -442,17 +442,17 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
-            template_item (BaseCalendarItem or None): template item to inherit
+            template_item (BaseScheduledItem or None): template item to inherit
                 properties from, if they're not overridden. This is used by
-                RepeatCalendarItemInstances.
+                RepeatScheduledItemInstances.
         """
-        super(BaseCalendarItem, self).__init__()
+        super(BaseScheduledItem, self).__init__()
         self._calendar = calendar
         self._task_root = calendar.task_root
         self._template_item = template_item
         if template_item is None:
             # if we can't inherit from a template item, set default values
-            item_type = item_type or CalendarItemType.TASK
+            item_type = item_type or ScheduledItemType.TASK
             event_category = event_category or ""
             event_name = event_name or ""
             is_background = is_background or False
@@ -488,8 +488,8 @@ class BaseCalendarItem(Hosted, NestedSerializable):
                     property of the template item, if one exists and the
                     property of this instance would be None. This is for
                     convenience to avoid too much unnecessary repetition of
-                    definitions in the RepeatCalendarItemInstance class. It
-                    means that RepeatCalendarItemInstances can rely on their
+                    definitions in the RepeatScheduledItemInstance class. It
+                    means that RepeatScheduledItemInstances can rely on their
                     template class for their attributes unless overridden.
             """
             def decorated_func(self):
@@ -542,7 +542,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
     @property
     def start_datetime(self):
         """Get start datetime of item.
-        
+
         Returns:
             (Date or None): datetime item starts at.
         """
@@ -575,10 +575,10 @@ class BaseCalendarItem(Hosted, NestedSerializable):
     @property
     @_template_item_decorator
     def type(self):
-        """Get type of calendar item.
+        """Get type of scheduled item.
 
         Returns:
-            (CalendarItemType): item type.
+            (ScheduledItemType): item type.
         """
         return self._type.value
 
@@ -601,7 +601,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         Returns:
             (str): name to use for item category.
         """
-        if self.type == CalendarItemType.TASK:
+        if self.type == ScheduledItemType.TASK:
             # TODO: this is dodgy, task_category shouldn't 
             # have a top_level_task method, change this in refactor
             if isinstance(self.tree_item, (Task, TaskCategory)):
@@ -621,7 +621,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         Returns:
             (str): name to use for item.
         """
-        if self.type == CalendarItemType.TASK:
+        if self.type == ScheduledItemType.TASK:
             if self.tree_item:
                 return self.tree_item.name
             return ""
@@ -645,7 +645,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             (str): string representing date/time of item.
         """
         raise NotImplementedError(
-            "datetime_string is implemented in calendar item subclasses."
+            "datetime_string is implemented in scheduled item subclasses."
         )
 
     def get_item_container(self, date=None):
@@ -656,10 +656,10 @@ class BaseCalendarItem(Hosted, NestedSerializable):
                 item's internal start date time.
 
         Returns:
-            (list): list that calendar item should be contained in.
+            (list): list that scheduled item should be contained in.
         """
         raise NotImplementedError(
-            "get_item_container is implemented in calendar item subclasses."
+            "get_item_container is implemented in scheduled item subclasses."
         )
 
     def _get_id(self):
@@ -689,7 +689,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         dict_repr = {}
         if self._type:
             dict_repr[self.TYPE_KEY] = self._type.value
-        if self.type == CalendarItemType.TASK:
+        if self.type == ScheduledItemType.TASK:
             if self._tree_item:
                 dict_repr[self.TREE_ITEM_KEY] = self._tree_item.value.path
         else:
@@ -714,7 +714,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
                 the __init__ function.
 
         Returns:
-            (BaseCalendarItem or None): calendar item, if can be initialised.
+            (BaseScheduledItem or None): scheduled item, if can be initialised.
         """
         item_type = dict_repr.get(cls.TYPE_KEY)
         tree_item = calendar.task_root.get_item_at_path(
@@ -724,7 +724,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         name = dict_repr.get(cls.NAME_KEY)
         is_background = dict_repr.get(cls.BACKGROUND_KEY, False)
 
-        calendar_item = cls(
+        scheduled_item = cls(
             calendar,
             *date_args,
             item_type=item_type,
@@ -735,12 +735,12 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         )
         id = dict_repr.get(cls.ID_KEY, None)
         if id is not None:
-            item_registry.register_item(id, calendar_item)
-        return calendar_item
+            item_registry.register_item(id, scheduled_item)
+        return scheduled_item
 
 
-class CalendarItem(BaseCalendarItem):
-    """Calendar item class representing a scheduled task or event.
+class ScheduledItem(BaseScheduledItem):
+    """Scheduled item class representing a scheduled task or event.
 
     This uses DateTime values to define the start and end date and time of
     the item.
@@ -769,7 +769,7 @@ class CalendarItem(BaseCalendarItem):
             start_datetime (Time): start time.
             end_datetime (Time): end time.
             date (Date): date of item.
-            item_type (CalendarItemType or None): type of scheduled item.
+            item_type (ScheduledItemType or None): type of scheduled item.
             tree_item (BaseTreeItem or None): tree item representing task,
                 if item_type is task.
             event_category (str or None): name to be used for category of item,
@@ -782,7 +782,7 @@ class CalendarItem(BaseCalendarItem):
                 can be saved in this class so it can be copied over to the new
                 one.
         """
-        super(CalendarItem, self).__init__(
+        super(ScheduledItem, self).__init__(
             calendar,
             start_time=start_time,
             end_time=end_time,
@@ -815,7 +815,7 @@ class CalendarItem(BaseCalendarItem):
                 item's internal start date.
 
         Returns:
-            (list): list that calendar item should be contained in.
+            (list): list that scheduled item should be contained in.
         """
         if date is None:
             date = self.date
@@ -828,7 +828,7 @@ class CalendarItem(BaseCalendarItem):
         Returns:
             (dict): dictionary representation.
         """
-        dict_repr = super(CalendarItem, self).to_dict()
+        dict_repr = super(ScheduledItem, self).to_dict()
         dict_repr[self.START_DATETIME_KEY] = self.start_datetime.string()
         dict_repr[self.END_DATETIME_KEY] = self.end_datetime.string()
         return dict_repr
@@ -842,7 +842,7 @@ class CalendarItem(BaseCalendarItem):
             calendar (Calendar): root calendar object.
 
         Returns:
-            (CalendarItem or None): calendar item, if can be initialised.
+            (ScheduledItem or None): scheduled item, if can be initialised.
         """
         start = dict_repr.get(cls.START_DATETIME_KEY)
         end = dict_repr.get(cls.END_DATETIME_KEY)
@@ -853,7 +853,7 @@ class CalendarItem(BaseCalendarItem):
             # TODO: either remove this try except, or return None and manage
             # that case in CalendarDay class from_dict method
             raise e
-        return super(CalendarItem, cls).from_dict(
+        return super(ScheduledItem, cls).from_dict(
             dict_repr,
             calendar,
             start_datetime.time(),
@@ -862,11 +862,11 @@ class CalendarItem(BaseCalendarItem):
         )
 
 
-class RepeatCalendarItem(BaseCalendarItem):
-    """Class for repeating calendar items.
+class RepeatScheduledItem(BaseScheduledItem):
+    """Class for repeating scheduled items.
 
     This uses Time values to determine the start and end time of the item
-    and a CalendarItemRepeatPattern instance to determine the dates of
+    and a ScheduledItemRepeatPattern instance to determine the dates of
     the instances of the item.
     """
     START_TIME_KEY = "start_time"
@@ -891,9 +891,9 @@ class RepeatCalendarItem(BaseCalendarItem):
             calendar (Calendar): calendar class instance.
             start_time (Time): start time.
             end_time (Time): end time.
-            repeat_pattern (CalendarItemRepeatPattern): repeat pattern object,
+            repeat_pattern (ScheduledItemRepeatPattern): repeat pattern object,
                 describing what days this item repeats on.
-            item_type (CalendarItemType or None): type of scheduled item.
+            item_type (ScheduledItemType or None): type of scheduled item.
             tree_item (BaseTreeItem or None): tree item representing task,
                 if item_type is task.
             event_category (str or None): name to be used for category of item,
@@ -904,18 +904,18 @@ class RepeatCalendarItem(BaseCalendarItem):
                 overlayed on.
 
         Attributes:
-            _instances (dict(Date, RepeatCalendarItemInstance)): dictionary of
+            _instances (dict(Date, RepeatScheduledItemInstance)): dictionary of
                 instances of this repeat item, keyed by the date they're
                 scheduled for originally. If the item has it's date overridden,
                 the date key remains unchanged.
-            _overridden_instances (dict(Date, RepeatCalendarItemInstance)):
+            _overridden_instances (dict(Date, RepeatScheduledItemInstance)):
                 dictionary of all instances that have overrides on their time/
                 date. These are the only ones that need to be saved during
                 serialization. Again, these are still keyed by the original
                 date they were scheduled for, for easy comparison to the the
                 instances dict.
         """
-        super(RepeatCalendarItem, self).__init__(
+        super(RepeatScheduledItem, self).__init__(
             calendar,
             start_time=start_time,
             end_time=end_time,
@@ -934,7 +934,7 @@ class RepeatCalendarItem(BaseCalendarItem):
         """Get start date of repeat pattern.
 
         Returns:
-            (Date): date of first instance of repeat calendar item.
+            (Date): date of first instance of repeat scheduled item.
         """
         return self.repeat_pattern.start_date
 
@@ -967,7 +967,7 @@ class RepeatCalendarItem(BaseCalendarItem):
                 item's internal start date time.
 
         Returns:
-            (list): list that calendar item should be contained in.
+            (list): list that scheduled item should be contained in.
         """
         return self._calendar._repeat_items
 
@@ -978,7 +978,7 @@ class RepeatCalendarItem(BaseCalendarItem):
             date (Date): date to check.
 
         Returns:
-            (list(RepeatCalendarItemInstance): list of all repeat calendar item
+            (list(RepeatScheduledItemInstance): list of all repeat scheduled item
                 instances that exist at the given date. Note that this will
                 include any items that are overridden to the current date, and
                 will not include items originally scheduled for this date that
@@ -994,7 +994,7 @@ class RepeatCalendarItem(BaseCalendarItem):
                 self._instances[_date] = self._overridden_instances[_date]
             else:
                 # otherwise create new instance
-                self._instances[_date] = RepeatCalendarItemInstance(
+                self._instances[_date] = RepeatScheduledItemInstance(
                     self._calendar,
                     self,
                     _date
@@ -1040,7 +1040,7 @@ class RepeatCalendarItem(BaseCalendarItem):
         Returns:
             (dict): dictionary representation.
         """
-        dict_repr = super(RepeatCalendarItem, self).to_dict()
+        dict_repr = super(RepeatScheduledItem, self).to_dict()
         dict_repr[self.START_TIME_KEY] = self.start_time.string()
         dict_repr[self.END_TIME_KEY] = self.end_time.string()
         dict_repr[self.REPEAT_PATTERN_KEY] = self.repeat_pattern.to_dict()
@@ -1060,17 +1060,17 @@ class RepeatCalendarItem(BaseCalendarItem):
             calendar (Calendar): root calendar object.
 
         Returns:
-            (RepeatCalendarItem or None): calendar item, if can be initialised.
+            (RepeatScheduledItem or None): scheduled item, if can be initialised.
         """
         try:
             start_time = Time.from_string(dict_repr.get(cls.START_TIME_KEY))
             end_time = Time.from_string(dict_repr.get(cls.END_TIME_KEY))
         except DateTimeError:
             return None
-        repeat_pattern = CalendarItemRepeatPattern.from_dict(
+        repeat_pattern = ScheduledItemRepeatPattern.from_dict(
             dict_repr.get(cls.REPEAT_PATTERN_KEY)
         )
-        repeat_item = super(RepeatCalendarItem, cls).from_dict(
+        repeat_item = super(RepeatScheduledItem, cls).from_dict(
             dict_repr,
             calendar,
             start_time,
@@ -1081,7 +1081,7 @@ class RepeatCalendarItem(BaseCalendarItem):
         for date_str, instance_dict in overrides.items():
             date = Date.from_string(date_str)
             repeat_item._overridden_instances[date] = (
-                RepeatCalendarItemInstance.from_dict(
+                RepeatScheduledItemInstance.from_dict(
                     instance_dict,
                     repeat_item._calendar,
                     repeat_item,
@@ -1091,11 +1091,11 @@ class RepeatCalendarItem(BaseCalendarItem):
         return repeat_item
 
 
-class RepeatCalendarItemInstance(BaseCalendarItem):
-    """Instance of a repeated calendar item.
+class RepeatScheduledItemInstance(BaseScheduledItem):
+    """Instance of a repeated scheduled item.
 
-    This has similar properties to CalendarItem, but inherits all of them from
-    the RepeatCalendarItem object it uses as a template.
+    This has similar properties to ScheduledItem, but inherits all of them from
+    the RepeatScheduledItem object it uses as a template.
     """
     OVERRIDE_START_DATETIME_KEY = "start_datetime_override"
     OVERRIDE_END_DATETIME_KEY = "end_datetime_override"
@@ -1103,15 +1103,15 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
     def __init__(
             self,
             calendar,
-            repeat_calendar_item,
+            repeat_scheduled_item,
             scheduled_date,
             override_start_datetime=None,
             override_end_datetime=None):
         """Initialise class.
 
         Args:
-            calendar (Calendar): the calendar item.
-            repeat_calendar_item (RepeatCalendarItem): the repeat calendar item
+            calendar (Calendar): the scheduled item.
+            repeat_scheduled_item (RepeatScheduledItem): the repeat scheduled item
                 that this is an instance of.
             scheduled_date (Date): date this instance is scheduled for.
             override_start_datetime (DateTime or None): start date time to
@@ -1128,21 +1128,21 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         if override_end_datetime is not None:
             end_time = override_end_datetime.time()
 
-        super(RepeatCalendarItemInstance, self).__init__(
+        super(RepeatScheduledItemInstance, self).__init__(
             calendar,
             start_time=start_time,
             end_time=end_time,
             date=date,
-            template_item=repeat_calendar_item
+            template_item=repeat_scheduled_item
         )
         self._scheduled_date = scheduled_date
 
     @property
-    def repeat_calendar_item(self):
-        """Get repeat calendar item.
+    def repeat_scheduled_item(self):
+        """Get repeat scheduled item.
 
         Returns:
-            (RepeatCalendarItem): the repeat calendar item used as a template
+            (RepeatScheduledItem): the repeat scheduled item used as a template
                 for this item's properties.
         """
         return self._template_item
@@ -1199,7 +1199,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         Returns:
             (Time): scheduled start time.
         """
-        return self.repeat_calendar_item.start_time
+        return self.repeat_scheduled_item.start_time
 
     @property
     def scheduled_end_time(self):
@@ -1208,7 +1208,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
         Returns:
             (Time): scheduled end time.
         """
-        return self.repeat_calendar_item.end_time
+        return self.repeat_scheduled_item.end_time
 
     @property
     def scheduled_date(self):
@@ -1274,11 +1274,11 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
                 item's internal start date time.
 
         Returns:
-            (list): list that calendar item should be contained in.
+            (list): list that scheduled item should be contained in.
         """
         raise NotImplementedError(
             "get_item_container is expected to return a list, but repeat "
-            "calendar items are stored in dicts. Hence this method is not "
+            "scheduled items are stored in dicts. Hence this method is not "
             "implemented for them to avoid confusion, and isn't expected to "
             "be used."
         )
@@ -1301,7 +1301,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
 
     def _compute_override(self):
         """Check if this is override and add/remove it from overrides list."""
-        overrides = self.repeat_calendar_item._overridden_instances
+        overrides = self.repeat_scheduled_item._overridden_instances
         if self.is_override():
             overrides[self.scheduled_date] = self
         else:
@@ -1330,18 +1330,18 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
             cls,
             dict_repr,
             calendar,
-            repeat_calendar_item,
+            repeat_scheduled_item,
             scheduled_date):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
-            repeat_calendar_item (RepeatCalendarItem): the repeat calendar item
+            repeat_scheduled_item (RepeatScheduledItem): the repeat scheduled item
                 that this is an instance of.
             scheduled_date (Date): original scheduled date of item.
 
         Returns:
-            (BaseCalendarItem or None): calendar item, if can be initialised.
+            (BaseScheduledItem or None): scheduled item, if can be initialised.
         """
         override_start_datetime = None
         override_end_datetime = None
@@ -1357,7 +1357,7 @@ class RepeatCalendarItemInstance(BaseCalendarItem):
             return None
         return cls(
             calendar,
-            repeat_calendar_item,
+            repeat_scheduled_item,
             scheduled_date,
             override_start_datetime,
             override_end_datetime

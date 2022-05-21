@@ -1,6 +1,6 @@
-"""Calendar edits to be applied to calendar items.
+"""Calendar edits to be applied to scheduled items.
 
-Friend classes: [Calendar, CalendarPeriod, CalendarItem]
+Friend classes: [Calendar, CalendarPeriod, ScheduledItem]
 """
 
 from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
@@ -12,72 +12,72 @@ from ._core_edits import (
 )
 
 
-class AddCalendarItemEdit(ListEdit):
-    """Add calendar item to calendar."""
-    def __init__(self, calendar_item):
+class AddScheduledItemEdit(ListEdit):
+    """Add scheduled item to calendar."""
+    def __init__(self, scheduled_item):
         """Initialise edit.
 
         Args:
-            calendar_item (BaseCalendarItem): the calendar item to add. Can
-                be a single calendar item instance or a repeating item.
+            scheduled_item (BaseScheduledItem): the scheduled item to add. Can
+                be a single scheduled item instance or a repeating item.
         """
-        super(AddCalendarItemEdit, self).__init__(
-            calendar_item.get_item_container(),
-            [calendar_item],
+        super(AddScheduledItemEdit, self).__init__(
+            scheduled_item.get_item_container(),
+            [scheduled_item],
             ContainerOp.ADD,
         )
-        self._name = "AddCalendarItem ({0})".format(calendar_item.name)
+        self._name = "AddScheduledItem ({0})".format(scheduled_item.name)
         self._description = (
             "Add {0} {1} at {2}".format(
-                calendar_item.__class__.__name__,
-                calendar_item.name,
-                calendar_item.datetime_string(),
+                scheduled_item.__class__.__name__,
+                scheduled_item.name,
+                scheduled_item.datetime_string(),
             )
         )
 
 
-class RemoveCalendarItemEdit(ListEdit):
-    """Remove calendar item from calendar."""
-    def __init__(self, calendar_item):
+class RemoveScheduledItemEdit(ListEdit):
+    """Remove scheduled item from calendar."""
+    def __init__(self, scheduled_item):
         """Initialise edit.
 
         Args:
-            calendar_item (BaseCalendarItem): calendar item to remove. Can be
+            scheduled_item (BaseScheduledItem): scheduled item to remove. Can be
                 a single item or a repeat template.
         """
-        super(RemoveCalendarItemEdit, self).__init__(
-            calendar_item.get_item_container(),
-            [calendar_item],
+        super(RemoveScheduledItemEdit, self).__init__(
+            scheduled_item.get_item_container(),
+            [scheduled_item],
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
         )
-        self._name = "RemoveCalendarItem ({0})".format(calendar_item.name)
+        self._name = "RemoveScheduledItem ({0})".format(scheduled_item.name)
         self._description = (
             "Remove {0} {1} at {2}".format(
-                calendar_item.__class__.__name__,
-                calendar_item.name,
-                calendar_item.datetime_string(),
+                scheduled_item.__class__.__name__,
+                scheduled_item.name,
+                scheduled_item.datetime_string(),
             )
         )
 
 
-class BaseModifyCalendarItemEdit(CompositeEdit):
-    """Modify attributes (including date and time) of calendar item.
+class BaseModifyScheduledItemEdit(CompositeEdit):
+    """Modify attributes (including date and time) of scheduled item.
 
     This edit should not be called directly, instead there are subclasses
-    for each different type of calendar item: standard, repeat and repeat
+    for each different type of scheduled item: standard, repeat and repeat
     instance.
     """
     def __init__(
             self,
-            calendar_item,
+            scheduled_item,
             attr_dict,
             subedits=None,
             reverse_order_for_inverse=True):
         """Initialise edit.
 
         Args:
-            calendar_item (BaseCalendarItem): calendar item to edit.
+            scheduled_item (BaseScheduledItem): scheduled item to edit.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
             subedits (list(BaseEdit) or None): additional edits that subclasses
                 may need for dealing with specific attribute changes.
@@ -85,11 +85,11 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
                 should reverse order of subedits.
         """
         updateable_attrs = [
-            calendar_item._start_time,
-            calendar_item._end_time,
-            calendar_item._date,
+            scheduled_item._start_time,
+            scheduled_item._end_time,
+            scheduled_item._date,
         ]
-        self._calendar_item = calendar_item
+        self._scheduled_item = scheduled_item
         self._attr_dict = attr_dict
         self._original_attrs = {}
         for attr in list(attr_dict.keys()) + updateable_attrs:
@@ -100,11 +100,11 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
         subedits = subedits or []
         subedits.insert(0, self._attribute_edit)
 
-        super(BaseModifyCalendarItemEdit, self).__init__(
+        super(BaseModifyScheduledItemEdit, self).__init__(
             subedits,
             reverse_order_for_inverse=reverse_order_for_inverse,
         )
-        self._name = "ModifyCalendarItem ({0})".format(calendar_item.name)
+        self._name = "ModifyScheduledItem ({0})".format(scheduled_item.name)
 
     def _modified_attrs(self):
         """Get set of all attributes that are modified by edit.
@@ -131,8 +131,8 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
             (str): description.
         """
         return self._attribute_edit.get_description(
-            self._calendar_item,
-            self._calendar_item.name
+            self._scheduled_item,
+            self._scheduled_item.name
         )
 
     def _update(
@@ -161,81 +161,81 @@ class BaseModifyCalendarItemEdit(CompositeEdit):
         edit_updates = {}
         attr_updates = {}
         if new_date is not None:
-            attr_updates[self._calendar_item._date] = new_date
+            attr_updates[self._scheduled_item._date] = new_date
         if new_start_time is not None:
-            attr_updates[self._calendar_item._start_time] = new_start_time
+            attr_updates[self._scheduled_item._start_time] = new_start_time
         if new_end_time is not None:
-            attr_updates[self._calendar_item._end_time] = new_end_time
+            attr_updates[self._scheduled_item._end_time] = new_end_time
         self._attr_dict.update(attr_updates)
         edit_updates[self._attribute_edit] = ([attr_updates], {})
 
-        super(BaseModifyCalendarItemEdit, self)._update(
+        super(BaseModifyScheduledItemEdit, self)._update(
             edit_updates=edit_updates,
             edit_replacements=edit_replacements,
             edit_additions=edit_additions,
         )
 
 
-class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
-    """Modify attributes and start and end datetimes of calendar item.
+class ModifyScheduledItemEdit(BaseModifyScheduledItemEdit):
+    """Modify attributes and start and end datetimes of scheduled item.
 
     This edit can be performed continuously via drag and drop and hence must
     allow continuous editing to respond to user updates.
     """
-    def __init__(self, calendar_item, attr_dict):
+    def __init__(self, scheduled_item, attr_dict):
         """Initialise edit.
 
         Args:
-            calendar_item (CalendarItem): calendar item to modify.
+            scheduled_item (ScheduledItem): scheduled item to modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
         """
         subedits = []
         self._remove_edit = None
         self._add_edit = None
-        if calendar_item._date in attr_dict:
-            new_date = attr_dict[calendar_item._date]
+        if scheduled_item._date in attr_dict:
+            new_date = attr_dict[scheduled_item._date]
             # remove items from old container and add to new one
-            self._remove_edit = self._get_remove_edit(calendar_item)
-            self._add_edit = self._get_add_edit(calendar_item, new_date)
+            self._remove_edit = self._get_remove_edit(scheduled_item)
+            self._add_edit = self._get_add_edit(scheduled_item, new_date)
             subedits.extend([self._remove_edit, self._add_edit])
 
-        super(ModifyCalendarItemEdit, self).__init__(
-            calendar_item,
+        super(ModifyScheduledItemEdit, self).__init__(
+            scheduled_item,
             attr_dict,
             subedits=subedits,
         )
 
     @staticmethod
-    def _get_remove_edit(calendar_item):
-        """Get remove edit for moving calendar item to new date.
+    def _get_remove_edit(scheduled_item):
+        """Get remove edit for moving scheduled item to new date.
 
         Args:
-            calendar_item (CalendarItem): calendar item to get edits for.
+            scheduled_item (ScheduledItem): scheduled item to get edits for.
 
         Returns:
-            (ListEdit): edit to remove calendar item from old container.
+            (ListEdit): edit to remove scheduled item from old container.
         """
         return ListEdit.create_unregistered(
-            calendar_item.get_item_container(),
-            [calendar_item],
+            scheduled_item.get_item_container(),
+            [scheduled_item],
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
         )
 
     @staticmethod
-    def _get_add_edit(calendar_item, new_date):
-        """Get add edit for moving calendar item to new date.
+    def _get_add_edit(scheduled_item, new_date):
+        """Get add edit for moving scheduled item to new date.
 
         Args:
-            calendar_item (CalendarItem): calendar item to get edit for.
+            scheduled_item (ScheduledItem): scheduled item to get edit for.
             new_date (Date): date to move to.
 
         Returns:
-            (ListEdit): edit to add calendar item to new container.
+            (ListEdit): edit to add scheduled item to new container.
         """
         return ListEdit.create_unregistered(
-            calendar_item.get_item_container(new_date),
-            [calendar_item],
+            scheduled_item.get_item_container(new_date),
+            [scheduled_item],
             ContainerOp.ADD,
         )
 
@@ -253,21 +253,21 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
 
         if new_date is not None:
             if self._add_edit is None:
-                self._remove_edit = self._get_remove_edit(self._calendar_item)
+                self._remove_edit = self._get_remove_edit(self._scheduled_item)
                 self._add_edit = self._get_add_edit(
-                    self._calendar_item,
+                    self._scheduled_item,
                     new_date
                 )
                 edit_additions.extend([self._remove_edit, self._add_edit])
 
             else:
                 new_add_edit = self._get_add_edit(
-                    self._calendar_item,
+                    self._scheduled_item,
                     new_date
                 )
                 edit_replacements[self._add_edit] = new_add_edit
 
-        super(ModifyCalendarItemEdit, self)._update(
+        super(ModifyScheduledItemEdit, self)._update(
             new_date,
             new_start_time,
             new_end_time,
@@ -278,38 +278,38 @@ class ModifyCalendarItemEdit(BaseModifyCalendarItemEdit):
             self._add_edit = new_add_edit
 
 
-class ModifyRepeatCalendarItemEdit(BaseModifyCalendarItemEdit):
-    """Modify attributes of repeat calendar item."""
-    def __init__(self, calendar_item, attr_dict):
+class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
+    """Modify attributes of repeat scheduled item."""
+    def __init__(self, scheduled_item, attr_dict):
         """Initialise edit.
 
         Args:
-            calendar_item (RepeatCalendarItem): calendar item to modify.
+            scheduled_item (RepeatScheduledItem): scheduled item to modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
         """
         subedits = []
-        if calendar_item._repeat_pattern in attr_dict:
+        if scheduled_item._repeat_pattern in attr_dict:
             subedits.append(
                 SelfInverseSimpleEdit.create_unregistered(
-                    calendar_item._clear_instances,
+                    scheduled_item._clear_instances,
                 )
             )
-        if (calendar_item._start_time in attr_dict
-                or calendar_item._end_time in attr_dict):
+        if (scheduled_item._start_time in attr_dict
+                or scheduled_item._end_time in attr_dict):
             subedits.append(
                 SelfInverseSimpleEdit.create_unregistered(
-                    calendar_item._clean_overrides,
+                    scheduled_item._clean_overrides,
                 )
             )
-        super(ModifyRepeatCalendarItemEdit, self).__init__(
-            calendar_item,
+        super(ModifyRepeatScheduledItemEdit, self).__init__(
+            scheduled_item,
             attr_dict,
             subedits=subedits,
             reverse_order_for_inverse=False,
         )
 
 
-class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
+class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
     """Modify attributes and start and end overrides of repeat instance.
 
     This edit can be performed continuously via drag and drop and hence must
@@ -317,26 +317,26 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
     """
     def __init__(
             self,
-            calendar_item,
+            scheduled_item,
             attr_dict):
         """Initialise edit.
 
         Args:
-            calendar_item (RepeatCalendarItemInstance): calendar item to
+            scheduled_item (RepeatScheduledItemInstance): scheduled item to
                 modify.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
         """
         subedits = []
-        if (calendar_item._date in attr_dict
-                or calendar_item._start_time in attr_dict
-                or calendar_item._end_time in attr_dict):
+        if (scheduled_item._date in attr_dict
+                or scheduled_item._start_time in attr_dict
+                or scheduled_item._end_time in attr_dict):
             subedits.append(
                 SelfInverseSimpleEdit.create_unregistered(
-                    calendar_item._compute_override,
+                    scheduled_item._compute_override,
                 )
             )
-        super(ModifyRepeatCalendarItemInstanceEdit, self).__init__(
-            calendar_item,
+        super(ModifyRepeatScheduledItemInstanceEdit, self).__init__(
+            scheduled_item,
             attr_dict,
             reverse_order_for_inverse=False,
         )
@@ -352,16 +352,16 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
             (set(MutableAttribute)): set of modified attributes.
         """
         modified_attrs = super(
-            ModifyRepeatCalendarItemInstanceEdit,
+            ModifyRepeatScheduledItemInstanceEdit,
             self
         )._modified_attrs()
 
-        date_key = self._calendar_item._date
-        start_key = self._calendar_item._start_time
-        end_key = self._calendar_item._end_time
-        sched_date = self._calendar_item.scheduled_date
-        sched_start = self._calendar_item.scheduled_start_time
-        sched_end = self._calendar_item.scheduled_end_time
+        date_key = self._scheduled_item._date
+        start_key = self._scheduled_item._start_time
+        end_key = self._scheduled_item._end_time
+        sched_date = self._scheduled_item.scheduled_date
+        sched_start = self._scheduled_item.scheduled_start_time
+        sched_end = self._scheduled_item.scheduled_end_time
         key_schedule_tuples = [
             (date_key, sched_date),
             (start_key, sched_start),
@@ -387,40 +387,40 @@ class ModifyRepeatCalendarItemInstanceEdit(BaseModifyCalendarItemEdit):
             new_start_time (Time or None): new override start time.
             new_end_time (Time or None): new override end time.
         """
-        super(ModifyRepeatCalendarItemInstanceEdit, self)._update(
+        super(ModifyRepeatScheduledItemInstanceEdit, self)._update(
             new_date,
             new_start_time,
             new_end_time
         )
-        self._calendar_item._compute_override()
+        self._scheduled_item._compute_override()
 
 
-class ReplaceCalendarItemEdit(CompositeEdit):
-    """Replace one calendar item with another."""
-    def __init__(self, old_calendar_item, new_calendar_item):
+class ReplaceScheduledItemEdit(CompositeEdit):
+    """Replace one scheduled item with another."""
+    def __init__(self, old_scheduled_item, new_scheduled_item):
         """Initialise edit.
 
         Args:
-            old_calendar_item (BaseCalendarItem): calendar item to replace.
-            new_calendar_item (BaseCalendarItem): calendar item to replace
+            old_scheduled_item (BaseScheduledItem): scheduled item to replace.
+            new_scheduled_item (BaseScheduledItem): scheduled item to replace
                 it with.
         """
-        remove_edit = RemoveCalendarItemEdit.create_unregistered(
-            old_calendar_item,
+        remove_edit = RemoveScheduledItemEdit.create_unregistered(
+            old_scheduled_item,
         )
-        add_edit = AddCalendarItemEdit.create_unregistered(
-            new_calendar_item,
+        add_edit = AddScheduledItemEdit.create_unregistered(
+            new_scheduled_item,
         )
         switch_host_edit = HostedDataEdit.create_unregistered(
-            old_calendar_item,
-            new_calendar_item,
+            old_scheduled_item,
+            new_scheduled_item,
         )
-        super(ReplaceCalendarItemEdit, self).__init__(
+        super(ReplaceScheduledItemEdit, self).__init__(
             [remove_edit, add_edit, switch_host_edit],
         )
 
-        self._name = "ReplaceCalendarItem ({0})".format(old_calendar_item.name)
-        self._description = "Replace calendar item {0} --> {1}".format(
-            old_calendar_item.name,
-            new_calendar_item.name,
+        self._name = "ReplaceScheduledItem ({0})".format(old_scheduled_item.name)
+        self._description = "Replace scheduled item {0} --> {1}".format(
+            old_scheduled_item.name,
+            new_scheduled_item.name,
         )

@@ -66,7 +66,7 @@ class MovePlannedItemEdit(ListEdit):
         """Initialise edit.
 
         Args:
-            calendar_item (PlannedItem): the planned item to move.
+            scheduled_item (PlannedItem): the planned item to move.
             index (int): index to move to.
         """
         super(AddPlannedItemEdit, self).__init__(
@@ -118,24 +118,24 @@ class ModifyPlannedItemEdit(CompositeEdit):
 
 
 class SchedulePlannedItemEdit(ListEdit):
-    """Add an associated calendar item to a planned item."""
-    def __init__(self, planned_item, calendar_item):
+    """Add an associated scheduled item to a planned item."""
+    def __init__(self, planned_item, scheduled_item):
         """Initialise edit.
 
         Args:
             planned_item (PlannedItem): the planned item to associate to.
-            calendar_item (CalendarItem): the calendar item to associate.
+            scheduled_item (ScheduledItem): the scheduled item to associate.
         """
         super(SchedulePlannedItemEdit, self).__init__(
             planned_item._scheduled_items,
-            [MutableHostedAttribute(calendar_item)],
+            [MutableHostedAttribute(scheduled_item)],
             ContainerOp.ADD,
         )
         self._name = "SchedulePlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Schedule {0} {1} for {2} {3}".format(
-                calendar_item.__class__.__name__,
-                calendar_item.name,
+                scheduled_item.__class__.__name__,
+                scheduled_item.name,
                 planned_item.__class__.__name__,
                 planned_item.name,
             )
@@ -143,16 +143,16 @@ class SchedulePlannedItemEdit(ListEdit):
 
 
 class UnschedulePlannedItemEdit(ListEdit):
-    """Remove an associated calendar item from a planned item."""
-    def __init__(self, planned_item, calendar_item):
+    """Remove an associated scheduled item from a planned item."""
+    def __init__(self, planned_item, scheduled_item):
         """Initialise edit.
 
         Args:
             planned_item (PlannedItem): the planned item to remove from.
-            calendar_item (CalendarItem): the calendar item to remove.
+            scheduled_item (ScheduledItem): the scheduled item to remove.
         """
         # note that we need to remove by index as the attribute is mutable
-        index = planned_item.scheduled_items.index(calendar_item)
+        index = planned_item.scheduled_items.index(scheduled_item)
         super(UnschedulePlannedItemEdit, self).__init__(
             planned_item._scheduled_items,
             [index],
@@ -161,8 +161,8 @@ class UnschedulePlannedItemEdit(ListEdit):
         self._name = "UnschedulePlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Unschedule {0} {1} from {2} {3}".format(
-                calendar_item.__class__.__name__,
-                calendar_item.name,
+                scheduled_item.__class__.__name__,
+                scheduled_item.name,
                 planned_item.__class__.__name__,
                 planned_item.name,
             )

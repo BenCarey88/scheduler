@@ -9,7 +9,7 @@ from scheduler.api.serialization.serializable import (
     SaveType,
     SerializableFileTypes
 )
-from .calendar_item import RepeatCalendarItem
+from .scheduled_item import RepeatScheduledItem
 from .calendar_period import (
     CalendarDay,
     CalendarMonth,
@@ -23,7 +23,7 @@ class CalendarError(Exception):
 
 
 class Calendar(NestedSerializable):
-    """Calendar object containing all calendar items."""
+    """Calendar object containing all calendar periods and items."""
     _SAVE_TYPE = SaveType.DIRECTORY
     _ORDER_FILE = "calendar{0}".format(SerializableFileTypes.ORDER)
     _INFO_FILE = "repeat_items{0}".format(SerializableFileTypes.INFO)
@@ -39,8 +39,8 @@ class Calendar(NestedSerializable):
         """Initialise calendar class.
 
         Args:
-            task_root (TaskRoot): root task item to use for scheduling task
-                calendar items.
+            task_root (TaskRoot): root task item to use for scheduling and
+                planning calendar items.
         """
         super(Calendar, self).__init__()
         self._task_root = task_root
@@ -287,6 +287,6 @@ class Calendar(NestedSerializable):
         repeat_items_list = dict_repr.get(cls.REPEAT_ITEMS_KEY, [])
         for repeat_item_dict in repeat_items_list:
             calendar._repeat_items.append(
-                RepeatCalendarItem.from_dict(repeat_item_dict, calendar)
+                RepeatScheduledItem.from_dict(repeat_item_dict, calendar)
             )
         return calendar

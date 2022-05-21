@@ -42,7 +42,7 @@ class PlannedItem(NestedSerializable):
     TIME_PERIOD_KEY = "time_period"
     SIZE_KEY = "size"
     IMPORTANCE_KEY = "importance"
-    CALENDAR_ITEMS_KEY = "calendar_items"
+    SCHEDULED_ITEMS_KEY = "scheduled_items"
     PLANNED_CHILDREN_KEY = "planned_children"
     ID_KEY = "id"
 
@@ -56,7 +56,7 @@ class PlannedItem(NestedSerializable):
         """Initialize class.
 
         Args:
-            calendar (Calendar): calendar item.
+            calendar (Calendar): calendar object.
             calendar_period (BaseCalendarPeriod): calendar period this is
                 associated to.
             tree_item (BaseTreeItem): the task that this item represents.
@@ -69,12 +69,12 @@ class PlannedItem(NestedSerializable):
             _planned_children (PlannedItem): associated items planned for
                 shorter time periods. Generally these will be other instances
                 of the same tree item or of its children.
-            _scheduled_items (CalendarItem): associated calendar items for
+            _scheduled_items (ScheduledItem): associated scheduled items for
                 this planned item. In general, this should normally be blank
                 for anything except a day planned item - the expectation is
                 that if you plan an item for over a week, say, then you would
                 add a day planned child item which is associated to the
-                calendar item. We don't need to be rigid on this however.
+                scheduled item. We don't need to be rigid on this however.
         """
         self._calendar = calendar
         self._calendar_period = MutableAttribute(calendar_period)
@@ -153,7 +153,7 @@ class PlannedItem(NestedSerializable):
         """Get scheduled items associated to this one.
 
         Returns:
-            (list(BaseCalendarItem)): associated calendar items.
+            (list(BaseScheduledItem)): associated scheduled items.
         """
         return [item.value for item in self._scheduled_items]
 
@@ -186,7 +186,7 @@ class PlannedItem(NestedSerializable):
         """Add scheduled item (to be used during deserialization).
 
         Args:
-            scheduled_item (BaseCalendarItem): calendar item to associate
+            scheduled_item (BaseScheduledItem): scheduled item to associate
                 to this planned item.
         """
         if scheduled_item not in self.scheduled_items:
@@ -246,7 +246,7 @@ class PlannedItem(NestedSerializable):
             importance=importance,
         )
 
-        for scheduled_item_id in dict_repr.get(cls.CALENDAR_ITEMS_KEY, []):
+        for scheduled_item_id in dict_repr.get(cls.SCHEDULED_ITEMS_KEY, []):
             item_registry.register_callback(
                 scheduled_item_id,
                 planned_item._add_scheduled_item
@@ -274,9 +274,9 @@ class PlannedItem(NestedSerializable):
         if self._importance:
             dict_repr[self.IMPORTANCE_KEY] = self.importance
         if self._scheduled_items:
-            dict_repr[self.CALENDAR_ITEMS_KEY] = [
-                calendar_item._get_id()
-                for calendar_item in self.scheduled_items
+            dict_repr[self.SCHEDULED_ITEMS_KEY] = [
+                scheduled_item._get_id()
+                for scheduled_item in self.scheduled_items
             ]
         if self._planned_children:
             dict_repr[self.PLANNED_CHILDREN_KEY] = [

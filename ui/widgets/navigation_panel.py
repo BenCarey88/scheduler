@@ -50,7 +50,7 @@ class NavigationPanel(QtWidgets.QWidget):
         """Setup calendar main view.
 
         Args:
-            calendar (Calendar): calendar item.
+            calendar (Calendar): calendar object.
             calendar_period (BaseCalendarPeriod): current calendar period for
                 panel. The type determines the date type of the view.
             view_types_dict (OrderedDict(DateType, list(ViewType) or None):

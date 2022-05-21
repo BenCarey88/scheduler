@@ -5,7 +5,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time, TimeDelta
-from scheduler.api.timetable.calendar_item import CalendarItemType
+from scheduler.api.timetable.scheduled_item import ScheduledItemType
 
 from scheduler.ui.models.timetable import CalendarDayModel, CalendarWeekModel
 from scheduler.ui.tabs.base_timetable_tab import (
@@ -16,7 +16,7 @@ from scheduler.ui.tabs.base_timetable_tab import (
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import constants, utils
 
-from .calendar_item_dialog import CalendarItemDialog
+from .scheduled_item_dialog import ScheduledItemDialog
 
 
 class CalendarTab(BaseTimetableTab):
@@ -124,26 +124,26 @@ class SelectionRect(object):
 
 
 class SelectedCalenderItem(object):
-    """Wrapper class around the selected calendar item in the table view."""
+    """Wrapper class around the selected scheduled item in the table view."""
     def __init__(
             self,
-            calendar_manager,
-            calendar_item,
+            schedule_manager,
+            scheduled_item,
             orig_mouse_pos):
         """Initialise class.
 
         Args:
-            calendar_manager (CalendarManager): the calendar manager.
-            calendar_item (CalendarItem): the currently selected calendar item.
+            schedule_manager (ScheduleManager): the calendar manager.
+            scheduled_item (ScheduledItem): the currently selected scheduled item.
             orig_mouse_pos (QtCore.QPoint): mouse position that the selected
                 item started at.
         """
-        self._calendar_manager = calendar_manager
-        self._calendar_item = calendar_item
+        self._schedule_manager = schedule_manager
+        self._scheduled_item = scheduled_item
         self.orig_mouse_pos = orig_mouse_pos
-        self.orig_start_time = calendar_item.start_time
-        self.orig_end_time = calendar_item.end_time
-        self.orig_date = calendar_item.date
+        self.orig_start_time = scheduled_item.start_time
+        self.orig_end_time = scheduled_item.end_time
+        self.orig_date = scheduled_item.date
         self.is_being_moved = False
 
     @property
@@ -153,7 +153,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current start time.
         """
-        return self._calendar_item.start_time
+        return self._scheduled_item.start_time
 
     @property
     def end_time(self):
@@ -162,7 +162,7 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current end time.
         """
-        return self._calendar_item.end_time
+        return self._scheduled_item.end_time
 
     @property
     def date(self):
@@ -171,20 +171,20 @@ class SelectedCalenderItem(object):
         Returns:
             (Time): current end time.
         """
-        return self._calendar_item.date
+        return self._scheduled_item.date
 
     def change_time(self, new_start_datetime, new_end_datetime):
-        """Change the time of the calendar item.
+        """Change the time of the scheduled item.
 
         Args:
             new_start_time (DateTime): new start time for item.
             new_end_date_time (DateTime): new end time for item.
         """
         if not self.is_being_moved:
-            self._calendar_manager.begin_move_item(self._calendar_item)
+            self._schedule_manager.begin_move_item(self._scheduled_item)
             self.is_being_moved = True
-        self._calendar_manager.update_move_item(
-            self._calendar_item,
+        self._schedule_manager.update_move_item(
+            self._scheduled_item,
             new_start_datetime.date(),
             new_start_datetime.time(),
             new_end_datetime.time(),
@@ -192,17 +192,17 @@ class SelectedCalenderItem(object):
 
     def deselect(self):
         """Call when we've finished using this item."""
-        self._calendar_manager.end_move_item(self._calendar_item)
+        self._schedule_manager.end_move_item(self._scheduled_item)
 
     def get_item_to_modify(self):
-        """Get the calendar item to open with the calendar item dialog.
+        """Get the scheduled item to open with the scheduled item dialog.
 
         Returns:
-            (BaseCalendarItem): either the calendar item, or the repeat item
-                that it's an instance of, in the case of repeat calendar item
+            (BaseScheduledItem): either the scheduled item, or the repeat item
+                that it's an instance of, in the case of repeat scheduled item
                 instances.
         """
-        return self._calendar_manager.get_item_to_modify(self._calendar_item)
+        return self._schedule_manager.get_item_to_modify(self._scheduled_item)
 
 
 class CalendarView(BaseWeekTableView):
@@ -231,7 +231,7 @@ class CalendarView(BaseWeekTableView):
             CalendarWeekModel(project.calendar),
             parent=parent,
         )
-        self.calendar_manager = project.get_calendar_manager()
+        self.schedule_manager = project.get_schedule_manager()
         self.selection_rect = None
 
         self.setItemDelegate(CalendarDelegate(self))
@@ -495,7 +495,7 @@ class CalendarView(BaseWeekTableView):
     # TODO: make proper exception class for this func. Also maybe find more
     # efficient way to do this (eg. separate item attrs in CalendarDay?)
     def get_item_rects(self, background_only=False, foreground_only=False):
-        """Get all qt rectangles to display for calendar items.
+        """Get all qt rectangles to display for scheduled items.
 
         Args:
             background_only (bool): if True, only return background items.
@@ -505,8 +505,8 @@ class CalendarView(BaseWeekTableView):
             (Exception): if both background_only and foreground_only are True.
 
         Yields:
-            (QtCore.QRectF): rectangle for a given calendar item.
-            (CalendarItem): the corresponding calendar item.
+            (QtCore.QRectF): rectangle for a given scheduled item.
+            (ScheduledItem): the corresponding scheduled item.
         """
         if background_only and foreground_only:
             raise Exception(
@@ -516,13 +516,13 @@ class CalendarView(BaseWeekTableView):
         for i, calendar_day in enumerate(self.calendar_week.iter_days()):
             rect_x = self.columnViewportPosition(i)
             rect_width = self.columnWidth(i)
-            for calendar_item in calendar_day.iter_calendar_items():
-                if foreground_only and calendar_item.is_background:
+            for scheduled_item in calendar_day.iter_scheduled_items():
+                if foreground_only and scheduled_item.is_background:
                     continue
-                elif background_only and not calendar_item.is_background:
+                elif background_only and not scheduled_item.is_background:
                     continue
-                time_start = calendar_item.start_time
-                time_end = calendar_item.end_time
+                time_start = scheduled_item.start_time
+                time_end = scheduled_item.end_time
                 rect_y = self.y_pos_from_time(time_start)
                 rect_height = self.height_from_time_range(
                     time_end - time_start
@@ -533,7 +533,7 @@ class CalendarView(BaseWeekTableView):
                     rect_width,
                     rect_height
                 )
-                yield rect, calendar_item
+                yield rect, scheduled_item
 
     def resize_table(self):
         """Resize table rows and columns to contents."""
@@ -560,17 +560,17 @@ class CalendarView(BaseWeekTableView):
         self.viewport().update()
 
     def _paint_item(self, painter, rect, item, border_size, alpha, rounding):
-        """Paint calendar item.
+        """Paint scheduled item.
 
         Args:
             painter (QtGui.QPainter): qt painter object.
             rect (QtCore.QRectF): rectangle to paint.
-            item (CalendarItem): calendar item we're painting.
+            item (ScheduledItem): scheduled item we're painting.
             border_size (int): size of border of items.
             alpha (int): alpha value for colours.
             rounding (int): amount of rounding for rects.
         """
-        if item.type == CalendarItemType.TASK:
+        if item.type == ScheduledItemType.TASK:
             tree_item = item.tree_item
             if tree_item and tree_item.colour:
                 brush_color = QtGui.QColor(*tree_item.colour, alpha)
@@ -678,7 +678,7 @@ class CalendarView(BaseWeekTableView):
         pen = QtGui.QPen(QtGui.QColor(0,0,0), border_size)
         painter.setPen(pen)
 
-        # Calendar Item background rects
+        # Scheduled item background rects
         for rect, item in self.get_item_rects(background_only=True):
             self._paint_item(
                 painter,
@@ -689,7 +689,7 @@ class CalendarView(BaseWeekTableView):
                 1,
             )
 
-        # Calendar Item foreground rects
+        # Scheduled item foreground rects
         for rect, item in self.get_item_rects(foreground_only=True):
             self._paint_item(
                 painter,
@@ -741,7 +741,7 @@ class CalendarView(BaseWeekTableView):
                 break
 
     def mousePressEvent(self, event):
-        """Override mouse press event for interaction with calendar items.
+        """Override mouse press event for interaction with scheduled items.
 
         Args:
             event (QtCore.QEvent): the mouse press event.
@@ -752,11 +752,11 @@ class CalendarView(BaseWeekTableView):
         foreground_rects.reverse()
         background_rects = list(self.get_item_rects(background_only=True))
         background_rects.reverse()
-        for rect, calendar_item in foreground_rects + background_rects:
+        for rect, scheduled_item in foreground_rects + background_rects:
             if rect.contains(pos):
-                self.selected_calendar_item = SelectedCalenderItem(
-                    self.calendar_manager,
-                    calendar_item,
+                self.selected_scheduled_item = SelectedCalenderItem(
+                    self.schedule_manager,
+                    scheduled_item,
                     pos
                 )
                 return
@@ -774,7 +774,7 @@ class CalendarView(BaseWeekTableView):
         return super(CalendarView, self).mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        """Override mouse move event for interaction with calendar items.
+        """Override mouse move event for interaction with scheduled items.
 
         Args:
             event (QtCore.QEvent): the mouse move event.
@@ -788,29 +788,29 @@ class CalendarView(BaseWeekTableView):
             )
             self.viewport().update()
 
-        elif self.selected_calendar_item:
+        elif self.selected_scheduled_item:
             mouse_col = self.column_from_mouse_pos(event.pos())
             if mouse_col is not None:
                 date = self.date_from_column(mouse_col)
             else:
-                date = self.selected_calendar_item.date
+                date = self.selected_scheduled_item.date
             y_pos = self.round_height_to_time_step(event.pos().y())
             y_pos_change = self.round_height_to_time_step(
-                y_pos - self.selected_calendar_item.orig_mouse_pos.y()
+                y_pos - self.selected_scheduled_item.orig_mouse_pos.y()
             )
             time_change = self.time_range_from_height(y_pos_change)
-            orig_start = self.selected_calendar_item.orig_start_time
-            orig_end = self.selected_calendar_item.orig_end_time
+            orig_start = self.selected_scheduled_item.orig_start_time
+            orig_end = self.selected_scheduled_item.orig_end_time
             if (self.DAY_END - orig_end <= time_change):
                 time_change = self.DAY_END - orig_end
             elif (time_change <= self.DAY_START - orig_start):
                 time_change = self.DAY_START - orig_start
             new_start_time = orig_start + time_change
             new_end_time = orig_end + time_change
-            if (new_start_time != self.selected_calendar_item.start_time
-                    or date != self.selected_calendar_item.date):
-                self.selected_calendar_item.is_moving = True
-                self.selected_calendar_item.change_time(
+            if (new_start_time != self.selected_scheduled_item.start_time
+                    or date != self.selected_scheduled_item.date):
+                self.selected_scheduled_item.is_moving = True
+                self.selected_scheduled_item.change_time(
                     DateTime.from_date_and_time(date, new_start_time),
                     DateTime.from_date_and_time(date, new_end_time),
                 )
@@ -819,16 +819,16 @@ class CalendarView(BaseWeekTableView):
         return super(CalendarView, self).mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        """Override mouse release event for interaction with calendar items.
+        """Override mouse release event for interaction with scheduled items.
 
         Args:
             event (QtCore.QEvent): the mouse release event.
         """
         if self.selection_rect:
             if self.selection_rect.time_range.total_seconds() != 0:
-                item_editor = CalendarItemDialog(
+                item_editor = ScheduledItemDialog(
                     self.tree_manager,
-                    self.calendar_manager,
+                    self.schedule_manager,
                     start_datetime=self.selection_rect.start_datetime,
                     end_datetime=self.selection_rect.end_datetime,
                 )
@@ -836,20 +836,20 @@ class CalendarView(BaseWeekTableView):
             self.selection_rect = None
             self.viewport().update()
 
-        elif self.selected_calendar_item:
-            if self.selected_calendar_item.is_being_moved:
+        elif self.selected_scheduled_item:
+            if self.selected_scheduled_item.is_being_moved:
                 # if being moved, deselect the item to finish continuous edit
-                self.selected_calendar_item.deselect()
+                self.selected_scheduled_item.deselect()
             else:
                 # otherwise, we want to open the editor
-                item = self.selected_calendar_item.get_item_to_modify()
-                item_editor = CalendarItemDialog(
+                item = self.selected_scheduled_item.get_item_to_modify()
+                item_editor = ScheduledItemDialog(
                     self.tree_manager,
-                    self.calendar_manager,
-                    calendar_item=item,
+                    self.schedule_manager,
+                    scheduled_item=item,
                 )
                 item_editor.exec()
-            self.selected_calendar_item = None
+            self.selected_scheduled_item = None
             self.viewport().update()
 
         return super(CalendarView, self).mouseReleaseEvent(event)

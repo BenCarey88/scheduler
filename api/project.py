@@ -3,7 +3,7 @@
 import os
 
 from .common.user_prefs import ProjectUserPrefs
-from .managers import CalendarManager, PlannerManager, TreeManager
+from .managers import ScheduleManager, PlannerManager, TreeManager
 from .serialization.serializable import (
     CustomSerializable,
     SaveType,
@@ -166,7 +166,7 @@ class Project(CustomSerializable):
         self.set_project_path(project_root_path)
         self._load_project_data()
         self._tree_managers = {}
-        self._calendar_manager = None
+        self._schedule_manager = None
         self._planner_manager = None
 
     def set_project_path(self, project_root_path):
@@ -286,20 +286,20 @@ class Project(CustomSerializable):
             )
         return self._tree_managers.get(name)
 
-    def get_calendar_manager(self):
+    def get_schedule_manager(self):
         """Get calendar manager for this project.
 
         Returns:
-            (CalendarManager): calendar manager for managing calendar edits
+            (ScheduleManager): calendar manager for managing calendar edits
                 and filtering.
         """
-        if self._calendar_manager is None:
-            self._calendar_manager = CalendarManager(
+        if self._schedule_manager is None:
+            self._schedule_manager = ScheduleManager(
                 self.user_prefs,
                 self.calendar,
                 self.archive_calendar,
             )
-        return self._calendar_manager
+        return self._schedule_manager
 
     def get_planner_manager(self):
         """Get calendar manager for this project.

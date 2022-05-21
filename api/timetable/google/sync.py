@@ -1,4 +1,4 @@
-"""Functionality for syncing calendar items with google calendar."""
+"""Functionality for syncing scheduled items with google calendar."""
 
 from __future__ import print_function
 
@@ -46,25 +46,25 @@ def setp_credentials():
     return creds
 
 
-def calendar_item_to_google_event(calendar_item):
-    """Convert scheduler calendar item to google calendar event.
+def scheduled_item_to_google_event(scheduled_item):
+    """Convert scheduled item to google calendar event.
 
     Args:
-        calendar_item (CalendarItem): scheduler calendar item.
+        scheduled_item (ScheduledItem): scheduled item.
 
     Returns:
         (dict): google calendar event dict.
     """
 
 
-def google_event_to_calendar_item(google_event):
-    """Convert scheduler calendar item to google calendar event.
+def google_event_to_scheduled_item(google_event):
+    """Convert scheduled item to google calendar event.
 
     Args:
         google_event (dict): google calendar event dict.
 
     Returns:
-        (CalendarItem): scheduler calendar item.
+        (ScheduledItem): scheduled item.
     """
 
 
@@ -76,18 +76,18 @@ def sync_scheduler_to_google_calendar(
     """Sync calendar events from scheduler to google calendar.
 
     Args:
-        scheduler_calendar (Calendar): the scheduler calendar.
+        scheduler_calendar (Calendar): the calendar.
         credentials (Credentials): google api credentials.
         date_range (tuple(Date, Date)): date to search for items within.
         include_repeat_items (bool): if True, sync repeat items as well.
     """
-    calendar_items = scheduler_calendar.get_events_in_range(
+    scheduled_items = scheduler_calendar.get_events_in_range(
         date_range,
         include_repeat_items=include_repeat_items
     )
     google_events = [
-        calendar_item_to_google_event(calendar_item)
-        for calendar_item in calendar_items
+        scheduled_item_to_google_event(scheduled_item)
+        for scheduled_item in scheduled_items
     ]
     try:
         service = build('calendar', 'v3', credentials=credentials)
@@ -131,8 +131,8 @@ def sync_google_calendar_to_scheduler(
     except HttpError as error:
         print('An error occurred: %s' % error)
 
-    calendar_items = [
-        google_event_to_calendar_item(event) for event in events
+    scheduled_items = [
+        google_event_to_scheduled_item(event) for event in events
     ]
-    for calendar_item in calendar_items:
-        scheduler_calendar.add_calendar_item(calendar_item)
+    for scheduled_item in scheduled_items:
+        scheduler_calendar.add_scheduled_item(scheduled_item)

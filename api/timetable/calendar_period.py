@@ -12,7 +12,7 @@ from scheduler.api.serialization.serializable import (
     SaveType,
     SerializableFileTypes
 )
-from .calendar_item import CalendarItem
+from .scheduled_item import ScheduledItem
 from .planned_item import PlannedItem, PlannedItemTimePeriod
 
 
@@ -137,7 +137,7 @@ class BaseCalendarPeriod(NestedSerializable):
 class CalendarDay(BaseCalendarPeriod):
     """Class representing a day of calendar data."""
     _SAVE_TYPE = SaveType.FILE
-    CALENDAR_ITEMS_KEY = "calendar_items"
+    SCHEDULED_ITEMS_KEY = "scheduled_items"
     PLANNED_ITEMS_KEY = "planned_items"
     PLANNED_WEEK_ITEMS_KEY = "planned_week_items"
 
@@ -150,7 +150,7 @@ class CalendarDay(BaseCalendarPeriod):
             calendar_month (CalendarMonth or None): calendar month object.
 
         Attrs:
-            _scheduled_items (list(BaseCalendarItem)): all calendar item
+            _scheduled_items (list(BaseScheduledItem)): all scheduled item
                 instances scheduled on this day.
             _planned_items (list(PlannedItem)): all items planned for this
                 day.
@@ -219,13 +219,13 @@ class CalendarDay(BaseCalendarPeriod):
             self._date.ordinal_string()
         )
 
-    def iter_calendar_items(self):
-        """Iterate through scheduled calendar items.
+    def iter_scheduled_items(self):
+        """Iterate through scheduled scheduled items.
 
         This includes repeat instances as well.
 
         Yields:
-            (CalendarItem): next calendar item.
+            (ScheduledItem): next scheduled item.
         """
         for repeat_item in self.calendar._repeat_items:
             for item_instance in repeat_item.instances_at_date(self.date):
@@ -279,7 +279,7 @@ class CalendarDay(BaseCalendarPeriod):
         """
         dict_repr = {}
         if self._scheduled_items:
-            dict_repr[self.CALENDAR_ITEMS_KEY] = [
+            dict_repr[self.SCHEDULED_ITEMS_KEY] = [
                 item.to_dict() for item in self._scheduled_items
             ]
         if self._planned_items:
@@ -298,7 +298,7 @@ class CalendarDay(BaseCalendarPeriod):
 
         Args:
             dict_repr (dict): dictionary representing class.
-            calendar (Calendar): root calendar item.
+            calendar (Calendar): root calendar object.
             calendar_month (CalendarMonth): calendar month parent object.
             day_name (str): name of calendar day. This is the date string,
                 used to key the calendar in the week dictionary.
@@ -316,9 +316,9 @@ class CalendarDay(BaseCalendarPeriod):
             return None
         calendar_day = cls(calendar, date, calendar_month)
 
-        scheduled_items_list = dict_repr.get(cls.CALENDAR_ITEMS_KEY, [])
+        scheduled_items_list = dict_repr.get(cls.SCHEDULED_ITEMS_KEY, [])
         scheduled_items = [
-            CalendarItem.from_dict(scheduled_item_dict, calendar)
+            ScheduledItem.from_dict(scheduled_item_dict, calendar)
             for scheduled_item_dict in scheduled_items_list
         ]
         calendar_day._scheduled_items = scheduled_items

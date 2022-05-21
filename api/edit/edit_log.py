@@ -97,7 +97,7 @@ class EditLog(object):
 
         This is for continuous edits, where the edit can be updated
         continuously by the user before being added to the log (eg. dragging
-        a calendar item to change its time).
+        a scheduled item to change its time).
 
         Args:
             edit (BaseEdit): edit object to register.

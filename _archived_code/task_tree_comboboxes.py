@@ -1,5 +1,5 @@
 ### ARCHIVED ###
-"""This is an old version of the CalendarItemDialog class.
+"""This is an old version of the ScheduledItemDialog class.
 
 The main reason I've saved it for now is because the custom tree combobox
 classes at the bottom seems like useful code to keep a record of, but I will
@@ -21,13 +21,13 @@ from scheduler.ui.models.task_model import TaskModel
 from scheduler.ui.widgets.outliner import Outliner
 
 
-class CalendarItemDialog(QtWidgets.QDialog):
+class ScheduledItemDialog(QtWidgets.QDialog):
     def __init__(
             self,
             tree_root,
             tree_manager,
             calendar,
-            calendar_item,
+            scheduled_item,
             as_editor=False,
             parent=None):
         """Initialise dialog.
@@ -36,18 +36,18 @@ class CalendarItemDialog(QtWidgets.QDialog):
             tree_root (TreeRoot): the task tree root object.
             tree_manager (TreeManager): the task tree manager object.
             calendar (calendar): the calendar object.
-            calendar_item (CalendarItem): calendar item we're editing or
+            scheduled_item (ScheduledItem): scheduled item we're editing or
                 creating.
             as_editor (bool): whether or not we're editing an existing event,
                 or adding a new one.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
-        super(CalendarItemDialog, self).__init__(parent=parent)
+        super(ScheduledItemDialog, self).__init__(parent=parent)
         self._calendar = calendar
-        self._calendar_item = calendar_item
-        date = calendar_item.date
-        start_time = calendar_item.start_time
-        end_time = calendar_item.end_time
+        self._scheduled_item = scheduled_item
+        date = scheduled_item.date
+        start_time = scheduled_item.start_time
+        end_time = scheduled_item.end_time
         accept_button_text = "Edit Event" if as_editor else "Add Event"
 
         flags = QtCore.Qt.WindowFlags(
@@ -56,7 +56,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
         self.setWindowFlags(flags)
         self.setMinimumSize(900, 700)
         self.setWindowTitle("Calendar Item Editor")
-        utils.set_style(self, "calendar_item_dialog.qss")
+        utils.set_style(self, "scheduled_item_dialog.qss")
 
         outer_layout = QtWidgets.QHBoxLayout()
         main_layout = QtWidgets.QVBoxLayout()
@@ -125,14 +125,14 @@ class CalendarItemDialog(QtWidgets.QDialog):
             tree_root,
             tree_manager,
             task_label,
-            calendar_item.tree_item,
+            scheduled_item.tree_item,
         )
         # self.task_combo_box = TaskViewComboBox(
         #     tree_root,
         #     tree_manager,
         #     task_label,
-        #     calendar_item.tree_item,
-        #     calendar_item.category_item
+        #     scheduled_item.tree_item,
+        #     scheduled_item.category_item
         # )
         # category_label = QtWidgets.QLabel("")
         # self.outliner_combo_box = OutlinerComboBox(
@@ -140,7 +140,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
         #     tree_manager,
         #     category_label,
         #     self.task_combo_box,
-        #     calendar_item.category_item
+        #     scheduled_item.category_item
         # )
         task_selection_layout.addStretch()
         task_selection_layout.addWidget(task_label)
@@ -158,12 +158,12 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         event_category_label = QtWidgets.QLabel("Category")
         self.event_category_line_edit = QtWidgets.QLineEdit()
-        if calendar_item.category:
-            self.event_category_line_edit.setText(calendar_item.category)
+        if scheduled_item.category:
+            self.event_category_line_edit.setText(scheduled_item.category)
         event_name_label = QtWidgets.QLabel("Name")
         self.event_name_line_edit = QtWidgets.QLineEdit()
-        if calendar_item.name:
-            self.event_name_line_edit.setText(calendar_item.name)
+        if scheduled_item.name:
+            self.event_name_line_edit.setText(scheduled_item.name)
         event_layout.addStretch()
         event_layout.addWidget(event_category_label)
         event_layout.addWidget(self.event_category_line_edit)
@@ -225,25 +225,25 @@ class CalendarItemDialog(QtWidgets.QDialog):
             return self.event_name_line_edit.text()
 
     @property
-    def calendar_item(self):
-        return self._calendar_item
+    def scheduled_item(self):
+        return self._scheduled_item
 
     def accept_and_close(self):
-        self._calendar_item.set_time(self.start_time, self.end_time)
-        self._calendar_item.set_date(self.date)
+        self._scheduled_item.set_time(self.start_time, self.end_time)
+        self._scheduled_item.set_date(self.date)
         if (self.tab_widget.currentIndex() == 0 
                 and self.task_combo_box.selected_task_item):
-            self._calendar_item.set_tree_item(
+            self._scheduled_item.set_tree_item(
                 self.task_combo_box.selected_task_item
             )
         else:
-            self._calendar_item.set_category(self.category)
-            self._calendar_item.set_name(self.name)
+            self._scheduled_item.set_category(self.category)
+            self._scheduled_item.set_name(self.name)
         self.accept()
         self.close()
 
     def delete_item(self):
-        self.day_data.events.remove(self._calendar_item)
+        self.day_data.events.remove(self._scheduled_item)
         self.reject()
         self.close()
 

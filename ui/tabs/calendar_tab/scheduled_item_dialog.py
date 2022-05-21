@@ -1,30 +1,30 @@
-"""Calendar item dialog for creating and editing calendar items."""
+"""Scheduled item dialog for creating and editing scheduled items."""
 
 
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time
-from scheduler.api.timetable.calendar_item import (
-    CalendarItem,
-    CalendarItemRepeatPattern,
-    CalendarItemType,
+from scheduler.api.timetable.scheduled_item import (
+    ScheduledItem,
+    ScheduledItemRepeatPattern,
+    ScheduledItemType,
 )
 
 from scheduler.ui import utils
 from scheduler.ui.models.tree import FullTaskTreeModel
 
 
-class CalendarItemDialog(QtWidgets.QDialog):
-    """Dialog for creating or editing calendar items."""
+class ScheduledItemDialog(QtWidgets.QDialog):
+    """Dialog for creating or editing scheduled items."""
     END_TIME_KEY = "End"
     START_TIME_KEY = "Start"
 
     def __init__(
             self,
             tree_manager,
-            calendar_manager,
-            calendar_item=None,
+            schedule_manager,
+            scheduled_item=None,
             start_datetime=None,
             end_datetime=None,
             tree_item=None,
@@ -34,55 +34,55 @@ class CalendarItemDialog(QtWidgets.QDialog):
         Args:
             tree_manager (TreeManager): the task tree manager object.
             calendar (calendar): the calendar object.
-            calendar_item (BaseCalendarItem or None): calendar item we're
+            scheduled_item (BaseScheduledItem or None): scheduled item we're
                 editing, if this is in edit mode. If None, we're in create
                 mode. Can be a single item or repeat item template.
             start_datetime (DateTime or None): start datetime to initialize
-                with, if we're not passing a calendar item.
+                with, if we're not passing a scheduled item.
             end_datetime (DateTime or None): end datetime to initialize with,
-                with, if we're not passing a calendar item.
+                with, if we're not passing a scheduled item.
             tree_item (Task or None): tree item to initialize with, if we're
-                not passing a calendar item.
+                not passing a scheduled item.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
-        if (calendar_item is None and 
+        if (scheduled_item is None and 
                 (start_datetime is None or end_datetime is None)):
             raise Exception(
-                "Must either pass a calendar item or start and end datetimes"
+                "Must either pass a scheduled item or start and end datetimes"
             )
-        super(CalendarItemDialog, self).__init__(parent=parent)
-        self._calendar = calendar_manager.calendar
-        self._calendar_manager = calendar_manager
-        self._calendar_item = calendar_item
-        self.is_editor = (calendar_item is not None)
+        super(ScheduledItemDialog, self).__init__(parent=parent)
+        self._calendar = schedule_manager.calendar
+        self._schedule_manager = schedule_manager
+        self._scheduled_item = scheduled_item
+        self.is_editor = (scheduled_item is not None)
 
-        if calendar_item is None:
-            # create a temp calendar item just to get default values
-            calendar_item = CalendarItem(
+        if scheduled_item is None:
+            # create a temp scheduled item just to get default values
+            scheduled_item = ScheduledItem(
                 self._calendar,
                 start_datetime.time(),
                 end_datetime.time(),
                 start_datetime.date(),
                 tree_item=tree_item,
             )
-        date = calendar_item.date
-        start_time = calendar_item.start_time
-        end_time = calendar_item.end_time
-        tree_item = calendar_item.tree_item
+        date = scheduled_item.date
+        start_time = scheduled_item.start_time
+        end_time = scheduled_item.end_time
+        tree_item = scheduled_item.tree_item
         # get_repeat_pattern will return None for single items
-        repeat_pattern = calendar_manager.get_repeat_pattern(calendar_item)
-        item_type = calendar_item.type
-        event_category = calendar_item.category
-        event_name = calendar_item.name
-        is_background = calendar_item.is_background
+        repeat_pattern = schedule_manager.get_repeat_pattern(scheduled_item)
+        item_type = scheduled_item.type
+        event_category = scheduled_item.category
+        event_name = scheduled_item.name
+        is_background = scheduled_item.is_background
 
         flags = QtCore.Qt.WindowFlags(
             QtCore.Qt.WindowTitleHint | QtCore.Qt.WindowCloseButtonHint
         )
         self.setWindowFlags(flags)
         self.setMinimumSize(900, 700)
-        self.setWindowTitle("Calendar Item Editor")
-        utils.set_style(self, "calendar_item_dialog.qss")
+        self.setWindowTitle("Scheduled item Editor")
+        utils.set_style(self, "scheduled_item_dialog.qss")
 
         outer_layout = QtWidgets.QHBoxLayout()
         main_layout = QtWidgets.QVBoxLayout()
@@ -173,7 +173,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
         event_layout.addWidget(event_name_label)
         event_layout.addWidget(self.event_name_line_edit)
         event_layout.addStretch()
-        if item_type == CalendarItemType.EVENT:
+        if item_type == ScheduledItemType.EVENT:
             self.tab_widget.setCurrentIndex(1)
 
         self.background_checkbox = QtWidgets.QCheckBox("Set as background")
@@ -185,11 +185,11 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
         buttons_layout = QtWidgets.QHBoxLayout()
         if self.is_editor:
-            self.delete_button = QtWidgets.QPushButton("Delete Calendar Item")
+            self.delete_button = QtWidgets.QPushButton("Delete Scheduled item")
             buttons_layout.addWidget(self.delete_button)
             self.delete_button.clicked.connect(self.delete_item_and_close)
         accept_button_text = (
-            "Edit Calendar Item" if self.is_editor else "Add Calendar Item"
+            "Edit Scheduled item" if self.is_editor else "Add Scheduled item"
         )
         self.accept_button = QtWidgets.QPushButton(accept_button_text)
         buttons_layout.addWidget(self.accept_button)
@@ -270,7 +270,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
         """Get repeat pattern of item, if this is a repeating item.
 
         Returns:
-            (CalendarItemRepeatPattern or None): repeat pattern, or None if
+            (ScheduledItemRepeatPattern or None): repeat pattern, or None if
                 this is not a repeat item, or if the pattern is invalid.
         """
         if self.is_repeat:
@@ -279,14 +279,14 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
     @property
     def type(self):
-        """Get type of calendar item.
+        """Get type of scheduled item.
 
         Returns:
-            (CalendarItemType): type of item, based on current selected tab.
+            (ScheduledItemType): type of item, based on current selected tab.
         """
         if self.tab_widget.currentIndex() == 1:
-            return CalendarItemType.EVENT
-        return CalendarItemType.TASK
+            return ScheduledItemType.EVENT
+        return ScheduledItemType.TASK
 
     @property
     def tree_item(self):
@@ -314,10 +314,10 @@ class CalendarItemDialog(QtWidgets.QDialog):
 
     @property
     def name(self):
-        """Get name of calendar item.
+        """Get name of scheduled item.
 
         Returns:
-            (str): name of calendar item.
+            (str): name of scheduled item.
         """
         if self.tab_widget.currentIndex() == 0:
             if self.task_combo_box.selected_task_item:
@@ -336,7 +336,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
         return bool(self.background_checkbox.checkState())
 
     def accept_and_close(self):
-        """Run add or modify calendar item edit.
+        """Run add or modify scheduled item edit.
 
         Called when user clicks accept.
         """
@@ -347,8 +347,8 @@ class CalendarItemDialog(QtWidgets.QDialog):
             )
             return
         if self.is_editor:
-            self._calendar_manager.modify_calendar_item(
-                self._calendar_item,
+            self._schedule_manager.modify_scheduled_item(
+                self._scheduled_item,
                 self.is_repeat,
                 date=self.date,
                 start_time=self.start_time,
@@ -362,7 +362,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
             )
         else:
             if self.is_repeat:
-                self._calendar_manager.create_repeat_calendar_item(
+                self._schedule_manager.create_repeat_scheduled_item(
                     self._calendar,
                     self.start_time,
                     self.end_time,
@@ -374,7 +374,7 @@ class CalendarItemDialog(QtWidgets.QDialog):
                     is_background=self.is_background,
                 )
             else:
-                self._calendar_manager.create_calendar_item(
+                self._schedule_manager.create_scheduled_item(
                     self._calendar,
                     self.start_time,
                     self.end_time,
@@ -390,11 +390,11 @@ class CalendarItemDialog(QtWidgets.QDialog):
         self.close()
 
     def delete_item_and_close(self):
-        """Run remove calendar item edit.
+        """Run remove scheduled item edit.
 
         Called when user clicks delete.
         """
-        self._calendar_manager.remove_calendar_item(self._calendar_item)
+        self._schedule_manager.remove_scheduled_item(self._scheduled_item)
         self.reject()
         self.close()
 
@@ -407,7 +407,7 @@ class RepeatPatternWidget(QtWidgets.QWidget):
         """Initialise widget.
 
         Args:
-            repeat_pattern (CalendarItemRepeatPattern or None): repeat pattern
+            repeat_pattern (ScheduledItemRepeatPattern or None): repeat pattern
                 to initialise, if one already exists.
             parent (QtWidgets.QWidget): parent widget, if one exists.
         """
@@ -486,7 +486,7 @@ class RepeatPatternWidget(QtWidgets.QWidget):
             date (Date): initial date for repeat pattern.
 
         Returns:
-            (CalendarItemRepeatPattern or None): repeat pattern, or None
+            (ScheduledItemRepeatPattern or None): repeat pattern, or None
                 if can't be made.
         """
         weekdays = [
@@ -495,7 +495,7 @@ class RepeatPatternWidget(QtWidgets.QWidget):
         ]
         if not weekdays:
             return None
-        return CalendarItemRepeatPattern.week_repeat(date, weekdays)
+        return ScheduledItemRepeatPattern.week_repeat(date, weekdays)
 
 
 class TreeComboBox(QtWidgets.QComboBox):

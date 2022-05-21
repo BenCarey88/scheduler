@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api import constants as api_constants
 from scheduler.api.common import user_prefs
 from scheduler.api.edit import edit_log
-# from scheduler.api.managers import CalendarManager, TreeManager
+# from scheduler.api.managers import ScheduleManager, TreeManager
 from scheduler.api.project import Project
 
 from . import constants as ui_constants

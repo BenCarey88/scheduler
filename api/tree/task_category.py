@@ -180,7 +180,7 @@ class TaskCategory(BaseTreeItem):
             return self._children
 
     # TODO: see comment over identical function in task class. This is just
-    # here as a quick hack to help with calendar_item / calendar_item_dialog
+    # here as a quick hack to help with scheduled_item / scheduled_item_dialog
     # category attributes, we should rename this function and fix that stuff
     # up when we rename the task types. Obvs the name is wrong here as it
     # actually gives a top level task category.

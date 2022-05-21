@@ -1,6 +1,6 @@
 """Base calendar manager class."""
 
-from scheduler.api.timetable.scheduled_item import(
+from scheduler.api.calendar.scheduled_item import(
     BaseScheduledItem,
     ScheduledItem,
     RepeatScheduledItem,

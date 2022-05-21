@@ -152,5 +152,5 @@ class TrackerMonthModel(BaseMonthModel):
     """Month model used by tracker."""
 
 
-class CalendarMonthModel(BaseMonthModel):
+class SchedulerMonthModel(BaseMonthModel):
     """Month model used by calendar."""

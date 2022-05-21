@@ -6,7 +6,7 @@ from scheduler.api.edit.planner_edit import (
     MovePlannedItemEdit,
     RemovePlannedItemEdit,
 )
-from scheduler.api.timetable.planned_item import PlannedItem
+from scheduler.api.calendar.planned_item import PlannedItem
 
 from .._base_manager import require_class
 from ._base_planner_manager import BasePlannerManager

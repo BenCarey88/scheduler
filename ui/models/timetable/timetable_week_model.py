@@ -65,7 +65,7 @@ class TrackerWeekModel(BaseWeekModel):
     TIME_INTERVAL = Date.DAY_END - Date.DAY_START
 
 
-class CalendarWeekModel(BaseWeekModel):
+class SchedulerWeekModel(BaseWeekModel):
     """Week model used by calendar."""
     def headerData(self, section, orientation, role):
         """Get header data.

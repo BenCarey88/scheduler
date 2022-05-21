@@ -11,9 +11,8 @@ from .serialization.serializable import (
     SerializationError,
 )
 from .serialization import file_utils
-from .timetable.calendar import Calendar
-from .timetable.tracker import Tracker
-from .tree.task_root import TaskRoot
+from .calendar import Calendar, Tracker
+from .tree import TaskRoot
 from .utils import backup_git_repo
 
 

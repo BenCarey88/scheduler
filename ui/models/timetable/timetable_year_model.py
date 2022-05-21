@@ -91,5 +91,5 @@ class TrackerYearModel(BaseYearModel):
     """Year model used by tracker."""
 
 
-class CalendarYearModel(BaseYearModel):
+class SchedulerYearModel(BaseYearModel):
     """Year model used by calendar."""

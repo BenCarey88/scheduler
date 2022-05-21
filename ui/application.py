@@ -12,7 +12,7 @@ from scheduler.api.edit import edit_log
 from scheduler.api.project import Project
 
 from . import constants as ui_constants
-from .tabs import CalendarTab, HistoryTab, PlannerTab, TaskTab, TrackerTab
+from .tabs import SchedulerTab, HistoryTab, PlannerTab, TaskTab, TrackerTab
 # from .tabs.notes_tab import NotesTab
 # from .tabs.suggestions_tab import SuggestionsTab
 from .utils import custom_message_dialog, set_style, simple_message_dialog
@@ -64,7 +64,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
         self.tasks_tab = self.create_tab_and_outliner(TaskTab)
         self.planner_tab = self.create_tab_and_outliner(PlannerTab)
-        self.calendar_tab = self.create_tab_and_outliner(CalendarTab)
+        self.scheduler_tab = self.create_tab_and_outliner(SchedulerTab)
         self.tracker_tab = self.create_tab_and_outliner(TrackerTab)
         self.history_tab = self.create_tab_and_outliner(HistoryTab)
         # self.suggestions_tab = self.create_tab_and_outliner(

@@ -4,7 +4,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
-from scheduler.api.timetable.calendar_period import (
+from scheduler.api.calendar import (
     BaseCalendarPeriod,
     CalendarDay,
     CalendarWeek,

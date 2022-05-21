@@ -1,13 +1,13 @@
-"""Calendar Tab."""
+"""Scheduler Tab."""
 
 
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time, TimeDelta
-from scheduler.api.timetable.scheduled_item import ScheduledItemType
+from scheduler.api.calendar.scheduled_item import ScheduledItemType
 
-from scheduler.ui.models.timetable import CalendarDayModel, CalendarWeekModel
+from scheduler.ui.models.timetable import SchedulerDayModel, SchedulerWeekModel
 from scheduler.ui.tabs.base_timetable_tab import (
     BaseTimetableTab,
     BaseDayTableView,
@@ -19,7 +19,7 @@ from scheduler.ui import constants, utils
 from .scheduled_item_dialog import ScheduledItemDialog
 
 
-class CalendarTab(BaseTimetableTab):
+class SchedulerTab(BaseTimetableTab):
     """Calendar tab."""
 
     def __init__(self, project, parent=None):
@@ -29,7 +29,7 @@ class CalendarTab(BaseTimetableTab):
             project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        name = "calendar"
+        name = "scheduler"
         main_views_dict = OrderedDict([
             (
                 (DateType.WEEK, ViewType.TIMETABLE),
@@ -39,11 +39,11 @@ class CalendarTab(BaseTimetableTab):
             (
                 (DateType.DAY, ViewType.TIMETABLE),
                 BaseDayTableView(
-                    name, project, CalendarDayModel(project.calendar)
+                    name, project, SchedulerDayModel(project.calendar)
                 )
             ),
         ])
-        super(CalendarTab, self).__init__(
+        super(SchedulerTab, self).__init__(
             name,
             project,
             main_views_dict,
@@ -51,7 +51,7 @@ class CalendarTab(BaseTimetableTab):
             ViewType.TIMETABLE,
             parent=parent,
         )
-        utils.set_style(self, "calendar.qss")
+        utils.set_style(self, "scheduler.qss")
 
 
 class SelectionRect(object):
@@ -228,7 +228,7 @@ class CalendarView(BaseWeekTableView):
         super(CalendarView, self).__init__(
             name,
             project,
-            CalendarWeekModel(project.calendar),
+            SchedulerWeekModel(project.calendar),
             parent=parent,
         )
         self.schedule_manager = project.get_schedule_manager()

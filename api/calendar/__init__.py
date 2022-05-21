@@ -2,6 +2,7 @@
 
 from .calendar import Calendar
 from .calendar_period import (
+    BaseCalendarPeriod,
     CalendarDay,
     CalendarWeek,
     CalendarMonth,

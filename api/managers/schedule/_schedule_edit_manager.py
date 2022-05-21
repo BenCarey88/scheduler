@@ -8,7 +8,7 @@ from scheduler.api.edit.scheduler_edit import (
     ModifyRepeatScheduledItemInstanceEdit,
     ReplaceScheduledItemEdit,
 )
-from scheduler.api.timetable.scheduled_item import(
+from scheduler.api.calendar.scheduled_item import(
     BaseScheduledItem,
     ScheduledItem,
     ScheduledItemError,

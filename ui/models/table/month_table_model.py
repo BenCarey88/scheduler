@@ -1,15 +1,15 @@
-"""Timetable month model."""
+"""Month table model."""
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, TimeDelta
 
-from ._base_timetable_model import BaseTimetableModel
+from ._base_table_model import BaseTableModel
 
 
-class BaseMonthModel(BaseTimetableModel):
-    """Base model for month timetable."""
+class BaseMonthModel(BaseTableModel):
+    """Base model for month table."""
 
     def __init__(
             self,

@@ -1,11 +1,11 @@
-"""Base timetable model."""
+"""Base table model."""
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class BaseTimetableModel(QtCore.QAbstractTableModel):
-    """Base model for all timetables."""
+class BaseTableModel(QtCore.QAbstractTableModel):
+    """Base for all table models."""
     TIME_INTERVAL = 1
 
     def __init__(
@@ -25,7 +25,7 @@ class BaseTimetableModel(QtCore.QAbstractTableModel):
             num_cols (int): number of columns.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        super(BaseTimetableModel, self).__init__(parent)
+        super(BaseTableModel, self).__init__(parent)
         self.calendar = calendar
         self.calendar_period = calendar_period
         self.num_rows = num_rows

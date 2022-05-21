@@ -1,4 +1,4 @@
-"""Filters for items in timetable."""
+"""Filters for items in calendar."""
 
 from .scheduled_item import ScheduledItemType
 
@@ -30,7 +30,7 @@ class OnlyTaskEvents(BaseFilter):
 
 
 class TaskTreeFilter(BaseFilter):
-    """Apply task tree filter to timetable task events."""
+    """Apply task tree filter to calendar task events."""
     def __init__(self, tree_root, tree_filters):
         """Initialise filter.
 

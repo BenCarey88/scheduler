@@ -1,15 +1,15 @@
-"""Timetable year model."""
+"""Year table model."""
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, TimeDelta
 
-from ._base_timetable_model import BaseTimetableModel
+from ._base_table_model import BaseTableModel
 
 
-class BaseYearModel(BaseTimetableModel):
-    """Base model for year timetable."""
+class BaseYearModel(BaseTableModel):
+    """Base model for year table."""
 
     def __init__(
             self,

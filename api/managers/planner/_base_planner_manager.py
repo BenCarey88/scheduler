@@ -1,9 +1,9 @@
 """Base planner manager class."""
 
-from .._base_manager import BaseTimeTableManager
+from .._base_manager import BaseCalendarManager
 
 
-class BasePlannerManager(BaseTimeTableManager):
+class BasePlannerManager(BaseCalendarManager):
     """Base planner manager class to build planner managers from."""
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.

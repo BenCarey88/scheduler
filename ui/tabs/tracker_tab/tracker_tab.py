@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.common.date_time import DateTime, Time
 from scheduler.api.tree.task import TaskValueType
 
-from scheduler.ui.models.timetable import TrackerWeekModel
+from scheduler.ui.models.table import TrackerWeekModel
 from scheduler.ui.tabs.base_calendar_tab import (
     BaseCalendarTab,
     BaseWeekTableView

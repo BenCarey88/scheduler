@@ -58,8 +58,8 @@ class BaseManager(object):
         self._project_user_prefs = user_prefs
 
 
-class BaseTimeTableManager(BaseManager):
-    """Base manager for all timetable classes."""
+class BaseCalendarManager(BaseManager):
+    """Base manager for all calendar classes."""
     def __init__(self, user_prefs, calendar, archive_calendar, name=""):
         """Initialize class.
 
@@ -71,7 +71,7 @@ class BaseTimeTableManager(BaseManager):
         """
         self._calendar = calendar
         self._archive_calendar = archive_calendar
-        super(BaseTimeTableManager, self).__init__(
+        super(BaseCalendarManager, self).__init__(
             user_prefs,
             name=name,
         )

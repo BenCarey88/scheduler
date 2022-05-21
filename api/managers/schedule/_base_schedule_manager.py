@@ -7,10 +7,10 @@ from scheduler.api.calendar.scheduled_item import(
     RepeatScheduledItemInstance,
 )
 
-from .._base_manager import BaseTimeTableManager, require_class
+from .._base_manager import BaseCalendarManager, require_class
 
 
-class BaseScheduleManager(BaseTimeTableManager):
+class BaseScheduleManager(BaseCalendarManager):
     """Base calendar manager class to build calendar managers from."""
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.

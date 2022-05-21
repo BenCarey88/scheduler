@@ -1,4 +1,4 @@
-"""Timetable-related classes."""
+"""Calendar-related classes."""
 
 from .calendar import Calendar
 from .calendar_period import (

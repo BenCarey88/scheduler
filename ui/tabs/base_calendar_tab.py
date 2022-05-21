@@ -1,4 +1,4 @@
-"""Base Timetable Tab class, for tabs with a timetable element."""
+"""Base Calendar Tab class, for tabs with a calendar element."""
 
 from collections import OrderedDict
 
@@ -134,7 +134,7 @@ class BaseTableView(QtWidgets.QTableView):
         Args:
             name (str): name of tab this is used in.
             project (Project): the project we're working on.
-            timetable_model (BaseTimetableModel): the model we're using for
+            timetable_model (BaseTableModel): the model we're using for
                 this view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """

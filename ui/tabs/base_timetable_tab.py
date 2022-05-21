@@ -17,6 +17,16 @@ from .base_tab import BaseTab
 class BaseTimetableTab(BaseTab):
     """Base tab used for timetable class.
 
+    Note that in this case, timetable refers to all classes under the
+    timetable module in the api, ie. classes that make use of the Calendar
+    class. It doesn't imply that all (or indeed any) of the views will
+    employ a timetable model.
+    TODO: we should probably change to names of these classes to avoid
+    confusion - my problem is just a shortage of words: arguably all classes
+    that use the calendar module should be calendar classes, and then I guess
+    'calendar' items should be 'scheduled' items. But then the calendar tab
+    would have to be the scheduler tab, which is a bit annoying.
+
     This tab consists of a navigation panel at the top and a view below.
     Subclasses must implement their own view.
     """

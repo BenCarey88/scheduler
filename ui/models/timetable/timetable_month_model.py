@@ -133,7 +133,7 @@ class BaseMonthModel(BaseTimetableModel):
         """Get header data.
         
         Args:
-            section (int): row we want header data for.
+            section (int): row/column we want header data for.
             orientation (QtCore.Qt.Orientaion): orientation of widget.
             role (QtCore.Qt.Role): role we want header data for.
 

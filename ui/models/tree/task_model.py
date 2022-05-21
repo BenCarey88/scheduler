@@ -105,7 +105,7 @@ class TaskModel(BaseTreeModel):
         Returns:
             (bool): True if setting data was successful, else False.
         """
-        if (role == QtCore.Qt.CheckStateRole and
+        if (role == QtCore.Qt.ItemDataRole.CheckStateRole and
                 self.get_column_name(index) == self.STATUS_COLUMN):
             task_item = index.internalPointer()
             if not task_item:

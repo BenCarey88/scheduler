@@ -88,7 +88,7 @@ class TaskCategoryModel(BaseTreeModel):
         Returns:
             (bool): True if setting data was successful, else False.
         """
-        if (role == QtCore.Qt.CheckStateRole
+        if (role == QtCore.Qt.ItemDataRole.CheckStateRole
                 and self.get_column_name(index) == self.NAME_COLUMN):
             if not index.isValid():
                 return False

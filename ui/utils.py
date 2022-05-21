@@ -102,13 +102,3 @@ def set_style(widget, stylesheet_filename):
     with open(stylesheet_path, "r") as stylesheet_file:
         stylesheet = stylesheet_file.read()
     widget.setStyleSheet(stylesheet)
-
-
-# # TODO: implement this in ui utils (and change module name to ui_utils?)
-# def get_item(index):
-#     """Return item stored in the index."""
-#     if index.isValid():
-#         return index.internalPointer()
-#     else:
-#         return None
-

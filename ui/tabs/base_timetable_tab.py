@@ -17,8 +17,8 @@ from .base_tab import BaseTab
 class BaseTimetableTab(BaseTab):
     """Base tab used for timetable class.
 
-    This tab consists of a navigation panel at the top and a table view below.
-    Subclasses must implement their own table view.
+    This tab consists of a navigation panel at the top and a view below.
+    Subclasses must implement their own view.
     """
     WEEK_START_DAY = Date.SAT
 

@@ -5,6 +5,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 class PlannerListModel(QtCore.QAbstractListModel):
     """Model for planned items list."""
+    NAME_COLUMN = "Name"
+    IMPORTANCE_COLUMN = "Importance"
+    SIZE_COLUMN = "Size"
 
     def __init__(self, calendar_period, parent=None):
         """Initialise calendar model.
@@ -18,7 +21,11 @@ class PlannerListModel(QtCore.QAbstractListModel):
         super(PlannerListModel, self).__init__(parent)
         self.calendar = calendar_period.calendar
         self.calendar_period = calendar_period
-        self.columns = ["Item", "Importance", "Size"]
+        self.columns = [
+            self.NAME_COLUMN,
+            self.IMPORTANCE_COLUMN,
+            self.SIZE_COLUMN
+        ]
 
     def set_calendar_period(self, calendar_period):
         """Set model to use given calendar period.
@@ -28,6 +35,25 @@ class PlannerListModel(QtCore.QAbstractListModel):
         """
         self.calendar_period = calendar_period
         self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
+
+    def get_column_name(self, index):
+        """Get name of column at index.
+
+        This framework is designed to allow us to change the order
+        of the columns. All checks for which column we're in should
+        use this get_column_name method so that changing the order
+        of self.columns will change the order of the columns in the
+        model.
+
+        Args:
+            index (QtCore.QModelIndex): index to query.
+
+        Returns:
+            (str or None): name of column, if exists.
+        """
+        if index.isValid() and 0 <= index.column() < len(self.columns):
+            return self.columns[index.column()]
+        return None
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -86,6 +112,22 @@ class PlannerListModel(QtCore.QAbstractListModel):
         Returns:
             (QtCore.QVariant): data for given item and role.
         """
+        if not index.isValid():
+            return QtCore.QVariant()
+        item = index.internalPointer()
+        if not item:
+            return QtCore.QVariant()
+        text_roles = [
+            QtCore.Qt.ItemDataRole.DisplayRole,
+            QtCore.Qt.ItemDataRole.EditRole,
+        ]
+        if role in text_roles:
+            column_name = self.get_column_name(index)
+            return {
+                self.NAME_COLUMN: item.name,
+                self.IMPORTANCE_COLUMN: item.importance,
+                self.SIZE_COLUMN: item.size,
+            }.get(column_name)
         return QtCore.QVariant()
 
     def setData(self, index, value, role):
@@ -111,3 +153,20 @@ class PlannerListModel(QtCore.QAbstractListModel):
             (QtCore.Qt.Flag): Qt flags for item.
         """
         return QtCore.Qt.ItemFlag.ItemIsEnabled
+
+    def headerData(self, section, orientation, role):
+        """Get header data.
+
+        Args:
+            section (int): row/column we want header data for.
+            orientation (QtCore.Qt.Orientaion): orientation of widget.
+            role (QtCore.Qt.Role): role we want header data for.
+
+        Returns:
+            (QtCore.QVariant): header data.
+        """
+        if orientation == QtCore.Qt.Orientation.Horizontal:
+            if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                if 0 <= section < len(self.columns):
+                    return self.columns[section]
+        return QtCore.QVariant()

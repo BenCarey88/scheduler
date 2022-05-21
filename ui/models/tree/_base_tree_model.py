@@ -89,6 +89,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 return QtCore.QModelIndex()
         else:
             parent_item = parent_index.internalPointer()
+            if parent_item is None:
+                return QtCore.QModelIndex()
             with parent_item.filter_children(self.child_filters):
                 child_item = parent_item.get_child_at_index(row)
         if child_item:
@@ -138,7 +140,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """Get number of columns of given item.
 
         This is set to 1 in base class but can be overridden if needed.
-        
+
         Returns:
             (int): number of columns.
         """
@@ -179,6 +181,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return False
+        if role != QtCore.Qt.ItemDataRole.EditRole:
+            # can only do text edit role in base class
+            return False
         if not value:
             # can't set tree item with empty name
             return False
@@ -218,7 +223,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """Get header data.
         
         Args:
-            section (int): row we want header data for.
+            section (int): row/column we want header data for.
             orientation (QtCore.Qt.Orientaion): orientation of widget.
             role (QtCore.Qt.Role): role we want header data for.
 

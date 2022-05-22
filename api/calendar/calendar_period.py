@@ -114,7 +114,7 @@ class BaseCalendarPeriod(NestedSerializable):
         with the planned_item class.
 
         Returns:
-            (PlannedItemTimePeriod)
+            (PlannedItemTimePeriod): the time period.
         """
         return {
             CalendarDay: PlannedItemTimePeriod.DAY,
@@ -624,7 +624,7 @@ class CalendarWeek(BaseCalendarPeriod):
         Returns:
             (list(PlannedItem)): list that planned items are stored in.
         """
-        return self.day_start._planned_week_items
+        return self.start_day._planned_week_items
 
     def to_dict(self):
         """Return dictionary representation of class.

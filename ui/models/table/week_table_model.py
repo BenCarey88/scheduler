@@ -1,7 +1,6 @@
 """Week timetable model."""
 
 
-from argparse import ArgumentError
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
@@ -25,13 +24,12 @@ class BaseWeekModel(BaseTableModel):
             calendar_week (CalendarWeek or None): the calendar week this
                 is modelling. If not give, use current week.
             num_days (int): length of week to use, in case week isn't given.
-                This allows us to do multi-day views or evenn single day
+                This allows us to do multi-day views or even single day
                 views using the same model.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         if calendar_week is not None and num_days != calendar_week.length:
-            # TODO: use this and ArgumentTypeError across code
-            raise ArgumentError(
+            raise ValueError(
                 "num_days must match week length if week is given"
             )
         if calendar_week is None:

@@ -9,13 +9,14 @@ from scheduler.api.serialization.serializable import (
     SaveType,
     SerializableFileTypes
 )
-from .scheduled_item import RepeatScheduledItem
 from .calendar_period import (
     CalendarDay,
     CalendarMonth,
     CalendarWeek,
     CalendarYear
 )
+from .scheduled_item import RepeatScheduledItem
+from .planned_item import PlannedItemTimePeriod
 
 
 class CalendarError(Exception):
@@ -218,12 +219,48 @@ class Calendar(NestedSerializable):
             length (int): length of week.
 
         Returns:
-            (CalendarWeek): calendar week objects that contains given date.
+            (CalendarWeek): calendar week object that contains current date.
         """
         return self.get_week_containing_date(
             Date.now(),
             starting_day,
             length=length,
+        )
+
+    def get_current_period(self, period_type, weekday_start=0, week_length=7):
+        """Get current calendar period of given type.
+
+        Args:
+            period_type (class or PlannedItemTimePeirod): calendar period to
+                check for. For convenience, we can also use planned item
+                time period types.
+            weekday_start (int or str): integer or string representing starting
+                day for weeks. By default we start weeks on monday.
+            length (int): length of week.
+
+        Returns:
+            (CalendarPeriod): calendar period object that contains current
+                date.
+        """
+        date = Date.now()
+        period_type = {
+            PlannedItemTimePeriod.DAY: CalendarDay,
+            PlannedItemTimePeriod.WEEK: CalendarWeek,
+            PlannedItemTimePeriod.MONTH: CalendarMonth,
+            PlannedItemTimePeriod.YEAR: CalendarYear,
+        }.get(period_type, period_type)
+        if period_type == CalendarDay:
+            return self.get_day(date)
+        if period_type == CalendarWeek:
+            return self.get_current_week(weekday_start, week_length)
+        if period_type == CalendarMonth:
+            return self.get_month(date.year, date.month)
+        if period_type == CalendarYear:
+            return self.get_year(date.year)
+        raise TypeError(
+            "Cannot find calendar period for period of type {0}".format(
+                str(period_type)
+            )
         )
 
     # @contextmanager

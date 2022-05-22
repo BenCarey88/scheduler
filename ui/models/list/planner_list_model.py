@@ -3,23 +3,36 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class PlannerListModel(QtCore.QAbstractListModel):
+class PlannerListModel(QtCore.QAbstractItemModel):
     """Model for planned items list."""
     NAME_COLUMN = "Name"
     IMPORTANCE_COLUMN = "Importance"
     SIZE_COLUMN = "Size"
 
-    def __init__(self, calendar_period, parent=None):
+    def __init__(
+            self,
+            calendar,
+            calendar_period=None,
+            time_period=None,
+            parent=None):
         """Initialise calendar model.
 
         Args:
             calendar (Calendar): the calendar this is using.
-            calendar_period (BaseCalendarPeriod): the calendar period this
-                is modelling.
+            calendar_period (BaseCalendarPeriod or None): the calendar
+                period this is modelling.
+            time_period (PlannedItemTimePeriod): the time period type this
+                is modelling, if calendar_period not given.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
+        if calendar_period is None and time_period is None:
+            raise Exception(
+                "calendar_period and time_period args can't both be empty."
+            )
         super(PlannerListModel, self).__init__(parent)
-        self.calendar = calendar_period.calendar
+        self.calendar = calendar
+        if calendar_period is None:
+            calendar_period = calendar.get_current_period(time_period)
         self.calendar_period = calendar_period
         self.columns = [
             self.NAME_COLUMN,
@@ -92,7 +105,7 @@ class PlannerListModel(QtCore.QAbstractListModel):
         Returns:
             (int): number of children.
         """
-        return self.num_rows
+        return len(self.calendar_period.get_planned_items_container())
 
     def columnCount(self, index):
         """Get number of columns of given item.

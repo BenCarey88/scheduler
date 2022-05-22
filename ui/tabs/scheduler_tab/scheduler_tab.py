@@ -2,11 +2,7 @@
 
 from collections import OrderedDict
 
-from scheduler.ui.models.table import SchedulerDayModel
-from scheduler.ui.tabs.base_calendar_tab import (
-    BaseCalendarTab,
-    BaseDayTableView,
-)
+from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
 

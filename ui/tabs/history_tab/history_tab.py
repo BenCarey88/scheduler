@@ -5,10 +5,8 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.models.table import TrackerWeekModel
-from scheduler.ui.tabs.base_calendar_tab import (
-    BaseCalendarTab,
-    BaseWeekTableView
-)
+from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
+from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 
 

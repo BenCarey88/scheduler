@@ -6,11 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
 
-from scheduler.ui.widgets.navigation_panel import (
-    NavigationPanel,
-    DateType,
-    ViewType,
-)
+from scheduler.ui.widgets.navigation_panel import NavigationPanel
 from .base_tab import BaseTab
 
 
@@ -18,7 +14,8 @@ class BaseCalendarTab(BaseTab):
     """Base tab used for calendar classes.
 
     This tab consists of a navigation panel at the top and a view below.
-    Subclasses must implement their own view.
+    Subclasses must implement their own view. The bases of these views
+    can be found in the base_calendar_view module.
     """
     WEEK_START_DAY = Date.SAT
 
@@ -29,6 +26,7 @@ class BaseCalendarTab(BaseTab):
             main_views_dict,
             date_type,
             view_type,
+            use_full_period_names=False,
             use_week_for_day=False,
             parent=None):
         """Initialise tab.
@@ -40,10 +38,17 @@ class BaseCalendarTab(BaseTab):
                 dict of main views keyed by date type and view type tuple.
             date_type (DateType): date type to start with.
             view_type (ViewType): view type to start with.
+            use_full_period_names (bool): if True, use long names for periods
+                in navigation bar.
             use_week_for_day (bool): if True, day view will use a calendar
                 week object, so it can make use of the week model.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
+        if (date_type, view_type) not in main_views_dict.keys():
+            raise ValueError(
+                "date_type and view_type tuple ({0}, {1}) not in "
+                "main_views_dict".format(date_type, view_type)
+            )
         super(BaseCalendarTab, self).__init__(
             name,
             project,
@@ -67,6 +72,7 @@ class BaseCalendarTab(BaseTab):
             self.calendar,
             calendar_period,
             view_types_dict,
+            use_full_period_names=use_full_period_names,
             use_week_for_day=use_week_for_day,
             parent=self,
         )
@@ -124,120 +130,3 @@ class BaseCalendarTab(BaseTab):
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.main_view.update()
-
-
-class BaseTableView(QtWidgets.QTableView):
-    """Base table view for all timetable tabs."""
-
-    def __init__(
-            self,
-            name,
-            project,
-            timetable_model,
-            parent=None):
-        """Initialize class instance.
-
-        Args:
-            name (str): name of tab this is used in.
-            project (Project): the project we're working on.
-            timetable_model (BaseTableModel): the model we're using for
-                this view.
-            parent (QtGui.QWidget or None): QWidget parent of widget.
-        """
-        super(BaseTableView, self).__init__(parent=parent)
-        self.tree_manager = project.get_tree_manager(name)
-        self.tree_root = self.tree_manager.tree_root
-        self.calendar = project.calendar
-        self.setModel(timetable_model)
-        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-
-    def set_to_calendar_period(self, calendar_period):
-        """Set view to given calendar_period.
-
-        Args:
-            calendar_period (BaseCalendarPeriod): calendar period to set to.
-        """
-        raise NotImplementedError(
-            "set to calendar period implemented in BaseTableView subclasses."
-        )
-
-    def update(self):
-        """Update view."""
-        self.viewport().update()
-        self.horizontalHeader().viewport().update()
-
-
-class BaseDayTableView(BaseTableView):
-    """Base day table view for timetable tabs."""
-
-    def __init__(
-            self,
-            name,
-            project,
-            timetable_day_model,
-            parent=None):
-        """Initialize class instance.
-
-        Args:
-            name (str): name of tab this is used in.
-            project (Project): the project we're working on.
-            timetable_day_model (BaseDayModel): the model we're using for
-                this view.
-            parent (QtGui.QWidget or None): QWidget parent of widget.
-        """
-        super(BaseDayTableView, self).__init__(
-            name,
-            project,
-            timetable_day_model,
-            parent=parent
-        )
-        self.calendar_day = self.calendar.get_day(Date.now())
-        self.set_to_calendar_period = self.set_to_day
-
-    def set_to_day(self, calendar_day):
-        """Set view to given calendar_day.
-
-        Args:
-            calendar_day (CalendarDay): calendar day to set to.
-        """
-        self.calendar_day = calendar_day
-        self.model().set_calendar_day(calendar_day)
-        self.update()
-
-
-class BaseWeekTableView(BaseTableView):
-    """Base week table view for timetable tabs."""
-
-    def __init__(
-            self,
-            name,
-            project,
-            timetable_week_model,
-            parent=None):
-        """Initialize class instance.
-
-        Args:
-            name (str): name of tab this is used in.
-            project (Project): the project we're working on.
-            timetable_week_model (BaseWeekModel): the model we're using for
-                this view.
-            parent (QtGui.QWidget or None): QWidget parent of widget.
-        """
-        super(BaseWeekTableView, self).__init__(
-            name,
-            project,
-            timetable_week_model,
-            parent=parent
-        )
-        self.calendar_week = self.calendar.get_current_week()
-        self.set_to_calendar_period = self.set_to_week
-
-    def set_to_week(self, calendar_week):
-        """Set view to given calendar_week.
-
-        Args:
-            calendar_week (CalendarWeek): calendar week to set to.
-        """
-        self.calendar_week = calendar_week
-        self.model().set_calendar_week(calendar_week)
-        self.update()

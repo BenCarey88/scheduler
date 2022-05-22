@@ -60,8 +60,6 @@ class PlannedItem(NestedSerializable):
             calendar_period (BaseCalendarPeriod): calendar period this is
                 associated to.
             tree_item (BaseTreeItem): the task that this item represents.
-            time_periods (list(PlannedItemTimePeriod) or None): time periods
-                this planned item should be included in.
             size (PlannedItemSize or None): size of item.
             importance (PlannedItemImportance or None): importance of item.
 

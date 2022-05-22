@@ -6,7 +6,7 @@ from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import ScheduledItemType
 
 from scheduler.ui.models.table import SchedulerWeekModel
-from scheduler.ui.tabs.base_calendar_tab import BaseWeekTableView
+from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
 from scheduler.ui import constants
 
 from .scheduled_item_dialog import ScheduledItemDialog

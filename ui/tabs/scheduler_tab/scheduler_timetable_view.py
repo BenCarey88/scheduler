@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import DateTime, Time, TimeDelta
+from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import ScheduledItemType
 
 from scheduler.ui.models.table import SchedulerWeekModel
@@ -175,18 +175,20 @@ class SchedulerTimetableView(BaseWeekTableView):
             self,
             name,
             project,
+            num_days=7,
             parent=None):
         """Initialise calendar view.
 
         Args:
             name (str): name of tab this is used in.
             project (Project): the project we're working on.
+            num_days (int): num_days.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(SchedulerTimetableView, self).__init__(
             name,
             project,
-            SchedulerWeekModel(project.calendar),
+            SchedulerWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
         self.schedule_manager = project.get_schedule_manager()

@@ -29,6 +29,7 @@ class BaseCalendarTab(BaseTab):
             main_views_dict,
             date_type,
             view_type,
+            use_week_for_day=False,
             parent=None):
         """Initialise tab.
 
@@ -39,6 +40,8 @@ class BaseCalendarTab(BaseTab):
                 dict of main views keyed by date type and view type tuple.
             date_type (DateType): date type to start with.
             view_type (ViewType): view type to start with.
+            use_week_for_day (bool): if True, day view will use a calendar
+                week object, so it can make use of the week model.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseCalendarTab, self).__init__(
@@ -53,6 +56,7 @@ class BaseCalendarTab(BaseTab):
             project.calendar,
             self.date_type,
             self.WEEK_START_DAY,
+            use_week_for_day=use_week_for_day,
         )
         self.main_views_dict = main_views_dict
         view_types_dict = OrderedDict()
@@ -63,6 +67,7 @@ class BaseCalendarTab(BaseTab):
             self.calendar,
             calendar_period,
             view_types_dict,
+            use_week_for_day=use_week_for_day,
             parent=self,
         )
         self.main_view = main_views_dict.get((self.date_type, view_type))
@@ -70,6 +75,7 @@ class BaseCalendarTab(BaseTab):
         self.main_views_stack = QtWidgets.QStackedWidget()
         for view in self.main_views_dict.values():
             self.main_views_stack.addWidget(view)
+        self.main_views_stack.setCurrentWidget(self.main_view)
 
         self.outer_layout.addWidget(self.navigation_panel)
         self.outer_layout.addWidget(self.main_views_stack)

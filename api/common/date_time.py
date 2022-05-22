@@ -343,7 +343,7 @@ class TimeDelta(object):
         Returns:
             (int): number of months.
         """
-        return (self._years * Date.NUM_MONTHS) + self._months
+        return (self._years * 12) + self._months
 
     @property
     def years(self):
@@ -355,7 +355,7 @@ class TimeDelta(object):
         Returns:
             (int): number of years.
         """
-        return self._years + (self._months % Date.NUM_MONTHS)
+        return self._years + (self._months % 12)
 
     def total_seconds(self):
         """Get total number of seconds of time delta.

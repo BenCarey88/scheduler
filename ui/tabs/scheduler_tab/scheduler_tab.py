@@ -10,7 +10,7 @@ from scheduler.ui.tabs.base_calendar_tab import (
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
 
-from .scheduler_days_view import SchedulerTimetableView
+from .scheduler_timetable_view import SchedulerTimetableView
 
 
 class SchedulerTab(BaseCalendarTab):
@@ -26,15 +26,16 @@ class SchedulerTab(BaseCalendarTab):
         name = "scheduler"
         main_views_dict = OrderedDict([
             (
+                (DateType.DAY, ViewType.TIMETABLE),
+                SchedulerTimetableView(name, project, num_days=1)
+            ),
+            (
+                (DateType.THREE_DAYS, ViewType.TIMETABLE),
+                SchedulerTimetableView(name, project, num_days=3)
+            ),
+            (
                 (DateType.WEEK, ViewType.TIMETABLE),
                 SchedulerTimetableView(name, project)
-            ),
-            # FOR TESTING
-            (
-                (DateType.DAY, ViewType.TIMETABLE),
-                BaseDayTableView(
-                    name, project, SchedulerDayModel(project.calendar)
-                )
             ),
         ])
         super(SchedulerTab, self).__init__(
@@ -43,6 +44,7 @@ class SchedulerTab(BaseCalendarTab):
             main_views_dict,
             DateType.WEEK,
             ViewType.TIMETABLE,
+            use_week_for_day=True,
             parent=parent,
         )
         utils.set_style(self, "scheduler.qss")

@@ -192,7 +192,7 @@ class ScheduledItemRepeatPattern(NestedSerializable):
             Date.weekday_int_from_string(weekday) for weekday in weekdays
         ]
         def days_from_start(weekday_int):
-            return (weekday_int - starting_day.weekday) % Date.NUM_WEEKDAYS
+            return (weekday_int - starting_day.weekday) % 7
         weekdays.sort(key=days_from_start)
         initial_date_pattern = []
         for weekday in weekdays:
@@ -321,7 +321,7 @@ class ScheduledItemRepeatPattern(NestedSerializable):
         elif self.repeat_type == self.WEEK_REPEAT:
             repeat_time_string = get_repeat_time_string(
                 "week",
-                int(self._gap.days / Date.NUM_WEEKDAYS)
+                int(self._gap.days / 7)
             )
         elif self.repeat_type == self.MONTH_REPEAT:
             repeat_time_string = get_repeat_time_string(

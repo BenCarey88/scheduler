@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date
+from scheduler.api.common.date_time import Date, TimeDelta
 from scheduler.api.calendar import (
     BaseCalendarPeriod,
     CalendarDay,
@@ -18,6 +18,7 @@ from scheduler.ui import utils
 class DateType(object):
     """Struct representing the different possible date spans for a view."""
     DAY = "day"
+    THREE_DAYS = "three days"
     WEEK = "week"
     MONTH = "month"
     YEAR = "year"
@@ -45,7 +46,8 @@ class NavigationPanel(QtWidgets.QWidget):
             self,
             calendar,
             calendar_period,
-            view_types_dict=None,
+            view_types_dict,
+            use_week_for_day=False,
             parent=None):
         """Setup calendar main view.
 
@@ -53,9 +55,11 @@ class NavigationPanel(QtWidgets.QWidget):
             calendar (Calendar): calendar object.
             calendar_period (BaseCalendarPeriod): current calendar period for
                 panel. The type determines the date type of the view.
-            view_types_dict (OrderedDict(DateType, list(ViewType) or None):
-                dict associating a list of possible view types for each view
-                date type.
+            view_types_dict (OrderedDict(DateType, list(ViewType)): dict
+                associating a list of possible view types for each view date
+                type.
+            use_week_for_day (bool): if True, use calendar week item to
+                represent a calendar day, so they can use the same model.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(NavigationPanel, self).__init__(parent=parent)
@@ -63,14 +67,13 @@ class NavigationPanel(QtWidgets.QWidget):
         self.calendar = calendar
         self.calendar_period = calendar_period
         self.date_type = self.get_date_type(calendar_period)
+        self.use_week_for_day = use_week_for_day
+        if use_week_for_day and isinstance(calendar_period, CalendarDay):
+            raise Exception(
+                "Can't use CalendarDay with use_week_for_day flag."
+            )
 
-        # add default view_types_dict for now
-        self.view_types_dict = view_types_dict or OrderedDict([
-            (DateType.DAY, [ViewType.TIMETABLE, ViewType.LIST]),
-            (DateType.WEEK, [ViewType.TIMETABLE]),
-            (DateType.MONTH, [ViewType.TIMETABLE]),
-            (DateType.YEAR, [ViewType.TIMETABLE]),
-        ])
+        self.view_types_dict = view_types_dict
         if not self.view_types_dict.get(self.date_type):
             raise Exception(
                 "Date type {0} not allowed for this tab".format(self.date_type)
@@ -130,11 +133,19 @@ class NavigationPanel(QtWidgets.QWidget):
     def update(self):
         """Update widget."""
         self.date_label.setText(self.get_date_label())
-        self.prev_weekday_button.setHidden(self.date_type != DateType.WEEK)
-        self.next_weekday_button.setHidden(self.date_type != DateType.WEEK)
+        self.prev_weekday_button.setHidden(
+            self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
+        )
+        self.next_weekday_button.setHidden(
+            self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
+        )
 
     @staticmethod
-    def get_current_calendar_period(calendar, date_type, starting_weekday=0):
+    def get_current_calendar_period(
+            calendar,
+            date_type,
+            starting_weekday=0,
+            use_week_for_day=False):
         """Get current calendar period.
 
         Args:
@@ -142,6 +153,9 @@ class NavigationPanel(QtWidgets.QWidget):
             date_type (DateType): type of calendar period to get.
             starting_weekday (str or int): starting weekday to use if date
                 type is week.
+            use_week_for_day (bool): if True, we use a one day week in
+                place of a calendar day, to allow it to make use of a
+                week model.
 
         Returns:
             (BaseCalendarPeriod): the calendar period corresponding to the
@@ -149,7 +163,12 @@ class NavigationPanel(QtWidgets.QWidget):
         """
         date = Date.now()
         if date_type == DateType.DAY:
-            return calendar.get_day(date)
+            if use_week_for_day:
+                return CalendarWeek(calendar, date, length=1)
+            else:
+                return calendar.get_day(date)
+        if date_type == DateType.THREE_DAYS:
+            return CalendarWeek(calendar, date-TimeDelta(days=1), length=3)
         if date_type == DateType.WEEK:
             return calendar.get_current_week(starting_weekday)
         if date_type == DateType.MONTH:
@@ -170,24 +189,35 @@ class NavigationPanel(QtWidgets.QWidget):
         if isinstance(calendar_period, CalendarDay):
             return DateType.DAY
         elif isinstance(calendar_period, CalendarWeek):
-            return DateType.WEEK
+            if calendar_period.length == 7:
+                return DateType.WEEK
+            elif calendar_period.length == 3:
+                return DateType.THREE_DAYS
+            elif calendar_period.length == 1:
+                return DateType.DAY
         elif isinstance(calendar_period, CalendarMonth):
             return DateType.MONTH
         elif isinstance(calendar_period, CalendarYear):
             return DateType.YEAR
 
-    # TODO: update this label to support day, month etc. viewtypes
-    def get_date_label(self):
+    def get_date_label(self, calendar_period=None):
         """Get date label for current calendar period.
+
+        Args:
+            calendar_period (BaseCalendarPeriod or None): calendar period
+                to get label for. If None, use self.calendar_period.
 
         Returns:
             (str): label to use for date.
         """
-        if isinstance(self.calendar_period, CalendarDay):
-            weekday_string = self.calendar_period.date.weekday_string()
-            ordinal_string = self.calendar_period.date.ordinal_string()
-            month_string = self.calendar_period.date.month_string()
-            year_string = str(self.calendar_period.date.year)
+        if calendar_period is None:
+            calendar_period = self.calendar_period
+
+        if isinstance(calendar_period, CalendarDay):
+            weekday_string = calendar_period.date.weekday_string()
+            ordinal_string = calendar_period.date.ordinal_string()
+            month_string = calendar_period.date.month_string()
+            year_string = str(calendar_period.date.year)
             return " {0} {1} {2} {3}".format(
                 weekday_string,
                 ordinal_string,
@@ -195,9 +225,14 @@ class NavigationPanel(QtWidgets.QWidget):
                 year_string,
             )
 
-        elif isinstance(self.calendar_period, CalendarWeek):
-            start_date = self.calendar_period.start_date
-            end_date = self.calendar_period.end_date
+        elif isinstance(calendar_period, CalendarWeek):
+            # calendar day
+            if calendar_period.length == 1:
+                return self.get_date_label(calendar_period.start_day)
+
+            # 3 days or calendar week
+            start_date = calendar_period.start_date
+            end_date = calendar_period.end_date
             if start_date.month == end_date.month:
                 return " {0} {1}".format(
                     start_date.month_string(short=False),
@@ -217,15 +252,15 @@ class NavigationPanel(QtWidgets.QWidget):
                     end_date.year,
                 )
 
-        elif isinstance(self.calendar_period, CalendarMonth):
-            start_date = self.calendar_period.start_day.date
+        elif isinstance(calendar_period, CalendarMonth):
+            start_date = calendar_period.start_day.date
             return " {0} {1}".format(
                 start_date.month_string(),
                 start_date.year,
             )
 
-        elif isinstance(self.calendar_period, CalendarYear):
-            return str(self.calendar_period.year)
+        elif isinstance(calendar_period, CalendarYear):
+            return str(calendar_period.year)
 
     def _update_calendar_period(self):
         """Update calendar period to match current date type.
@@ -241,13 +276,49 @@ class NavigationPanel(QtWidgets.QWidget):
             self.calendar_period = cached_period
 
         elif self.date_type == DateType.DAY:
-            if not isinstance(period, CalendarDay):
+            if self.use_week_for_day and isinstance(period, CalendarWeek):
+                self.calendar_period = self.calendar.get_week_containing_date(
+                    period.start_date,
+                    self.cached_weekday_start,
+                    length=1,
+                )
+            elif (self.use_week_for_day and
+                        isinstance(period, (CalendarMonth, CalendarYear))):
+                    self.calendar_period = period.get_start_week(
+                        self.cached_weekday_start,
+                        length=1,
+                    )
+            elif not isinstance(period, CalendarDay):
                 self.calendar_period = period.start_day
+
+        elif self.date_type == DateType.THREE_DAYS:
+            if isinstance(period, CalendarDay):
+                self.calendar_period = self.calendar.get_week_containing_date(
+                    period.date,
+                    self.cached_weekday_start,
+                    length=3,
+                )
+            elif isinstance(period, CalendarWeek):
+                self.calendar_period = self.calendar.get_week_containing_date(
+                    period.start_date,
+                    self.cached_weekday_start,
+                    length=3,
+                )
+            elif isinstance(period, (CalendarMonth, CalendarYear)):
+                self.calendar_period = period.get_start_week(
+                    self.cached_weekday_start,
+                    length=3,
+                )
 
         elif self.date_type == DateType.WEEK:
             if isinstance(period, CalendarDay):
                 self.calendar_period = self.calendar.get_week_containing_date(
                     period.date,
+                    self.cached_weekday_start,
+                )
+            if isinstance(period, CalendarWeek):
+                self.calendar_period = self.calendar.get_week_containing_date(
+                    period.start_date,
                     self.cached_weekday_start,
                 )
             elif isinstance(period, (CalendarMonth, CalendarYear)):
@@ -269,6 +340,11 @@ class NavigationPanel(QtWidgets.QWidget):
             elif isinstance(period, CalendarWeek):
                 self.calendar_period = period.start_day.calendar_year
 
+        else:
+            raise Exception(
+                "DateType {0} not currently supported".format(self.date_type)
+            )
+
     def change_to_prev_period(self):
         """Set calendar view to use previous period."""
         self.calendar_period = self.calendar_period.prev()
@@ -283,17 +359,19 @@ class NavigationPanel(QtWidgets.QWidget):
 
     def change_to_prev_weekday(self):
         """Set calendar week view to use previous week."""
-        if self.date_type != DateType.WEEK:
+        if not isinstance(self.calendar_period, CalendarWeek):
             return
         self.calendar_period = self.calendar_period.week_starting_prev_day()
+        self.cached_weekday_start -= 1
         self.update()
         self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
 
     def change_to_next_weekday(self):
         """Set calendar week view to use next week."""
-        if self.date_type != DateType.WEEK:
+        if not isinstance(self.calendar_period, CalendarWeek):
             return
         self.calendar_period = self.calendar_period.week_starting_next_day()
+        self.cached_weekday_start += 1
         self.update()
         self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
 

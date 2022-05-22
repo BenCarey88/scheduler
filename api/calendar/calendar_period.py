@@ -386,7 +386,7 @@ class CalendarWeek(BaseCalendarPeriod):
             self,
             calendar,
             start_date,
-            length=Date.NUM_WEEKDAYS):
+            length=7):
         """Initialise calendar week object.
 
         Args:
@@ -501,6 +501,15 @@ class CalendarWeek(BaseCalendarPeriod):
             self.end_date.string()
         )
 
+    @property
+    def length(self):
+        """Get length of week.
+
+        Returns:
+            (int): week length.
+        """
+        return self._length
+
     def iter_days(self):
         """Iterate through days in class.
 
@@ -515,6 +524,9 @@ class CalendarWeek(BaseCalendarPeriod):
 
         Args:
             index (int): index of day from start of week.
+
+        Returns:
+            (CalendarDay): calendar day at index.
         """
         return list(self.iter_days())[index]
 
@@ -536,7 +548,11 @@ class CalendarWeek(BaseCalendarPeriod):
         Returns
             (CalendarWeek): the calendar week after this one.
         """
-        return CalendarWeek(self.calendar, self.end_date + TimeDelta(days=1))
+        return CalendarWeek(
+            self.calendar,
+            self.end_date + TimeDelta(days=1),
+            length=self._length,
+        )
 
     def prev(self):
         """Get calendar week starting immediately before this one.
@@ -549,7 +565,8 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return CalendarWeek(
             self.calendar,
-            self.start_date - TimeDelta(days=Date.NUM_WEEKDAYS)
+            self.start_date - TimeDelta(days=self._length),
+            length=self._length,
         )
 
     def contains(self, calendar_period):
@@ -564,11 +581,18 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         if isinstance(calendar_period, Date):
             return self.contains(self.calendar.get_day(calendar_period))
-        return (
-            isinstance(calendar_period, CalendarDay)
-            and calendar_period.date >= self.start_date
-            and calendar_period.date <= self.end_date
-        )
+        if isinstance(calendar_period, CalendarDay):
+            return (
+                calendar_period.date >= self.start_date
+                and calendar_period.date <= self.end_date
+            )
+        if isinstance(calendar_period, CalendarWeek):
+            return (
+                calendar_period.start_date >= self.start_date
+                and calendar_period.end_date <= self.end_date
+                and calendar_period.length < self.length
+            )
+        return False
 
     def week_starting_next_day(self):
         """Get calendar week starting one day later than this one.
@@ -578,7 +602,8 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return CalendarWeek(
             self.calendar,
-            self.start_date + TimeDelta(days=1)
+            self.start_date + TimeDelta(days=1),
+            length=self._length,
         )
 
     def week_starting_prev_day(self):
@@ -589,7 +614,8 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return CalendarWeek(
             self.calendar,
-            self.start_date - TimeDelta(days=1)
+            self.start_date - TimeDelta(days=1),
+            length=self._length,
         )
 
     def get_planned_items_container(self):
@@ -776,12 +802,13 @@ class CalendarMonth(BaseCalendarPeriod):
         """
         return self._length
 
-    def get_start_week(self, starting_day=0):
+    def get_start_week(self, starting_day=0, length=7):
         """Get first week of month.
 
         Args:
             starting_day (int or str): integer or string representing starting
                 day for week.
+            length (int): length of week.
 
         Returns:
             (CalendarWeek): calendar week.
@@ -789,6 +816,7 @@ class CalendarMonth(BaseCalendarPeriod):
         return self.calendar.get_week_containing_date(
             self.start_day.date,
             starting_day=starting_day,
+            length=length,
         )
 
     def get_calendar_weeks(self, starting_day=0):
@@ -806,11 +834,11 @@ class CalendarMonth(BaseCalendarPeriod):
             starting_day = Date.weekday_int_from_string(starting_day)
         date = self._start_date
         while date <= self._end_date:
-            length = Date.NUM_WEEKDAYS
+            length = 7
             if date.weekday != starting_day:
                 # beginning of month, restrict length til next start day
-                length = (starting_day - date.weekday) % Date.NUM_WEEKDAYS
-            elif (self._end_date - date).days + 1 < Date.NUM_WEEKDAYS:
+                length = (starting_day - date.weekday) % 7
+            elif (self._end_date - date).days + 1 < 7:
                 # end of month, restrict length til end of month
                 length = (self._end_date - date).days + 1
             week_list.append(CalendarWeek(self.calendar, date, length))
@@ -998,7 +1026,7 @@ class CalendarYear(BaseCalendarPeriod):
         """
         super(CalendarYear, self).__init__(calendar)
         self._year = year
-        self._length = Date.NUM_MONTHS
+        self._length = 12
         self.__calendar_months = None
         self._planned_items = []
 
@@ -1043,12 +1071,13 @@ class CalendarYear(BaseCalendarPeriod):
         """
         return self.calendar.get_day(Date(self._year, 1, 1))
 
-    def get_start_week(self, starting_day=0):
+    def get_start_week(self, starting_day=0, length=7):
         """Get first week of year.
 
         Args:
             starting_day (int or str): integer or string representing starting
                 day for week.
+            length (int): length of week.
 
         Returns:
             (CalendarWeek): calendar week.
@@ -1056,6 +1085,7 @@ class CalendarYear(BaseCalendarPeriod):
         return self.calendar.get_week_containing_date(
             self.start_day.date,
             starting_day=starting_day,
+            length=length,
         )
 
     def iter_months(self):

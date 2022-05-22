@@ -34,7 +34,7 @@ class BaseMonthModel(BaseTableModel):
             date = Date.now()
             calendar_month = calendar.get_month(date.year, date.month)
         num_rows = len(calendar_month.get_calendar_weeks(weekday_start))
-        num_cols = Date.NUM_WEEKDAYS
+        num_cols = 7
         super(BaseMonthModel, self).__init__(
             calendar,
             calendar_month,
@@ -87,9 +87,9 @@ class BaseMonthModel(BaseTableModel):
         """
         month_start_date = self.calendar_month.start_day.date
         start_weekday = month_start_date.weekday
-        start_column = (start_weekday - self.weekday_start) % Date.NUM_WEEKDAYS
+        start_column = (start_weekday - self.weekday_start) % 7
         time_delta = TimeDelta(
-            days=(column - start_column + row * Date.NUM_WEEKDAYS)
+            days=(column - start_column + row * 7)
         )
         return self.calendar.get_day(month_start_date + time_delta)
 

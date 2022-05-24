@@ -4,6 +4,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
+from scheduler.ui import utils
 
 
 class BaseListView(QtWidgets.QTreeView):
@@ -32,6 +33,8 @@ class BaseListView(QtWidgets.QTreeView):
         self.calendar = project.calendar
         self.calendar_period = None
         self.setModel(list_model)
+        self.setItemsExpandable(False)
+        utils.set_style(self, "base_list_view.qss")
         # self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
     def set_to_calendar_period(self, calendar_period):

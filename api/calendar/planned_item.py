@@ -129,6 +129,15 @@ class PlannedItem(NestedSerializable):
         return self.tree_item.name
 
     @property
+    def tree_path(self):
+        """Get path of tree item.
+
+        Returns:
+            (str): path of tree item.
+        """
+        return self.tree_item.path
+
+    @property
     def size(self):
         """Get size of item.
 

@@ -1,0 +1,8 @@
+
+QTreeView::branch {
+    border-image: url(none.png);
+}
+
+QTreeView {
+    border: none;
+}

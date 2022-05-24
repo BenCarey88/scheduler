@@ -6,6 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class PlannerListModel(QtCore.QAbstractItemModel):
     """Model for planned items list."""
     NAME_COLUMN = "Name"
+    PATH_COLUMN = "Path"
     IMPORTANCE_COLUMN = "Importance"
     SIZE_COLUMN = "Size"
 
@@ -36,6 +37,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         self.calendar_period = calendar_period
         self.columns = [
             self.NAME_COLUMN,
+            self.PATH_COLUMN,
             self.IMPORTANCE_COLUMN,
             self.SIZE_COLUMN
         ]
@@ -138,6 +140,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             column_name = self.get_column_name(index)
             return {
                 self.NAME_COLUMN: item.name,
+                self.PATH_COLUMN: item.tree_path,
                 self.IMPORTANCE_COLUMN: item.importance,
                 self.SIZE_COLUMN: item.size,
             }.get(column_name)

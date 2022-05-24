@@ -5,6 +5,7 @@ from functools import partial
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.models.tree import TaskModel
+from scheduler.ui import utils
 
 
 TASK_DELEGATE_HEIGHT = 20
@@ -42,12 +43,7 @@ class TaskWidget(QtWidgets.QTreeView):
 
         # Remove expand decorations and border
         self.setItemsExpandable(False)
-        self.setStyleSheet(
-            """
-            QTreeView::branch { border-image: url(none.png); }
-            QTreeView {border: none;}
-            """
-        )
+        utils.set_style(self, "task_widget.qss")
 
         # Turn off scrollbar policy or we get flashing scrollbars on update
         self.setVerticalScrollBarPolicy(

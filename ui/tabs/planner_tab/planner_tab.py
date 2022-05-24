@@ -45,8 +45,9 @@ class PlannerTab(BaseCalendarTab):
             name,
             project,
             main_views_dict,
-            DateType.WEEK,
+            DateType.DAY,
             ViewType.LIST,
+            hide_day_change_buttons=True,
             use_full_period_names=True,
             parent=parent,
         )
@@ -71,3 +72,4 @@ class PlannerView(BaseListView):
             PlannerListModel(project.calendar, time_period=time_period),
             parent=parent,
         )
+        self.header().setStretchLastSection(True)

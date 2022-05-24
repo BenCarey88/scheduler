@@ -317,6 +317,9 @@ class CalendarDay(BaseCalendarPeriod):
         calendar_day = cls(calendar, date, calendar_month)
 
         scheduled_items_list = dict_repr.get(cls.SCHEDULED_ITEMS_KEY, [])
+        # TODO: [KEY-TRANSFER] delete this after transfer to new key name
+        if not scheduled_items_list:
+            scheduled_items_list = dict_repr.get("calendar_items", [])
         scheduled_items = [
             ScheduledItem.from_dict(scheduled_item_dict, calendar)
             for scheduled_item_dict in scheduled_items_list

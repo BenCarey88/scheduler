@@ -47,6 +47,7 @@ class NavigationPanel(QtWidgets.QWidget):
             calendar,
             calendar_period,
             view_types_dict,
+            hide_day_change_buttons=False,
             use_full_period_names=False,
             use_week_for_day=False,
             parent=None):
@@ -59,6 +60,8 @@ class NavigationPanel(QtWidgets.QWidget):
             view_types_dict (OrderedDict(DateType, list(ViewType)): dict
                 associating a list of possible view types for each view date
                 type.
+            hide_day_change_buttons (bool): if True, always hide the day change
+                buttons that switch the week views to start on a different day.
             use_full_period_names (bool): if True, use long names for periods.
             use_week_for_day (bool): if True, use calendar week item to
                 represent a calendar day, so they can use the same model.
@@ -69,6 +72,7 @@ class NavigationPanel(QtWidgets.QWidget):
         self.calendar = calendar
         self.calendar_period = calendar_period
         self.date_type = self.get_date_type(calendar_period)
+        self.hide_day_change_buttons = hide_day_change_buttons
         self.use_full_period_names = use_full_period_names
         self.use_week_for_day = use_week_for_day
         if use_week_for_day and isinstance(calendar_period, CalendarDay):
@@ -132,14 +136,17 @@ class NavigationPanel(QtWidgets.QWidget):
         self.view_type_dropdown.currentTextChanged.connect(
             self.change_view_type
         )
+        self.update()
 
     def update(self):
         """Update widget."""
         self.date_label.setText(self.get_date_label())
         self.prev_weekday_button.setHidden(
+            self.hide_day_change_buttons or
             self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
         )
         self.next_weekday_button.setHidden(
+            self.hide_day_change_buttons or
             self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
         )
 

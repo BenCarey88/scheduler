@@ -26,6 +26,7 @@ class BaseCalendarTab(BaseTab):
             main_views_dict,
             date_type,
             view_type,
+            hide_day_change_buttons=False,
             use_full_period_names=False,
             use_week_for_day=False,
             parent=None):
@@ -38,6 +39,8 @@ class BaseCalendarTab(BaseTab):
                 dict of main views keyed by date type and view type tuple.
             date_type (DateType): date type to start with.
             view_type (ViewType): view type to start with.
+            hide_day_change_buttons (bool): if True, always hide the day change
+                buttons that switch the week views to start on a different day.
             use_full_period_names (bool): if True, use long names for periods
                 in navigation bar.
             use_week_for_day (bool): if True, day view will use a calendar
@@ -72,6 +75,7 @@ class BaseCalendarTab(BaseTab):
             self.calendar,
             calendar_period,
             view_types_dict,
+            hide_day_change_buttons=hide_day_change_buttons,
             use_full_period_names=use_full_period_names,
             use_week_for_day=use_week_for_day,
             parent=self,

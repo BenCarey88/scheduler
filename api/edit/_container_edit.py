@@ -50,8 +50,12 @@ class ContainerEditFlag(object):
             list.remove(item) (and hence will only remove the first one if
             there are repeats of the same item value). Otherwise list edits
             remove by index.
+        MOVE_BY_VALUE: if set, list move edits will move items by using
+            list.index(item) to find the item first, and hence will accept
+            an item and index pair rather than 2 indexes.
     """
     REMOVE_BY_VALUE = "Remove_By_Value"
+    MOVE_BY_VALUE = "Move_By_Value"
 
 
 class BaseContainerEdit(BaseEdit):
@@ -97,7 +101,7 @@ class BaseContainerEdit(BaseEdit):
             INSERT: [(index, new_item)]      - insert new item at index
             REMOVE: [item/index]             - remove item/item at given index
             MODIFY: [(index, new_item)]      - change item at index to new_item
-            MOVE:   [(old_index, new_index)] - move item at index to new index
+            MOVE:   [(item/index, new_index)] - move item to new index
 
         recursive diff_dicts:
             ADD:    if key already exists, check next level and retry
@@ -705,7 +709,8 @@ class BaseContainerEdit(BaseEdit):
         """Move given index to new index in ordered dict.
 
         Args:
-            index_tuple (tuple(int, int)): old index and new index to move to.
+            index_tuple (tuple(variant, int)): old item or index of old item,
+                and new index to move to.
             list_ (list): list whose items we're moving.
             inverse_diff_list (list or None): if given, add to this to define
                 inverse operation.
@@ -716,6 +721,9 @@ class BaseContainerEdit(BaseEdit):
         if not isinstance(index_tuple, tuple) or len(index_tuple) != 2:
             raise EditError("diff list for MOVE op needs 2-tuple values")
         old_index, new_index = index_tuple
+        if ContainerEditFlag.MOVE_BY_VALUE in self._edit_flags:
+            # in this case old_index arg is in fact the item.
+            old_index = list_.index(old_index)
         if new_index == len(list_):
             # treat (new_index == len(list_)) as (new_index == len(list_) - 1)
             new_index -= 1

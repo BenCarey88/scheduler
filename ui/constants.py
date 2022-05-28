@@ -14,7 +14,10 @@ TASK_STATUS_CHECK_STATES = OrderedDict([
 ])
 SHORT_TIMER_INTERVAL = 30000  # every 30s
 LONG_TIMER_INTERVAL = 300000 # every 5 mins
+
+# Mime Data
 TREE_MIME_DATA_FORMAT = "tree_mime_data"
+PLANNED_ITEM_MIME_DATA_FORMAT = "planned_item_mime_data"
 
 # Colors
 BASE_TEXT_COLOR = QtGui.QColor(0, 0, 0)

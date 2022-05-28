@@ -125,3 +125,38 @@ def backup_git_repo(repo_path, commit_message="backup"):
         )
 
     return None
+
+"""Id registry to store floating items by temporary ids."""
+_TEMPORARY_ID_REGISTRY = {}
+_GLOBAL_COUNT = 0
+
+
+def generate_temporary_id(item):
+    """Generate temporary id for item.
+
+    Args:
+        item (variant): item to generate id for.
+
+    Returns:
+        (str): id of item.
+    """
+    global _GLOBAL_COUNT
+    id = str(_GLOBAL_COUNT)
+    _GLOBAL_COUNT += 1
+    _TEMPORARY_ID_REGISTRY[id] = item
+    return id
+
+
+def get_item_by_id(id):
+    """Get item by id and remove from registry.
+
+    Args:
+        id (str): id of item to get.
+
+    Returns:
+        (variant or None): item, if found.
+    """
+    item = _TEMPORARY_ID_REGISTRY.get(id, None)
+    if item is not None:
+        del _TEMPORARY_ID_REGISTRY[id]
+    return item

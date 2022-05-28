@@ -2,6 +2,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.calendar.planned_item import PlannedItem
+
 from scheduler.ui import constants
 
 
@@ -194,8 +196,16 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.Qt.Flag): Qt flags for item.
         """
+        if self.get_column_name(index) == self.NAME_COLUMN:
+            return (
+                QtCore.Qt.ItemFlag.ItemIsEnabled |
+                QtCore.Qt.ItemFlag.ItemIsSelectable |
+                QtCore.Qt.ItemFlag.ItemIsDragEnabled |
+                QtCore.Qt.ItemFlag.ItemIsDropEnabled
+            )
         return (
             QtCore.Qt.ItemFlag.ItemIsEnabled |
+            QtCore.Qt.ItemFlag.ItemIsSelectable |
             QtCore.Qt.ItemFlag.ItemIsDropEnabled
         )
 
@@ -205,7 +215,10 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (list(str)): list of mime types.
         """
-        return [constants.TREE_MIME_DATA_FORMAT]
+        return [
+            constants.TREE_MIME_DATA_FORMAT,
+            constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+        ]
 
     def supportedDropAction(self):
         """Get supported drop action types:
@@ -214,6 +227,37 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             (QtCore.Qt.DropAction): supported drop actions.
         """
         return QtCore.Qt.DropAction.MoveAction
+
+    def mimeData(self, indexes):
+        """Get mime data for given indexes.
+
+        This is called at the 'drag' stage of drag and drop.
+
+        Args:
+            indexes (list(QtCore.QModelIndex)): list of indexes to get mime
+                data for.
+
+        Returns:
+            (QtCore.QMimeData): mimedata for given indexes.
+        """
+        mimedata = QtCore.QMimeData()
+        encoded_data = QtCore.QByteArray()
+        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
+        if len(indexes) > 1:
+            raise NotImplementedError(
+                "Mime data currently only works for single item."
+            )
+        text = None
+        for index in indexes:
+            if index.isValid() and index.internalPointer():
+                text = index.internalPointer().get_temp_id()
+        if text:
+            stream << QtCore.QByteArray(text.encode('utf-8'))
+            mimedata.setData(
+                constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+                encoded_data
+            )
+        return mimedata
 
     def canDropMimeData(self, data, action, row, column, parent):
         """Check whether mime data can be dropped.
@@ -251,8 +295,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return True
-        if not data.hasFormat(constants.TREE_MIME_DATA_FORMAT):
-            return False
         if column > 0:
             return False
 
@@ -263,23 +305,50 @@ class PlannerListModel(QtCore.QAbstractItemModel):
 
         root = self.planner_manager.tree_root
 
-        encoded_data = data.data(constants.TREE_MIME_DATA_FORMAT)
-        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
-        while not stream.atEnd():
-            byte_array = QtCore.QByteArray()
-            stream >> byte_array
-            encoded_path = bytes(byte_array).decode('utf-8')
+        if data.hasFormat(constants.TREE_MIME_DATA_FORMAT):
+            encoded_data = data.data(constants.TREE_MIME_DATA_FORMAT)
+            stream = QtCore.QDataStream(
+                encoded_data,
+                QtCore.QIODevice.ReadOnly
+            )
+            while not stream.atEnd():
+                byte_array = QtCore.QByteArray()
+                stream >> byte_array
+                encoded_path = bytes(byte_array).decode('utf-8')
 
-        tree_item = root.get_item_at_path(encoded_path)
-        if not tree_item:
-            return False
+            tree_item = root.get_item_at_path(encoded_path)
+            if tree_item is None:
+                return False
 
-        self.beginResetModel()
-        success = self.planner_manager.create_planned_item_at_index(
-            row,
-            self.calendar,
-            self.calendar_period,
-            tree_item,
-        )
-        self.endResetModel()
-        return bool(success)
+            self.beginResetModel()
+            success = self.planner_manager.create_planned_item_at_index(
+                row,
+                self.calendar,
+                self.calendar_period,
+                tree_item,
+            )
+            self.endResetModel()
+            return bool(success)
+
+        elif data.hasFormat(constants.PLANNED_ITEM_MIME_DATA_FORMAT):
+            encoded_data = data.data(constants.PLANNED_ITEM_MIME_DATA_FORMAT)
+            stream = QtCore.QDataStream(
+                encoded_data,
+                QtCore.QIODevice.ReadOnly
+            )
+            while not stream.atEnd():
+                byte_array = QtCore.QByteArray()
+                stream >> byte_array
+                encoded_id = bytes(byte_array).decode('utf-8')
+
+            planned_item = PlannedItem.from_temp_id(encoded_id)
+            if planned_item is None:
+                return False
+
+            self.beginResetModel()
+            success = self.planner_manager.move_planned_item(
+                planned_item,
+                row,
+            )
+            self.endResetModel()
+            return bool(success)

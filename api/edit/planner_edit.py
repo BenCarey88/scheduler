@@ -69,10 +69,11 @@ class MovePlannedItemEdit(ListEdit):
             scheduled_item (PlannedItem): the planned item to move.
             index (int): index to move to.
         """
-        super(AddPlannedItemEdit, self).__init__(
+        super(MovePlannedItemEdit, self).__init__(
             planned_item.get_item_container(),
             [(planned_item, index)],
             ContainerOp.MOVE,
+            edit_flags=[ContainerEditFlag.MOVE_BY_VALUE],
         )
         self._name = "MovePlannedItem ({0})".format(planned_item.name)
         self._description = (

@@ -73,8 +73,13 @@ class PlannerEditManager(BasePlannerManager):
         Args:
             planned_item (PlannedItem): planned item to remove.
             index (int): index to move to.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         MovePlannedItemEdit.create_and_run(planned_item, index)
+        # TODO: base on is_valid
+        return True
 
     @require_class(PlannedItem, True)
     def modify_planned_item(

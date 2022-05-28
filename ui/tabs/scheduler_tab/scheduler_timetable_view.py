@@ -194,6 +194,8 @@ class SchedulerTimetableView(BaseWeekTableView):
         )
         self.schedule_manager = project.get_schedule_manager()
         self.selection_rect = None
+        # TODO: allow to change this and set as user pref
+        self.open_dialog_on_drop_event = True
 
         self.setItemDelegate(SchedulerDelegate(self))
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -857,7 +859,10 @@ class SchedulerTimetableView(BaseWeekTableView):
             end_datetime=end_date_time,
             tree_item=tree_item,
         )
-        item_editor.exec()
+        if self.open_dialog_on_drop_event:
+            item_editor.exec()
+        else:
+            item_editor.accept_and_close()
 
 
 class SchedulerDelegate(QtWidgets.QStyledItemDelegate):

@@ -22,7 +22,7 @@ class AddPlannedItemEdit(ListEdit):
             index = len(item_container)
         super(AddPlannedItemEdit, self).__init__(
             item_container,
-            [(planned_item, index)],
+            [(index, planned_item)],
             ContainerOp.INSERT,
         )
         self._name = "AddPlannedItem ({0})".format(planned_item.name)
@@ -30,7 +30,7 @@ class AddPlannedItemEdit(ListEdit):
             "Add {0} {1} to {2} at index {3}".format(
                 planned_item.__class__.__name__,
                 planned_item.name,
-                planned_item.date.string(),
+                planned_item.calendar_period.name,
                 str(index),
             )
         )
@@ -55,7 +55,7 @@ class RemovePlannedItemEdit(ListEdit):
             "Remove {0} {1} at date {2}".format(
                 planned_item.__class__.__name__,
                 planned_item.name,
-                planned_item.date.string(),
+                planned_item.calendar_period.name,
             )
         )
 
@@ -79,7 +79,7 @@ class MovePlannedItemEdit(ListEdit):
             "Move {0} {1} at date {2} to index {3}".format(
                 planned_item.__class__.__name__,
                 planned_item.name,
-                planned_item.date.string(),
+                planned_item.calendar_period.name,
                 str(index),
             )
         )

@@ -1,6 +1,5 @@
 """Base table model."""
 
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
@@ -42,6 +41,7 @@ class BaseTableModel(QtCore.QAbstractTableModel):
             calendar_period (CalendarPeriod): calendar period to set to.
         """
         self.calendar_period = calendar_period
+        # TODO: use dataChanged properly
         self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     @staticmethod

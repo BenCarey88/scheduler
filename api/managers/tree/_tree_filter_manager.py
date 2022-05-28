@@ -63,6 +63,7 @@ class TreeFilterManager(BaseTreeManager):
         self._tree_data = {}
         self._filtered_items = set()
         self._setup_from_user_prefs()
+        self._current_item = None
 
     def _setup_from_user_prefs(self):
         """Setup filtering based on user prefs."""
@@ -300,3 +301,19 @@ class TreeFilterManager(BaseTreeManager):
         if self._filtered_items:
             return FilterByItem(list(self._filtered_items))
         return NoFilter()
+
+    def set_current_item(self, item):
+        """Set given item as the currently selected one.
+
+        Args:
+            item (BaseTreeItem): item to select.
+        """
+        self._current_item = item
+
+    def get_current_item(self):
+        """Get currently selected item.
+
+        Returns:
+            (BaseTreeItem or None): current selected item, if there is one.
+        """
+        return self._current_item

@@ -32,6 +32,16 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         # TODO: need functionality here for if active project not set
         self.project = Project.read(user_prefs.get_active_project())
 
+        # from .widgets.item_dialog import ItemDialog
+        # item_dialog = ItemDialog(
+        #     self.project.get_tree_manager("planner"),
+        #     "Scheduled Item",
+        #     tree_item=self.project.task_root.get_item_at_path(
+        #         "/Routines/Exercise/Weights/Squats"
+        #     ),
+        # )
+        # item_dialog.exec()
+
         # TODO: make consistent across repo 'tree root' /'task root'
         # self.tree_root = self.project.task_root
         # self.calendar = self.project.calendar

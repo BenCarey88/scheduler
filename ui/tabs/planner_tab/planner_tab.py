@@ -69,7 +69,21 @@ class PlannerView(BaseListView):
         super(PlannerView, self).__init__(
             name,
             project,
-            PlannerListModel(project.calendar, time_period=time_period),
+            PlannerListModel(
+                project.get_planner_manager(),
+                time_period=time_period,
+            ),
             parent=parent,
         )
-        self.header().setStretchLastSection(True)
+        self.header().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeMode.Stretch
+        )
+        for column in range(self.model().columnCount()):
+            self.resizeColumnToContents(column)
+        
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
+        self.setDragEnabled(True)        
+        self.setDropIndicatorShown(True)
+        self.viewport().setAcceptDrops(True)
+        self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)

@@ -1,14 +1,15 @@
 """Scheduler week view."""
 
+import math
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import ScheduledItemType
 
+from scheduler.ui import constants
 from scheduler.ui.models.table import SchedulerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
-from scheduler.ui import constants
-
 from .scheduled_item_dialog import ScheduledItemDialog
 
 
@@ -206,10 +207,10 @@ class SchedulerTimetableView(BaseWeekTableView):
 
         self.setAcceptDrops(True)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
-        self.setDragEnabled(True)
+        self.setDragEnabled(True)        
         self.setDropIndicatorShown(True)
         self.viewport().setAcceptDrops(True)
-        self.setDefaultDropAction(QtCore.Qt.DropAction.CopyAction)
+        self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
 
         self.startTimer(constants.LONG_TIMER_INTERVAL)
 
@@ -791,6 +792,7 @@ class SchedulerTimetableView(BaseWeekTableView):
                     self.schedule_manager,
                     start_datetime=self.selection_rect.start_datetime,
                     end_datetime=self.selection_rect.end_datetime,
+                    tree_item=self.tree_manager.get_current_item(),
                 )
                 item_editor.exec()
             self.selection_rect = None
@@ -814,51 +816,48 @@ class SchedulerTimetableView(BaseWeekTableView):
 
         return super(SchedulerTimetableView, self).mouseReleaseEvent(event)
 
-    def dragEnterEvent(self, event):
-        """Override drag enter event for dragging task items.
-
-        Args:
-            event (QtCore.QEvent): the drag enter event.
-        """
-        if event.mimeData().hasFormat('application/vnd.treeviewdragdrop.list'):
-            event.acceptProposedAction()
-        super(SchedulerTimetableView, self).dragMoveEvent(event)
-
-    def dragMoveEvent(self, event):
-        """Override drag move event for dragging task items.
-
-        Args:
-            event (QtCore.QEvent): the drag move event.
-        """
-        if event.mimeData().hasFormat('application/vnd.treeviewdragdrop.list'):
-            event.acceptProposedAction()
-        super(SchedulerTimetableView, self).dragMoveEvent(event)
-
     def dropEvent(self, event):
         """Override drop event for dropping task items.
+
+        Note that this drop event is enabled through the model by setting
+        ItemIsDropEnabled flag on all indexes.
 
         Args:
             event (QtCore.QEvent): the drop event.
         """
         # TODO: if we use this same setup here as from tree model to decode mime data
         # should add as utils function or similar.
-        encoded_data = event.mimeData().data('application/vnd.treeviewdragdrop.list')
+        encoded_data = event.mimeData().data(constants.TREE_MIME_DATA_FORMAT)
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
-
         if stream.atEnd():
-            print ("early return")
             return
-
         while not stream.atEnd():
             byte_array = QtCore.QByteArray()
             stream >> byte_array
             encoded_path = bytes(byte_array).decode('utf-8')
+        tree_item = self.tree_root.get_item_at_path(encoded_path)
+        if not tree_item:
+            return
 
-        print (encoded_path)
-
-        super(SchedulerTimetableView, self).dropEvent(event)
-        print ("DROPPED", event.mimeData().text())
-        event.acceptProposedAction()
+        date_time = self.datetime_from_pos(event.pos())
+        date = date_time.date()
+        time = date_time.time()
+        start_time = Time(time.hour, 0, 0)
+        end_time = Time(
+            time.hour + 1 if time.hour < 23 else 23,
+            0 if time.hour < 23 else 59,
+            0 if time.hour <23 else 59,
+        )
+        start_date_time = DateTime.from_date_and_time(date, start_time)
+        end_date_time = DateTime.from_date_and_time(date, end_time)
+        item_editor = ScheduledItemDialog(
+            self.tree_manager,
+            self.schedule_manager,
+            start_datetime=start_date_time,
+            end_datetime=end_date_time,
+            tree_item=tree_item,
+        )
+        item_editor.exec()
 
 
 class SchedulerDelegate(QtWidgets.QStyledItemDelegate):

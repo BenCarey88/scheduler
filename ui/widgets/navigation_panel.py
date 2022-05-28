@@ -170,7 +170,6 @@ class NavigationPanel(QtWidgets.QWidget):
             (BaseCalendarPeriod): the calendar period corresponding to the
                 current date.
         """
-        date = Date.now()
         period_type = {
             DateType.DAY: CalendarWeek if use_week_for_day else CalendarDay,
             DateType.THREE_DAYS: CalendarWeek,

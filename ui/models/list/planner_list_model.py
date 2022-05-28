@@ -2,6 +2,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.ui import constants
+
 
 class PlannerListModel(QtCore.QAbstractItemModel):
     """Model for planned items list."""
@@ -12,14 +14,14 @@ class PlannerListModel(QtCore.QAbstractItemModel):
 
     def __init__(
             self,
-            calendar,
+            planner_manager,
             calendar_period=None,
             time_period=None,
             parent=None):
         """Initialise calendar model.
 
         Args:
-            calendar (Calendar): the calendar this is using.
+            planner_manager (PlannerManager): the planner manager item.
             calendar_period (BaseCalendarPeriod or None): the calendar
                 period this is modelling.
             time_period (PlannedItemTimePeriod): the time period type this
@@ -31,9 +33,10 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 "calendar_period and time_period args can't both be empty."
             )
         super(PlannerListModel, self).__init__(parent)
-        self.calendar = calendar
+        self.planner_manager = planner_manager
+        self.calendar = planner_manager.calendar
         if calendar_period is None:
-            calendar_period = calendar.get_current_period(time_period)
+            calendar_period = self.calendar.get_current_period(time_period)
         self.calendar_period = calendar_period
         self.columns = [
             self.NAME_COLUMN,
@@ -49,7 +52,10 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             calendar_period (CalendarPeriod): calendar period to set to.
         """
         self.calendar_period = calendar_period
-        self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
+        self.beginResetModel()
+        self.endResetModel()
+        # self.insertRows(0, len(self.calendar_period._planned_items))
+        # self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     def get_column_name(self, index):
         """Get name of column at index.
@@ -98,19 +104,22 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         return QtCore.QModelIndex()
 
-    def rowCount(self, parent_index):
+    def rowCount(self, parent_index=None):
         """Get number of children of given parent.
 
         Args:
-            parent_index (QtCore.QModelIndex) parent QModelIndex.
+            parent_index (QtCore.QModelIndex or None) parent QModelIndex.
 
         Returns:
             (int): number of children.
         """
         return len(self.calendar_period.get_planned_items_container())
 
-    def columnCount(self, index):
+    def columnCount(self, parent_index=None):
         """Get number of columns of given item.
+
+        Args:
+            parent_index (QtCore.QModelIndex or None) parent QModelIndex.
 
         Returns:
             (int): number of columns.
@@ -159,17 +168,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         return False
 
-    def flags(self, index):
-        """Get flags for given item item.
-
-        Args:
-            index (QtCore.QModelIndex): index of item item.
-
-        Returns:
-            (QtCore.Qt.Flag): Qt flags for item.
-        """
-        return QtCore.Qt.ItemFlag.ItemIsEnabled
-
     def headerData(self, section, orientation, role):
         """Get header data.
 
@@ -186,3 +184,102 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 if 0 <= section < len(self.columns):
                     return self.columns[section]
         return QtCore.QVariant()
+
+    def flags(self, index):
+        """Get flags for given item item.
+
+        Args:
+            index (QtCore.QModelIndex): index of item item.
+
+        Returns:
+            (QtCore.Qt.Flag): Qt flags for item.
+        """
+        return (
+            QtCore.Qt.ItemFlag.ItemIsEnabled |
+            QtCore.Qt.ItemFlag.ItemIsDropEnabled
+        )
+
+    def mimeTypes(self):
+        """Get accepted mime data types.
+
+        Returns:
+            (list(str)): list of mime types.
+        """
+        return [constants.TREE_MIME_DATA_FORMAT]
+
+    def supportedDropAction(self):
+        """Get supported drop action types:
+
+        Return:
+            (QtCore.Qt.DropAction): supported drop actions.
+        """
+        return QtCore.Qt.DropAction.MoveAction
+
+    def canDropMimeData(self, data, action, row, column, parent):
+        """Check whether mime data can be dropped.
+
+        Args:
+            mimeData (QtCore.QMimeData): mime data.
+            action (QtCore.Qt.DropAction): the type of drop action being done.
+            row (int): the row we're dropping on.
+            column (int): the column we're dropping on.
+            parent_index (QtCore.QModelIndex): index of parent item we're
+                dropping under.
+        """
+        # Only drop on empty spaces
+        if not parent.isValid():
+            return True
+        return False
+
+    def dropMimeData(self, data, action, row, column, parent_index):
+        """Add mime data at given index.
+
+        This is called at the 'drop' stage of drag and drop.
+
+        Args:
+            data (QtCore.QMimeData): mime data.
+            action (QtCore.Qt.DropAction): the type of drop action being done.
+            row (int): the row we're dropping on. If -1, this means that we're
+                dropping directly on the parent item (interpreted as dropping
+                it on the final row).
+            column (int): the column we're dropping on.
+            parent_index (QtCore.QModelIndex): index of parent item we're
+                dropping under.
+
+        Returns:
+            (bool): True if drop was successful, else False.
+        """
+        if action == QtCore.Qt.DropAction.IgnoreAction:
+            return True
+        if not data.hasFormat(constants.TREE_MIME_DATA_FORMAT):
+            return False
+        if column > 0:
+            return False
+
+        if row < 0:
+            # if row is -1 this means we've dropped it on the parent,
+            # add to end of row
+            row = self.rowCount(parent_index)
+
+        root = self.planner_manager.tree_root
+
+        encoded_data = data.data(constants.TREE_MIME_DATA_FORMAT)
+        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
+        while not stream.atEnd():
+            byte_array = QtCore.QByteArray()
+            stream >> byte_array
+            encoded_path = bytes(byte_array).decode('utf-8')
+
+        tree_item = root.get_item_at_path(encoded_path)
+        if not tree_item:
+            return False
+
+        self.beginResetModel()
+        success = self.planner_manager.create_planned_item_at_index(
+            row,
+            self.calendar,
+            self.calendar_period,
+            tree_item,
+        )
+        self.endResetModel()
+        return bool(success)

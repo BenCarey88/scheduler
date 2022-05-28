@@ -93,3 +93,12 @@ class BaseCalendarManager(BaseManager):
             (Calendar): archived calendar object.
         """
         return self._archive_calendar
+
+    @property
+    def tree_root(self):
+        """Get tree root object.
+
+        Returns:
+            (TaskRoot): tree root object.
+        """
+        return self.calendar.task_root

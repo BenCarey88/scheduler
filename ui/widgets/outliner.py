@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.task_root import TaskRoot
-from scheduler.ui.models.tree import TaskCategoryModel
+from scheduler.ui.models.tree import FullTaskTreeModel, TaskCategoryModel
 from scheduler.ui.utils import simple_message_dialog
 
 
@@ -16,7 +16,7 @@ class Outliner(QtWidgets.QTreeView):
 
     Signals:
         MODEL_UPDATED_SIGNAL: emitted whenever the tree model is updated by
-            the outliner.
+            the outliner (this includes when the filter is changed)
         CURRENT_CHANGED_SIGNAL (QtCore.QModelIndex, QtCore.QModelIndex):
             emitted when the current selected item in the outliner is changed.
             The arguments are the old selected item and the new selected item.
@@ -146,6 +146,7 @@ class Outliner(QtWidgets.QTreeView):
             hide_filtered_items=self._hide_filtered_items,
             parent=self
         )
+        # TODO: switch with FullTaskCategoryModel
         self._model.dataChanged.connect(
             self.update
         )
@@ -154,7 +155,7 @@ class Outliner(QtWidgets.QTreeView):
         )
         self.setModel(self._model)
         self.selectionModel().currentChanged.connect(
-            self.CURRENT_CHANGED_SIGNAL.emit
+            self.on_current_changed
         )
         # force update of view by calling expandAll
         # TODO: Maybe when we've renamed the update function this can call the
@@ -203,6 +204,20 @@ class Outliner(QtWidgets.QTreeView):
             item = index.internalPointer()
             if item:
                 self.tree_manager.expand_item(item, value)
+
+    def on_current_changed(self, new_index, old_index):
+        """Callback for when current index is changed.
+
+        Args:
+            new_index (QtCore.QModelIndex): new index.
+            old_index (QtCore.QModelIndex): previous index.
+        """
+        # TODO: would be nicer to make this emit the items themselves
+        self.CURRENT_CHANGED_SIGNAL.emit(old_index, new_index)
+        if new_index.isValid():
+            item = new_index.internalPointer()
+            if item:
+                self.tree_manager.set_current_item(item)
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

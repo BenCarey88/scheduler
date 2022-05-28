@@ -1,9 +1,10 @@
 """Base tree manager class."""
 
+from scheduler.api.tree._base_tree_item import BaseTreeItem
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
 
-from .._base_manager import BaseManager
+from .._base_manager import BaseManager, require_class
 
 
 class BaseTreeManager(BaseManager):
@@ -42,3 +43,39 @@ class BaseTreeManager(BaseManager):
             (TaskRoot): archived tree root object.
         """
         return self._archive_tree_root
+
+    @require_class(BaseTreeItem, raise_error=True)
+    def is_task(self, item):
+        """Check if tree item is task.
+
+        Args:
+            item (BaseTreeItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is task.
+        """
+        return isinstance(item, Task)
+
+    @require_class(BaseTreeItem, raise_error=True)
+    def is_task_category(self, item):
+        """Check if tree item is task category.
+
+        Args:
+            item (BaseTreeItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is task category.
+        """
+        return isinstance(item, TaskCategory)
+
+    @require_class(BaseTreeItem, raise_error=True)
+    def is_top_level_task(self, item):
+        """Check if tree item is a top level task.
+
+        Args:
+            item (BaseTreeItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is task.
+        """
+        return isinstance(item, Task) and isinstance(item.parent, TaskCategory)

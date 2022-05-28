@@ -5,6 +5,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
 
+from scheduler.ui import constants
+
 from ._base_table_model import BaseTableModel
 
 
@@ -71,6 +73,36 @@ class BaseWeekModel(BaseTableModel):
             if orientation == QtCore.Qt.Horizontal:
                 return self.calendar_week.get_day_at_index(section).header_name
         return QtCore.QVariant()
+
+    def flags(self, index):
+        """Get flags for given item item.
+
+        Args:
+            index (QtCore.QModelIndex): index of item item.
+
+        Returns:
+            (QtCore.Qt.Flag): Qt flags for item.
+        """
+        return (
+            QtCore.Qt.ItemFlag.ItemIsEnabled |
+            QtCore.Qt.ItemFlag.ItemIsDropEnabled
+        )
+
+    def mimeTypes(self):
+        """Get accepted mime data types.
+
+        Returns:
+            (list(str)): list of mime types.
+        """
+        return [constants.TREE_MIME_DATA_FORMAT]
+
+    def supportedDropAction(self):
+        """Get supported drop action types:
+
+        Return:
+            (QtCore.Qt.DropAction): supported drop actions.
+        """
+        return QtCore.Qt.DropAction.MoveAction
 
 
 class TrackerWeekModel(BaseWeekModel):

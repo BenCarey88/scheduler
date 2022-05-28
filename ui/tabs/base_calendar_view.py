@@ -45,6 +45,7 @@ class BaseListView(QtWidgets.QTreeView):
         """
         self.calendar_period = calendar_period
         self.model().set_calendar_period(calendar_period)
+        self.update()
 
     def update(self):
         """Update view."""

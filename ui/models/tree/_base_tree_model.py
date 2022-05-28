@@ -4,7 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
 
-from scheduler.api.tree.exceptions import DuplicateChildNameError
+from scheduler.ui import constants
 
 
 class BaseTreeModel(QtCore.QAbstractItemModel):
@@ -241,7 +241,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Returns:
             (list(str)): list of mime types.
         """
-        return ['application/vnd.treeviewdragdrop.list']
+        return [constants.TREE_MIME_DATA_FORMAT]
 
     def supportedDropAction(self):
         """Get supported drop action types:
@@ -277,7 +277,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if text:
             stream << QtCore.QByteArray(text.encode('utf-8'))
             mimedata.setData(
-                'application/vnd.treeviewdragdrop.list',
+                constants.TREE_MIME_DATA_FORMAT,
                 encoded_data
             )
         return mimedata
@@ -307,7 +307,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             (bool): True if we can drop the item, else False.
         """
         # TODO: make separate method for decoding/encoding data.
-        encoded_data = mimeData.data('application/vnd.treeviewdragdrop.list')
+        encoded_data = mimeData.data(constants.TREE_MIME_DATA_FORMAT)
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
         if stream.atEnd():
             return False
@@ -375,7 +375,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return True
-        if not data.hasFormat('application/vnd.treeviewdragdrop.list'):
+        if not data.hasFormat(constants.TREE_MIME_DATA_FORMAT):
             return False
         if column > 0:
             return False
@@ -395,7 +395,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         # then the root is just the top-level task
         root = parent.root
 
-        encoded_data = data.data('application/vnd.treeviewdragdrop.list')
+        encoded_data = data.data(constants.TREE_MIME_DATA_FORMAT)
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
         while not stream.atEnd():
             byte_array = QtCore.QByteArray()

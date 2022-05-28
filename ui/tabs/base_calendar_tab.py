@@ -6,7 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
 
-from scheduler.ui.widgets.navigation_panel import NavigationPanel
+from scheduler.ui.widgets.navigation_panel import DateType, NavigationPanel
 from .base_tab import BaseTab
 
 
@@ -133,4 +133,4 @@ class BaseCalendarTab(BaseTab):
         self.view_type = view_type
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
-        self.main_view.update()
+        self.update()

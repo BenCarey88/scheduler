@@ -47,7 +47,7 @@ class BaseScheduleManager(BaseCalendarManager):
 
     @require_class((ScheduledItem, RepeatScheduledItem), True)
     def is_repeat_item(self, scheduled_item):
-        """Check if item is repeat item or repeat item i.
+        """Check if item is repeat item or repeat item instance.
 
         Args:
             scheduled_item (ScheduledItem or RepeatScheduledItem): calendar

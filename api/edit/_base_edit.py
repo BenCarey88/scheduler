@@ -64,9 +64,13 @@ class BaseEdit(object):
         Args:
             args (tuple): args to pass to __init__.
             kwargs (dict): kwargs to pass to __init__.
+
+        Returns:
+            (bool): whether or not edit was successful (and hence added to
+                the edit log).
         """
         edit = cls(*args, **kwargs)
-        edit.run()
+        return edit.run()
 
     @classmethod
     def create_unregistered(cls, *args, **kwargs):
@@ -97,6 +101,10 @@ class BaseEdit(object):
         This can only be called the once, if the edit is to be registered.
         When the EDIT_LOG wants to run the edit again for undoing/redoing, this
         is handled directly through the _run method.
+
+        Returns:
+            (bool): whether or not edit was successful (and hence added to
+                the edit log).
         """
         if self._registered:
             raise EditError(
@@ -117,6 +125,7 @@ class BaseEdit(object):
         self._has_been_done = True
         if self._register_edit:
             self._registered = EDIT_LOG.add_edit(self)
+        return self._is_valid
 
     def begin_continuous_run(self):
         """Run edit continuously.
@@ -154,7 +163,12 @@ class BaseEdit(object):
         self._update(*args, **kwargs)
 
     def end_continuous_run(self):
-        """Finish updating continuous edit and add to edit log."""
+        """Finish updating continuous edit and add to edit log.
+        
+        Returns:
+            (bool): whether or not edit was successful (and hence added to
+                the edit log).
+        """
         if self._registered:
             raise EditError(
                 "Edit object cannot be run externally after registration."
@@ -166,6 +180,7 @@ class BaseEdit(object):
             self._has_been_done = True
             self._registered = EDIT_LOG.end_add_edit()
         self._continuous_run_in_progress = False
+        return self._is_valid
 
     def _run(self):
         """Run edit function.

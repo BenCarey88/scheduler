@@ -1,5 +1,5 @@
 """Tree models."""
 
-from .full_task_tree_model import FullTaskTreeModel
-from .task_category_model import TaskCategoryModel
+from .item_dialog_tree_model import ItemDialogTreeModel
+from .outliner_tree_model import OutlinerTreeModel
 from .task_model import TaskModel

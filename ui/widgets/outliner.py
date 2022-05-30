@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.task_root import TaskRoot
-from scheduler.ui.models.tree import FullTaskTreeModel, TaskCategoryModel
+from scheduler.ui.models.tree import ItemDialogTreeModel, OutlinerTreeModel
 from scheduler.ui.utils import simple_message_dialog
 
 
@@ -100,7 +100,7 @@ class Outliner(QtWidgets.QTreeView):
         if not index.isValid():
             return
         item = index.internalPointer()
-        if not isinstance(item, TaskCategory):
+        if item is None:
             return
         if self.tree_manager.is_expanded(item):
             self.setExpanded(index, True)
@@ -141,12 +141,12 @@ class Outliner(QtWidgets.QTreeView):
         # top-level category - I think we should be able to avoid resetting
         # the model every time, so should try to remove this in future.
         # BUT will need to add in an update filters function.
-        self._model = TaskCategoryModel(
+        self._model = OutlinerTreeModel(
             self.tree_manager,
             hide_filtered_items=self._hide_filtered_items,
             parent=self
         )
-        # TODO: switch with FullTaskCategoryModel
+        # TODO: switch with FullOutlinerTreeModel
         self._model.dataChanged.connect(
             self.update
         )

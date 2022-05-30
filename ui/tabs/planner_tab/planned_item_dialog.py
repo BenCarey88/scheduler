@@ -24,6 +24,7 @@ class PlannedItemDialog(ItemDialog):
             calendar_period,
             planned_item=None,
             tree_item=None,
+            index=None,
             parent=None):
         """Initialise dialog.
 
@@ -36,6 +37,7 @@ class PlannedItemDialog(ItemDialog):
                 if this is in edit mode. If None, we're in create mode.
             tree_item (Task or None): tree item to initialize with, if we're
                 not passing a planned item.
+            index (int or None): index to create at.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
         super(PlannedItemDialog, self).__init__(
@@ -48,6 +50,7 @@ class PlannedItemDialog(ItemDialog):
         self._calendar = planner_manager.calendar
         self._calendar_period = calendar_period
         self._planner_manager = planner_manager
+        self._index = index
 
         if planned_item is None:
             # create a temp planned item just to get default values
@@ -63,27 +66,30 @@ class PlannedItemDialog(ItemDialog):
         self.setMinimumSize(900, 700)
         utils.set_style(self, "scheduled_item_dialog.qss")
 
+        self.task_label = QtWidgets.QLabel()
+        self.main_layout.addWidget(self.task_label)
+
         importance_layout = QtWidgets.QHBoxLayout()
         importance_label = QtWidgets.QLabel("Importance")
         self.importance_combobox = QtWidgets.QComboBox()
-        self.size_combobox.addItem("")
+        self.importance_combobox.addItem("")
         self.importance_combobox.addItems(PlannedItemImportance.VALUES_LIST)
         importance_layout.addWidget(importance_label)
         importance_layout.addWidget(self.importance_combobox)
-        self.main_view.addLayout(importance_layout)
+        self.main_layout.addLayout(importance_layout)
         if importance is not None:
             self.importance_combobox.setCurrentText(importance)
 
         size_layout = QtWidgets.QHBoxLayout()
-        size_label = QtWidgets.QLabel("Importance")
+        size_label = QtWidgets.QLabel("Size")
         self.size_combobox = QtWidgets.QComboBox()
         self.size_combobox.addItem("")
-        self.size_combobox.addItems(PlannedItemImportance.VALUES_LIST)
+        self.size_combobox.addItems(PlannedItemSize.VALUES_LIST)
         size_layout.addWidget(size_label)
         size_layout.addWidget(self.size_combobox)
-        self.main_view.addLayout(size_layout)
+        self.main_layout.addLayout(size_layout)
         if size is not None:
-            self.importance_combobox.setCurrentText(size)
+            self.size_combobox.setCurrentText(size)
 
         self.update()
 
@@ -140,6 +146,7 @@ class PlannedItemDialog(ItemDialog):
                 self.tree_item,
                 size=self.size,
                 importance=self.importance,
+                index=self._index,
             )
         super(PlannedItemDialog, self).accept_and_close()
 

@@ -76,6 +76,18 @@ class BaseTreeManager(BaseManager):
             item (BaseTreeItem): tree item to check.
 
         Return:
-            (bool): whether or not item is task.
+            (bool): whether or not item is top level task.
         """
         return isinstance(item, Task) and isinstance(item.parent, TaskCategory)
+
+    @require_class(BaseTreeItem, raise_error=True)
+    def is_task_category_or_top_level_task(self, item):
+        """Check if tree item is a top level task.
+
+        Args:
+            item (BaseTreeItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is task category or top level task.
+        """
+        return (self.is_task_category(item) or self.is_top_level_task(item))

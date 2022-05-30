@@ -829,7 +829,9 @@ class SchedulerTimetableView(BaseWeekTableView):
         """
         # TODO: if we use this same setup here as from tree model to decode mime data
         # should add as utils function or similar.
-        encoded_data = event.mimeData().data(constants.TREE_MIME_DATA_FORMAT)
+        encoded_data = event.mimeData().data(
+            constants.OUTLINER_TREE_MIME_DATA_FORMAT
+        )
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
         if stream.atEnd():
             return

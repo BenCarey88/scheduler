@@ -16,7 +16,8 @@ SHORT_TIMER_INTERVAL = 30000  # every 30s
 LONG_TIMER_INTERVAL = 300000 # every 5 mins
 
 # Mime Data
-TREE_MIME_DATA_FORMAT = "tree_mime_data"
+OUTLINER_TREE_MIME_DATA_FORMAT = "outliner_tree_mime_data"
+TASK_TAB_TREE_MIME_DATA_FORMAT = "task_tab_tree_mime_data"
 PLANNED_ITEM_MIME_DATA_FORMAT = "planned_item_mime_data"
 
 # Colors

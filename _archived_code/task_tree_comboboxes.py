@@ -15,8 +15,8 @@ from scheduler.api import tree
 
 from scheduler.api.tree.task import Task
 from scheduler.ui import utils
-from scheduler.ui.models.full_task_tree_model import FullTaskTreeModel
-from scheduler.ui.models.task_category_model import TaskCategoryModel
+from scheduler.ui.models.full_task_tree_model import ItemDialogTreeModel
+from scheduler.ui.models.outliner_tree_model import OutlinerTreeModel
 from scheduler.ui.models.task_model import TaskModel
 from scheduler.ui.widgets.outliner import Outliner
 
@@ -321,7 +321,7 @@ class TaskTreeComboBox(TreeComboBox):
             label,
             tree_item=None,
             parent=None):
-        model = FullTaskTreeModel(tree_root, tree_manager)
+        model = ItemDialogTreeModel(tree_root, tree_manager)
         tree_view = QtWidgets.QTreeView()
         tree_view.setModel(model)
         super(TaskTreeComboBox, self).__init__(
@@ -347,7 +347,7 @@ class OutlinerComboBox(TreeComboBox):
             parent=None):
         self.tree_manager = tree_manager
         outliner = Outliner(tree_root, tree_manager)
-        model = TaskCategoryModel(tree_root, tree_manager)
+        model = OutlinerTreeModel(tree_root, tree_manager)
         super(OutlinerComboBox, self).__init__(
             label,
             tree_item,

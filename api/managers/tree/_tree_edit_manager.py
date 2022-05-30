@@ -70,14 +70,14 @@ class TreeEditManager(BaseTreeManager):
             (UnallowedChildType): if the child_type is not allowed.
             (IndexError): if the given index is out of range of the child dict.
 
-        Returns None if:
+        Edit unsuccessful if:
             - a child with the given name already exists.
 
         Returns:
-            (BaseTreeItem or None): newly created child, if successful.
+            (bool): whether or not edit was successful.
         """
         if name in tree_item._children:
-            return None
+            return False
         child_type = child_type or tree_item.__class__
         if child_type not in tree_item._allowed_child_types:
             raise UnallowedChildType(tree_item.__class__, child_type)
@@ -86,11 +86,10 @@ class TreeEditManager(BaseTreeManager):
             index = len(tree_item._children)
         if index < 0 or index > len(tree_item._children):
             raise IndexError("Index given is larger than number of children.")
-        InsertChildrenEdit.create_and_run(
+        return InsertChildrenEdit.create_and_run(
             tree_item,
             {name: (index, child)},
         )
-        return child
 
     @require_class(BaseTreeItem, raise_error=True)
     def create_new_child(
@@ -116,7 +115,7 @@ class TreeEditManager(BaseTreeManager):
             **kwargs: kwargs to be passed to child init.
 
         Returns:
-            (BaseTreeItem): newly created child.
+            (bool): whether or not edit was successful.
         """
         child_type = child_type or tree_item.__class__
         default_name = default_name or child_type.DEFAULT_NAME
@@ -154,7 +153,7 @@ class TreeEditManager(BaseTreeManager):
             **kwargs: kwargs to be passed to child init.
 
         Returns:
-            (TaskCategory): newly created child.
+            (bool): whether or not edit was successful.
         """
         return self.create_new_child(
             tree_item,
@@ -185,7 +184,7 @@ class TreeEditManager(BaseTreeManager):
             **kwargs: kwargs to be passed to child init.
 
         Returns:
-            (TaskCategory): newly created child.
+            (bool): whether or not edit was successful.
         """
         return self.create_new_child(
             tree_item,
@@ -207,8 +206,7 @@ class TreeEditManager(BaseTreeManager):
             **kwargs: kwargs to be passed to sibling init.
 
         Returns:
-            (BaseTreeItem or None): newly created sibling, if one could be
-                created, else None.
+            (bool): whether or not edit was successful.
         """
         if not tree_item.parent:
             return None
@@ -238,9 +236,7 @@ class TreeEditManager(BaseTreeManager):
             **kwargs: kwargs to be passed to sibling init.
 
         Returns:
-            (BaseTreeItem or None): newly created sibling, if one could be
-                created, else None. In subclasses, this will use the type
-                of the subclass.
+            (bool): whether or not edit was successful.
         """
         if not tree_item.parent:
             return None
@@ -259,12 +255,16 @@ class TreeEditManager(BaseTreeManager):
         Args:
             tree_item (BaseTreeItem): the tree item to edit.
             name (str): name of child item to remove.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         if name in tree_item._children.keys():
-            RemoveChildrenEdit.create_and_run(
+            return RemoveChildrenEdit.create_and_run(
                 tree_item,
                 [name],
             )
+        return False
 
     @require_class(BaseTreeItem, raise_error=True)
     def remove_children(self, tree_item, names):
@@ -273,9 +273,12 @@ class TreeEditManager(BaseTreeManager):
         Args:
             tree_item (BaseTreeItem): the tree item to edit.
             name (list(str)): name of child items to remove.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         names = [name for name in names if name in tree_item._children.keys()]
-        RemoveChildrenEdit.create_and_run(
+        return RemoveChildrenEdit.create_and_run(
             tree_item,
             names,
         )
@@ -297,11 +300,11 @@ class TreeEditManager(BaseTreeManager):
         if parent:
             if parent.get_child(new_name):
                 return False
-            RenameChildrenEdit.create_and_run(
+            return RenameChildrenEdit.create_and_run(
                 parent,
                 {tree_item.name: new_name},
             )
-            return True
+        return False
 
     @require_class(BaseTreeItem, raise_error=True)
     def move_item_local(self, tree_item, new_index):
@@ -320,11 +323,10 @@ class TreeEditManager(BaseTreeManager):
             return False
         if new_index == tree_item.index():
             return False
-        MoveChildrenEdit.create_and_run(
+        return MoveChildrenEdit.create_and_run(
             tree_item.parent,
             {tree_item.name: new_index},
         )
-        return True
 
     def move_item_by_path(
             self,
@@ -346,24 +348,21 @@ class TreeEditManager(BaseTreeManager):
         item = self._tree_root.get_item_at_path(path_to_item)
         new_parent = self._tree_root.get_item_at_path(path_to_new_parent)
         if not item or not new_parent or item.is_ancestor(new_parent):
-            return
+            return False
         if index is None:
             index = new_parent.num_children()
         if (item.parent != new_parent
                 and item.name in new_parent._children.keys()):
-            return
+            return False
         if type(item) not in new_parent._allowed_child_types:
-            return
+            return False
         if index < 0 or index > new_parent.num_children():
-            return
-        # TODO: make all edits return their is_valid value on run and
-        # all edit_manager methods can return this too
-        MoveTreeItemEdit.create_and_run(
+            return False
+        return MoveTreeItemEdit.create_and_run(
             item,
             new_parent,
             index,
         )
-        return True
 
     @require_class(BaseTreeItem, raise_error=True)
     def change_item_class(self, tree_item):
@@ -371,6 +370,9 @@ class TreeEditManager(BaseTreeManager):
 
         Args:
             tree_item (BaseTreeItem): the tree item to edit.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         if tree_item.parent is None:
             raise Exception("Cannot change item class for root tree item")
@@ -385,7 +387,7 @@ class TreeEditManager(BaseTreeManager):
                 )
             )
         new_tree_item = new_class(tree_item.name)
-        ReplaceTreeItemEdit.create_and_run(tree_item, new_tree_item)
+        return ReplaceTreeItemEdit.create_and_run(tree_item, new_tree_item)
 
     @require_class(Task, raise_error=True)
     def update_task(
@@ -423,14 +425,13 @@ class TreeEditManager(BaseTreeManager):
 
         if date_time is None:
             date_time = DateTime.now()
-        UpdateTaskHistoryEdit.create_and_run(
+        return UpdateTaskHistoryEdit.create_and_run(
             task_item,
             date_time,
             status,
             value,
             comment=comment,
         )
-        return True
 
     @require_class(Task, raise_error=False)
     def change_task_type(self, task_item, new_type=None):
@@ -450,6 +451,5 @@ class TreeEditManager(BaseTreeManager):
                 else TaskType.GENERAL
             )
         if new_type != task_item.type:
-            ChangeTaskTypeEdit.create_and_run(task_item, new_type)
-            return True
+            return ChangeTaskTypeEdit.create_and_run(task_item, new_type)
         return False

@@ -5,8 +5,7 @@ from collections import OrderedDict
 from turtle import left
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.ui import utils
-from scheduler.ui.models.tree import FullTaskTreeModel
+from scheduler.ui.models.tree import ItemDialogTreeModel
 
 
 class ItemDialog(QtWidgets.QDialog):
@@ -57,7 +56,7 @@ class ItemDialog(QtWidgets.QDialog):
 
         # tree layout
         self.tree_view = QtWidgets.QTreeView(self)
-        self.tree_view.setModel(FullTaskTreeModel(self._tree_manager))
+        self.tree_view.setModel(ItemDialogTreeModel(self._tree_manager))
         if tree_item is not None:
             self.expand_to_and_select_tree_item(tree_item)
         elif item is not None and item.tree_item is not None:
@@ -80,6 +79,10 @@ class ItemDialog(QtWidgets.QDialog):
         buttons_layout.addWidget(self.accept_button)
         self.accept_button.clicked.connect(self.accept_and_close)
         self.accept_button.setFocus(True)
+
+        self.tree_view.selectionModel().currentChanged.connect(
+            self.update
+        )
 
     def expand_to_and_select_tree_item(self, tree_item):
         """Expand to tree item in tree view.
@@ -116,6 +119,10 @@ class ItemDialog(QtWidgets.QDialog):
         for i, _ in enumerate(task_item.get_all_children()):
             child_index = self.tree_view.model().index(i, 0, index)
             self.expand_to_top_level_tasks(child_index)
+
+    def update(self):
+        """Update view (to be reimplemented in subclasses)."""
+        pass
 
     @property
     def tree_item(self):

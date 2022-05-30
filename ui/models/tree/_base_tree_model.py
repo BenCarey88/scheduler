@@ -16,6 +16,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             tree_manager,
             tree_root=None,
             filters=None,
+            mime_data_format=None,
             parent=None):
         """Initialise base tree model.
 
@@ -30,6 +31,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             filters (list(scheduler.api.tree.filters.BaseFilter)): filters
                 for reducing number of children in model. These will be added
                 to the filter from the tree_manager.
+            mime_data_format (str or None): data format of any mime data
+                created - if None, default to outliner.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(BaseTreeModel, self).__init__(parent)
@@ -39,6 +42,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         with self.root.filter_children(self.child_filters):
             self.tree_roots = self.root.get_all_children()
         self.columns = [self.NAME_COLUMN]
+        self.mime_data_format = (
+            mime_data_format or
+            constants.OUTLINER_TREE_MIME_DATA_FORMAT
+        )
 
     @property
     def child_filters(self):
@@ -241,7 +248,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Returns:
             (list(str)): list of mime types.
         """
-        return [constants.TREE_MIME_DATA_FORMAT]
+        return [self.mime_data_format]
 
     def supportedDropAction(self):
         """Get supported drop action types:
@@ -277,7 +284,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if text:
             stream << QtCore.QByteArray(text.encode('utf-8'))
             mimedata.setData(
-                constants.TREE_MIME_DATA_FORMAT,
+                self.mime_data_format,
                 encoded_data
             )
         return mimedata
@@ -307,7 +314,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             (bool): True if we can drop the item, else False.
         """
         # TODO: make separate method for decoding/encoding data.
-        encoded_data = mimeData.data(constants.TREE_MIME_DATA_FORMAT)
+        encoded_data = mimeData.data(self.mime_data_format)
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
         if stream.atEnd():
             return False
@@ -375,7 +382,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return True
-        if not data.hasFormat(constants.TREE_MIME_DATA_FORMAT):
+        if not data.hasFormat(self.mime_data_format):
             return False
         if column > 0:
             return False
@@ -395,7 +402,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         # then the root is just the top-level task
         root = parent.root
 
-        encoded_data = data.data(constants.TREE_MIME_DATA_FORMAT)
+        encoded_data = data.data(self.mime_data_format)
         stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
         while not stream.atEnd():
             byte_array = QtCore.QByteArray()

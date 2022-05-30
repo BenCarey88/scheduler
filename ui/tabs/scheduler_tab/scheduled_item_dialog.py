@@ -12,7 +12,7 @@ from scheduler.api.calendar.scheduled_item import (
 )
 
 from scheduler.ui import utils
-# from scheduler.ui.models.tree import FullTaskTreeModel
+# from scheduler.ui.models.tree import ItemDialogTreeModel
 from scheduler.ui.widgets.item_dialog import ItemDialog
 
 
@@ -931,7 +931,7 @@ class RepeatPatternWidget(QtWidgets.QWidget):
 #             label,
 #             tree_item=None,
 #             parent=None):
-#         model = FullTaskTreeModel(tree_manager)
+#         model = ItemDialogTreeModel(tree_manager)
 #         tree_view = QtWidgets.QTreeView()
 #         tree_view.setModel(model)
 #         super(TaskTreeComboBox, self).__init__(

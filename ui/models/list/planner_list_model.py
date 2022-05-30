@@ -4,7 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.calendar.planned_item import PlannedItem
 
-from scheduler.ui import constants
+from scheduler.ui import constants, utils
 
 
 class PlannerListModel(QtCore.QAbstractItemModel):
@@ -16,18 +16,24 @@ class PlannerListModel(QtCore.QAbstractItemModel):
 
     def __init__(
             self,
+            tree_manager,
             planner_manager,
             calendar_period=None,
             time_period=None,
+            item_dialog_class=None,
             parent=None):
         """Initialise calendar model.
 
         Args:
-            planner_manager (PlannerManager): the planner manager item.
+            tree_manager (TreeManager): the tree manager object.
+            planner_manager (PlannerManager): the planner manager object.
             calendar_period (BaseCalendarPeriod or None): the calendar
                 period this is modelling.
             time_period (PlannedItemTimePeriod): the time period type this
                 is modelling, if calendar_period not given.
+            item_dialog_class (class or None): item dialog class used to
+                add planned items, if used.
+
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         if calendar_period is None and time_period is None:
@@ -35,6 +41,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 "calendar_period and time_period args can't both be empty."
             )
         super(PlannerListModel, self).__init__(parent)
+        self.tree_manager = tree_manager
         self.planner_manager = planner_manager
         self.calendar = planner_manager.calendar
         if calendar_period is None:
@@ -44,8 +51,9 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             self.NAME_COLUMN,
             self.PATH_COLUMN,
             self.IMPORTANCE_COLUMN,
-            self.SIZE_COLUMN
+            self.SIZE_COLUMN,
         ]
+        self.item_dialog_class = item_dialog_class
 
     def set_calendar_period(self, calendar_period):
         """Set model to use given calendar period.
@@ -77,6 +85,33 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         if index.isValid() and 0 <= index.column() < len(self.columns):
             return self.columns[index.column()]
         return None
+
+    def remove_item(self, index, force=False):
+        """Remove item at given index.
+
+        Args:
+            index (QtCore.QModelIndex): index of item to remove.
+            force (bool): if True, don't check with user before removing.
+
+        Returns:
+            (bool): whether or not removal was successful.
+        """
+        if index.isValid():
+            item = index.internalPointer()
+            if item is not None:
+                continue_deletion = force or utils.simple_message_dialog(
+                    "Delete Planned Item ({0})?".format(item.name),
+                )
+                if continue_deletion:
+                    self.beginRemoveRows(
+                        QtCore.QModelIndex(),
+                        index.row(),
+                        index.row(),
+                    )
+                    success = self.planner_manager.remove_planned_item(item)
+                    self.endRemoveRows()
+                    return success
+        return False
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -168,6 +203,28 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (bool): True if setting data was successful, else False.
         """
+        if not index.isValid():
+            return False
+        if role != QtCore.Qt.ItemDataRole.EditRole:
+            # can only do text edit role in base class
+            return False
+        planned_item = index.internalPointer()
+        if planned_item is None:
+            return False
+        if self.get_column_name(index) == self.IMPORTANCE_COLUMN:
+            self.planner_manager.modify_planned_item(
+                planned_item,
+                importance=value,
+            )
+            self.dataChanged.emit(index, index)
+            return True
+        if self.get_column_name(index) == self.SIZE_COLUMN:
+            self.planner_manager.modify_planned_item(
+                planned_item,
+                size=value,
+            )
+            self.dataChanged.emit(index, index)
+            return True
         return False
 
     def headerData(self, section, orientation, role):
@@ -203,6 +260,14 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 QtCore.Qt.ItemFlag.ItemIsDragEnabled |
                 QtCore.Qt.ItemFlag.ItemIsDropEnabled
             )
+        if (self.get_column_name(index) in 
+                [self.IMPORTANCE_COLUMN, self.SIZE_COLUMN]):
+            return (
+                QtCore.Qt.ItemFlag.ItemIsEnabled |
+                QtCore.Qt.ItemFlag.ItemIsSelectable |
+                QtCore.Qt.ItemFlag.ItemIsEditable |
+                QtCore.Qt.ItemFlag.ItemIsDropEnabled
+            )
         return (
             QtCore.Qt.ItemFlag.ItemIsEnabled |
             QtCore.Qt.ItemFlag.ItemIsSelectable |
@@ -216,7 +281,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             (list(str)): list of mime types.
         """
         return [
-            constants.TREE_MIME_DATA_FORMAT,
+            constants.OUTLINER_TREE_MIME_DATA_FORMAT,
             constants.PLANNED_ITEM_MIME_DATA_FORMAT,
         ]
 
@@ -270,7 +335,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             parent_index (QtCore.QModelIndex): index of parent item we're
                 dropping under.
         """
-        # Only drop on empty spaces
+        # Only drop on empty spaces or between items
         if not parent.isValid():
             return True
         return False
@@ -305,8 +370,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
 
         root = self.planner_manager.tree_root
 
-        if data.hasFormat(constants.TREE_MIME_DATA_FORMAT):
-            encoded_data = data.data(constants.TREE_MIME_DATA_FORMAT)
+        if data.hasFormat(constants.OUTLINER_TREE_MIME_DATA_FORMAT):
+            encoded_data = data.data(constants.OUTLINER_TREE_MIME_DATA_FORMAT)
             stream = QtCore.QDataStream(
                 encoded_data,
                 QtCore.QIODevice.ReadOnly
@@ -321,12 +386,22 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 return False
 
             self.beginResetModel()
-            success = self.planner_manager.create_planned_item_at_index(
-                row,
-                self.calendar,
-                self.calendar_period,
-                tree_item,
-            )
+            if self.item_dialog_class is not None:
+                dialog = self.item_dialog_class(
+                    self.tree_manager,
+                    self.planner_manager,
+                    self.calendar_period,
+                    tree_item=tree_item,
+                    index=row,
+                )
+                success = dialog.exec()
+            else:
+                success = self.planner_manager.create_planned_item(
+                    self.calendar,
+                    self.calendar_period,
+                    tree_item,
+                    index=row,
+                )
             self.endResetModel()
             return bool(success)
 

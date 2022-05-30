@@ -7,6 +7,7 @@ is being filtered for in the current tab.
 """
 
 from scheduler.api.tree.filters import NoFilter, FilterByItem
+from scheduler.api.utils import fallback_value
 
 from ._base_tree_manager import BaseTreeManager
 
@@ -68,7 +69,8 @@ class TreeFilterManager(BaseTreeManager):
     def _setup_from_user_prefs(self):
         """Setup filtering based on user prefs."""
         filter_attrs = self._project_user_prefs.get_attribute(
-            [self._name, self.FILTERED_TASKS_PREF], {}
+            [self._name, self.FILTERED_TASKS_PREF],
+            {}
         )
         for tree_item, attr_dict in filter_attrs.items():
             if tree_item and attr_dict:
@@ -90,30 +92,40 @@ class TreeFilterManager(BaseTreeManager):
         """
         return attribute in self._tree_data.setdefault(tree_item, {})
 
-    def get_attribute(self, tree_item, attribute):
+    def get_attribute(self, tree_item, attribute, default=None):
         """Get the attribute for the given tree item.
 
         Args:
             tree_item (BaseTreeItem): tree item to query for.
             atttribute (str): attribute name.
+            default (variant or None): default value for attribute.
+                If None, try to find from ATTRIBUTE_DEFAULTS instead.
 
         Returns:
             (variant): value of attribute for given item.
         """
         item_dict = self._tree_data.setdefault(tree_item, {})
-        default = self.ATTRIBUTE_DEFAULTS.get(attribute)
+        default = fallback_value(
+            default,
+            self.ATTRIBUTE_DEFAULTS.get(attribute, None),
+        )
         return item_dict.setdefault(attribute, default)
 
-    def set_attribute(self, tree_item, attribute, value):
+    def set_attribute(self, tree_item, attribute, value, default=None):
         """Set the attribute for the given tree item.
 
         Args:
             tree_item (BaseTreeItem): tree item to set attribute for.
             atttribute (str): attribute name.
             value (variant): value to set.
+            default (variant or None): default value for attribute.
+                If None, try to find from ATTRIBUTE_DEFAULTS instead.
         """
         if attribute in self.USER_PREFS_ATTRIBUTES:
-            default = self.ATTRIBUTE_DEFAULTS.get(attribute)
+            default = fallback_value(
+                default,
+                self.ATTRIBUTE_DEFAULTS.get(attribute, None),
+            )
             self._project_user_prefs.set_attribute(
                 [self._name, self.FILTERED_TASKS_PREF, tree_item, attribute],
                 value,
@@ -190,16 +202,21 @@ class TreeFilterManager(BaseTreeManager):
             return True
         return False
 
-    def is_expanded(self, tree_item):
+    def is_expanded(self, tree_item, default=None):
         """Check if the given tree item has been expanded in the outliner.
 
         Args:
             tree_item (BaseTreeItem): tree item to query.
+            default (bool or None): default value to use, if given.
 
         Returns:
             (bool): whether or not the given item is expanded.
         """
-        return self.get_attribute(tree_item, self.IS_EXPANDED)
+        default = fallback_value(
+            default,
+            self.is_task_category(tree_item)
+        )
+        return self.get_attribute(tree_item, self.IS_EXPANDED, default=default)
 
     def filter_item(self, tree_item, from_user_selection=True):
         """Add tree item to filter list.
@@ -266,28 +283,35 @@ class TreeFilterManager(BaseTreeManager):
         if tree_item.parent:
             self.unfilter_ancestoral_siblings(tree_item.parent)
 
-    def expand_item(self, tree_item, value):
+    def expand_item(self, tree_item, value, default=None):
         """Mark item as collapsed/expanded in the outliner.
 
         Args:
             tree_item (BaseTreeItem): tree item to expand or collapse.
             value (bool): the value to mark it as (True means expanded, False
                 means collapsed).
+            default (bool or None): default value to use, if given.
         """
-        self.set_attribute(tree_item, self.IS_EXPANDED, value)
+        default = fallback_value(
+            default,
+            self.is_task_category(tree_item),
+        )
+        self.set_attribute(tree_item, self.IS_EXPANDED, value, default=default)
 
     def set_expanded_from_filtered(self, item):
         """Set filtered items as collapsed and unfiltered as expanded.
 
+        This only exapdns TaskCategory items, to avoid opening full tree
+        unnecessarily.
+
         Args:
             item (BaseTreeItem): tree item to set from.
         """
-        # TODO: was there a reason we didn't pass tree root to tree_manager?
-        # feels like it would be useful to have
         if self.is_filtered_out(item):
             self.expand_item(item, False)
         else:
-            self.expand_item(item, True)
+            if self.is_task_category(item):
+                self.expand_item(item, True)
             for child in item.get_all_children():
                 self.set_expanded_from_filtered(child)
 

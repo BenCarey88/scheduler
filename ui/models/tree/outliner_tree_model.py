@@ -1,4 +1,4 @@
-"""Task category tree model for outliner."""
+"""Task tree model for outliner."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -10,8 +10,8 @@ from ._base_tree_model import BaseTreeModel
 from scheduler.ui import constants
 
 
-class TaskCategoryModel(BaseTreeModel):
-    """Task category tree model.
+class OutlinerTreeModel(BaseTreeModel):
+    """Outliner tree model.
 
     This model is to be used in the task outliner. It's intended to expand
     up to the first task items under each category but not show any subtasks.
@@ -31,10 +31,10 @@ class TaskCategoryModel(BaseTreeModel):
                 deselected in the outliner.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        child_filters=[filters.NoSubtasks()]
+        child_filters=[]
         if hide_filtered_items and tree_manager.child_filter:
             child_filters.append(tree_manager.child_filter)
-        super(TaskCategoryModel, self).__init__(
+        super(OutlinerTreeModel, self).__init__(
             tree_manager,
             parent=parent,
             filters=child_filters
@@ -73,7 +73,7 @@ class TaskCategoryModel(BaseTreeModel):
                         font = QtGui.QFont()
                         font.setItalic(True)
                         return font
-        return super(TaskCategoryModel, self).data(index, role)
+        return super(OutlinerTreeModel, self).data(index, role)
 
     def setData(self, index, value, role):
         """Set data at given index to given value.
@@ -109,7 +109,7 @@ class TaskCategoryModel(BaseTreeModel):
                     self.tree_manager.filter_item(item)
             self.dataChanged.emit(index, index)
             return True
-        return super(TaskCategoryModel, self).setData(index, value, role)
+        return super(OutlinerTreeModel, self).setData(index, value, role)
 
     def flags(self, index):
         """Get flags for given item item.
@@ -141,4 +141,4 @@ class TaskCategoryModel(BaseTreeModel):
                 QtCore.Qt.ItemFlag.ItemIsDragEnabled |
                 QtCore.Qt.ItemFlag.ItemIsDropEnabled
             )
-        return super(TaskCategoryModel, self).flags(index)
+        return super(OutlinerTreeModel, self).flags(index)

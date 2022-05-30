@@ -96,7 +96,7 @@ class ModifyPlannedItemEdit(CompositeEdit):
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
         """
         attribute_edit = AttributeEdit.create_unregistered(attr_dict)
-        subedits = attribute_edit
+        subedits = [attribute_edit]
         if planned_item._calendar_period in attr_dict:
             new_calendar_period = attr_dict[planned_item._calendar_period]
             # remove items from old container and add to new one

@@ -77,10 +77,13 @@ class PlannedItem(NestedSerializable):
                 scheduled item. We don't need to be rigid on this however.
         """
         self._calendar = calendar
-        self._calendar_period = MutableAttribute(calendar_period)
-        self._tree_item = MutableHostedAttribute(tree_item)
-        self._size = MutableAttribute(size)
-        self._importance = MutableAttribute(importance)
+        self._calendar_period = MutableAttribute(
+            calendar_period,
+            "calendar_period"
+        )
+        self._tree_item = MutableHostedAttribute(tree_item, "tree_item")
+        self._size = MutableAttribute(size, "size")
+        self._importance = MutableAttribute(importance, "importance")
         self._planned_children = []
         self._scheduled_items = []
         self._id = None

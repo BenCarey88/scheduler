@@ -28,34 +28,19 @@ class PlannerEditManager(BasePlannerManager):
             archive_calendar,
         )
 
-    def create_planned_item(self, *args, **kwargs):
+    def create_planned_item(self, *args, index=None, **kwargs):
         """Create planner item and add to calendar.
 
         Args:
             *args (list): args to be passed to item init.
+            index (int or None): index to create at, if given.
             **kwargs (dict): kwargs to be passed to item init.
 
         Returns:
-            (PlannedItem): newly created planned item.
+            (bool): whether or not edit was successful.
         """
         item = PlannedItem(*args, **kwargs)
-        AddPlannedItemEdit.create_and_run(item)
-        return item
-
-    def create_planned_item_at_index(self, index, *args, **kwargs):
-        """Create planner item and add to calendar.
-
-        Args:
-            index (int): index to add item at.
-            *args (list): args to be passed to item init.
-            **kwargs (dict): kwargs to be passed to item init.
-
-        Returns:
-            (PlannedItem): newly created planned item.
-        """
-        item = PlannedItem(*args, **kwargs)
-        AddPlannedItemEdit.create_and_run(item, index)
-        return item
+        return AddPlannedItemEdit.create_and_run(item, index)
 
     @require_class(PlannedItem, True)
     def remove_planned_item(self, planned_item):
@@ -63,8 +48,11 @@ class PlannerEditManager(BasePlannerManager):
 
         Args:
             planned_item (PlannedItem): planned item to remove.
+
+        Returns:
+            (bool): whether or not edit was successful
         """
-        RemovePlannedItemEdit.create_and_run(planned_item)
+        return RemovePlannedItemEdit.create_and_run(planned_item)
 
     @require_class(PlannedItem, True)
     def move_planned_item(self, planned_item, index):
@@ -77,9 +65,7 @@ class PlannerEditManager(BasePlannerManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        MovePlannedItemEdit.create_and_run(planned_item, index)
-        # TODO: base on is_valid
-        return True
+        return MovePlannedItemEdit.create_and_run(planned_item, index)
 
     @require_class(PlannedItem, True)
     def modify_planned_item(
@@ -99,6 +85,9 @@ class PlannerEditManager(BasePlannerManager):
                 represents.
             size (PlannedItemSize or None): size of item.
             importance (PlannedItemImportance or None): importance of item.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         attr_dict = {
             planned_item._calendar_period: calendar_period,
@@ -110,7 +99,7 @@ class PlannerEditManager(BasePlannerManager):
             attr: value
             for attr, value in attr_dict.items() if value is not None
         }
-        ModifyPlannedItemEdit.create_and_run(
+        return ModifyPlannedItemEdit.create_and_run(
             planned_item,
             attr_dict,
         )

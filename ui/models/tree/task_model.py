@@ -26,6 +26,7 @@ class TaskModel(BaseTreeModel):
         super(TaskModel, self).__init__(
             tree_manager,
             tree_root=root_task,
+            mime_data_format=constants.TASK_TAB_TREE_MIME_DATA_FORMAT,
             parent=parent
         )
         self.columns = [self.NAME_COLUMN, self.STATUS_COLUMN]

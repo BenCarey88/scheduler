@@ -94,7 +94,7 @@ class BaseWeekModel(BaseTableModel):
         Returns:
             (list(str)): list of mime types.
         """
-        return [constants.TREE_MIME_DATA_FORMAT]
+        return [constants.OUTLINER_TREE_MIME_DATA_FORMAT]
 
     def supportedDropAction(self):
         """Get supported drop action types:

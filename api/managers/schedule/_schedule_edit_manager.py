@@ -48,11 +48,10 @@ class ScheduleEditManager(BaseScheduleManager):
             **kwargs (dict): kwargs to be passed to item init.
 
         Returns:
-            (ScheduledItem): newly created scheduled item.
+            (bool): whether or not edit was successful.
         """
         item = item_class(*args, **kwargs)
-        AddScheduledItemEdit.create_and_run(item)
-        return item
+        return AddScheduledItemEdit.create_and_run(item)
 
     def create_scheduled_item(self, *args, **kwargs):
         """Create single scheduled item and add to calendar.
@@ -62,7 +61,7 @@ class ScheduleEditManager(BaseScheduleManager):
             **kwargs (dict): kwargs to be passed to ScheduledItem init.
 
         Returns:
-            (ScheduledItem): newly created scheduled item.
+            (bool): whether or not edit was successful.
         """
         return self._create_scheduled_item(ScheduledItem, *args, **kwargs)
 
@@ -74,7 +73,7 @@ class ScheduleEditManager(BaseScheduleManager):
             **kwargs (dict): kwargs to be passed to RepeatScheduledItem init.
 
         Returns:
-            (RepeatScheduledItem): newly created scheduled item.
+            (bool): whether or not edit was successful.
         """
         return self._create_scheduled_item(RepeatScheduledItem, *args, **kwargs)
 
@@ -84,8 +83,11 @@ class ScheduleEditManager(BaseScheduleManager):
 
         Args:
             scheduled_item (BaseScheduledItem): scheduled item to remove.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
-        RemoveScheduledItemEdit.create_and_run(scheduled_item)
+        return RemoveScheduledItemEdit.create_and_run(scheduled_item)
 
     @require_class((ScheduledItem, RepeatScheduledItem), raise_error=True)
     def modify_scheduled_item(
@@ -115,6 +117,9 @@ class ScheduleEditManager(BaseScheduleManager):
             event_category (str or None): new category name.
             event_name (str or None): new event name.
             is_background (bool or None): new background value.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         if is_repeating == isinstance(scheduled_item, RepeatScheduledItem):
             # no class change needed, use ModifyScheduledItemEdit
@@ -190,7 +195,7 @@ class ScheduleEditManager(BaseScheduleManager):
                 is_background=is_background,
                 repeat_pattern=repeat_pattern,
             )
-        ReplaceScheduledItemEdit.create_and_run(
+        return ReplaceScheduledItemEdit.create_and_run(
             scheduled_item,
             new_scheduled_item,
         )
@@ -210,12 +215,6 @@ class ScheduleEditManager(BaseScheduleManager):
             start_time (DateTime or None): new start date time.
             end_time (DateTime or None): new end date time.
         """
-        # if date is None:
-        #     date = scheduled_item.date
-        # if start_time is None:
-        #     start_time = scheduled_item.start_time
-        # if end_time is None:
-        #     end_time = scheduled_item.end_time
         attr_dict = {
             scheduled_item._date: date,
             scheduled_item._start_time: start_time,
@@ -273,6 +272,9 @@ class ScheduleEditManager(BaseScheduleManager):
 
         Args:
             scheduled_item (BaseScheduledItem): item to edit.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         if self._continuous_edit is None:
             # TODO: sort exception
@@ -285,4 +287,4 @@ class ScheduleEditManager(BaseScheduleManager):
                     scheduled_item.name
                 )
             )
-        self._continuous_edit.end_continuous_run()
+        return self._continuous_edit.end_continuous_run()

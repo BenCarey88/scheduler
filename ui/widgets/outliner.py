@@ -212,12 +212,12 @@ class Outliner(QtWidgets.QTreeView):
             new_index (QtCore.QModelIndex): new index.
             old_index (QtCore.QModelIndex): previous index.
         """
-        # TODO: would be nicer to make this emit the items themselves
-        self.CURRENT_CHANGED_SIGNAL.emit(old_index, new_index)
         if new_index.isValid():
             item = new_index.internalPointer()
             if item:
                 self.tree_manager.set_current_item(item)
+        # TODO: would be nicer to make this emit the items themselves
+        self.CURRENT_CHANGED_SIGNAL.emit(old_index, new_index)
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

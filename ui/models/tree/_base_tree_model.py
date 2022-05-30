@@ -348,6 +348,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         # could be done with the tree_manager to ensure no crossover from outliner
         # to task view? Or maybe something better would be eg. encode model name/id
         # and check that the item being dropped matches it.
+
+        # TODO: a lot of this is now unneeded. Remove?
         if isinstance(parent, Task):
             # can't drop categories on tasks
             if isinstance(item, TaskCategory):

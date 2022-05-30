@@ -16,7 +16,7 @@ from scheduler.ui.tabs.base_calendar_view import BaseListView
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
 
-from .planned_item_dialog import PlannedItemDialog
+from scheduler.ui.widgets.planned_item_dialog import PlannedItemDialog
 
 
 class PlannerTab(BaseCalendarTab):
@@ -73,15 +73,12 @@ class PlannerView(BaseListView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.open_dialog_on_drop_event = False
-        item_dialog_class = None
-        if self.open_dialog_on_drop_event:
-            item_dialog_class = PlannedItemDialog
         self.planner_manager = project.get_planner_manager()
         model = PlannerListModel(
             project.get_tree_manager(name),
             self.planner_manager,
             time_period=time_period,
-            item_dialog_class=item_dialog_class,
+            open_dialog_on_drop_event=self.open_dialog_on_drop_event,
         )
         super(PlannerView, self).__init__(
             name,

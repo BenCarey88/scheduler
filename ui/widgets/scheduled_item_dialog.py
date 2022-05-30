@@ -12,8 +12,7 @@ from scheduler.api.calendar.scheduled_item import (
 )
 
 from scheduler.ui import utils
-# from scheduler.ui.models.tree import ItemDialogTreeModel
-from scheduler.ui.widgets.item_dialog import ItemDialog
+from .item_dialog import ItemDialog
 
 
 class ScheduledItemDialog(ItemDialog):

@@ -82,8 +82,14 @@ class PlannedItem(NestedSerializable):
             "calendar_period"
         )
         self._tree_item = MutableHostedAttribute(tree_item, "tree_item")
-        self._size = MutableAttribute(size, "size")
-        self._importance = MutableAttribute(importance, "importance")
+        self._size = MutableAttribute(
+            utils.fallback_value(size, PlannedItemSize.MEDIUM),
+            "size"
+        )
+        self._importance = MutableAttribute(
+            utils.fallback_value(importance, PlannedItemImportance.MODERATE),
+            "importance"
+        )
         self._planned_children = []
         self._scheduled_items = []
         self._id = None

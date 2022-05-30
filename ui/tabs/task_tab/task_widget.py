@@ -31,8 +31,8 @@ class TaskWidget(QtWidgets.QTreeView):
         self.tab = tab
 
         # setup model and delegate
-        self.setItemDelegate(TaskDelegate(self))
         model = TaskModel(tab.tree_manager, task_item, parent=parent)
+        self.setItemDelegate(TaskDelegate(model, parent=self))
         self.setModel(model)
         self.expandAll()
         model.dataChanged.connect(self.tab.update)
@@ -151,9 +151,10 @@ class TaskWidget(QtWidgets.QTreeView):
 class TaskDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for task widget tree."""
 
-    def __init__(self, parent=None):
+    def __init__(self, model, parent=None):
         """Initialise task delegate item."""
-        super(TaskDelegate, self).__init__(parent)
+        self._model = model
+        super(TaskDelegate, self).__init__(parent=parent)
 
     def sizeHint(self, option, index):
         """Get size hint for this item.
@@ -183,7 +184,7 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtWidgets.QWidget): editor widget.
         """
-        if self.model().get_column_name(index) == self.model().NAME_COLUMN:
+        if self._model.get_column_name(index) == self._model.NAME_COLUMN:
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QLineEdit(parent)

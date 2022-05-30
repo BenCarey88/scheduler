@@ -166,21 +166,24 @@ class TaskTab(BaseTab):
             )
         return None
 
-    def scroll_to_task(self, new_index, old_index):
+    def scroll_to_task(self, old_index, new_index):
         """Scroll to the given task or task category.
 
         Args:
-            new_index (QtCore.QModelIndex): index of task or category to
-                scroll to.
             old_index (QtCore.QModelIndex): index of old task or category (not
                 used, just passed in by the signal that calls this method).
+            new_index (QtCore.QModelIndex): index of task or category to
+                scroll to.
         """
         if not new_index.isValid():
             return
         tree_item = new_index.internalPointer()
         if not tree_item:
             return
-        widget = self.category_widget_tree.get(tree_item)
+        category = self.tree_manager.get_task_category_or_top_level_task(
+            tree_item
+        )
+        widget = self.category_widget_tree.get(category)
         if not widget:
             return
         point = widget.mapTo(self.scroll_area, QtCore.QPoint(0,0))

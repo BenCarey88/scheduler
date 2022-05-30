@@ -5,6 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.calendar.planned_item import PlannedItem
 
 from scheduler.ui import constants, utils
+from scheduler.ui.widgets.planned_item_dialog import PlannedItemDialog
 
 
 class PlannerListModel(QtCore.QAbstractItemModel):
@@ -20,7 +21,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             planner_manager,
             calendar_period=None,
             time_period=None,
-            item_dialog_class=None,
+            open_dialog_on_drop_event=False,
             parent=None):
         """Initialise calendar model.
 
@@ -31,8 +32,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 period this is modelling.
             time_period (PlannedItemTimePeriod): the time period type this
                 is modelling, if calendar_period not given.
-            item_dialog_class (class or None): item dialog class used to
-                add planned items, if used.
+            open_dialog_on_drop_event (bool): if True, use PlannedItemDialog
+                to add dropped items, otherwise add directly.
 
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
@@ -53,7 +54,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             self.IMPORTANCE_COLUMN,
             self.SIZE_COLUMN,
         ]
-        self.item_dialog_class = item_dialog_class
+        self.open_dialog_on_drop_event = open_dialog_on_drop_event
 
     def set_calendar_period(self, calendar_period):
         """Set model to use given calendar period.
@@ -386,8 +387,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 return False
 
             self.beginResetModel()
-            if self.item_dialog_class is not None:
-                dialog = self.item_dialog_class(
+            if self.open_dialog_on_drop_event:
+                dialog = PlannedItemDialog(
                     self.tree_manager,
                     self.planner_manager,
                     self.calendar_period,

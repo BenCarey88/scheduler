@@ -91,3 +91,20 @@ class BaseTreeManager(BaseManager):
             (bool): whether or not item is task category or top level task.
         """
         return (self.is_task_category(item) or self.is_top_level_task(item))
+
+    @require_class((Task, TaskCategory), raise_error=True)
+    def get_task_category_or_top_level_task(self, item):
+        """Get task category or top level task ancestor of item.
+
+        Args:
+            item (BaseTreeItem): tree item to use.
+
+        Return:
+            (Task or TaskCategory or None): task category or top level task
+                of item, if found.
+        """
+        if self.is_task_category_or_top_level_task(item):
+            return item
+        if item.parent is None:
+            return None
+        return self.get_task_category_or_top_level_task(item.parent)

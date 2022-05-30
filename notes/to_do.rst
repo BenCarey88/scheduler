@@ -1,34 +1,22 @@
 
-this release:
-=============
-* repeat items
-* colours
+upcoming release:
+=================
+* proxy model for planner tab (for sorting)
+* history tab (model + view)
 
 
 next release:
 =============
-* investigate calendar saving bug + slowness
+* archive tree and calendar
+* basic filters for the 4 main tabs
+
+
+general
+=======
 * background items cannot be moved and need double click to edit?
 * nicer look for background items
     - no border
     - no text (except maybe scrollover) - or choose if there's text
 * cross top-right and checkbox top-left of calendar items
-
-(/) git scripts for automatically backing up the data
-
-(/) general top bar for non-task tabs
-* colour editor (right click for tasks and included in calendar)
-
-(/) HUGE refactor
-^ still needs task tab edit refactor
-
-stretch goal:
--------------
-* v basic planner tab
-* v basic review tab
-
-
-general:
-========
+* colour editor (right click item for tasks and included in calendar)
 * add in loggers everywhere
-

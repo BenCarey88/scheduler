@@ -10,7 +10,7 @@ from scheduler.api.calendar.scheduled_item import ScheduledItemType
 from scheduler.ui import constants
 from scheduler.ui.models.table import SchedulerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
-from .scheduled_item_dialog import ScheduledItemDialog
+from scheduler.ui.widgets.scheduled_item_dialog import ScheduledItemDialog
 
 
 class SelectionRect(object):

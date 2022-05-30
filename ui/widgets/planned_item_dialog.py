@@ -11,7 +11,7 @@ from scheduler.api.calendar.planned_item import (
 )
 
 from scheduler.ui import utils
-from scheduler.ui.widgets.item_dialog import ItemDialog
+from .item_dialog import ItemDialog
 
 
 class PlannedItemDialog(ItemDialog):

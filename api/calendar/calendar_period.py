@@ -1,7 +1,6 @@
 """Classes representing a time period of calendar data."""
 
 from collections import OrderedDict
-
 from scheduler.api.common.date_time import (
     Date,
     DateTimeError,

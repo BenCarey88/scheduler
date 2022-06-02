@@ -118,6 +118,45 @@ class ModifyPlannedItemEdit(CompositeEdit):
         )
 
 
+class SortPlannedItemsEdit(ListEdit):
+    """Sort planned items into new order."""
+    def __init__(self, calendar_period, key=None, reverse=False):
+        """Initialise edit.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period whose planned
+                items we're sorting.
+            key (function or None): key to sort by.
+            reverse (bool): whether or not to sort in reverse.
+        """
+        super(SortPlannedItemsEdit, self).__init__(
+            calendar_period.get_planned_items_container(),
+            [(key, reverse)],
+            ContainerOp.SORT,
+        )
+        self._name = "SortPlannedItems for {0}".format(
+            calendar_period.name
+        )
+        self._description = (
+            "Rearrange order of planned items for period {0}".format(
+                calendar_period.name
+            )
+        )
+        self._edit_stack_name = "SortPlannedItems Edit Stack"
+
+    def _stacks_with(self, edit):
+        """Check if this should stack with edit if added to the log after it.
+
+        Args:
+            edit (BaseEdit): edit to check if this should stack with.
+
+        Returns:
+            (bool): True if other edit is also same class as this one, else
+                False.
+        """
+        return isinstance(edit, SortPlannedItemsEdit)
+
+
 class SchedulePlannedItemEdit(ListEdit):
     """Add an associated scheduled item to a planned item."""
     def __init__(self, planned_item, scheduled_item):
@@ -180,7 +219,7 @@ class AddPlannedItemChild(ListEdit):
             planned_item_child (PlannedItem): the planned item child to add.
         """
         super(AddPlannedItemEdit, self).__init__(
-            planned_item._planned_items,
+            planned_item._planned_children,
             [planned_item_child],
             ContainerOp.ADD,
         )
@@ -205,7 +244,7 @@ class RemovePlannedItemChild(ListEdit):
             planned_item_child (PlannedItem): the planned item child to remove.
         """
         super(RemovePlannedItemChild, self).__init__(
-            planned_item._planned_items,
+            planned_item._planned_children,
             [planned_item_child],
             ContainerOp.ADD,
         )

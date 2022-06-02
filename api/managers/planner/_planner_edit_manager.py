@@ -5,6 +5,7 @@ from scheduler.api.edit.planner_edit import (
     ModifyPlannedItemEdit,
     MovePlannedItemEdit,
     RemovePlannedItemEdit,
+    SortPlannedItemsEdit,
 )
 from scheduler.api.calendar.planned_item import PlannedItem
 
@@ -102,4 +103,22 @@ class PlannerEditManager(BasePlannerManager):
         return ModifyPlannedItemEdit.create_and_run(
             planned_item,
             attr_dict,
+        )
+
+    def sort_planned_items(self, calendar_period, key=None, reverse=False):
+        """Sort order of planned items.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period whose planned
+                items we're sorting.
+            key (function or None): key to sort by.
+            reverse (bool): whether or not to sort in reverse.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        return SortPlannedItemsEdit.create_and_run(
+            calendar_period,
+            key=key,
+            reverse=reverse,
         )

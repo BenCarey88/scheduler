@@ -10,7 +10,8 @@ from scheduler.api.calendar.planned_item import (
     PlannedItemTimePeriod,
 )
 
-from scheduler.ui.models.list import PlannerListModel
+from scheduler.ui.models.list import PlannerListModel as PlannerListProxyModel
+# from scheduler.ui.models.proxy import PlannerListProxyModel
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.tabs.base_calendar_view import BaseListView
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
@@ -74,7 +75,7 @@ class PlannerView(BaseListView):
         """
         self.open_dialog_on_drop_event = False
         self.planner_manager = project.get_planner_manager()
-        model = PlannerListModel(
+        model = PlannerListProxyModel(
             project.get_tree_manager(name),
             self.planner_manager,
             time_period=time_period,
@@ -99,6 +100,8 @@ class PlannerView(BaseListView):
         self.setDropIndicatorShown(True)
         self.viewport().setAcceptDrops(True)
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
+
+        self.setSortingEnabled(True)
 
         self.setItemDelegate(
             PlannedItemDelegate(

@@ -1,6 +1,7 @@
 """Ordered dict edits to be registered in the edit log."""
 
 from collections import OrderedDict
+from re import I
 
 from scheduler.api import utils
 from ._base_edit import BaseEdit, EditError
@@ -8,13 +9,14 @@ from ._core_edits import CompositeEdit
 
 
 class ContainerOp(object):
-    """Enum representing an edit operation on a dictionary."""
+    """Enum representing an edit operation on a container."""
     ADD = "Add"
     INSERT = "Insert"
     REMOVE = "Remove"
     RENAME = "Rename"
     MODIFY = "Modify"
     MOVE = "Move"
+    SORT = "Sort"
     ADD_OR_MODIFY = "Add_Or_Modify"
     REMOVE_OR_MODIFY = "Remove_Or_Modify"
 
@@ -25,6 +27,7 @@ class ContainerOp(object):
         RENAME: RENAME,
         MODIFY: MODIFY,
         MOVE: MOVE,
+        SORT: SORT,
         ADD_OR_MODIFY: REMOVE_OR_MODIFY,
         REMOVE_OR_MODIFY: ADD_OR_MODIFY,
     }
@@ -102,6 +105,7 @@ class BaseContainerEdit(BaseEdit):
             REMOVE: [item/index]             - remove item/item at given index
             MODIFY: [(index, new_item)]      - change item at index to new_item
             MOVE:   [(item/index, new_index)] - move item to new index
+            SORT:   [(key, reverse)]         - sort list by given key
 
         recursive diff_dicts:
             ADD:    if key already exists, check next level and retry
@@ -148,6 +152,8 @@ class BaseContainerEdit(BaseEdit):
                 return self._list_modify
             if operation_type == ContainerOp.MOVE:
                 return self._list_move
+            if operation_type == ContainerOp.SORT:
+                return self._list_sort
 
         elif isinstance(container, dict):
             if operation_type == ContainerOp.ADD:
@@ -615,7 +621,10 @@ class BaseContainerEdit(BaseEdit):
             (bool): whether or not container is modified.
         """
         if inverse_diff_list is not None:
-            inverse_diff_list.insert(0, len(list_))
+            if ContainerEditFlag.REMOVE_BY_VALUE in self._edit_flags:
+                inverse_diff_list.insert(0, value)
+            else:
+                inverse_diff_list.insert(0, len(list_))
         list_.append(value)
         return True
 
@@ -640,7 +649,10 @@ class BaseContainerEdit(BaseEdit):
             return False
         list_.insert(index, new_value)
         if inverse_diff_list is not None:
-            inverse_diff_list.insert(0, index)
+            if ContainerEditFlag.REMOVE_BY_VALUE in self._edit_flags:
+                inverse_diff_list.insert(0, new_value)
+            else:
+                inverse_diff_list.insert(0, index)
         return True
 
     def _list_remove(self, index_or_value, list_, inverse_diff_list=None):
@@ -649,7 +661,7 @@ class BaseContainerEdit(BaseEdit):
         Args:
             index_or_value (int or variant): index to remove item at, or item to
                 remove. Which of these has been used should be dependent on the
-                whether or not the REVOE_BY_VALUE flag was passed.
+                whether or not the REMOVE_BY_VALUE flag was passed.
             list_ (list): list to remove from.
             inverse_diff_list (list or None): if given, add to this to define
                 inverse operation.
@@ -731,9 +743,38 @@ class BaseContainerEdit(BaseEdit):
             if index < 0 or index >= len(list_):
                 return False
         if inverse_diff_list is not None:
-            inverse_diff_list.insert(0, (new_index, old_index))
+            if ContainerEditFlag.MOVE_BY_VALUE in self._edit_flags:
+                inverse_diff_list.insert(0, (list_[old_index], old_index))
+            else:
+                inverse_diff_list.insert(0, (new_index, old_index))
         list_.insert(new_index, list_.pop(old_index))
         return True
+
+    def _list_sort(self, sort_func_tuple, list_, inverse_diff_list=None):
+        """Sort list according to given tuple.
+
+        Args:
+            sort_func_tuple (tuple(function, bool)): sort key, and boolean to
+                define if we're sorting in reverse order or not.
+            list_ (list): list whose items we're moving.
+            inverse_diff_list (list or None): if given, add to this to define
+                inverse operation.
+
+        Returns:
+            (bool): whether or not container is modified.
+        """
+        if not isinstance(sort_func_tuple, tuple) or len(sort_func_tuple) != 2:
+            raise EditError("diff list for MOVE op needs 2-tuple values")
+        key, reverse = sort_func_tuple
+        if inverse_diff_list is not None:
+            inverse_key_dict = {item: i for i, item in enumerate(list_)}
+            inverse_diff_list.insert(
+                0,
+                (lambda x: inverse_key_dict.get(x), False)
+            )
+        orig_list = list_[:]
+        list_.sort(key=key, reverse=reverse)
+        return (orig_list != list_)
 
 
 class DictEdit(BaseContainerEdit):
@@ -825,6 +866,7 @@ class ListEdit(BaseContainerEdit):
             REMOVE: [index/item]             - remove item/item at given index
             MODIFY: [(index, new_item)]      - change item at index to new_item
             MOVE:   [(old_index, new_index)] - move item at index to new index
+            SORT:   [(key, reverse)]         - sort list by given key, reverse
 
         recursive diff_list:
             Not really tested yet, be cautious with this.

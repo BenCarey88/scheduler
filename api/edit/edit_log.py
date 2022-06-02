@@ -89,6 +89,10 @@ class EditLog(object):
             return False
         if self._undo_log:
             self._undo_log = []
+        latest_edit = self.get_latest_edit()
+        if latest_edit is not None and edit._stacks_with(latest_edit):
+            edit._previous_edit_in_stack = latest_edit
+            latest_edit._next_edit_in_stack = edit
         self._log.append(edit)
         return True
 
@@ -123,7 +127,9 @@ class EditLog(object):
                 return False
             edit._undo()
             self._undo_log.append(edit)
-            return True
+        if edit._previous_edit_in_stack is not None:
+            self.undo()
+        return True
 
     def redo(self):
         """Redo most recently undone edit.
@@ -138,7 +144,9 @@ class EditLog(object):
                 return False
             edit._redo()
             self._log.append(edit)
-            return True
+        if edit._next_edit_in_stack is not None:
+            self.redo()
+        return True
 
     def get_latest_edit(self):
         """Get most recent edit.
@@ -164,11 +172,26 @@ class EditLog(object):
         title = "\n--------\nEDIT LOG\n--------\n\n"
         if not self._log:
             return "{0}[EMPTY]\n\n".format(title)
+
+        edit_stack_string = None
         for edit in self._log:
-            edit_string = edit.name
-            if long:
-                edit_string += "\n\t{0}".format(edit.description)
-            edit_strings.append(edit_string)
+            # if edit is part of stack, use edit_stack_name (and descriptions)
+            if edit._next_edit_in_stack is not None:
+                if edit_stack_string is None:
+                    edit_stack_string = edit.edit_stack_name
+                if long:
+                    edit_stack_string += "\n\t{0}".format(edit.description)
+            # if this is the top item of an edit stack, add to edit_strings
+            elif edit_stack_string is not None:
+                edit_strings.append(edit_stack_string)
+                edit_stack_string = None
+            # if no stack just use the edit name (and descriptions)
+            else:
+                edit_string = edit.name
+                if long:
+                    edit_string += "\n\t{0}".format(edit.description)
+                edit_strings.append(edit_string)
+
         return "{0}{1}\n\n--------\n\n".format(
             title,
             "\n\n".join(edit_strings)

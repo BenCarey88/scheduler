@@ -20,7 +20,19 @@ class PlannedItemTimePeriod(object):
     YEAR = "year"
 
 
-class PlannedItemSize(object):
+class _PlannedItemEnum(object):
+    """Base planned item enumerator struct."""
+    VALUES_LIST = []
+    @classmethod
+    def key(cls, value):
+        """Get key, used to order values."""
+        for i, val in enumerate(cls.VALUES_LIST):
+            if val == value:
+                return i
+        return i + 1
+
+
+class PlannedItemSize(_PlannedItemEnum):
     """Struct to store size types of item."""
     BIG = "big"
     MEDIUM = "medium"
@@ -28,7 +40,7 @@ class PlannedItemSize(object):
     VALUES_LIST = [BIG, MEDIUM, SMALL]
 
 
-class PlannedItemImportance(object):
+class PlannedItemImportance(_PlannedItemEnum):
     """Struct to store levels of importance for item."""
     CRITICAL = "critical"
     MODERATE = "moderate"

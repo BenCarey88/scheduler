@@ -33,19 +33,31 @@ class BaseEdit(object):
             _has_been_done (bool): used by undo/redo to determine if the
                 edit has been done (and hence can be undone) or not (and
                 hence can be run/redone).
+            _previous_edit_in_stack (BaseEdit or None): the previous edit in
+                the edit stack, if this is part of one. An edit stack is a
+                collection of edits that should all be undone/redone together.
+            _next_edit_in_stack (BaseEdit or None): the previous edit in
+                the edit stack, if this is part of one (see above for what an
+                edit stack is). Note that both these attributes should not be
+                modified by this class or its subclass, and are instead handled
+                by the edit log.
             _name (str): name to use for edit in edit log.
             _description (str): description to use for edit in edit log.
-            _id (str): id of edit, used to compare to other edits, and used as
-                an index in edit_log.
+            _edit_stack_name (str): name of any edit stack that contains this
+                edit.
         """
         self._register_edit = True
         self._registered = False
         self._continuous_run_in_progress = False
         self._is_valid = True
         self._has_been_done = False
+        self._previous_edit_in_stack = None
+        self._next_edit_in_stack = None
         self._name = "Unnamed Edit"
         self._description = ""
-        # self._id = uuid4()
+        self._edit_stack_name = (
+            "This should be overridden in subclasses that support stacking."
+        )
 
     @classmethod
     def create_and_run(cls, *args, **kwargs):
@@ -91,7 +103,7 @@ class BaseEdit(object):
         """Check if edit is valid. This is done after run and update.
 
         This can be used to check validitiy of the edits. Override this in
-        base class for validity checks.
+        base class for validity checks that rely on run having been done.
         """
         pass
 
@@ -233,14 +245,19 @@ class BaseEdit(object):
         self._run()
         self._has_been_done = True
 
-    # @property
-    # def id(self):
-    #     """Get id of edit, to be used as an index in the edit log.
+    def _stacks_with(self, edit):
+        """Check if this should stack with edit if added to the log after it.
 
-    #     Returns:
-    #         (str): edit id.
-    #     """
-    #     return self._id
+        This should be reimplemented in any subclasses that allow stacking.
+
+        Args:
+            edit (BaseEdit): edit to check if this should stack with.
+
+        Returns:
+            (bool): whether or not this should stack (by default this is
+                always false).
+        """
+        return False
 
     @property
     def name(self):
@@ -263,3 +280,12 @@ class BaseEdit(object):
                 can just redefine self._description).
         """
         return self._description
+
+    @property
+    def edit_stack_name(self):
+        """Get name of edit stack, to be displayed in edit log.
+        
+        Returns:
+            (str): name of an edit stack that contains this edit.
+        """
+        return self._edit_stack_name

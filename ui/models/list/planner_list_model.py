@@ -2,8 +2,11 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.calendar.planned_item import PlannedItem
-
+from scheduler.api.calendar.planned_item import (
+    PlannedItem,
+    PlannedItemImportance,
+    PlannedItemSize,
+)
 from scheduler.ui import constants, utils
 from scheduler.ui.widgets.planned_item_dialog import PlannedItemDialog
 
@@ -34,7 +37,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 is modelling, if calendar_period not given.
             open_dialog_on_drop_event (bool): if True, use PlannedItemDialog
                 to add dropped items, otherwise add directly.
-
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         if calendar_period is None and time_period is None:
@@ -78,13 +80,21 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         model.
 
         Args:
-            index (QtCore.QModelIndex): index to query.
+            index (int or QtCore.QModelIndex): column number or index to query.
 
         Returns:
             (str or None): name of column, if exists.
         """
-        if index.isValid() and 0 <= index.column() < len(self.columns):
-            return self.columns[index.column()]
+        if isinstance(index, QtCore.QModelIndex):
+            if not index.isValid():
+                return None
+            column = index.column()
+        elif isinstance(index, int):
+            column = index
+        else:
+            raise Exception("get_column_name requires QModelIndex or int")
+        if 0 <= column < len(self.columns):
+            return self.columns[column]
         return None
 
     def remove_item(self, index, force=False):
@@ -113,6 +123,33 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                     self.endRemoveRows()
                     return success
         return False
+
+    def sort(self, column, order):
+        """Sort items in view based on given column.
+
+        Args:
+            column (int): column to sort by.
+            order (QtCore.Qt.SortOrder): whether to sort forward or in
+                reverse.
+        """
+        reverse = (order == QtCore.Qt.SortOrder.AscendingOrder)
+        column_name = self.get_column_name(column)
+        if column_name == self.NAME_COLUMN:
+            key = lambda item : item.name
+        elif column_name == self.PATH_COLUMN:
+            key = lambda item : item.tree_path
+        elif column_name == self.IMPORTANCE_COLUMN:
+            key = lambda item : PlannedItemImportance.key(item.importance)
+        elif column_name == self.SIZE_COLUMN:
+            key = lambda item : PlannedItemSize.key(item.size)
+        self.beginResetModel()
+        self.planner_manager.sort_planned_items(
+            self.calendar_period,
+            key=key,
+            reverse=reverse,
+        )
+        self.endResetModel()
+        super(PlannerListModel, self).sort(column, order)
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.

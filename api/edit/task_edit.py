@@ -83,7 +83,11 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             subedits.append(global_history_edit)
 
         super(UpdateTaskHistoryEdit, self).__init__(subedits)
-        self._is_valid = bool(new_value or new_status or comment)
+        self._is_valid = (
+            new_value != task_item.get_value_at_date(date)
+            or new_status != task_item.get_status_at_date(date)
+            or comment is not None
+        )
         self._name = "UpdateTaskHistory ({0})".format(task_item.name)
 
         update_texts = []

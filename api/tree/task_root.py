@@ -142,7 +142,7 @@ class TaskRoot(TaskCategory):
         """Get task history dict at given date.
 
         Args:
-            date (Date): date to add at.
+            date (Date): date to query.
 
         Returns:
             (dict): history dict for given day.
@@ -178,6 +178,23 @@ class TaskRoot(TaskCategory):
 class HistoryData(object):
     """Struct to store history data for tasks by day, to add to calendar.
 
+    Structure is like this:
+    {
+        date_1: {
+            task_1: {
+                status: task_status,
+                value: task_value,
+                comments: {
+                    time_1: comment_1,
+                    time_2: comment_2,
+                    ...
+                }
+            },
+            ...
+        },
+        ...
+    }
+
     This is built up when reading the items from dict, and then passed
     to the calendar afterwards.
     """
@@ -193,13 +210,13 @@ class HistoryData(object):
             task (Task): tree item to add history for.
             history_dict (dict): dict representing history for item.
         """
-        self._dict.setdefault(date, {})[task] = history_dict
+        self._dict.setdefault(date, OrderedDict())[task] = history_dict
 
     def get_history_for_date(self, date):
         """Get history at given date.
 
         Note that this adds a subdict to the internal if one doesn't exist
-        so that this any edits to this dictionary will be seen in the returned
+        so that any edits to this dictionary will be seen in the returned
         dict too.
 
         Args:
@@ -208,7 +225,7 @@ class HistoryData(object):
         Returns:
             (dict): history dict for given day.
         """
-        return self._dict.setdefault(date, {})
+        return self._dict.setdefault(date, OrderedDict())
 
     def _update_for_task(self, date, task):
         """Update dict to get history for task at given date.
@@ -219,4 +236,4 @@ class HistoryData(object):
         """
         history_dict = task.history.get_dict_at_date(date)
         if history_dict != self._dict.get(date, {}).get(task):
-            self._dict.setdefault(date, {})[task] = history_dict
+            self._dict.setdefault(date, OrderedDict())[task] = history_dict

@@ -80,7 +80,16 @@ class BaseCalendarTab(BaseTab):
             use_week_for_day=use_week_for_day,
             parent=self,
         )
-        self.main_view = main_views_dict.get((self.date_type, view_type))
+        self.main_view = main_views_dict.get((self.date_type, self.view_type))
+        if not self.main_view:
+            raise Exception(
+                "Cannot initialise {0} with (date, view) == ({1}, {2})"
+                "".format(
+                    self.__class__.__name__,
+                    self.date_type,
+                    self.view_type
+                )
+            )
         self.main_view.set_to_calendar_period(calendar_period)
         self.main_views_stack = QtWidgets.QStackedWidget()
         for view in self.main_views_dict.values():

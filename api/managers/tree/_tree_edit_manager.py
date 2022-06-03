@@ -389,7 +389,7 @@ class TreeEditManager(BaseTreeManager):
         new_tree_item = new_class(tree_item.name)
         return ReplaceTreeItemEdit.create_and_run(tree_item, new_tree_item)
 
-    @require_class(Task, raise_error=True)
+    @require_class(Task, raise_error=False)
     def update_task(
             self,
             task_item,
@@ -402,17 +402,21 @@ class TreeEditManager(BaseTreeManager):
         Args:
             task_item (Task): task item to edit.
             date (DateTime or None): datetime object to update task history
-                with.
+                with. If None, we use current.
             status (TaskStatus or None): status to update task with. If None
                 given, we calculate the next one.
-            value (variant or None): value to set for task at given time.
+            value (variant or None): value to set for task at given time. If
+                None, we ignore.
             comment (str): comment to add to history if needed.
 
         Returns:
             (bool): whether or not edit was successful.
         """
+        if date_time is None:
+            date_time = DateTime.now()
+
         if status is None:
-            current_status = task_item.status
+            current_status = task_item.get_status_at_date(date_time.date())
             if current_status == TaskStatus.UNSTARTED:
                 if task_item.type == TaskType.ROUTINE:
                     status = TaskStatus.COMPLETE
@@ -423,8 +427,6 @@ class TreeEditManager(BaseTreeManager):
             elif current_status == TaskStatus.COMPLETE:
                 status = TaskStatus.UNSTARTED
 
-        if date_time is None:
-            date_time = DateTime.now()
         return UpdateTaskHistoryEdit.create_and_run(
             task_item,
             date_time,

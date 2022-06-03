@@ -330,3 +330,37 @@ class Outliner(QtWidgets.QTreeView):
                         self.MODEL_UPDATED_SIGNAL.emit()
 
         super(Outliner, self).keyPressEvent(event)
+
+    # TODO: delete this and above once we've inherited from BaseTreeView
+    # def _build_right_click_menu(self, item=None):
+    #     """Build right click menu for given item.
+
+    #     Args:
+    #         item (BaseTreeItem or None): item to build menu for.
+
+    #     Returns:
+    #         (QtWidgets.QMenu): the right click menu.
+    #     """
+    #     right_click_menu =  QtWidgets.QMenu("Right Click Menu")
+    #     action = right_click_menu.addAction("Save")
+    #     action.triggered.connect(partial(self.test, item))
+    #     return right_click_menu
+
+    # def mousePressEvent(self, event):
+    #     """Reimplement mouse press event to add right click menu.
+
+    #     Args:
+    #         event (PySide.QtGui.QKeyEvent): The event.
+    #     """
+    #     if event.button() == QtCore.Qt.MouseButton.RightButton:
+    #         index = self.indexAt(event.pos())
+    #         item = index.internalPointer() if index.isValid() else None
+    #         right_click_menu = self._build_right_click_menu(item)
+    #         right_click_menu.exec(self.mapToGlobal(event.pos()))
+    #     super(Outliner, self).mousePressEvent(event)
+
+    # def test(self, item):
+    #     if item is not None:
+    #         print (item.path)
+    #     else:
+    #         print (None)

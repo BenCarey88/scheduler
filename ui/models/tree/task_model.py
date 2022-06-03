@@ -70,16 +70,12 @@ class TaskModel(BaseTreeModel):
             if role == QtCore.Qt.ItemDataRole.FontRole:
                 item = index.internalPointer()
                 if item:
+                    font = QtGui.QFont()
                     if (item.status == TaskStatus.COMPLETE
                             or item.status == TaskStatus.IN_PROGRESS):
-                        font = QtGui.QFont()
                         font.setBold(True)
-                        return font
-            if role == QtCore.Qt.ItemDataRole.FontRole:
-                item = index.internalPointer()
-                if item.type == TaskType.ROUTINE:
-                    font = QtGui.QFont()
-                    font.setItalic(True)
+                    if item.type == TaskType.ROUTINE:
+                        font.setItalic(True)
                     return font
 
         # Status column

@@ -27,8 +27,10 @@ class DateType(object):
 class ViewType(object):
     """Struct representing the different possible view types."""
     LIST = "list"
+    MULTILIST = "multi-list"
     TIMETABLE = "timetable"
     SUMMARY = "summary"
+    HYBRID = "hybrid"
 
 
 class NavigationPanel(QtWidgets.QWidget):

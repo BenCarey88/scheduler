@@ -241,6 +241,27 @@ class CalendarDay(BaseCalendarPeriod):
         for item in self._planned_items:
             yield item
 
+    def get_history_dict(self):
+        """Get history dict for this date.
+
+        Structure:
+        {
+            task_1: {
+                status: task_status,
+                value: task_value,
+                comments: {
+                    time_1: comment_1,
+                    ...
+                }
+            },
+            ...
+        }
+
+        Returns:
+            (dict): dict of task history for given date.
+        """
+        return self._history
+
     def next(self):
         """Get calendar day immediately after this one.
 

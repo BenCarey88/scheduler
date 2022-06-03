@@ -105,11 +105,6 @@ class BaseWeekModel(BaseTableModel):
         return QtCore.Qt.DropAction.MoveAction
 
 
-class TrackerWeekModel(BaseWeekModel):
-    """Week model used by tracker."""
-    TIME_INTERVAL = Date.DAY_END - Date.DAY_START
-
-
 class SchedulerWeekModel(BaseWeekModel):
     """Week model used by calendar."""
     def headerData(self, section, orientation, role):
@@ -136,3 +131,13 @@ class SchedulerWeekModel(BaseWeekModel):
                     QtCore.Qt.AlignmentFlag.AlignHCenter
                 )
         return QtCore.QVariant()
+
+
+class TrackerWeekModel(BaseWeekModel):
+    """Week model used by tracker."""
+    TIME_INTERVAL = Date.DAY_END - Date.DAY_START
+
+
+class HistoryWeekModel(BaseWeekModel):
+    """Week model used by history view."""
+    TIME_INTERVAL = Date.DAY_END - Date.DAY_START

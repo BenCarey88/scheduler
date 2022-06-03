@@ -232,6 +232,28 @@ class Task(BaseTreeItem):
         """
         return isinstance(self.parent, Task)
 
+    def get_status_at_date(self, date):
+        """Get task status at given date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (TaskStatus): task status at given date.
+        """
+        return self.history.get_status_at_date(date)
+
+    def get_value_at_date(self, date):
+        """Get task value at given date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (variant or None): task value at given date, if set.
+        """
+        return self.history.get_value_at_date(date)
+
     # def update_task(self, status=None, date_time=None, comment=None):
     #     """Update task history and status.
 

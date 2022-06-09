@@ -108,3 +108,28 @@ class BaseTreeManager(BaseManager):
         if item.parent is None:
             return None
         return self.get_task_category_or_top_level_task(item.parent)
+
+    @require_class(BaseTreeItem, raise_error=True)
+    def can_accept_child(self, parent_item, child_item):
+        """Check if tree item can accept given item as a child.
+
+        An item can be dropped UNLESS one of the following is true:
+        - The item is an ancestor of the new parent
+        - The parent has a child that is not the item but has the item's name
+        - the item is not in the parent's allowed children.
+
+        Args:
+            parent_item (BaseTreeItem): parent item to check.
+            child_item (BaseTreeItem): child item to check if can be accepted.
+
+        Return:
+            (bool): whether or not parent item can accept child item.
+        """
+        if child_item.is_ancestor(parent_item):
+            return False
+        if (parent_item != child_item.parent
+                and child_item.name in parent_item._children.keys()):
+            return False
+        if type(child_item) not in parent_item._allowed_child_types:
+            return False
+        return True

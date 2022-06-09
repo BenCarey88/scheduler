@@ -102,3 +102,60 @@ def set_style(widget, stylesheet_filename):
     with open(stylesheet_path, "r") as stylesheet_file:
         stylesheet = stylesheet_file.read()
     widget.setStyleSheet(stylesheet)
+
+
+def encode_tree_mime_data(tree_items, mime_data_format):
+    """Encode tree item/s as mimedata.
+
+    Args:
+        tree_items (list(BaseTreeItem) or BaseTreeItem): tree items to
+            encode.
+        mime_data_format (str or None): format for mime data.
+
+    Returns:
+        (QtCore.QMimeData): the mimedata.
+    """
+    mimedata = QtCore.QMimeData()
+    if mime_data_format is None:
+        return mimedata
+    encoded_data = QtCore.QByteArray()
+    stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
+
+    if not isinstance(tree_items, list):
+        tree_items = [tree_items]
+    if len(tree_items) > 1:
+        raise NotImplementedError(
+            "Tree mime data currently only works for single item."
+        )
+    text = None
+    for tree_item in tree_items:
+        text = str(tree_item.internalPointer().path)
+    if text:
+        stream << QtCore.QByteArray(text.encode('utf-8'))
+        mimedata.setData(mime_data_format, encoded_data)
+    return mimedata
+
+
+def decode_tree_mime_data(mime_data, mime_data_format, tree_manager):
+    """Decode tree mime data.
+
+    Args:
+        mime_data (QtCore.QMimeData): the mime data to decode.
+        mime_data_format (str or None): the format to decode.
+        tree_manager (TreeManager): treee manager to use for decoding.
+
+    Returns:
+        (BaseTreeItem or list(BaseTreeItem) or None): the encoded tree
+            item/s, if found.
+    """
+    if mime_data_format is None:
+        return None
+    encoded_data = mime_data.data(mime_data_format)
+    stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
+    if stream.atEnd():
+        return False
+    while not stream.atEnd():
+        byte_array = QtCore.QByteArray()
+        stream >> byte_array
+        encoded_path = bytes(byte_array).decode('utf-8')
+    return tree_manager.root.get_item_at_path(encoded_path)

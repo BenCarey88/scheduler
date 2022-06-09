@@ -1,12 +1,17 @@
 
 upcoming release:
 =================
-* proxy model for planner tab (for sorting)
-* history tab (model + view)
+(/) proxy model for planner tab (for sorting)
+(/) history tab (model + view)
 
 
 next release:
 =============
+* make outliner/task tab/item dialog tree views inherit from same base
+    - key events
+    - right click actions
+    (- hover text?)
+* do remaining views for each tab?
 * archive tree and calendar
 * basic filters for the 4 main tabs
 

@@ -123,22 +123,16 @@ class OutlinerTreeModel(BaseTreeModel):
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
         if self.get_column_name(index) == self.NAME_COLUMN:
-            item = index.internalPointer()
-            parent_item = item.parent
-            if parent_item and self.tree_manager.is_filtered_out(parent_item):
-                return (
-                    QtCore.Qt.ItemFlag.ItemIsSelectable |
-                    QtCore.Qt.ItemFlag.ItemIsEditable |
-                    QtCore.Qt.ItemFlag.ItemIsUserCheckable |
-                    QtCore.Qt.ItemFlag.ItemIsDragEnabled |
-                    QtCore.Qt.ItemFlag.ItemIsDropEnabled
-                )
-            return (
-                QtCore.Qt.ItemFlag.ItemIsEnabled |
+            flags = (
                 QtCore.Qt.ItemFlag.ItemIsSelectable |
                 QtCore.Qt.ItemFlag.ItemIsEditable |
                 QtCore.Qt.ItemFlag.ItemIsUserCheckable |
                 QtCore.Qt.ItemFlag.ItemIsDragEnabled |
                 QtCore.Qt.ItemFlag.ItemIsDropEnabled
             )
+            item = index.internalPointer()
+            parent_item = item.parent
+            if parent_item and self.tree_manager.is_filtered_out(parent_item):
+                return flags
+            return QtCore.Qt.ItemFlag.ItemIsEnabled | flags
         return super(OutlinerTreeModel, self).flags(index)

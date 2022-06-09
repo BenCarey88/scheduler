@@ -1,9 +1,10 @@
 """Abstract Base Tree model."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from scheduler.api.tree import Task, TaskCategory
+from scheduler.api.tree.task import Task
+from scheduler.api.tree.task_category import TaskCategory
 
-from scheduler.ui import constants, utils
+from scheduler.ui import constants
 
 
 class BaseTreeModel(QtCore.QAbstractItemModel):
@@ -31,7 +32,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 for reducing number of children in model. These will be added
                 to the filter from the tree_manager.
             mime_data_format (str or None): data format of any mime data
-                created - if None, mimedata can't be created.
+                created - if None, default to outliner.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(BaseTreeModel, self).__init__(parent)
@@ -74,41 +75,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if index.isValid() and 0 <= index.column() < len(self.columns):
             return self.columns[index.column()]
         return None
-
-    def get_index_from_item(self, item):
-        """Get index and row for given tree item.
-
-        Args:
-            item (BaseTreeItem or None): tree item to get index for. For
-                convenience, we allow passing None and just return None.
-
-        Returns:
-            (QtCore.QModelIndex or None): index for that item in the model,
-                if found.
-        """
-        parent = item.parent()
-        if parent is None:
-            return QtCore.QModelIndex()
-        row = item.index()
-        if row is not None:
-            return self.createIndex(row, 0, item)
-        return None
-
-    def get_row_and_parent_index(self, item):
-        """Get index of parent of item and row of item in parent list.
-
-        Args:
-            item (BaseTreeItem): tree item to get index for.
-
-        Returns:
-            (int or None): row of item in parent's child list.
-            (QtCore.QModelIndex or None): index for that item in the model,
-                if found.
-        """
-        row = item.index()
-        if row is not None:
-            return row, self.get_index_from_item(item.parent)
-        return None, None
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -177,13 +143,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         with parent_item.filter_children(self.child_filters):
             return parent_item.num_children()
 
-    def columnCount(self, index=None):
+    def columnCount(self, index):
         """Get number of columns of given item.
 
         This is set to 1 in base class but can be overridden if needed.
-
-        Args:
-            index (QtCore.QModelIndex) index to check at.
 
         Returns:
             (int): number of columns.
@@ -228,11 +191,11 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if role != QtCore.Qt.ItemDataRole.EditRole:
             # can only do text edit role in base class
             return False
-        if self.get_column_name(index) != self.NAME_COLUMN:
-            # in base class, we can only set data on the name column
-            return False
         if not value:
             # can't set tree item with empty name
+            return False
+        if self.get_column_name(index) != self.NAME_COLUMN:
+            # in base class, we can only set data on the name column
             return False
         item = index.internalPointer()
         if not item:
@@ -253,19 +216,15 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
-        flags = QtCore.Qt.ItemFlag.ItemIsEnabled
         if self.get_column_name(index) == self.NAME_COLUMN:
-            flags |= (
+            return (
                 QtCore.Qt.ItemFlag.ItemIsEnabled | 
                 QtCore.Qt.ItemFlag.ItemIsSelectable |
-                QtCore.Qt.ItemFlag.ItemIsEditable
+                QtCore.Qt.ItemFlag.ItemIsEditable |
+                QtCore.Qt.ItemFlag.ItemIsDragEnabled |
+                QtCore.Qt.ItemFlag.ItemIsDropEnabled
             )
-            if self.mime_data_format is not None:
-                flags |= (
-                    QtCore.Qt.ItemFlag.ItemIsDragEnabled |
-                    QtCore.Qt.ItemFlag.ItemIsDropEnabled
-                )
-        return flags
+        return QtCore.Qt.ItemFlag.ItemIsEnabled
 
     def headerData(self, section, orientation, role):
         """Get header data.
@@ -289,7 +248,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Returns:
             (list(str)): list of mime types.
         """
-        return [self.mime_data_format] if self.mime_data_format else []
+        return [self.mime_data_format]
 
     def supportedDropAction(self):
         """Get supported drop action types:
@@ -312,20 +271,39 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             (QtCore.QMimeData): mimedata for given indexes.
         """
         mimedata = QtCore.QMimeData()
-        if self.mime_data_format is None:
-            return mimedata
-        tree_items = [
-            index.internalPointer()
-            for index in indexes
-            if index.isValid() and index.internalPointer()
-        ]
-        return utils.encode_tree_mime_data(tree_items, self.mime_data_format)
+        encoded_data = QtCore.QByteArray()
+        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
+        if len(indexes) > 1:
+            raise NotImplementedError(
+                "Mime data currently only works for single item."
+            )
+        text = None
+        for index in indexes:
+            if index.isValid() and index.internalPointer():
+                text = str(index.internalPointer().path)
+        if text:
+            stream << QtCore.QByteArray(text.encode('utf-8'))
+            mimedata.setData(
+                self.mime_data_format,
+                encoded_data
+            )
+        return mimedata
 
-    def canDropMimeData(self, mime_data, action, row, col, parent_index):
+    def canDropMimeData(self, mimeData, action, row, col, parent_index):
         """Check whether we can drop mime data over a given item.
 
+        For now an item can be dropped UNLESS one of the following is true:
+        - The item is an ancestor of the new parent
+        - The parent has a child that is not the item but has the item's name
+        - The item is a category and the parent is a task
+        - The item is a subtask and the parent is a category
+        - The parent is a top-level task (ie. a task that's not a subtask)
+
+        The last 3 conditions ensure that we can't drop items from the outliner
+        in the task tab and vice versa.
+
         Args:
-            mime_data (QtCore.QMimeData): mime data.
+            mimeData (QtCore.QMimeData): mime data.
             action (QtCore.Qt.DropAction): the type of drop action being done.
             row (int): the row we're dropping on.
             column (int): the column we're dropping on.
@@ -335,21 +313,56 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Returns:
             (bool): True if we can drop the item, else False.
         """
-        if not mime_data.hasFormat(self.mime_data_format):
+        # TODO: make separate method for decoding/encoding data.
+        encoded_data = mimeData.data(self.mime_data_format)
+        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
+        if stream.atEnd():
             return False
-        if self.get_column_name(col) != self.NAME_COLUMN:
-            return False
+
+        while not stream.atEnd():
+            byte_array = QtCore.QByteArray()
+            stream >> byte_array
+            encoded_path = bytes(byte_array).decode('utf-8')
+
         parent = parent_index.internalPointer()
         if not parent:
             return False
-        item = utils.decode_tree_mime_data(
-            mime_data,
-            self.mime_data_format,
-            self.tree_manager,
-        )
-        if item is None:
-            return False    
-        return self.tree_manager.can_accept_child(parent, item)
+        root = parent.root
+
+        item = root.get_item_at_path(encoded_path)
+        if not item:
+            return False
+
+        if item.is_ancestor(parent):
+            return False
+
+        # TODO: wrap all this into a can_accept_child function in tree_manager
+
+        # if it's a different parent but already has this kid name, no can do
+        if (parent != item.parent
+                and item.name in parent._children.keys()):
+            return False
+
+        # TODO: for now I'm just assuming: subtasks are in taskview, non-subtasks
+        # are in outliner. This is fine but I maybe something slightly neater
+        # could be done with the tree_manager to ensure no crossover from outliner
+        # to task view? Or maybe something better would be eg. encode model name/id
+        # and check that the item being dropped matches it.
+
+        # TODO: a lot of this is now unneeded. Remove?
+        if isinstance(parent, Task):
+            # can't drop categories on tasks
+            if isinstance(item, TaskCategory):
+                return False
+            # can't drop anything on top-level tasks
+            if not parent.is_subtask():
+                return False
+        elif isinstance(parent, TaskCategory):
+            # can't drop subtasks on categories
+            if isinstance(item, Task) and item.is_subtask():
+                return False
+
+        return True
 
     def dropMimeData(self, data, action, row, column, parent_index):
         """Add mime data at given index.
@@ -371,15 +384,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return True
-        parent = parent_index.internalPointer()
-        if not parent:
+        if not data.hasFormat(self.mime_data_format):
             return False
-        item = utils.decode_tree_mime_data(
-            data,
-            self.mime_data_format,
-            self.tree_manager,
-        )
-        if item is None:
+        if column > 0:
             return False
 
         if row < 0:
@@ -390,157 +397,38 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             else:
                 return False
 
+        parent = parent_index.internalPointer()
+        if not parent:
+            return False
+        # we need to use this for now rather that self.root bc in the task model
+        # then the root is just the top-level task
+        root = parent.root
+
+        encoded_data = data.data(self.mime_data_format)
+        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
+        while not stream.atEnd():
+            byte_array = QtCore.QByteArray()
+            stream >> byte_array
+            encoded_path = bytes(byte_array).decode('utf-8')
+
+        item = root.get_item_at_path(encoded_path)
+        if not item:
+            return False
+
         if item.parent == parent:
             # if item is being dropped further along its parents childlist
             # then row needs to be reduced by 1
             if row > item.index():
                 row -= 1
-        orig_row, orig_parent_index = self.get_row_and_parent_index(item)
-        if orig_row is None or parent_index is None:
-            return False
 
-        # IF THIS SEGFAULTS, TRY JUST USING RESET MODEL
-        # self.beginResetModel()
-        self.beginMoveRows(
-            orig_parent_index,
-            orig_row,
-            orig_row,
-            parent_index,
+        self.beginResetModel()
+        success = self.tree_manager.move_item_by_path(
+            encoded_path,
+            parent.path,
             row
         )
-        success = self.tree_manager.move_item(item, parent, row)
-        # self.endResetModel()
-        self.endMoveRows()
-        return success
-
-    def remove_items(self, items, force=False):
-        """Remove items.
-
-        Args:
-            items (list(BaseTreeItem) or None): items to remove.
-            force (bool): if False, show user dialog to prompt continuation.
-
-        Returns:
-            (bool): whether or not action was successful.
-        """
-        if not force:
-            continue_deletion = utils.simple_message_dialog(
-                "Delete the following items?",
-                "\n".join([item.name for item in items]),
-                parent=self
-            )
-            if not continue_deletion:
-                return False
-        success = False
-        for item in items:
-            # TODO: stack these edits, or make them a single edit
-            row, parent_index = self.get_row_and_parent_index(item)
-            if parent_index is None or row is None:
-                continue
-            self.beginRemoveColumns(parent_index, row)
-            success = self.tree_manager.remove_child(
-                item.parent,
-                item.name,
-            ) or success
-            self.endRemoveRows()
-        return success
-
-    def add_subtask(self, item, *args):
-        """Add task child to item.
-
-        Args:
-            item (BaseTreeItem or None): item to add to.
-
-        Returns:
-            (bool): whether or not action was successful.
-        """
-        index = self.get_index_from_item(item)
-        if index is None:
-            return None
-        row = item.num_children()
-        self.beginInsertRows(index, row, row)
-        success = self.tree_manager.create_new_subtask(item)
-        self.endInsertRows()
-        return success
-
-    def add_subcategory(self, item):
-        """Add category child to item.
-
-        Args:
-            item (BaseTreeItem or None): item to add to.
-
-        Returns:
-            (bool): whether or not action was successful.
-        """
-        index = self.get_index_from_item(item)
-        if index is None:
-            return None
-        row = item.num_children()
-        self.beginInsertRows(index, row, row)
-        success = self.tree_manager.create_new_subcategory(item)
-        self.endInsertRows()
-        return success
-
-    def add_sibling_item(self, item):
-        """Add sibling for given item.
-
-        Args:
-            item (BaseTreeItem or None): item to add sibling to.
-
-        Returns:
-            (bool): whether or not action was successful.
-        """
-        row, parent_index = self.get_row_and_parent_index(item)
-        if parent_index is None or row is None:
-            return
-        row = item.parent.num_children()
-        self.beginInsertRows(parent_index, row, row)
-        success = self.tree_manager.create_new_sibling(item)
-        self.endInsertRows()
-        return success
-
-    def move_item_one_space(self, item, up=False):
-        """Move item one space up or down in sibling list.
-
-        Args:
-            item (BaseTreeItem or None): item to move.
-            up (bool): if True, move up, else move down a space.
-
-        Returns:
-            (bool): whether or not action was successful.
-        """
-        row, parent_index = self.get_row_and_parent_index(item)
-        if parent_index is None or row is None:
-            return False
-        new_row = row - 1 if up else row + 1
-        self.beginMoveRows(parent_index, row, row, parent_index, new_row)
-        success = self.tree_manager.move_item_local(item, new_row)
-        self.endMoveRows()
-        return success
-
-    def toggle_task_type(self, item):
-        """Switch task to routine or back again.
-
-        Args:
-            item (BaseTreeItem or None): item to switch.
-
-        Returns:
-            (bool): whether or not action was successful.
-        """
-        index = self.get_index_from_item(item)
-        if index is None:
-            return False
-        if self.tree_manager.change_task_type(item):
-            self.dataChanged.emit(index, index)
+        self.endResetModel()
+        if success:
+            self.dataChanged.emit(parent_index, parent_index)
             return True
         return False
-
-    def set_filters(self, new_filters):
-        """Set filters for model.
-
-        Args:
-            new_filters (list(BaseFilter)): filters to set.
-        """
-        self.beginResetModel()
-        self._base_filters = new_filters
-        self.endResetModel()

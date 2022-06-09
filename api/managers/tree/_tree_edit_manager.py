@@ -328,34 +328,23 @@ class TreeEditManager(BaseTreeManager):
             {tree_item.name: new_index},
         )
 
-    def move_item_by_path(
-            self,
-            path_to_item,
-            path_to_new_parent,
-            index=None):
+    @require_class(BaseTreeItem, raise_error=True)
+    def move_item(self, item, new_parent, index=None):
         """Move item at given path under parent at given path.
 
         Args:
-            path_to_item (list(str) or str): path of item to move.
-            path_to_new_parent (list(str) or str): path of parent to move it
-                to.
+            item (BaseTreeItem): item to move.
+            new_parent (BaseTreeItem): parent to move it to.
             index (int or None): index in new parent's _children dict to move
                 it to. If None, add at end.
 
         Returns:
             (bool): whether or not edit was successful.
         """
-        item = self._tree_root.get_item_at_path(path_to_item)
-        new_parent = self._tree_root.get_item_at_path(path_to_new_parent)
-        if not item or not new_parent or item.is_ancestor(new_parent):
+        if not self.can_accept_child(new_parent, item):
             return False
         if index is None:
             index = new_parent.num_children()
-        if (item.parent != new_parent
-                and item.name in new_parent._children.keys()):
-            return False
-        if type(item) not in new_parent._allowed_child_types:
-            return False
         if index < 0 or index > new_parent.num_children():
             return False
         return MoveTreeItemEdit.create_and_run(

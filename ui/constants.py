@@ -2,9 +2,14 @@
 
 from collections import OrderedDict
 
-from PyQt5 import QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import TaskStatus
+
+# Global Signals
+class _SIGNALS(QtCore.QObject):
+    DIALOG_TREE_UPDATED_SIGNAL = QtCore.pyqtSignal()
+SIGNALS = _SIGNALS()
 
 # General
 TASK_STATUS_CHECK_STATES = OrderedDict([

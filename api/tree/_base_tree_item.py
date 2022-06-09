@@ -2,25 +2,10 @@
 
 from collections import OrderedDict
 from contextlib import contextmanager
-from uuid import uuid4
 
 from scheduler.api.common.object_wrappers import Hosted, MutableAttribute
 from scheduler.api.constants import TASK_COLOURS
-from scheduler.api.edit.tree_edit import (
-    AddChildrenEdit,
-    InsertChildrenEdit,
-    ModifyChildrenEdit,
-    MoveChildrenEdit,
-    RemoveChildrenEdit,
-    RenameChildrenEdit,
-)
 from scheduler.api.serialization.serializable import NestedSerializable
-from .exceptions import (
-    ChildNameError,
-    DuplicateChildNameError,
-    MultipleParentsError,
-    UnallowedChildType,
-)
 
 
 class BaseTreeItem(Hosted, NestedSerializable):
@@ -44,8 +29,6 @@ class BaseTreeItem(Hosted, NestedSerializable):
         self._name = MutableAttribute(name, "name")
         self._parent = MutableAttribute(parent, "parent")
         self._children = OrderedDict()
-        # self._register_edits = True
-        # self.id = id or uuid4()
         # base class must be overridden, has no allowed child types.
         self._allowed_child_types = []
 

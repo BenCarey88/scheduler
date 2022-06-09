@@ -1,17 +1,9 @@
 """Task class."""
 
-from ast import Or
 from collections import OrderedDict
-from functools import partial
-import json
-import os
 
-from scheduler.api.common.date_time import Date, DateTime, Time
+from scheduler.api.common.date_time import Date, Time
 from scheduler.api.common.object_wrappers import MutableAttribute
-from scheduler.api.edit.task_edit import (
-    ChangeTaskTypeEdit,
-    UpdateTaskHistoryEdit
-)
 from scheduler.api.serialization.serializable import SaveType
 
 from ._base_tree_item import BaseTreeItem

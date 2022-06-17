@@ -27,8 +27,7 @@ class TaskTreeModel(BaseTreeModel):
             tree_manager,
             tree_root=root_task,
             mime_data_format=constants.TASK_TAB_TREE_MIME_DATA_FORMAT,
-            register_tree_manager_callbacks=False,
-            parent=parent,
+            parent=parent
         )
         self.columns = [self.NAME_COLUMN, self.STATUS_COLUMN]
 
@@ -109,7 +108,7 @@ class TaskTreeModel(BaseTreeModel):
             if not task_item:
                 return False
             self.tree_manager.update_task(task_item)
-            # self.dataChanged.emit(index, index)
+            self.dataChanged.emit(index, index)
             return True
         return super(TaskTreeModel, self).setData(index, value, role)
 
@@ -125,6 +124,8 @@ class TaskTreeModel(BaseTreeModel):
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
         if self.get_column_name(index) == self.STATUS_COLUMN:
+            # TODO: work out how to create a selection of base flags
+            # and then just add/remove some for each model subclass
             return (
                 QtCore.Qt.ItemFlag.ItemIsEnabled |
                 QtCore.Qt.ItemFlag.ItemIsSelectable |

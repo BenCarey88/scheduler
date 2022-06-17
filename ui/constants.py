@@ -6,10 +6,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import TaskStatus
 
-# Global Signals
-class _SIGNALS(QtCore.QObject):
-    DIALOG_TREE_UPDATED_SIGNAL = QtCore.pyqtSignal()
-SIGNALS = _SIGNALS()
 
 # General
 TASK_STATUS_CHECK_STATES = OrderedDict([
@@ -23,6 +19,7 @@ LONG_TIMER_INTERVAL = 300000 # every 5 mins
 # Mime Data
 OUTLINER_TREE_MIME_DATA_FORMAT = "outliner_tree_mime_data"
 TASK_TAB_TREE_MIME_DATA_FORMAT = "task_tab_tree_mime_data"
+ITEM_DIALOG_TREE_MIME_DATA_FORMAT = "item_dialog_tree_mime_data"
 PLANNED_ITEM_MIME_DATA_FORMAT = "planned_item_mime_data"
 
 # Colors

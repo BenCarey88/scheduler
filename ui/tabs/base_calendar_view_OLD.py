@@ -47,10 +47,10 @@ class BaseListView(QtWidgets.QTreeView):
         self.model().set_calendar_period(calendar_period)
         self.update()
 
-    # def update(self):
-    #     """Update view."""
-    #     self.viewport().update()
-    #     self.header().viewport().update()
+    def update(self):
+        """Update view."""
+        self.viewport().update()
+        self.header().viewport().update()
 
 
 class BaseTableView(QtWidgets.QTableView):
@@ -87,10 +87,10 @@ class BaseTableView(QtWidgets.QTableView):
             "set to calendar period implemented in BaseTableView subclasses."
         )
 
-    # def update(self):
-    #     """Update view."""
-    #     self.viewport().update()
-    #     self.horizontalHeader().viewport().update()
+    def update(self):
+        """Update view."""
+        self.viewport().update()
+        self.horizontalHeader().viewport().update()
 
 
 class BaseDayTableView(BaseTableView):

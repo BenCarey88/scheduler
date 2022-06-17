@@ -44,8 +44,7 @@ class BaseCalendarTab(BaseTab):
             use_full_period_names (bool): if True, use long names for periods
                 in navigation bar.
             use_week_for_day (bool): if True, day view will use a calendar
-                week object with length 1 in the day view, so it can make use
-                of the week model.
+                week object, so it can make use of the week model.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         if (date_type, view_type) not in main_views_dict.keys():
@@ -110,9 +109,9 @@ class BaseCalendarTab(BaseTab):
             self.update_view_type
         )
 
-    # def update(self):
-    #     """Update widget."""
-    #     self.main_view.update()
+    def update(self):
+        """Update widget."""
+        self.main_view.update()
 
     def set_to_calendar_period(self, calendar_period):
         """Set main view to calendar period.

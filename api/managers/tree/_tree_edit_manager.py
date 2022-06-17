@@ -1,7 +1,6 @@
 """Tree edit manager for managing edits on tree items."""
 
 
-from types import new_class
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.edit.tree_edit import (
     InsertChildrenEdit,
@@ -27,6 +26,7 @@ from scheduler.api.tree._base_tree_item import BaseTreeItem
 
 from .._base_manager import require_class
 from ._base_tree_manager import BaseTreeManager
+from ._tree_callbacks import TREE_CALLBACKS
 
 
 class TreeEditManager(BaseTreeManager):
@@ -86,10 +86,14 @@ class TreeEditManager(BaseTreeManager):
             index = len(tree_item._children)
         if index < 0 or index > len(tree_item._children):
             raise IndexError("Index given is larger than number of children.")
-        return InsertChildrenEdit.create_and_run(
+        TREE_CALLBACKS.run_pre_item_added_callbacks(child, tree_item, index)
+        success = InsertChildrenEdit.create_and_run(
             tree_item,
             {name: (index, child)},
         )
+        if success:
+            TREE_CALLBACKS.run_item_added_callbacks(child, tree_item, index)
+        return success
 
     @require_class(BaseTreeItem, raise_error=True)
     def create_new_child(
@@ -249,39 +253,27 @@ class TreeEditManager(BaseTreeManager):
         )
 
     @require_class(BaseTreeItem, raise_error=True)
-    def remove_child(self, tree_item, name):
-        """Remove an existing child from this item's children dict.
+    def remove_item(self, tree_item):
+        """Remove an existing tree item from its parent's children dict.
 
         Args:
-            tree_item (BaseTreeItem): the tree item to edit.
-            name (str): name of child item to remove.
+            tree_item (BaseTreeItem): the tree item to remove.
 
         Returns:
             (bool): whether or not edit was successful.
         """
-        if name in tree_item._children.keys():
-            return RemoveChildrenEdit.create_and_run(
-                tree_item,
-                [name],
-            )
-        return False
-
-    @require_class(BaseTreeItem, raise_error=True)
-    def remove_children(self, tree_item, names):
-        """Remove existing children from this item's children dict.
-
-        Args:
-            tree_item (BaseTreeItem): the tree item to edit.
-            name (list(str)): name of child items to remove.
-
-        Returns:
-            (bool): whether or not edit was successful.
-        """
-        names = [name for name in names if name in tree_item._children.keys()]
-        return RemoveChildrenEdit.create_and_run(
-            tree_item,
-            names,
+        parent = tree_item.parent
+        if not parent:
+            return False
+        TREE_CALLBACKS.run_pre_item_removed_callbacks(tree_item, parent, index)
+        success = RemoveChildrenEdit.create_and_run(
+            parent,
+            [tree_item.name],
         )
+        index = tree_item.index()
+        if success:
+            TREE_CALLBACKS.run_item_removed_callbacks(tree_item, parent, index)
+        return success
 
     @require_class((Task, TaskCategory), raise_error=True)
     def set_item_name(self, tree_item, new_name):
@@ -297,14 +289,18 @@ class TreeEditManager(BaseTreeManager):
             (bool): whether or not name was successfully set.
         """
         parent = tree_item.parent
-        if parent:
-            if parent.get_child(new_name):
-                return False
-            return RenameChildrenEdit.create_and_run(
-                parent,
-                {tree_item.name: new_name},
-            )
-        return False
+        if not parent:
+            return False
+        if parent.get_child(new_name):
+            return False
+        TREE_CALLBACKS.run_pre_item_modified_callbacks(tree_item, tree_item)
+        success = RenameChildrenEdit.create_and_run(
+            parent,
+            {tree_item.name: new_name},
+        )
+        if success:
+            TREE_CALLBACKS.run_item_modified_callbacks(tree_item, tree_item)
+        return success
 
     @require_class(BaseTreeItem, raise_error=True)
     def move_item_local(self, tree_item, new_index):
@@ -321,12 +317,29 @@ class TreeEditManager(BaseTreeManager):
             return False
         if new_index >= tree_item.parent.num_children() or new_index < 0:
             return False
-        if new_index == tree_item.index():
+        old_index = tree_item.index()
+        if new_index == old_index:
             return False
-        return MoveChildrenEdit.create_and_run(
+        TREE_CALLBACKS.run_pre_item_moved_callbacks(
+            tree_item,
+            tree_item.parent,
+            old_index,
+            tree_item.parent,
+            new_index,
+        )
+        success = MoveChildrenEdit.create_and_run(
             tree_item.parent,
             {tree_item.name: new_index},
         )
+        if success:
+            TREE_CALLBACKS.run_item_moved_callbacks(
+                tree_item,
+                tree_item.parent,
+                old_index,
+                tree_item.parent,
+                new_index,
+            )
+        return success
 
     @require_class(BaseTreeItem, raise_error=True)
     def move_item(self, item, new_parent, index=None):
@@ -347,11 +360,29 @@ class TreeEditManager(BaseTreeManager):
             index = new_parent.num_children()
         if index < 0 or index > new_parent.num_children():
             return False
-        return MoveTreeItemEdit.create_and_run(
+        old_parent = item.parent
+        old_index = item.index()
+        TREE_CALLBACKS.run_pre_item_moved_callbacks(
+            item,
+            old_parent,
+            old_index,
+            new_parent,
+            index
+        )
+        success = MoveTreeItemEdit.create_and_run(
             item,
             new_parent,
             index,
         )
+        if success:
+            TREE_CALLBACKS.run_item_moved_callbacks(
+                item,
+                old_parent,
+                old_index,
+                new_parent,
+                index
+            )
+        return success
 
     @require_class(BaseTreeItem, raise_error=True)
     def change_item_class(self, tree_item):
@@ -376,7 +407,17 @@ class TreeEditManager(BaseTreeManager):
                 )
             )
         new_tree_item = new_class(tree_item.name)
-        return ReplaceTreeItemEdit.create_and_run(tree_item, new_tree_item)
+        TREE_CALLBACKS.run_pre_item_modified_callbacks(
+            tree_item,
+            new_tree_item,
+        )
+        success = ReplaceTreeItemEdit.create_and_run(tree_item, new_tree_item)
+        if success:
+            TREE_CALLBACKS.run_item_modified_callbacks(
+                tree_item,
+                new_tree_item,
+            )
+        return success
 
     @require_class(Task, raise_error=False)
     def update_task(
@@ -416,13 +457,17 @@ class TreeEditManager(BaseTreeManager):
             elif current_status == TaskStatus.COMPLETE:
                 status = TaskStatus.UNSTARTED
 
-        return UpdateTaskHistoryEdit.create_and_run(
+        success = UpdateTaskHistoryEdit.create_and_run(
             task_item,
             date_time,
             status,
             value,
             comment=comment,
         )
+        TREE_CALLBACKS.run_pre_item_modified_callbacks(task_item, task_item)
+        if success:
+            TREE_CALLBACKS.run_item_modified_callbacks(task_item, task_item)
+        return success
 
     @require_class(Task, raise_error=False)
     def change_task_type(self, task_item, new_type=None):
@@ -441,6 +486,97 @@ class TreeEditManager(BaseTreeManager):
                 TaskType.ROUTINE if task_item.type == TaskType.GENERAL
                 else TaskType.GENERAL
             )
-        if new_type != task_item.type:
-            return ChangeTaskTypeEdit.create_and_run(task_item, new_type)
-        return False
+        if new_type == task_item.type:
+            return False
+        success = ChangeTaskTypeEdit.create_and_run(task_item, new_type)
+        TREE_CALLBACKS.run_pre_item_modified_callbacks(task_item, task_item)
+        if success:
+            TREE_CALLBACKS.run_item_modified_callbacks(task_item, task_item)
+        return success
+
+    ### Callbacks ###
+    def register_pre_item_added_callback(self, id, callback):
+        """Register callback to use before an item is added.
+
+        Args:
+            id (variant): id to register callback with.
+            callback (function): function to call when an item is added.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_pre_item_added_callback(id, callback)
+    
+    def register_item_added_callback(self, id, callback):
+        """Register callback to use when an item is added.
+
+        Args:
+            id (variant): id to register callback with.
+            callback (function): function to call when an item is added.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_item_added_callback(id, callback)
+
+    def register_pre_item_removed_callback(self, id, callback):
+        """Register callback to use before an item is removed.
+
+        Args:
+            id (variant): id to register callback with.
+            callback (function): function to call before an item is removed.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_pre_item_removed_callback(id, callback)
+    
+    def register_item_removed_callback(self, id, callback):
+        """Register callback to use when an item is removed.
+
+        Args:
+            id (variant): id to register callback with.
+            callback (function): function to call when an item is removed.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_item_removed_callback(id, callback)
+
+    def register_pre_item_moved_callback(self, id, callback):
+        """Register callback to use before an item is moved.
+
+        Args:
+            callback (function): function to call before an item is moved.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_pre_item_moved_callback(id, callback)
+
+    def register_item_moved_callback(self, id, callback):
+        """Register callback to use when an item is moved.
+
+        Args:
+            callback (function): function to call when an item is moved.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_item_moved_callback(id, callback)
+
+    def register_pre_item_modified_callback(self, id, callback):
+        """Register callback to use before an item is modified.
+
+        Args:
+            id (variant): id to register callback with.
+            callback (function): function to call before an item is modified.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_pre_item_modified_callback(id, callback)
+
+    def register_item_modified_callback(self, id, callback):
+        """Register callback to use when an item is modified.
+
+        Args:
+            id (variant): id to register callback with.
+            callback (function): function to call when an item is modified.
+                See callbacks class for required inputs to this function.
+        """
+        TREE_CALLBACKS.register_item_modified_callback(id, callback)
+
+    def remove_callbacks(self, id):
+        """Remove all callbacks registered under the given id.
+
+        Args:
+            id (variant): the id a callback was registered under.
+        """
+        TREE_CALLBACKS.remove_callbacks(id)

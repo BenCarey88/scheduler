@@ -31,14 +31,14 @@ class OutlinerTreeModel(BaseTreeModel):
                 deselected in the outliner.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        child_filters = []
+        child_filters=[]
         if hide_filtered_items and tree_manager.child_filter:
             child_filters.append(tree_manager.child_filter)
         super(OutlinerTreeModel, self).__init__(
             tree_manager,
+            parent=parent,
             filters=child_filters,
             mime_data_format=constants.OUTLINER_TREE_MIME_DATA_FORMAT,
-            parent=parent,
         )
 
     def data(self, index, role):
@@ -137,17 +137,3 @@ class OutlinerTreeModel(BaseTreeModel):
                 return flags
             return QtCore.Qt.ItemFlag.ItemIsEnabled | flags
         return super(OutlinerTreeModel, self).flags(index)
-
-    def set_items_hidden(self, hide):
-        """Hide or unhide filtered items in outliner.
-
-        Args:
-            hide (bool): if True, hide items, else unhide them.
-
-        Returns:
-            (bool): whether or not action was successful.
-        """
-        if hide:
-            return self.set_filters([])
-        else:
-            return self.set_filters([self.tree_manager.child_filter])

@@ -6,10 +6,12 @@ editing the underlying tree item data, eg. whether or not the item
 is being filtered for in the current tab.
 """
 
+from scheduler.api.tree import BaseTreeItem
 from scheduler.api.tree.filters import NoFilter, FilterByItem
 from scheduler.api.utils import fallback_value
 
 from ._base_tree_manager import BaseTreeManager
+from .._base_manager import require_class
 
 
 class TreeFilterManager(BaseTreeManager):
@@ -301,11 +303,14 @@ class TreeFilterManager(BaseTreeManager):
     def set_expanded_from_filtered(self, item):
         """Set filtered items as collapsed and unfiltered as expanded.
 
-        This only exapdns TaskCategory items, to avoid opening full tree
+        This only exapnds TaskCategory items, to avoid opening full tree
         unnecessarily.
 
         Args:
             item (BaseTreeItem): tree item to set from.
+
+        Returns:
+            (bool): whether or not action was successful.
         """
         if self.is_filtered_out(item):
             self.expand_item(item, False)
@@ -314,6 +319,7 @@ class TreeFilterManager(BaseTreeManager):
                 self.expand_item(item, True)
             for child in item.get_all_children():
                 self.set_expanded_from_filtered(child)
+        return True
 
     @property
     def child_filter(self):
@@ -325,6 +331,19 @@ class TreeFilterManager(BaseTreeManager):
         if self._filtered_items:
             return FilterByItem(list(self._filtered_items))
         return NoFilter()
+
+    @require_class(BaseTreeItem, raise_error=True)
+    def get_filtered_children(self, tree_item):
+        """Get filtered children of tree item.
+
+        Args:
+            tree_item (BaseTreeItem): item to get chidren of.
+
+        Returns:
+            (list(BaseTreeItem)): children with filter applied.
+        """
+        with tree_item.filter_children([self.child_filter]):
+            return tree_item.get_all_children()
 
     def set_current_item(self, item):
         """Set given item as the currently selected one.

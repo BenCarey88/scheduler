@@ -4,6 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.ui import constants
 from scheduler.ui.models.tree import ItemDialogTreeModel
 
 from .base_tree_view import BaseTreeView
@@ -66,6 +67,9 @@ class ItemDialog(QtWidgets.QDialog):
             parent=self
         )
         right_layout.addWidget(self.tree_view)
+        self.tree_view.MODEL_UPDATED_SIGNAL.connect(
+            constants.SIGNALS.DIALOG_TREE_UPDATED_SIGNAL.emit
+        )
 
         # button layout
         if self.is_editor:
@@ -85,6 +89,10 @@ class ItemDialog(QtWidgets.QDialog):
         self.tree_view.selectionModel().currentChanged.connect(
             self.update
         )
+
+    def update(self):
+        """Update view (to be reimplemented in subclasses)."""
+        pass
 
     @property
     def tree_item(self):
@@ -118,11 +126,6 @@ class ItemDialog(QtWidgets.QDialog):
         self.reject()
         self.close()
 
-    def close(self):
-        """Override close event to remove callbacks."""
-        self.tree_view.model().remove_callbacks()
-        super(ItemDialog, self).close()
-
 
 class DialogTreeView(BaseTreeView):
     """Tree view to be used in item dialogs."""
@@ -139,32 +142,33 @@ class DialogTreeView(BaseTreeView):
         self._is_full_tree = True
         self.setModel(ItemDialogTreeModel(tree_manager))
         self.tree_item = tree_item
-        # self.expanded_items = set()
+        self.expanded_items = set()
         if self.tree_item is not None:
             self.expand_to_tree_item(self.tree_item, select=True)
         else:
             self.expand_to_top_level_tasks()
         self.selectionModel().currentChanged.connect(self.on_current_changed)
-        # self.expanded.connect(partial(self.mark_item_expanded, value=True))
-        # self.collapsed.connect(partial(self.mark_item_expanded, value=False))
+        self.expanded.connect(partial(self.mark_item_expanded, value=True))
+        self.collapsed.connect(partial(self.mark_item_expanded, value=False))
 
-    # # TODO: should this go in the base class?
-    # def update(self):
-    #     """Update view and keep selection."""
-    #     expanded_items = set(self.expanded_items)
-    #     current_item = self.tree_item
-    #     self.expanded_items = set()
-    #     self.setModel(ItemDialogTreeModel(self.tree_manager))
-    #     for item in expanded_items:
-    #         self.expand_to_tree_item(item, expand_final=True)
-    #     if current_item is not None and current_item.index() is not None:
-    #         current_index = self.model().createIndex(
-    #             self.tree_item.index(),
-    #             0,
-    #             self.tree_item
-    #         )
-    #         self.setCurrentIndex(current_index)
-    #     self.viewport().update()
+    # TODO: should this go in the base class?
+    def update(self):
+        """Update view and keep selection."""
+        expanded_items = set(self.expanded_items)
+        current_item = self.tree_item
+        self.expanded_items = set()
+        self.setModel(ItemDialogTreeModel(self.tree_manager))
+        self.MODEL_UPDATED_SIGNAL.emit()
+        for item in expanded_items:
+            self.expand_to_tree_item(item, expand_final=True)
+        if current_item is not None and current_item.index() is not None:
+            current_index = self.model().createIndex(
+                self.tree_item.index(),
+                0,
+                self.tree_item
+            )
+            self.setCurrentIndex(current_index)
+        self.viewport().update()
 
     def on_current_changed(self, new_index, old_index):
         """Callback for when current index is changed.
@@ -175,20 +179,20 @@ class DialogTreeView(BaseTreeView):
         """
         self.tree_item = self._get_current_item()
 
-    # def mark_item_expanded(self, index, value):
-    #     """Mark item as expanded.
+    def mark_item_expanded(self, index, value):
+        """Mark item as expanded.
 
-    #     Args:
-    #         index (QtCore.QModelIndex): index of item.
-    #         value (bool): whether or not the item has been expanded.
-    #     """
-    #     if index.isValid():
-    #         item = index.internalPointer()
-    #         if item:
-    #             if value:
-    #                 self.expanded_items.add(item)
-    #             else:
-    #                 self.expanded_items.discard(item)
+        Args:
+            index (QtCore.QModelIndex): index of item.
+            value (bool): whether or not the item has been expanded.
+        """
+        if index.isValid():
+            item = index.internalPointer()
+            if item:
+                if value:
+                    self.expanded_items.add(item)
+                else:
+                    self.expanded_items.discard(item)
 
     def expand_to_tree_item(self, tree_item, select=False, expand_final=False):
         """Expand to tree item.
@@ -201,7 +205,7 @@ class DialogTreeView(BaseTreeView):
         index = QtCore.QModelIndex()
         for ancestor_item in tree_item.iter_ancestors():
             self.expand(index)
-            # self.expanded_items.add(ancestor_item)
+            self.expanded_items.add(ancestor_item)
             row = ancestor_item.index()
             if row is not None:
                 index = self.model().createIndex(
@@ -228,7 +232,7 @@ class DialogTreeView(BaseTreeView):
         if self.tree_manager.is_task(task_item):
             return
         self.expand(index)
-        # self.expanded_items.add(task_item)
+        self.expanded_items.add(task_item)
         for i, _ in enumerate(task_item.get_all_children()):
             child_index = self.model().index(i, 0, index)
             self.expand_to_top_level_tasks(child_index)

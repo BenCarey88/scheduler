@@ -181,11 +181,11 @@ class EditLog(object):
                     edit_stack_string = edit.edit_stack_name
                 if long:
                     edit_stack_string += "\n\t{0}".format(edit.description)
-            # if this is the top item of an edit stack, add to edit_strings
+            # if this is the last item of an edit stack, add to edit_strings
             elif edit_stack_string is not None:
                 edit_strings.append(edit_stack_string)
                 edit_stack_string = None
-            # if no stack just use the edit name (and descriptions)
+            # if no stack, just use the edit name (and descriptions)
             else:
                 edit_string = edit.name
                 if long:

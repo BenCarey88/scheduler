@@ -8,9 +8,9 @@ from scheduler.api.tree.task_category import TaskCategory, TaskFilter
 
 from scheduler.ui.tabs.base_tab import BaseTab
 from scheduler.ui.utils import simple_message_dialog
-from .task_category_widget import TaskCategoryWidget
-from .task_widget import TaskWidget
-from .task_widget_layout import TaskWidgetLayout
+from .task_header_widget import TaskHeaderWidget
+from .task_view_widget import TaskWidget
+from .task_widget_layout import TaskWidgetLayout, TaskWidgetTree
 
 
 class TaskTab(BaseTab):
@@ -30,8 +30,9 @@ class TaskTab(BaseTab):
             parent=parent,
         )
         self.tree_root = project.task_root
-        self.task_widget_tree = OrderedDict()
-        self.task_header_widget_tree = OrderedDict()
+        self.task_widget_tree = TaskWidgetTree()
+        # self.task_widget_tree = OrderedDict()
+        # self.task_header_widget_tree = OrderedDict()
         self._active_task = None
         self.selected_subtask_item = None
         self.selected_task_item = None
@@ -39,18 +40,11 @@ class TaskTab(BaseTab):
         self._fill_main_view()
         self._fill_scroll_area()
 
-        self.tree_manager.tree_manager.register_item_added_callback(
-            self.on_item_added
-        )
-        self.tree_manager.tree_manager.register_item_removed_callback(
-            self.on_item_removed
-        )
-        self.tree_manager.tree_manager.register_item_moved_callback(
-            self.on_item_moved
-        )
-        self.tree_manager.tree_manager.register_item_modified_callback(
-            self.on_item_modified
-        )
+        tm = self.tree_manager
+        tm.register_item_added_callback(self.on_item_added)
+        tm.register_item_removed_callback(self.on_item_removed)
+        tm.register_item_moved_callback(self.on_item_moved)
+        tm.register_item_modified_callback(self.on_item_modified)
 
     def _fill_main_view(self):
         """Fill main task view from tree root.
@@ -59,19 +53,22 @@ class TaskTab(BaseTab):
         it properly.
         """
         self.main_view = QtWidgets.QWidget()
-        self.main_view_layout = TaskWidgetLayout()
+        self.main_view_layout = TaskWidgetLayout(
+            task_widget_tree=self.task_widget_tree,
+            height_buffer=self.TASK_WIDGET_HEIGHT_BUFFER,
+        )
         self.main_view.setLayout(self.main_view_layout)
 
         child_list = self.tree_manager.get_filtered_children(self.tree_root)
         for category in child_list:
-            widget = TaskCategoryWidget(
+            widget = TaskHeaderWidget(
                 self.tree_manager,
                 category,
                 tab=self,
                 parent=self,
             )
-            self.task_header_widget_tree[category] = widget
-            self.main_view_layout.add_widget(widget)
+            # self.task_header_widget_tree[category] = widget
+            self.main_view_layout.add_task_header(category, widget)
         self.main_view.setMinimumSize(self.main_view_layout.recommended_size)
 
     def _fill_scroll_area(self, scroll_value=None):
@@ -110,30 +107,30 @@ class TaskTab(BaseTab):
     #     if selected_subtask_item:
     #         self.selected_subtask_item  = selected_subtask_item
 
-    @property
-    def active_task_widget(self):
-        """Get active task widget.
+    # @property
+    # def active_task_widget(self):
+    #     """Get active task widget.
 
-        Returns:
-            (TaskWidget or None): active task widget.
-        """
-        if self._active_task:
-            return self.task_widget_tree.get(self._active_task, None)
-        return None
+    #     Returns:
+    #         (TaskWidget or None): active task widget.
+    #     """
+    #     if self._active_task:
+    #         return self.task_widget_tree.get(self._active_task, None)
+    #     return None
 
-    @property
-    def active_task_header_widget(self):
-        """Get active task header widget for categories or top-level tasks.
+    # @property
+    # def active_task_header_widget(self):
+    #     """Get active task header widget for categories or top-level tasks.
 
-        Returns:
-            (TaskWidget or None): active task/task category widget.
-        """
-        if self.selected_task_item:
-            return self.task_header_widget_tree.get(
-                self.selected_task_item,
-                None,
-            )
-        return None
+    #     Returns:
+    #         (TaskWidget or None): active task/task category widget.
+    #     """
+    #     if self.selected_task_item:
+    #         return self.task_header_widget_tree.get(
+    #             self.selected_task_item,
+    #             None,
+    #         )
+    #     return None
 
     def on_item_added(self, item, parent, row, update=True):
         """Callback for after an item has been added.
@@ -152,8 +149,8 @@ class TaskTab(BaseTab):
             if self.tree_manager.is_task(item):
                 new_widget = TaskWidget()
             else:
-                new_widget = TaskCategoryWidget()
-            layout.add_widget(new_widget, row)
+                new_widget = TaskHeaderWidget()
+            layout.add_task_header(item, new_widget, row)
         if update:
             self.update()
 
@@ -168,12 +165,12 @@ class TaskTab(BaseTab):
             update (bool): whether or not to update afterwards.
         """
         if not self.tree_manager.is_task_category_or_top_level_task(item):
-            widget = self.get_widget(item)
+            widget = self.task_widget_tree.get_task_view_widget(item)
             widget.reset_view()
         else:
-            layout = self.get_layout(parent)
-            widget = self.get_widget(item)
-            layout.remove_widget(widget)
+            layout = self.task_widget_tree.get_layout(item)
+            widget = self.task_widget_tree.get_task_header_widget(item)
+            layout.remove_tree_item(item)
         if update:
             self.update()
 
@@ -204,45 +201,16 @@ class TaskTab(BaseTab):
             widget.update_fields()
         self.update()
 
-    # def update(self):
-    #     """Update view to sync with model.
-
-    #     This is done by deleting and then recreating the scroll area and
-    #     main view.
-    #     """
-    #     scroll_value = self.scroll_area.verticalScrollBar().value()
-    #     _selected_subtask_item = None
-    #     _active_task = None
-    #     if self.selected_subtask_item:
-    #         _selected_subtask_item = self.selected_subtask_item
-    #     if self._active_task:
-    #         _active_task = self._active_task
-
-    #     self.task_widget_tree = OrderedDict()
-    #     self.category_widget_tree = OrderedDict()
-    #     self.scroll_area.deleteLater()
-    #     self._fill_main_view()
-    #     self._fill_scroll_area(scroll_value)
-
-    #     if _active_task and _selected_subtask_item:
-    #         self._active_task = _active_task
-    #         self.selected_subtask_item = _selected_subtask_item
-    #         if self.active_task_widget:
-    #             self.active_task_widget.select_subtask_item()
-    #     if self._scroll_value is not None:
-    #         # TODO: fix this bit
-    #         self.scroll_area.verticalScrollBar().setValue(self._scroll_value)
-
     def on_outliner_current_changed(self, tree_item):
         """Callback to scroll to item when current is changed in outliner.
 
         Args:
             tree_item (BaseTreeItem): new item selected in outliner.
         """
-        header_task = self.tree_manager.get_task_category_or_top_level_task(
+        category = self.tree_manager.get_task_category_or_top_level_task(
             tree_item
         )
-        widget = self.task_header_widget_tree.get(header_task)
+        widget = self.task_header_widget_tree.get(category)
         if not widget:
             return
         point = widget.mapTo(self.scroll_area, QtCore.QPoint(0,0))

@@ -68,7 +68,6 @@ class SelfInverseSimpleEdit(SimpleEdit):
         )
 
 
-# TODO: use check_validity function for these classes.
 class CompositeEdit(BaseEdit):
     """Edit made up of a combination of other edit types."""
 
@@ -86,8 +85,6 @@ class CompositeEdit(BaseEdit):
             reverse_order_for_inverse (bool): if True, we reverse the order
                 of the edits for the inverse.
         """
-        super(CompositeEdit, self).__init__()
-        self._is_valid = bool(edits_list)
         for edit in edits_list:
             if edit._register_edit or edit._registered or edit._has_been_done:
                 raise EditError(
@@ -97,16 +94,16 @@ class CompositeEdit(BaseEdit):
                 )
         self._edits_list = edits_list
         self._reverse_order_for_inverse = reverse_order_for_inverse
-        self._valid_subedits = set()
+        super(CompositeEdit, self).__init__()
+
+    def _check_validity(self):
+        """Check edit validitiy. This is done in initialization and update."""
+        self._is_valid = any([edit._is_valid for edit in self._edits_list])
 
     def _run(self):
         """Run each edit in turn."""
         for edit in self._edits_list:
             edit._run()
-            if not self._registered and edit._is_valid:
-                self._valid_subedits.add(edit)
-        if not self._registered:
-            self._is_valid = bool(self._valid_subedits)
 
     def _inverse_run(self):
         """Run each inverse edit in reverse order of edits_list."""
@@ -144,10 +141,6 @@ class CompositeEdit(BaseEdit):
                 )
             args, kwargs = args_and_kwargs
             edit._update(*args, **kwargs)
-            if edit._is_valid:
-                self._valid_subedits.add(edit)
-            else:
-                self._valid_subedits.discard(edit)
 
         for edit, replacement_edit in edit_replacements.items():
             if not edit in self._edits_list:
@@ -168,9 +161,6 @@ class CompositeEdit(BaseEdit):
             replacement_edit._run()
             index = self._edits_list.index(edit)
             self._edits_list[index] = replacement_edit
-            self._valid_subedits.discard(edit)
-            if replacement_edit._is_valid:
-                self._valid_subedits.add(replacement_edit)
 
         for edit in edit_additions:
             if edit._register_edit or edit._registered or edit._has_been_done:
@@ -181,10 +171,6 @@ class CompositeEdit(BaseEdit):
                 )
             self._edits_list.append(edit)
             edit._run()
-            if edit._is_valid:
-                self._valid_subedits.add(edit)
-
-        self._is_valid = bool(self._valid_subedits)
 
 
 class AttributeEdit(BaseEdit):
@@ -206,15 +192,18 @@ class AttributeEdit(BaseEdit):
                     "MutableAttributes or MutableHostedAttributes."
                 )
             self._orig_attr_dict[attr] = attr.value
-        self._modified_attrs = set()
+
+    def _check_validity(self):
+        """Check edit validitiy. This is done in initialization and update."""
+        self._is_valid = any([
+            self._orig_attr_dict[attr] != self._attr_dict[attr]
+            for attr in self._attr_dict
+        ])
 
     def _run(self):
         """Run edit."""
         for attr, value in self._attr_dict.items():
-            if attr.set_value(value) and not self._registered:
-                self._modified_attrs.add(value)
-        if not self._registered:
-            self._is_valid = bool(self._modified_attrs)
+            attr.set_value(value)
 
     def _inverse_run(self):
         """Run edit inverse."""
@@ -238,11 +227,7 @@ class AttributeEdit(BaseEdit):
         for attr, value in self._attr_dict.items():
             if attr not in self._orig_attr_dict:
                 self._orig_attr_dict[attr] = attr.value
-            if attr.set_value(value):
-                self._modified_attrs.add(value)
-            else:
-                self._modified_attrs.discard(value)
-        self._is_valid = bool(self._modified_attrs)
+            attr.set_value(value)
 
     def _get_attr_value_change_string(self, attr):
         """Get string describing value change for attribute.
@@ -316,8 +301,8 @@ class HostedDataEdit(SimpleEdit):
             raise EditError(
                 "args passed to HostedDataEdit must be Hosted class objects."
             )
-        self._is_valid = (old_data != new_data)
         super(HostedDataEdit, self).__init__(
             run_func=partial(new_data._switch_host, old_data.host),
             inverse_run_func=partial(old_data._switch_host, new_data.host),
         )
+        self._is_valid = (old_data != new_data)

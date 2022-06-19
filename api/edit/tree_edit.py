@@ -313,7 +313,6 @@ class ReplaceTreeItemEdit(CompositeEdit):
             new_tree_item (BaseTreeItem): tree item to replace it with.
         """
         if old_tree_item.parent is None:
-            self._is_valid = False
             super(ReplaceTreeItemEdit, self).__init__([])
             return
 

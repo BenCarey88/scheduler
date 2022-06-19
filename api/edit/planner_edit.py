@@ -48,7 +48,7 @@ class RemovePlannedItemEdit(ListEdit):
             planned_item.get_item_container(),
             [planned_item],
             ContainerOp.REMOVE,
-            edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
         self._name = "RemovePlannedItem ({0})".format(planned_item.name)
         self._description = (
@@ -73,7 +73,7 @@ class MovePlannedItemEdit(ListEdit):
             planned_item.get_item_container(),
             [(planned_item, index)],
             ContainerOp.MOVE,
-            edit_flags=[ContainerEditFlag.MOVE_BY_VALUE],
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
         self._name = "MovePlannedItem ({0})".format(planned_item.name)
         self._description = (

@@ -63,16 +63,6 @@ class BaseEdit(object):
     def create_and_run(cls, *args, **kwargs):
         """Create and run an edit.
 
-        This is what should be used by client classes in most cases: there
-        shouldn't be any need for most client classes to maintain an edit
-        after initialisation or call any of its other methods; this allows
-        us to create the edit, run it and then (if it gets registered) hand
-        ownership of it over to the EDIT_LOG.
-
-        Exceptions to this rule are:
-            - when creating an unregistered edit as part of a composite edit
-            - when creating an edit to be used as part of a continuous run
-
         Args:
             args (tuple): args to pass to __init__.
             kwargs (dict): kwargs to pass to __init__.
@@ -100,10 +90,9 @@ class BaseEdit(object):
         return edit
 
     def _check_validity(self):
-        """Check if edit is valid. This is done after run and update.
+        """Check if edit is valid. This is done in initialization and update.
 
-        This can be used to check validitiy of the edits. Override this in
-        base class for validity checks that rely on run having been done.
+        This can be used to set _is_valid value (by default it's set to True).
         """
         pass
 
@@ -132,11 +121,11 @@ class BaseEdit(object):
         if self._register_edit and EDIT_LOG.is_locked:
             # don't run registerable edits if they can't be added to log
             return
-        self._run()
-        self._check_validity()
+        if self._is_valid:
+            self._run()
+            if self._register_edit:
+                self._registered = EDIT_LOG.add_edit(self)
         self._has_been_done = True
-        if self._register_edit:
-            self._registered = EDIT_LOG.add_edit(self)
         return self._is_valid
 
     def begin_continuous_run(self):
@@ -258,6 +247,15 @@ class BaseEdit(object):
                 always false).
         """
         return False
+
+    @property
+    def is_valid(self):
+        """Check whether edit is valid (ie. actually changes underlying data).
+
+        Returns:
+            (bool): whether or not edit is valid.
+        """
+        return self._is_valid
 
     @property
     def name(self):

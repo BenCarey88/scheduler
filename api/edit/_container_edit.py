@@ -49,16 +49,13 @@ class ContainerEditFlag(object):
     """Enum representing flags for container edits.
 
     Flag types:
-        REMOVE_BY_VALUE: if set, list remove edits will remove items by using
-            list.remove(item) (and hence will only remove the first one if
-            there are repeats of the same item value). Otherwise list edits
-            remove by index.
-        MOVE_BY_VALUE: if set, list move edits will move items by using
-            list.index(item) to find the item first, and hence will accept
-            an item and index pair rather than 2 indexes.
+        LIST_FIND_BY_VALUE: if set, list edits will use values rather than
+            indexes to find items. This means that edits that remove, move
+            and modify edits will take in values in place of indexes and
+            apply the edit to the first instance of that value they find
+            in the list (so any repeats will only be applied once).
     """
-    REMOVE_BY_VALUE = "Remove_By_Value"
-    MOVE_BY_VALUE = "Move_By_Value"
+    LIST_FIND_BY_VALUE = "List_Find_By_Value"
 
 
 class BaseContainerEdit(BaseEdit):
@@ -103,7 +100,7 @@ class BaseContainerEdit(BaseEdit):
             ADD:    [new_item]               - append new item
             INSERT: [(index, new_item)]      - insert new item at index
             REMOVE: [item/index]             - remove item/item at given index
-            MODIFY: [(index, new_item)]      - change item at index to new_item
+            MODIFY: [(item/index, new_item)] - change item to new_item
             MOVE:   [(item/index, new_index)] - move item to new index
             SORT:   [(key, reverse)]         - sort list by given key
 
@@ -121,7 +118,6 @@ class BaseContainerEdit(BaseEdit):
         recursive diff_list:
             Not really tested yet, be cautious with this.
         """
-        super(BaseContainerEdit, self).__init__()
         self._container = container
         self._container_type = type(container)
         self._diff_container = diff_container
@@ -130,6 +126,100 @@ class BaseContainerEdit(BaseEdit):
         self._recursive = recursive
         self._inverse_diff_container = None
         self._inverse_operation_type = ContainerOp.get_inverse_op(op_type)
+        super(BaseContainerEdit, self).__init__()
+
+    def _check_validity(self):
+        """Check if edit is valid.
+
+        Args:
+            operation_type (ContainerOp or None): type of operation to check.
+                If None, use self._operation_type.
+        """
+        if isinstance(self._container, list):
+            if self._operation_type == ContainerOp.ADD:
+                self._is_valid = True
+
+            elif self._operation_type == ContainerOp.INSERT:
+                self._is_valid = any([
+                    0 <= index <= len(self._container)
+                    for (index, _) in self._diff_container
+                ])
+
+            elif self._operation_type == ContainerOp.REMOVE:
+                if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
+                    self._is_valid = any ([
+                        value in self._container
+                        for value in self._diff_container
+                    ])
+                else:
+                    self._is_valid = any(
+                        0 <= index < len(self._container)
+                        for index in self._diff_container
+                    )
+
+            elif (self._operation_type
+                    in [ContainerOp.MODIFY, ContainerOp.MOVE]):
+                if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
+                    self._is_valid = any ([
+                        value in self._container
+                        for (value, _) in self._diff_container
+                    ])
+                else:
+                    self._is_valid = any(
+                        0 <= index < len(self._container)
+                        for (index, _) in self._diff_container
+                    )
+
+            elif self._operation_type == ContainerOp.SORT:
+                self._is_valid = any([
+                    sorted(
+                        self._container,
+                        key=key,
+                        reverse=reverse,
+                    ) != self._container
+                    for (key, reverse) in self._diff_container
+                ])
+
+        elif isinstance(self._container, dict):
+            if self._operation_type == ContainerOp.ADD:
+                self._is_valid = any([
+                    key not in self._container for key in self._diff_container
+                ])
+
+            elif self._operation_type == ContainerOp.INSERT:
+                self._is_valid = any([
+                    key not in self._container
+                    and 0 <= index <= len(self._container)
+                    for key, (index, _) in self._diff_container.values()
+                ])
+
+            elif self._operation_type in [ContainerOp.REMOVE, ContainerOp.MODIFY]:
+                self._is_valid = any([
+                    key in self._container for key in self._diff_container
+                ])
+
+            elif self._operation_type == ContainerOp.RENAME:
+                self._is_valid = any([
+                    key in self._container and new_key not in self._container
+                    for key, new_key in self._diff_container.values()
+                ])
+
+            elif self._operation_type in (
+                    [ContainerOp.ADD_OR_MODIFY, ContainerOp.REMOVE_OR_MODIFY]):
+                self._is_valid = True
+
+            elif isinstance(self._container, OrderedDict):
+                if self._operation_type == ContainerOp.MOVE:
+                    self._is_valid = any([
+                        key in self._container 
+                        and 0 <= index < len(self._container)
+                        for key, index in self._diff_container.values()
+                    ])
+
+        raise EditError(
+            "Invalid container edit of type {0} with container of type {1}"
+            "".format(self._operation_type, type(self._container).__name__)
+        )
 
     def _get_operation_method(self, container, operation_type):
         """Get the method required for an operation, based on the container.
@@ -189,7 +279,7 @@ class BaseContainerEdit(BaseEdit):
         """
         if self._inverse_diff_container is None:
             self._inverse_diff_container = self._container_type()
-            self._is_valid = self._run_operation(
+            self._run_operation(
                 self._container,
                 self._diff_container,
                 self._operation_type,
@@ -316,7 +406,9 @@ class BaseContainerEdit(BaseEdit):
 
         Returns:
             (bool): whether or not edit is valid ie. whether or not edit
-                actually modifies container.
+                actually modifies container. Note that this return value is
+                currently not used for anything, since we now calculate
+                is_valid during edit init, but may well deprecate in future.
         """
         is_valid = False
         # note that in the case of lists, key is an index here
@@ -621,7 +713,7 @@ class BaseContainerEdit(BaseEdit):
             (bool): whether or not container is modified.
         """
         if inverse_diff_list is not None:
-            if ContainerEditFlag.REMOVE_BY_VALUE in self._edit_flags:
+            if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
                 inverse_diff_list.insert(0, value)
             else:
                 inverse_diff_list.insert(0, len(list_))
@@ -649,7 +741,7 @@ class BaseContainerEdit(BaseEdit):
             return False
         list_.insert(index, new_value)
         if inverse_diff_list is not None:
-            if ContainerEditFlag.REMOVE_BY_VALUE in self._edit_flags:
+            if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
                 inverse_diff_list.insert(0, new_value)
             else:
                 inverse_diff_list.insert(0, index)
@@ -661,7 +753,7 @@ class BaseContainerEdit(BaseEdit):
         Args:
             index_or_value (int or variant): index to remove item at, or item to
                 remove. Which of these has been used should be dependent on the
-                whether or not the REMOVE_BY_VALUE flag was passed.
+                whether or not the LIST_FIND_BY_VALUE flag was passed.
             list_ (list): list to remove from.
             inverse_diff_list (list or None): if given, add to this to define
                 inverse operation.
@@ -669,7 +761,7 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        if ContainerEditFlag.REMOVE_BY_VALUE in self._edit_flags:
+        if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
             # Remove by value
             value = index_or_value
             if not value in list_:
@@ -682,7 +774,7 @@ class BaseContainerEdit(BaseEdit):
             if not isinstance(index, int):
                 raise EditError(
                     "List remove edits need index diff_list inputs. If you "
-                    "wish to remove items by value, use the REMOVE_BY_VALUE "
+                    "wish to remove items by value, use the LIST_FIND_BY_VALUE "
                     "ContainerEditFlag."
                 )
             if index < 0 or index >= len(list_):
@@ -733,7 +825,7 @@ class BaseContainerEdit(BaseEdit):
         if not isinstance(index_tuple, tuple) or len(index_tuple) != 2:
             raise EditError("diff list for MOVE op needs 2-tuple values")
         old_index, new_index = index_tuple
-        if ContainerEditFlag.MOVE_BY_VALUE in self._edit_flags:
+        if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
             # in this case old_index arg is in fact the item.
             old_index = list_.index(old_index)
         if new_index == len(list_):
@@ -743,7 +835,7 @@ class BaseContainerEdit(BaseEdit):
             if index < 0 or index >= len(list_):
                 return False
         if inverse_diff_list is not None:
-            if ContainerEditFlag.MOVE_BY_VALUE in self._edit_flags:
+            if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
                 inverse_diff_list.insert(0, (list_[old_index], old_index))
             else:
                 inverse_diff_list.insert(0, (new_index, old_index))
@@ -915,7 +1007,7 @@ class TimelineEdit(CompositeEdit):
                 diff_dict,
                 op_type,
                 recursive=True,
-                edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
+                edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
             )
             super(TimelineEdit, self).__init__([edit])
 

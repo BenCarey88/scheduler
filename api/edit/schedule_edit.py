@@ -49,7 +49,7 @@ class RemoveScheduledItemEdit(ListEdit):
             scheduled_item.get_item_container(),
             [scheduled_item],
             ContainerOp.REMOVE,
-            edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
         self._name = "RemoveScheduledItem ({0})".format(scheduled_item.name)
         self._description = (
@@ -219,7 +219,7 @@ class ModifyScheduledItemEdit(BaseModifyScheduledItemEdit):
             scheduled_item.get_item_container(),
             [scheduled_item],
             ContainerOp.REMOVE,
-            edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
 
     @staticmethod

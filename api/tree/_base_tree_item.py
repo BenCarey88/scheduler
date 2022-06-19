@@ -489,16 +489,22 @@ class BaseTreeItem(Hosted, NestedSerializable):
             descendants.extend(child.get_all_descendants())
         return descendants
 
-    def iter_ancestors(self):
+    def iter_ancestors(self, reversed=False):
         """Iterate through ancestors of this item, from oldest downwards.
+
+        Args:
+            reversed (bool): if True, iter from lowest upwards.
 
         Yields:
             (BaseTreeItem): ancestor items (including this one).
         """
+        if reversed:
+            yield self
         if self.parent:
-            for ancestor in self.parent.iter_ancestors():
+            for ancestor in self.parent.iter_ancestors(reversed=reversed):
                 yield ancestor
-        yield self
+        if not reversed:
+            yield self
 
     def get_family(self):
         """Get tree family members of this item with same class type.

@@ -54,22 +54,17 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         )
 
         if register_tree_manager_callbacks:
-            self._insert_rows_args = None
-            self._remove_rows_args = None
-            self._move_rows_args = None
-            self._data_changed_args = None
-            tree_manager.register_pre_item_added_callback(self.pre_item_added)
-            tree_manager.register_item_added_callback(self.on_item_added)
-            tree_manager.register_pre_item_removed_callback(
-                self.pre_item_removed
-            )
-            tree_manager.register_item_removed_callback(self.on_item_removed)
-            tree_manager.register_pre_item_moved_callback(self.pre_item_moved)
-            tree_manager.register_item_moved_callback(self.on_item_moved)
-            tree_manager.register_pre_item_modified_callback(
-                self.pre_item_modified
-            )
-            tree_manager.register_item_modified_callback(self.on_item_modified)
+            self._insert_rows_in_progress = False
+            self._remove_rows_in_progress = False
+            self._move_rows_in_progress = False
+            tm = tree_manager
+            tm.register_pre_item_added_callback(self.pre_item_added)
+            tm.register_item_added_callback(self.on_item_added)
+            tm.register_pre_item_removed_callback(self.pre_item_removed)
+            tm.register_item_removed_callback(self.on_item_removed)
+            tm.register_pre_item_moved_callback(self.pre_item_moved)
+            tm.register_item_moved_callback(self.on_item_moved)
+            tm.register_item_modified_callback(self.on_item_modified)
 
     @property
     def child_filters(self):
@@ -593,7 +588,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         parent_index = self.get_index_from_item(parent)
         if parent_index is not None:
-            self._insert_rows_args = (parent_index, row, row)
+            self.beginInsertRows(parent_index, row, row)
+            self._insert_rows_in_progress = True
 
     def on_item_added(self, item, parent, row):
         """Callback for after an item has been added.
@@ -603,10 +599,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             parent (BaseTreeItem): the parent the item was added under.
             row (int): the index the item was added at.
         """
-        if self._insert_rows_args is not None:
-            self.beginInsertRows(*self._insert_rows_args)
+        if self._insert_rows_in_progress:
             self.endInsertRows()
-            self._insert_rows_args = None
+            self._insert_rows_in_progress = False
 
     def pre_item_removed(self, item, parent, row):
         """Callbacks for before an item is removed.
@@ -619,7 +614,8 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         parent_index = self.get_index_from_item(parent)
         if parent_index is not None:
-            self._remove_rows_args = (parent_index, row, row)
+            self.beginRemoveRows(parent_index, row, row)
+            self._remove_rows_in_progress = True
 
     def on_item_removed(self, item, parent, row):
         """Callback for after an item has been removed.
@@ -629,10 +625,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             index (int): the old index of the removed item in its
                 parent's child list.
         """
-        if self._remove_rows_args is not None:
-            self.beginRemoveRows(*self._remove_rows_args)
+        if self._remove_rows_in_progress:
             self.endRemoveRows()
-            self._remove_rows_args = None
+            self._remove_rows_in_progress = False
 
     def pre_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for before an item is moved.
@@ -647,7 +642,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         old_parent_index = self.get_index_from_item(old_parent)
         new_parent_index = self.get_index_from_item(new_parent)
         if old_parent_index is not None and new_parent_index is not None:
-            self._move_rows_args = (
+            self.beginMoveRows(
                 old_parent_index,
                 old_row,
                 old_row,
@@ -655,6 +650,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 new_row,
                 new_row
             )
+            self._move_rows_in_progress = True
 
     def on_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for after an item has been moved.
@@ -666,21 +662,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             new_parent (BaseTreeItem): the new parent of the moved item.
             new_row (int): the new index of the moved item.
         """
-        if self._move_rows_args is not None:
-            self.beginMoveRows(*self._move_rows_args)
+        if self._move_rows_in_progress:
             self.endMoveRows()
-            self._move_rows_args = None
-
-    def pre_item_modified(self, old_item, new_item):
-        """Callback for before an item is modified.
-
-        Args:
-            old_item (BaseTreeItem): the item to be modified.
-            new_item (BaseTreeItem): the modified item.
-        """
-        index = self.get_index_from_item(old_item)
-        if index is not None:
-            self._data_changed_args = (index, index)
+            self._move_rows_in_progress = False
 
     def on_item_modified(self, old_item, new_item):
         """Callback for after an item has been modified.
@@ -689,9 +673,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             old_item (BaseTreeItem): the item that was modified.
             new_item (BaseTreeItem): the item after modification.
         """
-        if self._data_changed_args is not None:
-            self.dataChanged.emit(*self._data_changed_args)
-            self._data_changed_args = None
+        index = self.get_index_from_item(old_item)
+        if index is not None:
+            self.dataChanged.emit(index, index)
 
     def remove_callbacks(self):
         """Deregister all callbacks for this model."""

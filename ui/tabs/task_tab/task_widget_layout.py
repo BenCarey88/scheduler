@@ -9,7 +9,7 @@ class TaskWidgetTree(object):
     TASK_HEADER_WIDGET_KEY = "task_widget"
     TASK_VIEW_WIDGET_KEY = "task_view"
 
-    def __init__(self, tab):
+    def __init__(self):
         """Initialize."""
         self._widget_tree_data = {}
 
@@ -89,22 +89,39 @@ class TaskWidgetTree(object):
                     break
         return widget
 
+    def get_main_task_widget(self, tree_item):
+        """Get main task widget for item.
+
+        For task header items, this returns the task header widget. For
+        subtasks, this returns the task view widget.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to query.
+
+        Returns:
+            (TaskViewWidget, TaskHeaderWidget or None): main widget for
+                this item, if found.
+        """
+        widget = self.get_task_header_widget(tree_item)
+        if widget is None:
+            widget = self.get_task_view_widget(tree_item)
+        return widget
+
 
 class TaskWidgetLayout(QtWidgets.QVBoxLayout):
     """Layout used to store task and task category widgets."""
     SPACING = 40
     RECOMMENDED_WIDTH = 1000
 
-    def __init__(self, task_widget_tree, height_buffer=0, parent=None):
+    def __init__(self, task_widget_tree, height_buffer=0):
         """Initialize.
 
         Args:
             task_widget_tree (TaskWidgetTree): widget tree to store data
                 for items.
-            height_buffer (int): buffer for height calculation. 
-            parent (QtWidgets.QWidget or None): parent widget, if exists.
+            height_buffer (int): buffer for height calculation.
         """
-        super(TaskWidgetLayout, self).__init__(parent=parent)
+        super(TaskWidgetLayout, self).__init__()
         self._task_widget_tree = task_widget_tree
         self._height_buffer = height_buffer
         self._height = 0
@@ -179,8 +196,11 @@ class TaskWidgetLayout(QtWidgets.QVBoxLayout):
             tree_item (BaseTreeItem): the tree item we're removing.
         """
         num_widgets = self.count()
-        widget = self._task_widget_tree.
+        widget = self._task_widget_tree.get_main_task_widget(tree_item)
         index = self.indexOf(widget)
+        if index == -1:
+            return
+
         if num_widgets == 1:
             spacer = None
         elif index == 0:

@@ -58,13 +58,13 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             self._remove_rows_in_progress = False
             self._move_rows_in_progress = False
             tm = tree_manager
-            tm.register_pre_item_added_callback(self.pre_item_added)
-            tm.register_item_added_callback(self.on_item_added)
-            tm.register_pre_item_removed_callback(self.pre_item_removed)
-            tm.register_item_removed_callback(self.on_item_removed)
-            tm.register_pre_item_moved_callback(self.pre_item_moved)
-            tm.register_item_moved_callback(self.on_item_moved)
-            tm.register_item_modified_callback(self.on_item_modified)
+            tm.register_pre_item_added_callback(self, self.pre_item_added)
+            tm.register_item_added_callback(self, self.on_item_added)
+            tm.register_pre_item_removed_callback(self, self.pre_item_removed)
+            tm.register_item_removed_callback(self, self.on_item_removed)
+            tm.register_pre_item_moved_callback(self, self.pre_item_moved)
+            tm.register_item_moved_callback(self, self.on_item_moved)
+            tm.register_item_modified_callback(self, self.on_item_modified)
 
     @property
     def child_filters(self):

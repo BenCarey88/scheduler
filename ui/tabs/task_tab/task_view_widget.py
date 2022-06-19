@@ -9,7 +9,7 @@ from scheduler.ui.models.tree import TaskTreeModel
 from scheduler.ui import utils
 
 
-class TaskWidget(BaseTreeView):
+class TaskViewWidget(BaseTreeView):
     """Task Tree Widget.
 
     This widget holds the tree view for the various tasks.
@@ -25,7 +25,7 @@ class TaskWidget(BaseTreeView):
             tab (TaskTab): task tab this widget is a descendant of.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        super(TaskWidget, self).__init__(tree_manager, parent=parent)
+        super(TaskViewWidget, self).__init__(tree_manager, parent=parent)
         self._only_delete_current_item = True
         self.tree_manager = tree_manager
         self.task_item = task_item
@@ -66,6 +66,9 @@ class TaskWidget(BaseTreeView):
         #     partial(self.tab.switch_active_task_widget, self.task_item)
         # )
         # self.select_subtask_item()
+
+    def reset_view(self):
+        """Reset view when to pick up changes in tree."""
 
     # def select_subtask_item(self):
     #     """Select the subtask item marked as active in the task tab."""

@@ -80,13 +80,13 @@ class Outliner(BaseTreeView):
         else:
             self.setExpanded(index, False)
         for i in range(item.num_children()):
-            child_index = self._model.index(i, 0, index)
+            child_index = self.model().index(i, 0, index)
             self._expand_item_from_tree_manager(child_index)
 
     def expand_items_from_tree_manager(self):
         """Expand all items marked as expanded in tree_manager."""
         for i in range(self.root.num_children()):
-            child_index = self._model.index(i, 0, QtCore.QModelIndex())
+            child_index = self.model().index(i, 0, QtCore.QModelIndex())
             self._expand_item_from_tree_manager(child_index)
 
     def mark_item_expanded(self, index, value):

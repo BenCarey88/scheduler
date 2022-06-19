@@ -48,7 +48,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         # outer layout holds line edit layout and task widget layout
         self.outer_layout = QtWidgets.QVBoxLayout()
         self.line_edit_layout = QtWidgets.QHBoxLayout()
-        self.widget_layout = TaskWidgetLayout()
+        self.widget_layout = TaskWidgetLayout(tab.task_widget_tree)
         self.setLayout(self.outer_layout)
         self.outer_layout.addLayout(self.line_edit_layout)
         self.outer_layout.addLayout(self.widget_layout)
@@ -79,7 +79,6 @@ class TaskHeaderWidget(QtWidgets.QFrame):
                     child,
                     tab=tab,
                     recursive_depth=recursive_depth+1,
-                    parent=self,
                 )
                 # self.tab.category_widget_tree[child] = widget
                 self.widget_layout.add_task_header(child, widget)
@@ -101,6 +100,20 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             self.on_editing_finished
         )
 
+    def update_task_item(self, task_item):
+        """Update task item that this represents.
+
+        In most cases, the task_item will be the same as the old one, and this
+        method is just used to ensure the name stays up to date after any name
+        changes, and etc.
+
+        Args:
+            task_item (BaseTreeItem): new task item that this represents.
+        """
+        self.task_item = task_item
+        with utils.suppress_signals(self.line_edit):
+            self.line_edit.setText(task_item.name)
+
     def on_editing_finished(self):
         """Update views when line edit updated."""
         success = self.tree_manager.set_item_name(
@@ -117,6 +130,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             object (QtCore.QObject): QObject that event is happening on.
             event (QtCore.QEvent): event that is happening.
         """
+        return False
         # if object == self.line_edit and event.type() == QtCore.QEvent.FocusIn:
         #     if isinstance(self.task_item, Task):
         #         self.tab.selected_subtask_item = None

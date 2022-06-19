@@ -6,7 +6,7 @@ editing the underlying tree item data, eg. whether or not the item
 is being filtered for in the current tab.
 """
 
-from scheduler.api.tree import BaseTreeItem
+from scheduler.api.tree._base_tree_item import BaseTreeItem
 from scheduler.api.tree.filters import NoFilter, FilterByItem
 from scheduler.api.utils import fallback_value
 

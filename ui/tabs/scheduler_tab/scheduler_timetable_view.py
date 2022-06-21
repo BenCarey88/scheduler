@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import ScheduledItemType
 
-from scheduler.ui import constants
+from scheduler.ui import constants, utils
 from scheduler.ui.models.table import SchedulerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
 from scheduler.ui.widgets.scheduled_item_dialog import ScheduledItemDialog
@@ -194,6 +194,7 @@ class SchedulerTimetableView(BaseWeekTableView):
         )
         self.schedule_manager = project.get_schedule_manager()
         self.selection_rect = None
+        self.selected_scheduled_item = None
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
 
@@ -827,19 +828,11 @@ class SchedulerTimetableView(BaseWeekTableView):
         Args:
             event (QtCore.QEvent): the drop event.
         """
-        # TODO: if we use this same setup here as from tree model to decode mime data
-        # should add as utils function or similar.
-        encoded_data = event.mimeData().data(
-            constants.OUTLINER_TREE_MIME_DATA_FORMAT
+        tree_item = utils.decode_tree_mime_data(
+            event.mimeData(),
+            constants.OUTLINER_TREE_MIME_DATA_FORMAT,
+            self.tree_manager,
         )
-        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
-        if stream.atEnd():
-            return
-        while not stream.atEnd():
-            byte_array = QtCore.QByteArray()
-            stream >> byte_array
-            encoded_path = bytes(byte_array).decode('utf-8')
-        tree_item = self.tree_root.get_item_at_path(encoded_path)
         if not tree_item:
             return
 

@@ -39,12 +39,12 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         # self.tracker = self.project.tracker
         self.project_user_prefs = self.project.user_prefs
 
-        edit_log.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
         self.saved_edit = edit_log.latest_edit()
         self.autosaved_edit = edit_log.latest_edit()
         self.startTimer(ui_constants.SHORT_TIMER_INTERVAL)
+        edit_log.open_edit_registry()
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""

@@ -14,7 +14,10 @@ class TaskViewWidget(BaseTreeView):
 
     This widget holds the tree view for the various tasks.
     """
-    HEIGHT_BUFFER = 5
+    # TODO: I sense most of this height stuff is actually irrelevant
+    # go through and remove any unneeded ones
+    # HEIGHT_BUFFER = 5
+    MIN_WIDTH = 1000
 
     def __init__(self, tree_manager, task_item, tab, parent=None):
         """Initialise task category widget.
@@ -39,8 +42,14 @@ class TaskViewWidget(BaseTreeView):
         self.setItemsExpandable(False)
         # model.dataChanged.connect(self.tab.update)
 
-        height = task_item.num_descendants() * TaskDelegate.HEIGHT
-        self.setFixedHeight(height + self.HEIGHT_BUFFER)
+        # height = task_item.num_descendants() * TaskDelegate.HEIGHT
+        # self.setFixedHeight(height + self.HEIGHT_BUFFER)
+        self.setMinimumWidth(self.MIN_WIDTH)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+        )
+        self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
 
         # Remove expand decorations and border
         utils.set_style(self, "task_widget.qss")
@@ -62,13 +71,11 @@ class TaskViewWidget(BaseTreeView):
             QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
         )
         self.setHeaderHidden(True)
-        # self.selectionModel().currentChanged.connect(
-        #     partial(self.tab.switch_active_task_widget, self.task_item)
-        # )
+        self.selectionModel().currentChanged.connect(
+            partial(self.tab.switch_active_task_view, self.task_item)
+        )
+        self._current_item = None
         # self.select_subtask_item()
-
-    def reset_view(self):
-        """Reset view when to pick up changes in tree."""
 
     # def select_subtask_item(self):
     #     """Select the subtask item marked as active in the task tab."""
@@ -92,6 +99,30 @@ class TaskViewWidget(BaseTreeView):
     #                 )
     #                 self.setFocus(True)
     #                 self.grabKeyboard()
+
+    def begin_reset(self):
+        """Begin reset."""
+        self._current_item = self._get_current_item()
+        self.model().beginResetModel()
+
+    def end_reset(self):
+        """End reset."""
+        self.model().endResetModel()
+        self.expandAll()
+        if self._current_item is not None:
+            row = self._current_item.index()
+            index = self.model().createIndex(row, 0, self._current_item)
+            if index.isValid():
+                with utils.suppress_signals(self.selectionModel()):
+                    self.selectionModel().setCurrentIndex(
+                        index,
+                        self.selectionModel().SelectionFlag.SelectCurrent,
+                    )
+
+    def reset_model(self):
+        """Full reset of model."""
+        self.begin_reset()
+        self.end_reset()
 
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):
@@ -119,7 +150,7 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
         """Create editor widget for edit role.
 
         Overridding the default purely because this makes the line-edit
-        cover the whole row which I like better.
+        cover the whole row, which I like better.
 
         Args:
             parent (QtWidgets.QWidget): parent widget.

@@ -30,3 +30,7 @@ class BaseTab(QtWidgets.QWidget):
             new_item (BaseTreeItem): new item selected in outliner.
         """
         pass
+
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        pass

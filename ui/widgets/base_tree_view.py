@@ -214,7 +214,8 @@ class BaseTreeView(QtWidgets.QTreeView):
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 success = self.add_sibling_item(current_item)
 
-        super(BaseTreeView, self).keyPressEvent(event)
+        else:
+            super(BaseTreeView, self).keyPressEvent(event)
 
     def _connect_action_to_func(self, action, func, *args, **kwargs):
         """Connect action to given function and then update view.

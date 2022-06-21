@@ -2,9 +2,6 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import Task
-from scheduler.api.tree.task_category import TaskCategory
-
 from scheduler.ui import utils
 from .task_view_widget import TaskViewWidget
 from .task_widget_layout import TaskWidgetLayout
@@ -17,11 +14,11 @@ class TaskHeaderWidget(QtWidgets.QFrame):
     task, as well as TaskHeaderWidgets for all of its subcategories and
     top-level tasks and TaskViewWidgets for all subtasks.
     """
-    HEIGHT_MIN = 50
+    HEIGHT_MIN = 0
     FONT_SIZE_MAX = 12
     FONT_SIZE_MIN = 9
     FONT_SIZE_STEP = 1
-    LINE_EDIT_BUFFER = 2
+    LINE_EDIT_BUFFER = 10
 
     def __init__(
             self,
@@ -43,12 +40,13 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         self.tree_manager = tree_manager
         self.task_item = task_item
         self.tab = tab
+        self.task_widget_tree = tab.task_widget_tree
         utils.set_style(self, "task_header_widget.qss")
 
         # outer layout holds line edit layout and task widget layout
         self.outer_layout = QtWidgets.QVBoxLayout()
         self.line_edit_layout = QtWidgets.QHBoxLayout()
-        self.widget_layout = TaskWidgetLayout(tab.task_widget_tree)
+        self.widget_layout = TaskWidgetLayout(self.task_widget_tree)
         self.setLayout(self.outer_layout)
         self.outer_layout.addLayout(self.line_edit_layout)
         self.outer_layout.addLayout(self.widget_layout)
@@ -61,7 +59,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
 
         # set font and size properties
         font = self.line_edit.font()
-        if isinstance(task_item, TaskCategory):
+        if self.tree_manager.is_task_category(task_item):
             font.setBold(True)
         font_size = max(
             self.FONT_SIZE_MAX - recursive_depth * self.FONT_SIZE_STEP,
@@ -72,7 +70,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         self.line_edit.setMinimumHeight(font_size + self.LINE_EDIT_BUFFER)
         self._height = self.HEIGHT_MIN
 
-        if type(task_item) == TaskCategory:
+        if self.tree_manager.is_task_category(task_item):
             for child in self.tree_manager.get_filtered_children(task_item):
                 widget = TaskHeaderWidget(
                     self.tree_manager,
@@ -84,18 +82,21 @@ class TaskHeaderWidget(QtWidgets.QFrame):
                 self.widget_layout.add_task_header(child, widget)
                 self._height += widget._height
 
-        elif type(task_item) == Task:
+        elif self.tree_manager.is_task(task_item):
             widget = TaskViewWidget(
                 self.tree_manager,
                 task_item,
                 tab=tab,
-                parent=self,
             )
             # self.tab.task_widget_tree[task_item] = widget
             self.widget_layout.add_task_view(task_item, widget)
             self._height += widget.height()
 
-        self.setMinimumHeight(self._height)
+        # self.setMinimumHeight(self._height)
+        # self.setSizePolicy(
+        #     QtWidgets.QSizePolicy.Policy.Expanding,
+        #     QtWidgets.QSizePolicy.Policy.Preferred,
+        # )
         self.line_edit.editingFinished.connect(
             self.on_editing_finished
         )
@@ -105,12 +106,14 @@ class TaskHeaderWidget(QtWidgets.QFrame):
 
         In most cases, the task_item will be the same as the old one, and this
         method is just used to ensure the name stays up to date after any name
-        changes, and etc.
+        changes and etc.
 
         Args:
             task_item (BaseTreeItem): new task item that this represents.
         """
-        self.task_item = task_item
+        if task_item != self.task_item:
+            self.task_widget_tree.update_widget_item(self.task_item, task_item)
+            self.task_item = task_item
         with utils.suppress_signals(self.line_edit):
             self.line_edit.setText(task_item.name)
 
@@ -130,11 +133,10 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             object (QtCore.QObject): QObject that event is happening on.
             event (QtCore.QEvent): event that is happening.
         """
+        if object == self.line_edit and event.type() == QtCore.QEvent.FocusIn:
+            if self.tree_manager.is_task(self.task_item):
+                # self.tab.selected_subtask_item = None
+                self.tab.selected_task_item = self.task_item
+        if object == self.line_edit and event.type() == QtCore.QEvent.FocusOut:
+            self.tab.selected_task_item = None
         return False
-        # if object == self.line_edit and event.type() == QtCore.QEvent.FocusIn:
-        #     if isinstance(self.task_item, Task):
-        #         self.tab.selected_subtask_item = None
-        #         self.tab.selected_task_item = self.task_item
-        # if object == self.line_edit and event.type() == QtCore.QEvent.FocusOut:
-        #     self.tab.selected_task_item = None
-        # return False

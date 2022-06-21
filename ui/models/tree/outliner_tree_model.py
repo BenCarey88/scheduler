@@ -32,6 +32,7 @@ class OutlinerTreeModel(BaseTreeModel):
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         child_filters = []
+        self._hide_filtered_items = hide_filtered_items
         if hide_filtered_items and tree_manager.child_filter:
             child_filters.append(tree_manager.child_filter)
         super(OutlinerTreeModel, self).__init__(
@@ -108,6 +109,8 @@ class OutlinerTreeModel(BaseTreeModel):
                     self.tree_manager.unfilter_item(item)
                 else:
                     self.tree_manager.filter_item(item)
+            if self._hide_filtered_items:
+                self.set_items_hidden(True)
             self.dataChanged.emit(index, index)
             return True
         return super(OutlinerTreeModel, self).setData(index, value, role)
@@ -147,7 +150,8 @@ class OutlinerTreeModel(BaseTreeModel):
         Returns:
             (bool): whether or not action was successful.
         """
+        self._hide_filtered_items = hide
         if hide:
-            return self.set_filters([])
-        else:
             return self.set_filters([self.tree_manager.child_filter])
+        else:
+            return self.set_filters([])

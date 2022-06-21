@@ -45,8 +45,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         self.tree_manager = tree_manager
         self.root = tree_manager.tree_root if tree_root is None else tree_root
         self._base_filters = filters or []
-        with self.root.filter_children(self.child_filters):
-            self.tree_roots = self.root.get_all_children()
         self.columns = [self.NAME_COLUMN]
         self.mime_data_format = (
             mime_data_format or
@@ -86,13 +84,20 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         model.
 
         Args:
-            index (QtCore.QModelIndex): index to query.
+            index (QtCore.QModelIndex or int): QModelIndex or column
+                number to query.
 
         Returns:
             (str or None): name of column, if exists.
         """
-        if index.isValid() and 0 <= index.column() < len(self.columns):
-            return self.columns[index.column()]
+        if isinstance(index, QtCore.QModelIndex) and index.isValid():
+            col = index.column()
+        elif isinstance(index, int):
+            col = index
+        else:
+            return None
+        if 0 <= col < len(self.columns):
+            return self.columns[col]
         return None
 
     def get_index_from_item(self, item):
@@ -106,7 +111,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             (QtCore.QModelIndex or None): index for that item in the model,
                 if found.
         """
-        parent = item.parent()
+        parent = item.parent
         if parent is None:
             return QtCore.QModelIndex()
         row = item.index()
@@ -144,8 +149,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not self.hasIndex(row, column, parent_index):
             return QtCore.QModelIndex()
         if not parent_index.isValid():
-            if 0 <= row < len(self.tree_roots):
-                child_item = self.tree_roots[row]
+            tree_roots = self.root.get_filtered_children(self.child_filters)
+            if 0 <= row < len(tree_roots):
+                child_item = tree_roots[row]
             else:
                 return QtCore.QModelIndex()
         else:
@@ -190,7 +196,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             (int): number of children.
         """
         if not parent_index.isValid():
-            return len(self.tree_roots)
+            return len(self.root.get_filtered_children(self.child_filters))
         if self.get_column_name(parent_index) != self.NAME_COLUMN:
             return 0
         parent_item = parent_index.internalPointer()
@@ -317,7 +323,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Return:
             (QtCore.Qt.DropAction): supported drop actions.
         """
-        return QtCore.Qt.DropAction.MoveAction
+        return (
+            QtCore.Qt.DropAction.MoveAction |
+            QtCore.Qt.DropAction.CopyAction
+        )
 
     def mimeData(self, indexes):
         """Get mime data for given indexes.
@@ -357,7 +366,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         """
         if not mime_data.hasFormat(self.mime_data_format):
             return False
-        if self.get_column_name(col) != self.NAME_COLUMN:
+        if self.get_column_name(col) not in [self.NAME_COLUMN, None]:
             return False
         parent = parent_index.internalPointer()
         if not parent:
@@ -368,7 +377,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             self.tree_manager,
         )
         if item is None:
-            return False    
+            return False
         return self.tree_manager.can_accept_child(parent, item)
 
     def dropMimeData(self, data, action, row, column, parent_index):
@@ -642,13 +651,14 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         old_parent_index = self.get_index_from_item(old_parent)
         new_parent_index = self.get_index_from_item(new_parent)
         if old_parent_index is not None and new_parent_index is not None:
+            if old_parent == new_parent and new_row > old_row:
+                new_row += 1
             self.beginMoveRows(
                 old_parent_index,
                 old_row,
                 old_row,
                 new_parent_index,
                 new_row,
-                new_row
             )
             self._move_rows_in_progress = True
 

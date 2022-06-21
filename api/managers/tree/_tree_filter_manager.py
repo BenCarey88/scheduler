@@ -300,18 +300,21 @@ class TreeFilterManager(BaseTreeManager):
         )
         self.set_attribute(tree_item, self.IS_EXPANDED, value, default=default)
 
-    def set_expanded_from_filtered(self, item):
+    def set_expanded_from_filtered(self, item=None):
         """Set filtered items as collapsed and unfiltered as expanded.
 
         This only exapnds TaskCategory items, to avoid opening full tree
         unnecessarily.
 
         Args:
-            item (BaseTreeItem): tree item to set from.
+            item (BaseTreeItem or None): tree item to set from. If not given,
+                use root.
 
         Returns:
             (bool): whether or not action was successful.
         """
+        if item is None:
+            item = self.tree_root
         if self.is_filtered_out(item):
             self.expand_item(item, False)
         else:

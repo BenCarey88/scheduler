@@ -44,6 +44,20 @@ class BaseTreeManager(BaseManager):
         """
         return self._archive_tree_root
 
+    def iter_tree(self, include_root=False):
+        """Iterate through all tree items.
+
+        Args:
+            include_root (bool): if True, include root in iteration.
+
+        Yields:
+            (BaseTreeItem): each item in tree, from top down.
+        """
+        if include_root:
+            yield self._tree_root
+        for descendant in self._tree_root.iter_descendants:
+            yield descendant
+
     @require_class(BaseTreeItem, raise_error=True)
     def is_task(self, item):
         """Check if tree item is task.

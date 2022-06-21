@@ -4,9 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.ui import constants
 from scheduler.ui.models.tree import OutlinerTreeModel
-from scheduler.ui.utils import simple_message_dialog
 
 from .base_tree_view import BaseTreeView
 
@@ -41,6 +39,10 @@ class Outliner(BaseTreeView):
         self.selectionModel().currentChanged.connect(
             self.on_current_changed
         )
+        self.model().dataChanged.connect(
+            self.tab.on_outliner_filter_changed
+        )
+        self.model().dataChanged.connect(self.on_model_data_change)
 
         self.setHeaderHidden(True)
         self.header().setStretchLastSection(False)
@@ -56,11 +58,6 @@ class Outliner(BaseTreeView):
         # self.setSelectionBehavior(
         #     QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
         # )
-
-    def update(self):
-        """Update view to pick up changes in model."""
-        super(Outliner, self).update()
-        # self.tab.update()
 
     def _expand_item_from_tree_manager(self, index):
         """Recursively expand item at given index.
@@ -135,10 +132,9 @@ class Outliner(BaseTreeView):
                 self.tree_manager.set_current_item(item)
                 self.tab.on_outliner_current_changed(item)
 
-    def on_tree_updated(self):
-        """Callback for what to do when tree is updated."""
-        self.tab.update()
-        super(Outliner, self).on_tree_updated()
+    def on_model_data_change(self, *args):
+        """Update view to pick up changes in model."""
+        self.viewport().update()
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
@@ -152,14 +148,14 @@ class Outliner(BaseTreeView):
         if modifiers == QtCore.Qt.ControlModifier:
             # ctrl+h: hide or unhide filtered items in outliner
             if event.key() == QtCore.Qt.Key_H:
-                success = self.toggle_items_hidden
+                success = self.toggle_items_hidden()
+                if success:
+                    self.expand_items_from_tree_manager()
             # ctrl+e: auto-collapse and expand based on filter-status
             elif event.key() == QtCore.Qt.Key_E:
-                success = self.expand_items_from_filtered
+                success = self.expand_items_from_filtered()
 
-        if success:
-            self.on_tree_updated()
-        super(BaseTreeView, self).keyPressEvent(event)
+        super(Outliner, self).keyPressEvent(event)
 
     def _build_right_click_menu(self, item=None):
         """Build right click menu for given item.

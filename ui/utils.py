@@ -129,7 +129,7 @@ def encode_tree_mime_data(tree_items, mime_data_format):
         )
     text = None
     for tree_item in tree_items:
-        text = str(tree_item.internalPointer().path)
+        text = str(tree_item.path)
     if text:
         stream << QtCore.QByteArray(text.encode('utf-8'))
         mimedata.setData(mime_data_format, encoded_data)
@@ -158,4 +158,4 @@ def decode_tree_mime_data(mime_data, mime_data_format, tree_manager):
         byte_array = QtCore.QByteArray()
         stream >> byte_array
         encoded_path = bytes(byte_array).decode('utf-8')
-    return tree_manager.root.get_item_at_path(encoded_path)
+    return tree_manager.tree_root.get_item_at_path(encoded_path)

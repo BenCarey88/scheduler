@@ -260,6 +260,11 @@ class MoveTreeItemEdit(CompositeEdit):
             new_parent (BaseTreeItem): new parent to move under.
             index (int or None): index to add child at. If None, add at end.
         """
+        if new_parent == tree_item.parent and index == tree_item.index():
+            super(MoveTreeItemEdit, self).__init__([])
+            self._is_valid = False
+            return
+
         if index is not None:
             insert_child_edit = InsertChildrenEdit.create_unregistered(
                 new_parent,

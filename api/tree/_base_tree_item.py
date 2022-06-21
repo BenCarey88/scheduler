@@ -464,6 +464,15 @@ class BaseTreeItem(Hosted, NestedSerializable):
         """
         return list(self._children.values())
 
+    def get_filtered_children(self, filters):
+        """Get children of this item, using given filters.
+
+        Returns:
+            (list(BaseTreeItem)): list of filtered children.
+        """
+        with self.filter_children(filters):
+            return self.get_all_children()
+
     def get_all_siblings(self):
         """Get all siblings of this item.
 
@@ -489,21 +498,33 @@ class BaseTreeItem(Hosted, NestedSerializable):
             descendants.extend(child.get_all_descendants())
         return descendants
 
-    def iter_ancestors(self, reversed=False):
+    def iter_descendants(self):
+        """Iterate through all descendants of item.
+
+        Yields:
+            (BaseTreeItem): descendants.
+        """
+        for child in self.get_all_children():
+            yield child
+            for descendant in child.iter_descendants():
+                yield descendant
+
+    def iter_ancestors(self, reversed=False, strict=False):
         """Iterate through ancestors of this item, from oldest downwards.
 
         Args:
             reversed (bool): if True, iter from lowest upwards.
+            strict (bool): if True, don;t include this item in the iteration.
 
         Yields:
             (BaseTreeItem): ancestor items (including this one).
         """
-        if reversed:
+        if reversed and not strict:
             yield self
         if self.parent:
             for ancestor in self.parent.iter_ancestors(reversed=reversed):
                 yield ancestor
-        if not reversed:
+        if not reversed and not strict:
             yield self
 
     def get_family(self):

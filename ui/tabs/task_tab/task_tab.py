@@ -70,7 +70,12 @@ class TaskTab(BaseTab):
             )
             # self.task_header_widget_tree[category] = widget
             self.main_view_layout.add_task_header(category, widget)
-        self.main_view.setMinimumSize(self.main_view_layout.recommended_size)
+
+        # self.main_view.setSizePolicy(
+        #     QtWidgets.QSizePolicy.Policy.Ignored,
+        #     QtWidgets.QSizePolicy.Policy.Expanding,
+        # )
+        # self.main_view.setMinimumSize(self.main_view_layout.recommended_size)
 
     def _fill_scroll_area(self, scroll_value=None):
         """Create scroll area and set its widget as main view.

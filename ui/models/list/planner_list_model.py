@@ -343,24 +343,15 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.QMimeData): mimedata for given indexes.
         """
-        mimedata = QtCore.QMimeData()
-        encoded_data = QtCore.QByteArray()
-        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
-        if len(indexes) > 1:
-            raise NotImplementedError(
-                "Mime data currently only works for single item."
-            )
-        text = None
-        for index in indexes:
-            if index.isValid() and index.internalPointer():
-                text = index.internalPointer().get_temp_id()
-        if text:
-            stream << QtCore.QByteArray(text.encode('utf-8'))
-            mimedata.setData(
-                constants.PLANNED_ITEM_MIME_DATA_FORMAT,
-                encoded_data
-            )
-        return mimedata
+        planned_items = [
+            index.internalPointer()
+            for index in indexes
+            if index.isValid() and index.internalPointer()
+        ]
+        return utils.encode_mime_data(
+            planned_items,
+            constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+        )
 
     def canDropMimeData(self, data, action, row, column, parent):
         """Check whether mime data can be dropped.
@@ -389,7 +380,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             row (int): the row we're dropping on. If -1, this means that we're
                 dropping directly on the parent item (interpreted as dropping
                 it on the final row).
-            column (int): the column we're dropping on.
+            column (int): the column we're dropping on. If we're dropping
+                directly on the parent item this is again -1.
             parent_index (QtCore.QModelIndex): index of parent item we're
                 dropping under.
 
@@ -398,28 +390,18 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return True
-        if column > 0:
-            return False
 
         if row < 0:
             # if row is -1 this means we've dropped it on the parent,
             # add to end of row
             row = self.rowCount(parent_index)
 
-        root = self.planner_manager.tree_root
-
         if data.hasFormat(constants.OUTLINER_TREE_MIME_DATA_FORMAT):
-            encoded_data = data.data(constants.OUTLINER_TREE_MIME_DATA_FORMAT)
-            stream = QtCore.QDataStream(
-                encoded_data,
-                QtCore.QIODevice.ReadOnly
+            tree_item = utils.decode_mime_data(
+                data,
+                constants.OUTLINER_TREE_MIME_DATA_FORMAT,
+                drop=True,
             )
-            while not stream.atEnd():
-                byte_array = QtCore.QByteArray()
-                stream >> byte_array
-                encoded_path = bytes(byte_array).decode('utf-8')
-
-            tree_item = root.get_item_at_path(encoded_path)
             if tree_item is None:
                 return False
 
@@ -444,17 +426,11 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             return bool(success)
 
         elif data.hasFormat(constants.PLANNED_ITEM_MIME_DATA_FORMAT):
-            encoded_data = data.data(constants.PLANNED_ITEM_MIME_DATA_FORMAT)
-            stream = QtCore.QDataStream(
-                encoded_data,
-                QtCore.QIODevice.ReadOnly
+            planned_item = utils.decode_mime_data(
+                data,
+                constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+                drop=True,
             )
-            while not stream.atEnd():
-                byte_array = QtCore.QByteArray()
-                stream >> byte_array
-                encoded_id = bytes(byte_array).decode('utf-8')
-
-            planned_item = PlannedItem.from_temp_id(encoded_id)
             if planned_item is None:
                 return False
 

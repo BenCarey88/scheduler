@@ -5,6 +5,8 @@ import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.utils import generate_temporary_id, get_item_by_id
+
 
 @contextmanager
 def suppress_signals(*QObjects_list):
@@ -104,48 +106,46 @@ def set_style(widget, stylesheet_filename):
     widget.setStyleSheet(stylesheet)
 
 
-def encode_tree_mime_data(tree_items, mime_data_format):
-    """Encode tree item/s as mimedata.
+def encode_mime_data(items, mime_data_format):
+    """Encode items as mime data.
 
     Args:
-        tree_items (list(BaseTreeItem) or BaseTreeItem): tree items to
-            encode.
-        mime_data_format (str or None): format for mime data.
+        tree_items (list(variant) or variant): items to encode.
+        mime_data_format (str): format for mime data.
 
     Returns:
         (QtCore.QMimeData): the mimedata.
     """
     mimedata = QtCore.QMimeData()
-    if mime_data_format is None:
-        return mimedata
     encoded_data = QtCore.QByteArray()
     stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
 
-    if not isinstance(tree_items, list):
-        tree_items = [tree_items]
-    if len(tree_items) > 1:
+    if not isinstance(items, list):
+        items = [items]
+    if len(items) > 1:
         raise NotImplementedError(
-            "Tree mime data currently only works for single item."
+            "Mime data currently only works for single item."
         )
     text = None
-    for tree_item in tree_items:
-        text = str(tree_item.path)
+    for item in items:
+        text = generate_temporary_id(item)
     if text:
         stream << QtCore.QByteArray(text.encode('utf-8'))
         mimedata.setData(mime_data_format, encoded_data)
     return mimedata
 
 
-def decode_tree_mime_data(mime_data, mime_data_format, tree_manager):
-    """Decode tree mime data.
+def decode_mime_data(mime_data, mime_data_format, drop=False):
+    """Decode mime data.
 
     Args:
         mime_data (QtCore.QMimeData): the mime data to decode.
         mime_data_format (str or None): the format to decode.
-        tree_manager (TreeManager): treee manager to use for decoding.
+        drop (bool): if True, this decoding is part of a drop action, meaning
+            that we can delete the item's id after decoding.
 
     Returns:
-        (BaseTreeItem or list(BaseTreeItem) or None): the encoded tree
+        (BaseTreeItem or list(BaseTreeItem) or None): the encoded
             item/s, if found.
     """
     if mime_data_format is None:
@@ -157,5 +157,5 @@ def decode_tree_mime_data(mime_data, mime_data_format, tree_manager):
     while not stream.atEnd():
         byte_array = QtCore.QByteArray()
         stream >> byte_array
-        encoded_path = bytes(byte_array).decode('utf-8')
-    return tree_manager.tree_root.get_item_at_path(encoded_path)
+        encoded_id = bytes(byte_array).decode('utf-8')
+    return get_item_by_id(encoded_id, remove_from_registry=drop)

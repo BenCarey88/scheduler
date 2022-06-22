@@ -828,10 +828,10 @@ class SchedulerTimetableView(BaseWeekTableView):
         Args:
             event (QtCore.QEvent): the drop event.
         """
-        tree_item = utils.decode_tree_mime_data(
+        tree_item = utils.decode_mime_data(
             event.mimeData(),
             constants.OUTLINER_TREE_MIME_DATA_FORMAT,
-            self.tree_manager,
+            drop=True,
         )
         if not tree_item:
             return

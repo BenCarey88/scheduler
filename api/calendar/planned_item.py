@@ -250,23 +250,6 @@ class PlannedItem(NestedSerializable):
             self._id = item_registry.generate_unique_id(self.name)
         return self._id
 
-    def get_temp_id(self):
-        """Generate temporary id for item.
-
-        Returns:
-            (str): id of item.
-        """
-        return utils.generate_temporary_id(self)
-
-    @staticmethod
-    def from_temp_id(id):
-        """Find class from temporary id.
-
-        Returns:
-            (PlannedItem or None): class instance, if found.
-        """
-        return utils.get_item_by_id(id)
-
     @classmethod
     def from_dict(cls, dict_repr, calendar, calendar_period):
         """Initialise class from dict.

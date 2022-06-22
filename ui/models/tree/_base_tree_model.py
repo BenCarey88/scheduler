@@ -340,15 +340,14 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.QMimeData): mimedata for given indexes.
         """
-        mimedata = QtCore.QMimeData()
         if self.mime_data_format is None:
-            return mimedata
+            return QtCore.QMimeData()
         tree_items = [
             index.internalPointer()
             for index in indexes
             if index.isValid() and index.internalPointer()
         ]
-        return utils.encode_tree_mime_data(tree_items, self.mime_data_format)
+        return utils.encode_mime_data(tree_items, self.mime_data_format)
 
     def canDropMimeData(self, mime_data, action, row, col, parent_index):
         """Check whether we can drop mime data over a given item.
@@ -371,11 +370,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         parent = parent_index.internalPointer()
         if not parent:
             return False
-        item = utils.decode_tree_mime_data(
-            mime_data,
-            self.mime_data_format,
-            self.tree_manager,
-        )
+        item = utils.decode_mime_data(mime_data, self.mime_data_format)
         if item is None:
             return False
         return self.tree_manager.can_accept_child(parent, item)
@@ -403,11 +398,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         parent = parent_index.internalPointer()
         if not parent:
             return False
-        item = utils.decode_tree_mime_data(
-            data,
-            self.mime_data_format,
-            self.tree_manager,
-        )
+        item = utils.decode_mime_data(data, self.mime_data_format, drop=True)
         if item is None:
             return False
 

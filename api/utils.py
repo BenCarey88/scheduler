@@ -147,16 +147,18 @@ def generate_temporary_id(item):
     return id
 
 
-def get_item_by_id(id):
+def get_item_by_id(id, remove_from_registry=False):
     """Get item by id and remove from registry.
 
     Args:
         id (str): id of item to get.
+        remove_from_registry (bool): if True, remove the item from
+            the registry after returning it.
 
     Returns:
         (variant or None): item, if found.
     """
     item = _TEMPORARY_ID_REGISTRY.get(id, None)
-    if item is not None:
+    if remove_from_registry and item is not None:
         del _TEMPORARY_ID_REGISTRY[id]
     return item

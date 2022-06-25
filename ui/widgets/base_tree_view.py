@@ -94,6 +94,9 @@ class BaseTreeView(QtWidgets.QTreeView):
         """
         if item is None:
             return False
+        index = self.model().get_index_from_item(item)
+        if index:
+            self.expand(index)
         return self.tree_manager.create_new_subtask(item)
 
     def add_subcategory(self, item, *args):
@@ -107,6 +110,9 @@ class BaseTreeView(QtWidgets.QTreeView):
         """
         if item is None:
             return False
+        index = self.model().get_index_from_item(item)
+        if index:
+            self.expand(index)
         return self.tree_manager.create_new_subcategory(item)
 
     def add_sibling_item(self, item, *args):

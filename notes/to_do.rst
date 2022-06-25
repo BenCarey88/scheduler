@@ -23,5 +23,5 @@ general
     - no border
     - no text (except maybe scrollover) - or choose if there's text
 * cross top-right and checkbox top-left of calendar items
-* colour editor (right click item for tasks and included in calendar)
+* color editor (right click item for tasks and included in calendar)
 * add in loggers everywhere

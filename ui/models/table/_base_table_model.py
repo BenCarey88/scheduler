@@ -42,6 +42,7 @@ class BaseTableModel(QtCore.QAbstractTableModel):
         """
         self.calendar_period = calendar_period
         # TODO: use dataChanged properly
+        # or just remove this? I don't think it's actually doing anything
         self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     @staticmethod

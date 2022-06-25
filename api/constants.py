@@ -15,7 +15,7 @@ USER_PREFS_FILE = os.path.join(SCHEDULER_PKG_DIR, "user_prefs.json")
 
 
 # TODO: this should DEFINITELY be set by user, as task attribute, hardcoding for now
-TASK_COLOURS = {
+TASK_COLORS = {
     "Projects": (255, 165, 0),                  # Orange
     "Work": (245, 245, 190),                    # Yellow
     "General To Do": (50,205,50),               # Green

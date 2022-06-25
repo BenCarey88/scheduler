@@ -278,24 +278,6 @@ class SchedulerTimetableView(BaseWeekTableView):
         return self.DAY_END - self.DAY_START
 
     @property
-    def column_width(self):
-        """Get width of columns.
-
-        Returns:
-            (int): pixel width of columns.
-        """
-        return self.columnWidth(0)
-
-    @property
-    def row_height(self):
-        """Get height of rows.
-
-        Returns:
-            (int): pixel height of rows.
-        """
-        return self.row_height(0)
-
-    @property
     def row_count(self):
         """Get number of rows.
 
@@ -428,6 +410,17 @@ class SchedulerTimetableView(BaseWeekTableView):
             return column
         return None
 
+    def column_from_date(self, date):
+        """Get column from date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (int): the column number corresponding to that date.
+        """
+        return (date - self.calendar_week.start_date).days
+
     def date_from_column(self, col):
         """Get date for given column.
 
@@ -455,6 +448,24 @@ class SchedulerTimetableView(BaseWeekTableView):
         time = self.time_from_y_pos(pos.y())
         date = self.date_from_column(column)
         return DateTime.from_date_and_time(date, time)
+
+    def rect_from_date_time_range(self, date, time_start, time_end):
+        """Get a qrect from a date and time range.
+
+        Args:
+            date (Date): the date.
+            time_start (Time): start time.
+            time_end (Time): end time.
+
+        Returns:
+            (QtCore.QRectF): rectangle representing this range in the view.
+        """
+        column = self.column_from_date(date)
+        x_start = self.columnViewportPosition(column)
+        width = self.columnWidth(column)
+        y_start = self.y_pos_from_time(time_start)
+        height = self.height_from_time_range(time_end - time_start)
+        return QtCore.QRectF(x_start, y_start, width, height)
 
     # TODO: make proper exception class for this func. Also maybe find more
     # efficient way to do this (eg. separate item attrs in CalendarDay?)
@@ -531,13 +542,13 @@ class SchedulerTimetableView(BaseWeekTableView):
             rect (QtCore.QRectF): rectangle to paint.
             item (ScheduledItem): scheduled item we're painting.
             border_size (int): size of border of items.
-            alpha (int): alpha value for colours.
+            alpha (int): alpha value for colors.
             rounding (int): amount of rounding for rects.
         """
         if item.type == ScheduledItemType.TASK:
             tree_item = item.tree_item
-            if tree_item and tree_item.colour:
-                brush_color = QtGui.QColor(*tree_item.colour, alpha)
+            if tree_item and tree_item.color:
+                brush_color = QtGui.QColor(*tree_item.color, alpha)
             else:
                 brush_color = QtGui.QColor(245, 245, 190, alpha)
         else:
@@ -862,6 +873,7 @@ class SchedulerTimetableView(BaseWeekTableView):
 
 class SchedulerDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for calendar."""
+    NUM_ROWS_ON_SCREEN = 12
 
     def __init__(self, table, parent=None):
         """Initialise task delegate item."""
@@ -878,14 +890,10 @@ class SchedulerDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtCore.QSize): size hint.
         """
-        # TODO set num_rows as constant? and call it something more
-        # explicit, like num_visible_rows or num_rows_on_screen
-        num_rows = 12
         table_size = self.table.viewport().size()
         line_width = 1
-        rows = self.table.row_count or 1
+        rows = self.NUM_ROWS_ON_SCREEN
         cols = self.table.column_count or 1
         width = (table_size.width() - (line_width * (cols - 1))) / cols
-        # TODO: why does the expression below use rows AND num_rows?
-        height = (table_size.height() -  (line_width * (rows - 1))) / num_rows
+        height = (table_size.height() -  (line_width * (rows - 1))) / rows
         return QtCore.QSize(width, height)

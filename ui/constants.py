@@ -30,6 +30,8 @@ TASK_STATUS_COLORS = {
     TaskStatus.IN_PROGRESS: QtGui.QColor(175, 100, 255),
     TaskStatus.COMPLETE: QtGui.QColor(100, 160, 36),
 }
+BASE_SCHEDULED_EVENT_COLOR = QtGui.QColor(173, 216, 230)
+BASE_SCHEDULED_TASK_COLOR = QtGui.QColor(245, 245, 190)
 
 # Buttons
 YES_BUTTON = QtWidgets.QMessageBox.StandardButton.Yes

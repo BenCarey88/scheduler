@@ -4,7 +4,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 from scheduler.api.common.object_wrappers import Hosted, MutableAttribute
-from scheduler.api.constants import TASK_COLOURS
+from scheduler.api.constants import TASK_COLORS
 from scheduler.api.serialization.serializable import NestedSerializable
 
 
@@ -90,16 +90,16 @@ class BaseTreeItem(Hosted, NestedSerializable):
 
     # TODO: does this belong here?
     @property
-    def colour(self):
-        """Get colour of tree item.
+    def color(self):
+        """Get color of tree item.
 
         Returns:
-            (tuple(int) or None): rgb colour of item, if defined.
+            (tuple(int) or None): rgb color of item, if defined.
         """
-        if self.name in TASK_COLOURS:
-            return TASK_COLOURS.get(self.name)
+        if self.name in TASK_COLORS:
+            return TASK_COLORS.get(self.name)
         if self.parent:
-            return self.parent.colour
+            return self.parent.color
         return None
 
     def __str__(self):

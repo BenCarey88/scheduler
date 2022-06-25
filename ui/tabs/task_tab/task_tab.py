@@ -155,8 +155,9 @@ class TaskTab(BaseTab):
         """
         if self.tree_manager.is_task(parent):
             widget = self.task_widget_tree.get_task_view_widget(parent)
-            widget.begin_reset()
-            self._views_being_reset = [widget]
+            if widget:
+                widget.begin_reset()
+                self._views_being_reset = [widget]
 
     def on_item_added(self, item, parent, row):
         """Callback for after an item has been added.
@@ -177,9 +178,10 @@ class TaskTab(BaseTab):
                 parent_widget = self.task_widget_tree.get_task_header_widget(
                     parent
                 )
-                layout = parent_widget.widget_layout
+                layout = parent_widget.widget_layout if parent_widget else None
             new_widget = TaskHeaderWidget(self.tree_manager, item, tab=self)
-            layout.add_task_header(item, new_widget, row)
+            if layout:
+                layout.add_task_header(item, new_widget, row)
 
     def pre_item_removed(self, item, parent, index):
         """Callback for before an item has been removed.
@@ -192,8 +194,9 @@ class TaskTab(BaseTab):
         """
         if not self.tree_manager.is_task_category_or_top_level_task(item):
             widget = self.task_widget_tree.get_task_view_widget(item)
-            widget.begin_reset()
-            self._views_being_reset = [widget]
+            if widget:
+                widget.begin_reset()
+                self._views_being_reset = [widget]
 
     def on_item_removed(self, item, parent, index):
         """Callback for after an item has been removed.
@@ -210,7 +213,8 @@ class TaskTab(BaseTab):
             self._views_being_reset = []
         else:
             layout = self.task_widget_tree.get_layout(item)
-            layout.remove_tree_item(item)
+            if layout:
+                layout.remove_tree_item(item)
 
     def pre_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for before an item is moved.
@@ -225,12 +229,14 @@ class TaskTab(BaseTab):
         self._views_being_reset = []
         if self.tree_manager.is_task(old_parent):
             old_widget = self.task_widget_tree.get_task_view_widget(old_parent)
-            old_widget.begin_reset()
-            self._views_being_reset.append(old_widget)
+            if old_widget:
+                old_widget.begin_reset()
+                self._views_being_reset.append(old_widget)
         if self.tree_manager.is_task(new_parent):
             new_widget = self.task_widget_tree.get_task_view_widget(new_parent)
-            new_widget.begin_reset()
-            self._views_being_reset.append(new_widget)
+            if new_widget:
+                new_widget.begin_reset()
+                self._views_being_reset.append(new_widget)
 
     def on_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for after an item has been moved.
@@ -261,8 +267,9 @@ class TaskTab(BaseTab):
         """
         if not self.tree_manager.is_task_category_or_top_level_task(old_item):
             widget = self.task_widget_tree.get_task_view_widget(old_item)
-            widget.begin_reset()
-            self._views_being_reset = [widget]
+            if widget:
+                widget.begin_reset()
+                self._views_being_reset = [widget]
 
     def on_item_modified(self, old_item, new_item):
         """Run callbacks after an item has been modified.
@@ -277,7 +284,8 @@ class TaskTab(BaseTab):
             self._views_being_reset = []
         elif self.tree_manager.is_task_category_or_top_level_task(new_item):
             widget = self.task_widget_tree.get_task_header_widget(old_item)
-            widget.update_task_item(new_item)
+            if widget:
+                widget.update_task_item(new_item)
 
     def on_outliner_current_changed(self, tree_item):
         """Callback to scroll to item when current is changed in outliner.

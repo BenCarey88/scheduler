@@ -73,6 +73,7 @@ class BaseMonthModel(BaseTableModel):
         self.num_rows = len(
             self.calendar_month.get_calendar_weeks(weekday_start)
         )
+        # TODO: Again, this dataChanged is not doing anything?
         self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     def day_from_row_and_column(self, row, column):

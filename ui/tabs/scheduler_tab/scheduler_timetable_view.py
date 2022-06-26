@@ -201,6 +201,18 @@ class SchedulerTimetableView(BaseWeekTableView):
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
         self.refresh_scheduled_items_list()
+        self.schedule_manager.register_item_added_callback(
+            self,
+            self.refresh_scheduled_items_list,
+        )
+        self.schedule_manager.register_item_removed_callback(
+            self,
+            self.refresh_scheduled_items_list,
+        )
+        self.schedule_manager.register_item_modified_callback(
+            self,
+            self.refresh_scheduled_items_list,
+        )
 
         self.setItemDelegate(SchedulerDelegate(self))
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -219,15 +231,19 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.viewport().setAcceptDrops(True)
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
 
-        self.startTimer(constants.LONG_TIMER_INTERVAL)
+        self.timer_id = self.startTimer(constants.LONG_TIMER_INTERVAL)
 
-    def refresh_scheduled_items_list(self):
-        """Refresh list of scheduled items."""
+    def refresh_scheduled_items_list(self, *args):
+        """Refresh list of scheduled items.
+
+        Unused args are passed so this can be connected to callbacks.
+        """
         self.scheduled_item_widgets = [
             ScheduledItemWidget(self, self.schedule_manager, item)
             for calendar_day in self.calendar_week.iter_days()
             for item in calendar_day.iter_scheduled_items()
         ]
+        # Put background items below foreground ones
         self.scheduled_item_widgets.sort(
             key=(lambda w : 1 - int(w.scheduled_item.is_background))
         )
@@ -556,7 +572,8 @@ class SchedulerTimetableView(BaseWeekTableView):
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        self.viewport().update()
+        if event.timerId() == self.timer_id:
+            self.viewport().update()
 
     # def _paint_item(self, painter, rect, item, border_size, alpha, rounding):
     #     """Paint scheduled item.
@@ -662,6 +679,9 @@ class SchedulerTimetableView(BaseWeekTableView):
     #             )
     #         )
 
+    # TODO: this seems to be calling constantly, which I don't think it's
+    # meant to do - work out why (and then may need to fix some update
+    # stuff after tree manager runs)
     def paintEvent(self, event):
         """Override paint event to draw item rects and selection rect.
 
@@ -915,6 +935,7 @@ class SchedulerTimetableView(BaseWeekTableView):
             item_editor.exec()
         else:
             item_editor.accept_and_close()
+        self.viewport().update()
 
 
 class SchedulerDelegate(QtWidgets.QStyledItemDelegate):

@@ -13,13 +13,7 @@ class TreeCallbacks(BaseCallbacks):
     """
     def __init__(self):
         """Initialize."""
-        super(TreeCallbacks, self).__init__()
-        self._pre_item_moved_callbacks = {}
-        self._item_moved_callbacks = {}
-        self._all_callbacks.extend([
-            self._pre_item_moved_callbacks,
-            self._item_moved_callbacks,
-        ])
+        super(TreeCallbacks, self).__init__(include_move=True)
 
     def register_pre_item_moved_callback(self, id, callback):
         """Register callback to use before an item is moved.
@@ -155,8 +149,13 @@ class TreeCallbacks(BaseCallbacks):
             new_parent (BaseTreeItem): the new parent of the moved item.
             new_index (int): the new index of the moved item.
         """
-        for callback in self._pre_item_moved_callbacks.values():
-            callback(item, old_parent, old_index, new_parent, new_index)
+        super(TreeCallbacks, self).run_pre_item_moved_callbacks(
+            item,
+            old_parent,
+            old_index,
+            new_parent,
+            new_index,
+        )
     
     def run_item_moved_callbacks(
             self,
@@ -174,8 +173,13 @@ class TreeCallbacks(BaseCallbacks):
             new_parent (BaseTreeItem): the new parent of the moved item.
             new_index (int): the new index of the moved item.
         """
-        for callback in self._item_moved_callbacks.values():
-            callback(item, old_parent, old_index, new_parent, new_index)
+        super(TreeCallbacks, self).run_item_moved_callbacks(
+            item,
+            old_parent,
+            old_index,
+            new_parent,
+            new_index,
+        )
 
 
 TREE_CALLBACKS = TreeCallbacks()

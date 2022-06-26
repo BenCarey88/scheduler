@@ -11,10 +11,23 @@ from scheduler.api.calendar.planned_item import PlannedItem
 
 from .._base_manager import require_class
 from ._base_planner_manager import BasePlannerManager
+from ._planner_callbacks import PLANNER_CALLBACKS as PC
 
 
 class PlannerEditManager(BasePlannerManager):
     """Planner edit manager to apply edits to planned items."""
+    register_pre_item_added_callback = PC.register_pre_item_added_callback
+    register_item_added_callback = PC.register_item_added_callback
+    register_pre_item_removed_callback = PC.register_pre_item_removed_callback
+    register_item_removed_callback = PC.register_item_removed_callback
+    register_pre_item_modified_callback = PC.register_item_modified_callback
+    register_item_modified_callback = PC.register_item_modified_callback
+    register_pre_item_moved_callback = PC.register_pre_item_moved_callback
+    register_item_moved_callback = PC.register_item_moved_callback
+    register_pre_full_update_callback = PC.register_pre_full_update_callback
+    register_full_update_callback = PC.register_full_update_callback
+    remove_callbacks = PC.remove_callbacks
+
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.
 
@@ -41,7 +54,12 @@ class PlannerEditManager(BasePlannerManager):
             (bool): whether or not edit was successful.
         """
         item = PlannedItem(*args, **kwargs)
-        return AddPlannedItemEdit.create_and_run(item, index)
+        edit = AddPlannedItemEdit(item, index)
+        if edit.is_valid:
+            PC.run_pre_item_added_callbacks(item, index)
+            edit.run()
+            PC.run_item_added_callbacks(item, index)
+        return edit.is_valid
 
     @require_class(PlannedItem, True)
     def remove_planned_item(self, planned_item):
@@ -53,11 +71,17 @@ class PlannerEditManager(BasePlannerManager):
         Returns:
             (bool): whether or not edit was successful
         """
-        return RemovePlannedItemEdit.create_and_run(planned_item)
+        edit = RemovePlannedItemEdit(planned_item)
+        if edit.is_valid:
+            index = planned_item.index()
+            PC.run_pre_item_removed_callbacks(planned_item, index)
+            edit.run()
+            PC.run_item_removed_callbacks(planned_item, index)
+        return edit.is_valid
 
     @require_class(PlannedItem, True)
     def move_planned_item(self, planned_item, index):
-        """Remove planned item from calendar.
+        """Move planned item to different index in list.
 
         Args:
             planned_item (PlannedItem): planned item to remove.
@@ -66,7 +90,13 @@ class PlannerEditManager(BasePlannerManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        return MovePlannedItemEdit.create_and_run(planned_item, index)
+        edit = MovePlannedItemEdit(planned_item, index)
+        if edit.is_valid:
+            old_index = planned_item.index()
+            PC.run_pre_item_removed_callbacks(planned_item, old_index, index)
+            edit.run()
+            PC.run_item_removed_callbacks(planned_item, old_index, index)
+        return edit.is_valid
 
     @require_class(PlannedItem, True)
     def modify_planned_item(
@@ -100,10 +130,12 @@ class PlannerEditManager(BasePlannerManager):
             attr: value
             for attr, value in attr_dict.items() if value is not None
         }
-        return ModifyPlannedItemEdit.create_and_run(
-            planned_item,
-            attr_dict,
-        )
+        edit = ModifyPlannedItemEdit(planned_item, attr_dict)
+        if edit.is_valid:
+            PC.run_pre_item_modified_callbacks(planned_item, planned_item)
+            edit.run()
+            PC.run_item_modified_callbacks(planned_item, planned_item)
+        return edit.is_valid
 
     def sort_planned_items(self, calendar_period, key=None, reverse=False):
         """Sort order of planned items.
@@ -117,8 +149,9 @@ class PlannerEditManager(BasePlannerManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        return SortPlannedItemsEdit.create_and_run(
-            calendar_period,
-            key=key,
-            reverse=reverse,
-        )
+        edit = SortPlannedItemsEdit(calendar_period, key=key, reverse=reverse)
+        if edit.is_valid:
+            PC.run_pre_full_update_callbacks()
+            edit.run()
+            PC.run_full_update_callbacks()
+        return edit.is_valid

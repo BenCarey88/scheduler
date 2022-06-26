@@ -43,7 +43,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.setup_menu()
         self.saved_edit = edit_log.latest_edit()
         self.autosaved_edit = edit_log.latest_edit()
-        self.startTimer(ui_constants.SHORT_TIMER_INTERVAL)
+        self.timer_id = self.startTimer(ui_constants.SHORT_TIMER_INTERVAL)
         edit_log.open_edit_registry()
 
     def setup_tabs(self):
@@ -210,7 +210,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        self._autosave()
+        print (self.timer_id, event.timerId())
+        if event.timerId() == self.timer_id:
+            self._autosave()
 
     def closeEvent(self, event):
         """Called on closing: prompt user to save changes if not done yet.

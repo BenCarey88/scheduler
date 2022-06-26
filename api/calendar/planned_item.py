@@ -204,13 +204,27 @@ class PlannedItem(NestedSerializable):
                 to query at. If None, use self.calendar_period.
 
         Returns:
-            (dict)): dict that planned item should be contained in.
+            (list): list that planned item should be contained in.
         """
         calendar_period = utils.fallback_value(
             calendar_period,
             self.calendar_period
         )
         return self.calendar_period.get_planned_items_container()
+
+    def index(self):
+        """Get index of item in its container.
+
+        Returns:
+            (int or None): index of item, if found.
+        """
+        container = self.get_item_container()
+        if container is None:
+            return None
+        try:
+            return container.index(self)
+        except ValueError:
+            return None
 
     def _add_scheduled_item(self, scheduled_item):
         """Add scheduled item (to be used during deserialization).

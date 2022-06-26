@@ -22,8 +22,6 @@ class ScheduleCallbacks(BaseCallbacks):
 
         Args:
             item (ScheduledItem): the item that was added.
-            parent (BaseTreeItem): the parent the item will be added under.
-            index (int): the index the item will be added at.
         """
         super(ScheduleCallbacks, self).run_item_added_callbacks(item)
 
@@ -39,10 +37,7 @@ class ScheduleCallbacks(BaseCallbacks):
         """Run callbacks after an item has been removed.
 
         Args:
-            item (BaseTreeItem): the removed item.
-            parent (BaseTreeItem): the parent of the removed item.
-            index (int): the old index of the removed item in its
-                parent's child list.
+            item (ScheduledItem): the removed item.
         """
         super(ScheduleCallbacks, self).run_item_removed_callbacks(item)
 
@@ -50,8 +45,8 @@ class ScheduleCallbacks(BaseCallbacks):
         """Run callbacks before an item has been modified.
 
         Args:
-            old_item (BaseTreeItem): the item pre-modification.
-            new_item (BaseTreeItem): the item post-modification. This will
+            old_item (ScheduledItem): the item pre-modification.
+            new_item (ScheduledItem): the item post-modification. This will
                 usually be the same as old_item but may be different if the
                 item has actually been replaced.
         """
@@ -64,8 +59,8 @@ class ScheduleCallbacks(BaseCallbacks):
         """Run callbacks after an item has been modified.
 
         Args:
-            old_item (BaseTreeItem): the item pre-modification.
-            new_item (BaseTreeItem): the item post-modification. This will
+            old_item (ScheduledItem): the item pre-modification.
+            new_item (ScheduledItem): the item post-modification. This will
                 usually be the same as old_item but may be different if the
                 item has actually been replaced.
         """

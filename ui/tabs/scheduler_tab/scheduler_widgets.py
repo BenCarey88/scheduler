@@ -174,21 +174,10 @@ class ScheduledItemWidget(object):
         Args:
             painter (QtGui.QPainter): qt painter object.
         """
+        rect = self.rect
         border_size = 1
         rounding = 1
         alpha = 100 if self._scheduled_item.is_background else 200
-        text_padding = 10
-        text_height = 20
-        text_alignment = (
-            QtCore.Qt.AlignmentFlag.AlignLeft |
-            QtCore.Qt.AlignmentFlag.AlignVCenter
-        )
-        category_text = str(self._scheduled_item.category)
-        name_text = str(self._scheduled_item.name)
-        time_text = "{0} - {1}".format(
-            self._scheduled_item.start_time.string(),
-            self._scheduled_item.end_time.string()
-        )
 
         if self._schedule_manager.has_task_type(self._scheduled_item):
             tree_item = self._scheduled_item.tree_item
@@ -203,7 +192,6 @@ class ScheduledItemWidget(object):
         painter.setBrush(brush)
 
         path = QtGui.QPainterPath()
-        rect = self.rect
         rect.adjust(
             border_size/2, border_size/2, -border_size/2, -border_size/2
         )
@@ -212,21 +200,50 @@ class ScheduledItemWidget(object):
         painter.fillPath(path, painter.brush())
         painter.strokePath(path, painter.pen())
 
-        num_text_rects = int(
-            min(text_padding + rect.height() / (text_height + text_padding), 3)
+        # if self._scheduled_item.is_background:
+        #     return
+        text_padding = 3
+        text_margin = min(rect.width() / 2, 7)
+        text_height = 20
+        text_alignment = (
+            QtCore.Qt.AlignmentFlag.AlignLeft |
+            QtCore.Qt.AlignmentFlag.AlignVCenter
         )
+        category_text = str(self._scheduled_item.category)
+        name_text = str(self._scheduled_item.name)
+        time_text = "{0} - {1}".format(
+            self._scheduled_item.start_time.string(),
+            self._scheduled_item.end_time.string()
+        )
+
+        text_range = rect.height() - 2 * text_margin
+        total_text_height = text_height
+        num_text_rects = 0
+        for i in range(1, 4 if category_text else 3):
+            if total_text_height >= text_range:
+                break
+            num_text_rects = i
+            total_text_height += text_height + text_padding
         for i in range(num_text_rects):
             text_rect = QtCore.QRect(
-                rect.left() + text_padding * (1 + i),
-                rect.top() + text_padding * (1 + i),
+                rect.left() + text_margin,
+                rect.top() + text_margin + text_height * i + text_padding * i,
+                rect.width() - text_margin * 2,
                 text_height,
-                rect.width() - text_padding * 2,
             )
             if num_text_rects == 3:
                 text = [category_text, name_text, time_text][i]
             else:
                 text = [name_text, time_text][i]
             painter.drawText(text_rect, text_alignment, text)
+        if not num_text_rects:
+            text_rect = QtCore.QRect(
+                rect.left() + text_padding,
+                rect.top(),
+                rect.width() - text_padding * 2,
+                rect.height(),
+            )
+            painter.drawText(text_rect, text_alignment, name_text)
 
 
 class SelectionRect(object):

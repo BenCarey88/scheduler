@@ -13,8 +13,8 @@ class ScheduledItemWidget(object):
             self,
             timetable_view,
             schedule_manager,
-            scheduled_item,
-            orig_mouse_pos):
+            scheduled_item):
+            #orig_mouse_pos):
         """Initialize widget.
 
         Args:
@@ -28,8 +28,9 @@ class ScheduledItemWidget(object):
         self._timetable_view = timetable_view
         self._schedule_manager = schedule_manager
         self._scheduled_item = scheduled_item
-        self.orig_mouse_pos = orig_mouse_pos
+        #self.orig_mouse_pos = orig_mouse_pos
         self.is_being_moved = False
+        self.mouse_pos_start_time = None
         self._edited_date = None
         self._edited_start_time = None
         self._edited_end_time = None
@@ -99,6 +100,25 @@ class ScheduledItemWidget(object):
             self.end_time,
         )
 
+    def contains(self, pos):
+        """Check if widget contains position.
+
+        Args:
+            pos (QtCore.QPos): position to check.
+
+        Returns:
+            (bool): whether or not widget contains pos.
+        """
+        return self.rect.contains(pos)
+
+    def set_mouse_pos_start_time(self, start_time):
+        """When moving the item, set the start time based on the mouse pos.
+
+        Args:
+            start_time (DateTime): the time represented by the mouse position.
+        """
+        self.mouse_pos_start_time = start_time
+
     def change_time(self, new_start_datetime, new_end_datetime):
         """Change the time of the scheduled item.
 
@@ -125,7 +145,8 @@ class ScheduledItemWidget(object):
         """Call when we've finished using this item."""
         # self._schedule_manager.end_move_item(self._scheduled_item)
         # self.update_orig_datetime_attrs()
-        self._schedule_manager.move_item(
+        self._schedule_manager.move_scheduled_item(
+            self._scheduled_item,
             self._edited_date,
             self._edited_start_time,
             self._edited_end_time,
@@ -133,6 +154,7 @@ class ScheduledItemWidget(object):
         self._edited_date = None
         self._edited_start_time = None
         self._edited_end_time = None
+        self.mouse_pos_start_time = None
         self.is_being_moved = False
         self.update_orig_datetime_attrs()
 
@@ -191,7 +213,7 @@ class ScheduledItemWidget(object):
         painter.strokePath(path, painter.pen())
 
         num_text_rects = int(
-            max(text_padding + rect.height() / (text_height + text_padding), 3)
+            min(text_padding + rect.height() / (text_height + text_padding), 3)
         )
         for i in range(num_text_rects):
             text_rect = QtCore.QRect(
@@ -295,7 +317,7 @@ class SelectionRect(object):
         Args:
             painter (QtGui.QPainter): qt painter object.
         """
-        brush = QtGui.QBrush(QtGui.QColor(0, 255, 204))
+        brush = QtGui.QBrush(constants.SCHEDULER_SELECTION_RECT_COLOR)
         painter.setBrush(brush)
         path = QtGui.QPainterPath()
         path.addRoundedRect(self.rect, 5, 5)

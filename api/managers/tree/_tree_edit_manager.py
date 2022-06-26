@@ -31,6 +31,16 @@ from ._tree_callbacks import TREE_CALLBACKS as TC
 
 class TreeEditManager(BaseTreeManager):
     """Tree edit manager to apply edits to tree items."""
+    register_pre_item_added_callback = TC.register_pre_item_added_callback
+    register_item_added_callback = TC.register_item_added_callback
+    register_pre_item_removed_callback = TC.register_pre_item_removed_callback
+    register_item_removed_callback = TC.register_item_removed_callback
+    register_pre_item_modified_callback = TC.register_item_modified_callback
+    register_item_modified_callback = TC.register_item_modified_callback
+    register_pre_item_moved_callback = TC.register_pre_item_moved_callback
+    register_item_moved_callback = TC.register_item_moved_callback
+    remove_callbacks = TC.remove_callbacks
+
     def __init__(self, name, user_prefs, tree_root, archive_tree_root):
         """Initialise class.
 
@@ -495,90 +505,3 @@ class TreeEditManager(BaseTreeManager):
             edit.run()
             TC.run_item_modified_callbacks(task_item, task_item)
         return edit.is_valid
-
-    ### Callbacks ###
-    def register_pre_item_added_callback(self, id, callback):
-        """Register callback to use before an item is added.
-
-        Args:
-            id (variant): id to register callback with.
-            callback (function): function to call when an item is added.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_pre_item_added_callback(id, callback)
-    
-    def register_item_added_callback(self, id, callback):
-        """Register callback to use when an item is added.
-
-        Args:
-            id (variant): id to register callback with.
-            callback (function): function to call when an item is added.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_item_added_callback(id, callback)
-
-    def register_pre_item_removed_callback(self, id, callback):
-        """Register callback to use before an item is removed.
-
-        Args:
-            id (variant): id to register callback with.
-            callback (function): function to call before an item is removed.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_pre_item_removed_callback(id, callback)
-    
-    def register_item_removed_callback(self, id, callback):
-        """Register callback to use when an item is removed.
-
-        Args:
-            id (variant): id to register callback with.
-            callback (function): function to call when an item is removed.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_item_removed_callback(id, callback)
-
-    def register_pre_item_moved_callback(self, id, callback):
-        """Register callback to use before an item is moved.
-
-        Args:
-            callback (function): function to call before an item is moved.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_pre_item_moved_callback(id, callback)
-
-    def register_item_moved_callback(self, id, callback):
-        """Register callback to use when an item is moved.
-
-        Args:
-            callback (function): function to call when an item is moved.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_item_moved_callback(id, callback)
-
-    def register_pre_item_modified_callback(self, id, callback):
-        """Register callback to use before an item is modified.
-
-        Args:
-            id (variant): id to register callback with.
-            callback (function): function to call before an item is modified.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_pre_item_modified_callback(id, callback)
-
-    def register_item_modified_callback(self, id, callback):
-        """Register callback to use when an item is modified.
-
-        Args:
-            id (variant): id to register callback with.
-            callback (function): function to call when an item is modified.
-                See callbacks class for required inputs to this function.
-        """
-        TC.register_item_modified_callback(id, callback)
-
-    def remove_callbacks(self, id):
-        """Remove all callbacks registered under the given id.
-
-        Args:
-            id (variant): the id a callback was registered under.
-        """
-        TC.remove_callbacks(id)

@@ -19,10 +19,19 @@ from scheduler.api.utils import fallback_value
 
 from .._base_manager import require_class
 from ._base_schedule_manager import BaseScheduleManager
+from ._schedule_callbacks import SCHEDULE_CALLBACKS as SC
 
 
 class ScheduleEditManager(BaseScheduleManager):
     """Calendar edit manager to apply edits to scheduled items."""
+    register_pre_item_added_callback = SC.register_pre_item_added_callback
+    register_item_added_callback = SC.register_item_added_callback
+    register_pre_item_removed_callback = SC.register_pre_item_removed_callback
+    register_item_removed_callback = SC.register_item_removed_callback
+    register_pre_item_modified_callback = SC.register_item_modified_callback
+    register_item_modified_callback = SC.register_item_modified_callback
+    remove_callbacks = SC.remove_callbacks
+
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.
 
@@ -36,8 +45,8 @@ class ScheduleEditManager(BaseScheduleManager):
             calendar,
             archive_calendar,
         )
-        self._item_being_moved = None
-        self._continuous_edit = None
+        # self._item_being_moved = None
+        # self._continuous_edit = None
 
     def _create_scheduled_item(self, item_class, *args, **kwargs):
         """Create scheduled item and add to calendar.
@@ -51,7 +60,12 @@ class ScheduleEditManager(BaseScheduleManager):
             (bool): whether or not edit was successful.
         """
         item = item_class(*args, **kwargs)
-        return AddScheduledItemEdit.create_and_run(item)
+        edit = AddScheduledItemEdit(item)
+        if edit.is_valid:
+            SC.run_pre_item_added_callbacks(item)
+            edit.run()
+            SC.run_item_added_callbacks(item)
+        return edit.is_valid
 
     def create_scheduled_item(self, *args, **kwargs):
         """Create single scheduled item and add to calendar.
@@ -87,7 +101,12 @@ class ScheduleEditManager(BaseScheduleManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        return RemoveScheduledItemEdit.create_and_run(scheduled_item)
+        edit = RemoveScheduledItemEdit(scheduled_item)
+        if edit.is_valid:
+            SC.run_pre_item_removed_callbacks(scheduled_item)
+            edit.run()
+            SC.run_item_removed_callbacks(scheduled_item)
+        return edit.is_valid
 
     @require_class((ScheduledItem, RepeatScheduledItem), raise_error=True)
     def modify_scheduled_item(
@@ -148,60 +167,71 @@ class ScheduleEditManager(BaseScheduleManager):
                         scheduled_item.__class__.__name__
                     )
                 )
-            return edit_class.create_and_run(scheduled_item, attr_dict)
+            new_scheduled_item = scheduled_item
+            edit = edit_class(scheduled_item, attr_dict)
 
-        # otherwise a class change is needed, use ReplaceScheduledItemEdit
-        date = fallback_value(date, scheduled_item.date)
-        start_time = fallback_value(start_time, scheduled_item.start_time)
-        end_time = fallback_value(end_time, scheduled_item.end_time)
-        repeat_pattern = fallback_value(
-            repeat_pattern,
-            scheduled_item.repeat_pattern
-        )
-        item_type = fallback_value(item_type, scheduled_item.type)
-        tree_item = fallback_value(tree_item, scheduled_item.tree_item)
-        event_category = fallback_value(
-            event_category,
-            scheduled_item.category
-        )
-        event_name = fallback_value(event_name, scheduled_item.name)
-        is_background = fallback_value(
-            is_background,
-            scheduled_item.is_background
-        )
-
-        if is_repeating:
-            new_scheduled_item = RepeatScheduledItem(
-                self._calendar,
-                start_time,
-                end_time,
-                repeat_pattern,
-                item_type=item_type,
-                tree_item=tree_item,
-                event_category=event_category,
-                event_name=event_name,
-                is_background=is_background,
-            )
         else:
-            new_scheduled_item = ScheduledItem(
-                self._calendar,
-                start_time,
-                end_time,
-                date,
-                item_type=item_type,
-                tree_item=tree_item,
-                event_category=event_category,
-                event_name=event_name,
-                is_background=is_background,
-                repeat_pattern=repeat_pattern,
+            # otherwise a class change is needed, use ReplaceScheduledItemEdit
+            date = fallback_value(date, scheduled_item.date)
+            start_time = fallback_value(start_time, scheduled_item.start_time)
+            end_time = fallback_value(end_time, scheduled_item.end_time)
+            repeat_pattern = fallback_value(
+                repeat_pattern,
+                scheduled_item.repeat_pattern
             )
-        return ReplaceScheduledItemEdit.create_and_run(
-            scheduled_item,
-            new_scheduled_item,
-        )
+            item_type = fallback_value(item_type, scheduled_item.type)
+            tree_item = fallback_value(tree_item, scheduled_item.tree_item)
+            event_category = fallback_value(
+                event_category,
+                scheduled_item.category
+            )
+            event_name = fallback_value(event_name, scheduled_item.name)
+            is_background = fallback_value(
+                is_background,
+                scheduled_item.is_background
+            )
+
+            if is_repeating:
+                new_scheduled_item = RepeatScheduledItem(
+                    self._calendar,
+                    start_time,
+                    end_time,
+                    repeat_pattern,
+                    item_type=item_type,
+                    tree_item=tree_item,
+                    event_category=event_category,
+                    event_name=event_name,
+                    is_background=is_background,
+                )
+            else:
+                new_scheduled_item = ScheduledItem(
+                    self._calendar,
+                    start_time,
+                    end_time,
+                    date,
+                    item_type=item_type,
+                    tree_item=tree_item,
+                    event_category=event_category,
+                    event_name=event_name,
+                    is_background=is_background,
+                    repeat_pattern=repeat_pattern,
+                )
+            edit = ReplaceScheduledItemEdit(scheduled_item, new_scheduled_item)
+
+        if edit.is_valid:
+            SC.run_pre_item_modified_callbacks(
+                scheduled_item,
+                new_scheduled_item,
+            )
+            edit.run()
+            SC.run_item_modified_callbacks(
+                scheduled_item,
+                new_scheduled_item,
+            )
+        return edit.is_valid
 
     @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
-    def begin_move_item(
+    def move_scheduled_item(
             self,
             scheduled_item,
             date=None,
@@ -214,6 +244,9 @@ class ScheduleEditManager(BaseScheduleManager):
             date (Date or None): new date.
             start_time (DateTime or None): new start date time.
             end_time (DateTime or None): new end date time.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         attr_dict = {
             scheduled_item._date: date,
@@ -234,57 +267,98 @@ class ScheduleEditManager(BaseScheduleManager):
                     scheduled_item.__class__.__name__
                 )
             )
-        self._continuous_edit = edit_class(scheduled_item, attr_dict)
-        self._item_being_moved = scheduled_item
-        self._continuous_edit.begin_continuous_run()
+        edit = edit_class(scheduled_item, attr_dict)
+        if edit.is_valid:
+            SC.run_pre_item_modified_callbacks(scheduled_item, scheduled_item)
+            edit.run()
+            SC.run_item_modified_callbacks(scheduled_item, scheduled_item)
+        return edit.is_valid
 
-    @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
-    def update_move_item(
-            self,
-            scheduled_item,
-            date=None,
-            start_time=None,
-            end_time=None):
-        """Update edit to move scheduled item to new start and end datetimes.
+    # @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
+    # def begin_move_item(
+    #         self,
+    #         scheduled_item,
+    #         date=None,
+    #         start_time=None,
+    #         end_time=None):
+    #     """Move scheduled item to new start and end datetimes.
 
-        Args:
-            scheduled_item (BaseScheduledItem): item to edit.
-            date (Date or None): new date.
-            start_time (DateTime or None): new start date time.
-            end_time (DateTime or None): new end date time.
-        """
-        if self._continuous_edit is None:
-            # TODO: sort exception
-            raise ScheduledItemError(
-                "Cannot update edit when none is in progress."""
-            )
-        if self._item_being_moved != scheduled_item:
-            raise ScheduledItemError(
-                "item {0} is not currently being moved".format(
-                    scheduled_item.name
-                )
-            )
-        self._continuous_edit.update_continuous_run(date, start_time, end_time)
+    #     Args:
+    #         scheduled_item (BaseScheduledItem): item to edit.
+    #         date (Date or None): new date.
+    #         start_time (DateTime or None): new start date time.
+    #         end_time (DateTime or None): new end date time.
+    #     """
+    #     attr_dict = {
+    #         scheduled_item._date: date,
+    #         scheduled_item._start_time: start_time,
+    #         scheduled_item._end_time: end_time,
+    #     }
+    #     attr_dict = {
+    #         attr: value
+    #         for attr, value in attr_dict.items() if value is not None
+    #     }
+    #     edit_class = {
+    #         ScheduledItem: ModifyScheduledItemEdit,
+    #         RepeatScheduledItemInstance: ModifyRepeatScheduledItemInstanceEdit,
+    #     }.get(type(scheduled_item))
+    #     if edit_class is None:
+    #         raise ScheduledItemError(
+    #             "Cannot modify scheduled item of type {0}".format(
+    #                 scheduled_item.__class__.__name__
+    #             )
+    #         )
+    #     self._continuous_edit = edit_class(scheduled_item, attr_dict)
+    #     self._item_being_moved = scheduled_item
+    #     self._continuous_edit.begin_continuous_run()
 
-    @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
-    def end_move_item(self, scheduled_item):
-        """Finish edit to move scheduled item to new start and end datetimes.
+    # @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
+    # def update_move_item(
+    #         self,
+    #         scheduled_item,
+    #         date=None,
+    #         start_time=None,
+    #         end_time=None):
+    #     """Update edit to move scheduled item to new start and end datetimes.
 
-        Args:
-            scheduled_item (BaseScheduledItem): item to edit.
+    #     Args:
+    #         scheduled_item (BaseScheduledItem): item to edit.
+    #         date (Date or None): new date.
+    #         start_time (DateTime or None): new start date time.
+    #         end_time (DateTime or None): new end date time.
+    #     """
+    #     if self._continuous_edit is None:
+    #         # TODO: sort exception
+    #         raise ScheduledItemError(
+    #             "Cannot update edit when none is in progress."""
+    #         )
+    #     if self._item_being_moved != scheduled_item:
+    #         raise ScheduledItemError(
+    #             "item {0} is not currently being moved".format(
+    #                 scheduled_item.name
+    #             )
+    #         )
+    #     self._continuous_edit.update_continuous_run(date, start_time, end_time)
 
-        Returns:
-            (bool): whether or not edit was successful.
-        """
-        if self._continuous_edit is None:
-            # TODO: sort exception
-            raise ScheduledItemError(
-                "Cannot end edit when none is in progress."
-            )
-        if self._item_being_moved != scheduled_item:
-            raise ScheduledItemError(
-                "item {0} is not currently being moved".format(
-                    scheduled_item.name
-                )
-            )
-        return self._continuous_edit.end_continuous_run()
+    # @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
+    # def end_move_item(self, scheduled_item):
+    #     """Finish edit to move scheduled item to new start and end datetimes.
+
+    #     Args:
+    #         scheduled_item (BaseScheduledItem): item to edit.
+
+    #     Returns:
+    #         (bool): whether or not edit was successful.
+    #     """
+    #     if self._continuous_edit is None:
+    #         # TODO: sort exception
+    #         raise ScheduledItemError(
+    #             "Cannot end edit when none is in progress."
+    #         )
+    #     if self._item_being_moved != scheduled_item:
+    #         raise ScheduledItemError(
+    #             "item {0} is not currently being moved".format(
+    #                 scheduled_item.name
+    #             )
+    #         )
+    #     return self._continuous_edit.end_continuous_run()

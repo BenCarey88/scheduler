@@ -126,17 +126,17 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         if not success:
             self.line_edit.setText(self.task_item.name)
 
-    def eventFilter(self, object, event):
+    def eventFilter(self, obj, event):
         """Event filter for when object is clicked.
 
         Args:
-            object (QtCore.QObject): QObject that event is happening on.
+            obj (QtCore.QObject): QObject that event is happening on.
             event (QtCore.QEvent): event that is happening.
         """
-        if object == self.line_edit and event.type() == QtCore.QEvent.FocusIn:
+        if obj == self.line_edit and event.type() == QtCore.QEvent.FocusIn:
             if self.tree_manager.is_task(self.task_item):
                 # self.tab.selected_subtask_item = None
                 self.tab.selected_task_item = self.task_item
-        if object == self.line_edit and event.type() == QtCore.QEvent.FocusOut:
+        if obj == self.line_edit and event.type() == QtCore.QEvent.FocusOut:
             self.tab.selected_task_item = None
         return False

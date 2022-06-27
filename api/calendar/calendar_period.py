@@ -1152,7 +1152,7 @@ class CalendarYear(BaseCalendarPeriod):
         Returns:
             (CalendarYear): calendar year before this one.
         """
-        return self.calendar.get_year(self._year + 1)
+        return self.calendar.get_year(self._year - 1)
 
     def contains(self, calendar_period):
         """Check if this calendar period contains another.

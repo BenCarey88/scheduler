@@ -104,9 +104,10 @@ class BaseCalendarTab(BaseTab):
             self.update_view_type
         )
 
-    # def update(self):
-    #     """Update widget."""
-    #     self.main_view.update()
+    def update(self):
+        """Update widget."""
+        self.main_view.update()
+        super(BaseCalendarTab, self).update()
 
     def set_to_calendar_period(self, calendar_period):
         """Set main view to calendar period.
@@ -116,25 +117,28 @@ class BaseCalendarTab(BaseTab):
         """
         self.main_view.set_to_calendar_period(calendar_period)
 
-    def update_date_type(self, date_type, calendar_period):
+    def update_date_type(self, date_type, view_type, calendar_period):
         """Change main view based on date type.
 
         Args:
             date_type (DateType): new date type to set.
+            view_type (ViewType): view type of new date type.
             calendar_period (BaseCalendarPeriod): calendar period to set.
         """
         self.date_type = date_type
-        self.main_view = self.main_views_dict.get((date_type, self.view_type))
+        self.view_type = view_type
+        self.main_view = self.main_views_dict.get((date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
 
-    def update_view_type(self, view_type):
+    def update_view_type(self, view_type, calendar_period):
         """Change main view based on view type.
 
         Args:
             view_type (ViewType): new view type to set.
+            calendar_period (BaseCalendarPeriod): calendar period to set.
         """
         self.view_type = view_type
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
-        self.update()
+        self.set_to_calendar_period(calendar_period)

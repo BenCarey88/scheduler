@@ -20,6 +20,8 @@ from scheduler.ui.tabs.base_calendar_view import BaseListView
 class TitledPlannerListView(QtWidgets.QFrame):
     """Planner list view with title."""
     TITLE_SIZE = 22
+    BUFFER = 80
+    MAX_SIZE = 1500
 
     def __init__(self, name, project, time_period, parent=None):
         """Initialise planner view.
@@ -40,9 +42,13 @@ class TitledPlannerListView(QtWidgets.QFrame):
         font.setPixelSize(self.TITLE_SIZE)
         self.title.setFont(font)
         main_layout.addWidget(self.title)
-        self.planner_list_view = PlannerListView(name, project, time_period)
+        self.planner_list_view = PlannerListView(name, project, time_period, self)
         main_layout.addWidget(self.planner_list_view)
         self.setFrameShape(self.Shape.Box)
+        # self.setSizePolicy(
+        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+        # )
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.
@@ -52,6 +58,12 @@ class TitledPlannerListView(QtWidgets.QFrame):
         """
         self.title.setText(self.get_title(calendar_period))
         self.planner_list_view.set_to_calendar_period(calendar_period)
+        height = self.planner_list_view.get_row_height()
+        if height is not None:
+            num_rows = self.planner_list_view.model().rowCount()
+            # self.setMinimumHeight(
+            #     self.TITLE_SIZE + self.BUFFER + num_rows * height
+            # )
 
     @staticmethod
     def get_title(calendar_period):
@@ -81,17 +93,24 @@ class TitledPlannerListView(QtWidgets.QFrame):
         if isinstance(calendar_period, CalendarYear):
             return str(calendar_period.year)
 
+    def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
+        # if self.parent().parent():
+        #     p = self.parent().parent().parent()
+        #     print (p.width(), p.sizeHint().width())
+        #     self.planner_list_view.setFixedWidth(p.sizeHint().width())
+        return super().resizeEvent(a0)
+
 
 class PlannerListView(BaseListView):
     """Planner list view."""
-    def __init__(self, name, project, time_period, parent=None):
+    def __init__(self, name, project, time_period, x, parent=None):
         """Initialise planner view.
 
         Args:
             name (str): name of tab.
             project (Project): the project we're working on.
-            time_period (PlannedItemTimePeriod): type of time period to
-                view over.
+            time_period (PlannedItemTimePeriod): type of time period to view
+                over.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.open_dialog_on_drop_event = False
@@ -109,9 +128,23 @@ class PlannerListView(BaseListView):
             parent=parent,
         )
 
-        self.header().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeMode.Stretch
-        )
+        # self.header().setSectionResizeMode(
+        #     QtWidgets.QHeaderView.ResizeMode.Stretch
+        # )
+        # self.setFixedWidth(x.width())
+        self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
+        self.setFixedWidth(1000)
+        # self.setSizePolicy(
+        #     self.sizePolicy().Expanding,
+        #     self.sizePolicy().Expanding,
+        # )
+
+        header = self.header()
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionsMovable(True)
+        header.setSectionsClickable(True)
+
         for column in range(self.model().columnCount()):
             self.resizeColumnToContents(column)
 
@@ -134,6 +167,18 @@ class PlannerListView(BaseListView):
         self.open_editors()
         model.modelReset.connect(self.update)
         model.dataChanged.connect(self.update)
+        self.setUniformRowHeights(True)
+
+    def get_row_height(self):
+        """Get row height.
+
+        Returns:
+            (int or None): pixel height of a row, if this is nonempty.
+        """
+        index = self.model().get_index_for_first_item()
+        if index is None:
+            return None
+        return self.rowHeight(index)
 
     def resizeEvent(self, event):
         """Resize event.
@@ -188,6 +233,22 @@ class PlannerListView(BaseListView):
                         self.update()
 
         super(PlannerListView, self).keyPressEvent(event)
+
+    # def eventFilter(self, obj, event):
+    #     """Event filter for when object is resized.
+
+    #     Args:
+    #         obj (QtCore.QObject): QObject that event is happening on.
+    #         event (QtCore.QEvent): event that is happening.
+    #     """
+    #     if self.title_widget is None:
+    #         return False
+    #     if obj == self.title_widget and event.type() == QtCore.QEvent.Resize:
+    #         self.title_widget.setMinimumHeight(
+    #             event.size().height()
+    #         )
+    #         print (event.size().height())
+    #     return False
 
 
 class PlannedItemDelegate(QtWidgets.QStyledItemDelegate):

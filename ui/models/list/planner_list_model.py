@@ -97,6 +97,18 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             return self.columns[column]
         return None
 
+    def get_index_for_first_item(self):
+        """Get index of first item in model.
+
+        Returns:
+            (QtCore.QModelIndex or None): index, if found.
+        """
+        item_list = self.calendar_period.get_planned_items_container()
+        if not item_list:
+            return None
+        item = item_list[0]
+        return self.createIndex(0, 0, item)
+
     def remove_item(self, index, force=False):
         """Remove item at given index.
 
@@ -364,10 +376,11 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             parent_index (QtCore.QModelIndex): index of parent item we're
                 dropping under.
         """
-        # Only drop on empty spaces or between items
-        if not parent.isValid():
-            return True
-        return False
+        return True
+        # # Only drop on empty spaces or between items
+        # if not parent.isValid():
+        #     return True
+        # return False
 
     def dropMimeData(self, data, action, row, column, parent_index):
         """Add mime data at given index.
@@ -392,9 +405,15 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             return True
 
         if row < 0:
-            # if row is -1 this means we've dropped it on the parent,
-            # add to end of row
-            row = self.rowCount(parent_index)
+            parent = parent_index.internalPointer()
+            if parent is None:
+                # if no parent, we've added it at end of list
+                row = self.rowCount(parent_index)
+            else:
+                # otherwise we've dropped on item, add it before item
+                row = parent.index()
+                if row is None:
+                    return False
 
         if data.hasFormat(constants.OUTLINER_TREE_MIME_DATA_FORMAT):
             tree_item = utils.decode_mime_data(

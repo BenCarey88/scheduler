@@ -65,12 +65,22 @@ class BaseMultiListView(QtWidgets.QScrollArea):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseMultiListView, self).__init__(parent=parent)
+        self.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.list_views = list_views
         main_layout = QtWidgets.QVBoxLayout()
-        self.setLayout(main_layout)
+        main_layout.setSizeConstraint(main_layout.SizeConstraint.SetFixedSize)
+        main_widget = QtWidgets.QWidget()
+        main_widget.setLayout(main_layout)
         for list_view in list_views:
+            # print (self.viewport().sizeHint().width())
+            # list_view.setMinimumWidth(self.viewport().sizeHint().width())
             main_layout.addWidget(list_view)
             main_layout.addSpacing(self.LIST_SPACING)
+        self.setWidget(main_widget)
+        self.setWidgetResizable(True)
+        self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.
@@ -132,7 +142,7 @@ class BaseMultiListMonthView(BaseMultiListView):
         Args:
             calendar_month (CalendarMonth): calendar month to set to.
         """
-        calendar_weeks = calendar_month.get_weeks()
+        calendar_weeks = calendar_month.get_calendar_weeks()
         for i in range(5 - len(calendar_weeks)):
             self.list_views[-1 -i].setHidden(True)
         for calendar_week, list_view in zip(calendar_weeks, self.list_views):

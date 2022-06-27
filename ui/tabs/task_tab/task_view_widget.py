@@ -45,10 +45,10 @@ class TaskViewWidget(BaseTreeView):
         # height = task_item.num_descendants() * TaskDelegate.HEIGHT
         # self.setFixedHeight(height + self.HEIGHT_BUFFER)
         self.setMinimumWidth(self.MIN_WIDTH)
-        self.setSizePolicy(
-            QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-            QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-        )
+        # self.setSizePolicy(
+        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+        # )
         self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
 
         # Remove expand decorations and border

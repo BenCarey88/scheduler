@@ -41,8 +41,8 @@ class NavigationPanel(QtWidgets.QWidget):
             week view of panel. Argument is the new week.
     """
     CALENDAR_PERIOD_CHANGED_SIGNAL = QtCore.pyqtSignal(BaseCalendarPeriod)
-    DATE_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str, BaseCalendarPeriod)
-    VIEW_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str)
+    DATE_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str, str, BaseCalendarPeriod)
+    VIEW_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str, BaseCalendarPeriod)
 
     def __init__(
             self,
@@ -462,10 +462,14 @@ class NavigationPanel(QtWidgets.QWidget):
         self.view_type = self.view_type_dropdown.currentText()
         self.cached_view_types_dict[self.date_type] = self.view_type
         self.update()
-        self.DATE_TYPE_CHANGED_SIGNAL.emit(date_type, self.calendar_period)
+        self.DATE_TYPE_CHANGED_SIGNAL.emit(
+            date_type,
+            self.view_type,
+            self.calendar_period,
+        )
 
     def change_view_type(self, view_type):
         """Change view type."""
         self.view_type = view_type
         self.cached_view_types_dict[self.date_type] = self.view_type
-        self.VIEW_TYPE_CHANGED_SIGNAL.emit(view_type)
+        self.VIEW_TYPE_CHANGED_SIGNAL.emit(view_type, self.calendar_period)

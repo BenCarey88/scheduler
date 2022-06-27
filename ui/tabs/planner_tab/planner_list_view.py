@@ -2,6 +2,12 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.calendar import (
+    CalendarDay,
+    CalendarWeek,
+    CalendarMonth,
+    CalendarYear,
+)
 from scheduler.api.calendar.planned_item import (
     PlannedItemImportance,
     PlannedItemSize,
@@ -11,8 +17,73 @@ from scheduler.ui.models.list import PlannerListModel
 from scheduler.ui.tabs.base_calendar_view import BaseListView
 
 
+class TitledPlannerListView(QtWidgets.QFrame):
+    """Planner list view with title."""
+    TITLE_SIZE = 22
+
+    def __init__(self, name, project, time_period, parent=None):
+        """Initialise planner view.
+
+        Args:
+            name (str): name of tab.
+            project (Project): the project we're working on.
+            time_period (PlannedItemTimePeriod): type of time period to
+                view over.
+            parent (QtGui.QWidget or None): QWidget parent of widget.
+        """
+        super(TitledPlannerListView, self).__init__(parent=parent)
+        main_layout = QtWidgets.QVBoxLayout()
+        self.setLayout(main_layout)
+        self.title = QtWidgets.QLabel()
+        self.title.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
+        font = QtGui.QFont()
+        font.setPixelSize(self.TITLE_SIZE)
+        self.title.setFont(font)
+        main_layout.addWidget(self.title)
+        self.planner_list_view = PlannerListView(name, project, time_period)
+        main_layout.addWidget(self.planner_list_view)
+        self.setFrameShape(self.Shape.Box)
+
+    def set_to_calendar_period(self, calendar_period):
+        """Set view to given calendar_period.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period to set to.
+        """
+        self.title.setText(self.get_title(calendar_period))
+        self.planner_list_view.set_to_calendar_period(calendar_period)
+
+    @staticmethod
+    def get_title(calendar_period):
+        """Get title for given calendar period.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period to get title
+                for.
+
+        Returns:
+            (str): title for given calendar period.
+        """
+        if isinstance(calendar_period, CalendarDay):
+            return "{0} {1}".format(
+                calendar_period.date.weekday_string(short=False),
+                calendar_period.date.ordinal_string(),
+            )
+        if isinstance(calendar_period, CalendarWeek):
+            return "{0} {1} - {2} {3}".format(
+                calendar_period.start_date.weekday_string(short=False),
+                calendar_period.start_date.ordinal_string(),
+                calendar_period.end_date.weekday_string(short=False),
+                calendar_period.end_date.ordinal_string(),
+            )
+        if isinstance(calendar_period, CalendarMonth):
+            return calendar_period.start_day.date.month_string(short=False)
+        if isinstance(calendar_period, CalendarYear):
+            return str(calendar_period.year)
+
+
 class PlannerListView(BaseListView):
-    """Tracker table view."""
+    """Planner list view."""
     def __init__(self, name, project, time_period, parent=None):
         """Initialise planner view.
 

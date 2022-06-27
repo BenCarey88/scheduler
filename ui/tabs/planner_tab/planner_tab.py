@@ -2,14 +2,24 @@
 
 from collections import OrderedDict
 
-from scheduler.api.calendar.planned_item import (
-    PlannedItemTimePeriod,
-)
+from scheduler.api.calendar.planned_item import PlannedItemTimePeriod as PITP
 
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
-from .planner_list_view import PlannerListView
+from .planner_list_view import TitledPlannerListView
+from .planner_multi_list_view import (
+    PlannerMultiListWeekView,
+    PlannerMultiListMonthView,
+    PlannerMultiListYearView,
+)
+from .planner_hybrid_view import (
+    PlannerHybridDayView,
+    PlannerHybridWeekView,
+    PlannerHybridMonthView,
+    PlannerHybridYearView,
+)
+
 
 class PlannerTab(BaseCalendarTab):
     """Planner tab."""
@@ -22,21 +32,53 @@ class PlannerTab(BaseCalendarTab):
         """
         name = "planner"
         main_views_dict = OrderedDict([
+            ## DAY ##
             (
                 (DateType.DAY, ViewType.LIST),
-                PlannerListView(name, project, PlannedItemTimePeriod.DAY)
+                TitledPlannerListView(name, project, PITP.DAY)
             ),
+            (
+                (DateType.DAY, ViewType.HYBRID),
+                PlannerHybridDayView(name, project)
+            ),
+            ## WEEK ##
             (
                 (DateType.WEEK, ViewType.LIST),
-                PlannerListView(name, project, PlannedItemTimePeriod.WEEK)
+                TitledPlannerListView(name, project, PITP.WEEK)
             ),
+            (
+                (DateType.WEEK, ViewType.MULTILIST),
+                PlannerMultiListWeekView(name, project)
+            ),
+            (
+                (DateType.WEEK, ViewType.HYBRID),
+                PlannerHybridWeekView(name, project)
+            ),
+            ## MONTH ##
             (
                 (DateType.MONTH, ViewType.LIST),
-                PlannerListView(name, project, PlannedItemTimePeriod.MONTH)
+                TitledPlannerListView(name, project, PITP.MONTH)
             ),
             (
+                (DateType.MONTH, ViewType.MULTILIST),
+                PlannerMultiListMonthView(name, project)
+            ),
+            (
+                (DateType.MONTH, ViewType.HYBRID),
+                PlannerHybridMonthView(name, project)
+            ),
+            ## YEAR ##
+            (
                 (DateType.YEAR, ViewType.LIST),
-                PlannerListView(name, project, PlannedItemTimePeriod.MONTH)
+                TitledPlannerListView(name, project, PITP.YEAR)
+            ),
+            (
+                (DateType.YEAR, ViewType.MULTILIST),
+                PlannerMultiListYearView(name, project)
+            ),
+            (
+                (DateType.YEAR, ViewType.HYBRID),
+                PlannerHybridYearView(name, project)
             ),
         ])
         super(PlannerTab, self).__init__(

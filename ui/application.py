@@ -210,7 +210,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        print (self.timer_id, event.timerId())
         if event.timerId() == self.timer_id:
             self._autosave()
 

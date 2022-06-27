@@ -191,7 +191,7 @@ class NavigationPanel(QtWidgets.QWidget):
         return calendar.get_current_period(
             period_type,
             starting_weekday,
-            length
+            length,
         )
 
     @staticmethod

@@ -93,9 +93,9 @@ class PlannerEditManager(BasePlannerManager):
         edit = MovePlannedItemEdit(planned_item, index)
         if edit.is_valid:
             old_index = planned_item.index()
-            PC.run_pre_item_removed_callbacks(planned_item, old_index, index)
+            PC.run_pre_item_moved_callbacks(planned_item, old_index, index)
             edit.run()
-            PC.run_item_removed_callbacks(planned_item, old_index, index)
+            PC.run_item_moved_callbacks(planned_item, old_index, index)
         return edit.is_valid
 
     @require_class(PlannedItem, True)

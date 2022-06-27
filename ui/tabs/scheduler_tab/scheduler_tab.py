@@ -40,7 +40,6 @@ class SchedulerTab(BaseCalendarTab):
             main_views_dict,
             DateType.WEEK,
             ViewType.TIMETABLE,
-            use_week_for_day=True,
             parent=parent,
         )
         utils.set_style(self, "scheduler.qss")

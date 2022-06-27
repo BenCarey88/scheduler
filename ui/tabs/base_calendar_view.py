@@ -3,12 +3,12 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.calendar.calendar_period import CalendarDay
 from scheduler.api.common.date_time import Date
 from scheduler.ui import utils
 
 
 ### LIST ###
-
 class BaseListView(QtWidgets.QTreeView):
     """Base list view for all list calendar tab views.
 
@@ -51,7 +51,6 @@ class BaseListView(QtWidgets.QTreeView):
 
 
 ### MULTI-LIST ###
-
 class BaseMultiListView(QtWidgets.QScrollArea):
     """Base multi-list view for calendar views containing multiple lists."""
     LIST_SPACING = 5
@@ -166,7 +165,6 @@ class BaseMultiListYearView(BaseMultiListView):
 
 
 ### TABLE ###
-
 class BaseTableView(QtWidgets.QTableView):
     """Base table view for all timetable tab views."""
     def __init__(
@@ -273,13 +271,15 @@ class BaseWeekTableView(BaseTableView):
         Args:
             calendar_week (CalendarWeek): calendar week to set to.
         """
+        if isinstance(calendar_week, CalendarDay):
+            # allow using this view with days by using one-day week
+            calendar_week = calendar_week.get_as_one_day_week()
         self.calendar_week = calendar_week
         self.model().set_calendar_week(calendar_week)
         self.update()
 
 
 ### HYBRID ###
-
 class BaseHybridView(QtWidgets.QSplitter):
     """Base hybrid view for combo of two other calendar views."""
     def __init__(self, left_view, right_view, parent=None):

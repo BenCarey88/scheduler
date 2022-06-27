@@ -41,9 +41,8 @@ class BaseTableModel(QtCore.QAbstractTableModel):
             calendar_period (CalendarPeriod): calendar period to set to.
         """
         self.calendar_period = calendar_period
-        # TODO: use dataChanged properly
-        # or just remove this? I don't think it's actually doing anything
-        self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
+        self.beginResetModel()
+        self.endResetModel()
 
     @staticmethod
     def convert_to_time(hour_float):

@@ -66,7 +66,10 @@ class NavigationPanel(QtWidgets.QWidget):
                 buttons that switch the week views to start on a different day.
             use_full_period_names (bool): if True, use long names for periods.
             use_week_for_day (bool): if True, use calendar week item to
-                represent a calendar day, so they can use the same model.
+                represent a calendar day in the navigation panel. In practice,
+                I don't intend to use this, as I think it's easier for the
+                navigation panel to always return the relevant period and take
+                care of switching type if needed in the view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(NavigationPanel, self).__init__(parent=parent)
@@ -151,6 +154,7 @@ class NavigationPanel(QtWidgets.QWidget):
             self.hide_day_change_buttons or
             self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
         )
+        super(NavigationPanel, self).update()
 
     @staticmethod
     def get_current_calendar_period(
@@ -217,6 +221,11 @@ class NavigationPanel(QtWidgets.QWidget):
             return DateType.MONTH
         elif isinstance(calendar_period, CalendarYear):
             return DateType.YEAR
+        raise Exception(
+            "cannot find date type for calendar period {0}".format(
+                calendar_period.name
+            )
+        )
 
     def get_date_label(self, calendar_period=None):
         """Get date label for current calendar period.

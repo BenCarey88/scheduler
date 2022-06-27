@@ -28,7 +28,6 @@ class BaseCalendarTab(BaseTab):
             view_type,
             hide_day_change_buttons=False,
             use_full_period_names=False,
-            use_week_for_day=False,
             parent=None):
         """Initialise tab.
 
@@ -43,9 +42,6 @@ class BaseCalendarTab(BaseTab):
                 buttons that switch the week views to start on a different day.
             use_full_period_names (bool): if True, use long names for periods
                 in navigation bar.
-            use_week_for_day (bool): if True, day view will use a calendar
-                week object with length 1 in the day view, so it can make use
-                of the week model.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         if (date_type, view_type) not in main_views_dict.keys():
@@ -65,7 +61,6 @@ class BaseCalendarTab(BaseTab):
             project.calendar,
             self.date_type,
             self.WEEK_START_DAY,
-            use_week_for_day=use_week_for_day,
         )
         self.main_views_dict = main_views_dict
         view_types_dict = OrderedDict()
@@ -78,7 +73,6 @@ class BaseCalendarTab(BaseTab):
             view_types_dict,
             hide_day_change_buttons=hide_day_change_buttons,
             use_full_period_names=use_full_period_names,
-            use_week_for_day=use_week_for_day,
             parent=self,
         )
         self.main_view = main_views_dict.get((self.date_type, self.view_type))

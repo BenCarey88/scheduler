@@ -218,6 +218,14 @@ class CalendarDay(BaseCalendarPeriod):
             self._date.ordinal_string()
         )
 
+    def get_as_one_day_week(self):
+        """Get this day as a one-day CalendarWeek object.
+
+        Returns:
+            (CalendarWeek): this day represented as a one day week.
+        """
+        return CalendarWeek(self.calendar, self.date, length=1)
+
     def iter_scheduled_items(self):
         """Iterate through scheduled scheduled items.
 
@@ -366,6 +374,7 @@ class CalendarDay(BaseCalendarPeriod):
 
         return calendar_day
 
+    # TODO: I think we can deprecate this method and fullname property
     @classmethod
     def from_name(cls, calendar, name):
         """Get calendar day using name string.

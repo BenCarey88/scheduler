@@ -71,6 +71,7 @@ class BaseCalendarTab(BaseTab):
             self.calendar,
             calendar_period,
             view_types_dict,
+            start_view_type=self.view_type,
             hide_day_change_buttons=hide_day_change_buttons,
             use_full_period_names=use_full_period_names,
             parent=self,
@@ -89,6 +90,7 @@ class BaseCalendarTab(BaseTab):
         self.main_views_stack = QtWidgets.QStackedWidget()
         for view in self.main_views_dict.values():
             self.main_views_stack.addWidget(view)
+            view.setup()
         self.main_views_stack.setCurrentWidget(self.main_view)
 
         self.outer_layout.addWidget(self.navigation_panel)
@@ -142,3 +144,20 @@ class BaseCalendarTab(BaseTab):
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
+
+    # def on_tab_resized(self, width):
+    #     """Callback for when tab is resized.
+
+    #     Args:
+    #         width (int): new pixel width of tab.
+    #     """
+    #     # for view in self.main_views_dict.values():
+    #     #     view.resize_view(width)
+
+    # def resizeEvent(self, event):
+    #     for view in self.main_views_dict.values():
+    #         print ("\n\n#################\n\n", event.size().width(), "\n\n#######################\n\n")
+    #         view.width_attr = event.size().width()
+    #         view.adjustSize()
+    #     return super().resizeEvent(event)
+

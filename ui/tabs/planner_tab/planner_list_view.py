@@ -12,18 +12,28 @@ from scheduler.api.calendar.planned_item import (
     PlannedItemImportance,
     PlannedItemSize,
 )
+from scheduler.api.utils import fallback_value
 
 from scheduler.ui.models.list import PlannerListModel
-from scheduler.ui.tabs.base_calendar_view import BaseListView
+from scheduler.ui.tabs.base_calendar_view import (
+    BaseCalendarView,
+    BaseListView,
+)
 
 
-class TitledPlannerListView(QtWidgets.QFrame):
+class TitledPlannerListView(BaseCalendarView, QtWidgets.QFrame):
     """Planner list view with title."""
     TITLE_SIZE = 22
-    BUFFER = 80
-    MAX_SIZE = 1500
+    HEIGHT_BUFFER = 20
+    WIDTH_BUFFER = 40
 
-    def __init__(self, name, project, time_period, parent=None):
+    def __init__(
+            self,
+            name,
+            project,
+            time_period,
+            # enable_custom_resize=False,
+            parent=None):
         """Initialise planner view.
 
         Args:
@@ -31,6 +41,8 @@ class TitledPlannerListView(QtWidgets.QFrame):
             project (Project): the project we're working on.
             time_period (PlannedItemTimePeriod): type of time period to
                 view over.
+            enable_custom_resize (bool): if True, use resize_view method
+                to resize the view when its parent is resized.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TitledPlannerListView, self).__init__(parent=parent)
@@ -42,13 +54,18 @@ class TitledPlannerListView(QtWidgets.QFrame):
         font.setPixelSize(self.TITLE_SIZE)
         self.title.setFont(font)
         main_layout.addWidget(self.title)
-        self.planner_list_view = PlannerListView(name, project, time_period, self)
+        self.planner_list_view = PlannerListView(
+            name,
+            project,
+            time_period,
+            # enable_custom_resize=enable_custom_resize,
+        )
         main_layout.addWidget(self.planner_list_view)
         self.setFrameShape(self.Shape.Box)
-        # self.setSizePolicy(
-        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-        # )
+        # self.enable_custom_resize = enable_custom_resize
+        self.planner_list_view.VIEW_UPDATED_SIGNAL.connect(
+            self.VIEW_UPDATED_SIGNAL.emit
+        )
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.
@@ -58,12 +75,6 @@ class TitledPlannerListView(QtWidgets.QFrame):
         """
         self.title.setText(self.get_title(calendar_period))
         self.planner_list_view.set_to_calendar_period(calendar_period)
-        height = self.planner_list_view.get_row_height()
-        if height is not None:
-            num_rows = self.planner_list_view.model().rowCount()
-            # self.setMinimumHeight(
-            #     self.TITLE_SIZE + self.BUFFER + num_rows * height
-            # )
 
     @staticmethod
     def get_title(calendar_period):
@@ -93,17 +104,42 @@ class TitledPlannerListView(QtWidgets.QFrame):
         if isinstance(calendar_period, CalendarYear):
             return str(calendar_period.year)
 
-    def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
-        # if self.parent().parent():
-        #     p = self.parent().parent().parent()
-        #     print (p.width(), p.sizeHint().width())
-        #     self.planner_list_view.setFixedWidth(p.sizeHint().width())
-        return super().resizeEvent(a0)
+    # def resize_view(self, width):
+    #     """Resize view using given width.
+
+    #     Args:
+    #         width (int): new pixel width of widget this view is contained in.
+    #     """
+    #     if self.enable_custom_resize:
+    #         self.planner_list_view.resize_view(width - self.WIDTH_BUFFER)
+
+    # def sizeHint(self):
+    #     """Get size hint for title widget."""
+    #     if self.enable_custom_resize:
+    #         size = self.planner_list_view.sizeHint()
+    #         height = size.height()
+    #         width = size.width()
+    #         return QtCore.QSize(
+    #             width - self.WIDTH_BUFFER,
+    #             height + self.TITLE_SIZE + self.HEIGHT_BUFFER,
+    #         )
+    #     return super(TitledPlannerListView, self).sizeHint()
+
+    # def resizeEvent(self, event):
+    #     self.planner_list_view.width_attr = event.size().width()
+    #     self.planner_list_view.adjustSize()
+    #     return super(TitledPlannerListView, self).resizeEvent(event)
 
 
 class PlannerListView(BaseListView):
     """Planner list view."""
-    def __init__(self, name, project, time_period, x, parent=None):
+    def __init__(
+            self,
+            name,
+            project,
+            time_period,
+            # enable_custom_resize=False,
+            parent=None):
         """Initialise planner view.
 
         Args:
@@ -111,6 +147,8 @@ class PlannerListView(BaseListView):
             project (Project): the project we're working on.
             time_period (PlannedItemTimePeriod): type of time period to view
                 over.
+            enable_custom_resize (bool): if True, use resize_view method
+                to resize the view when its parent is resized.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.open_dialog_on_drop_event = False
@@ -125,6 +163,7 @@ class PlannerListView(BaseListView):
             name,
             project,
             model,
+            # enable_custom_resize=enable_custom_resize,
             parent=parent,
         )
 
@@ -133,7 +172,7 @@ class PlannerListView(BaseListView):
         # )
         # self.setFixedWidth(x.width())
         self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
-        self.setFixedWidth(1000)
+        # self.setFixedWidth(1000)
         # self.setSizePolicy(
         #     self.sizePolicy().Expanding,
         #     self.sizePolicy().Expanding,
@@ -166,19 +205,21 @@ class PlannerListView(BaseListView):
         )
         self.open_editors()
         model.modelReset.connect(self.update)
+        model.modelReset.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.dataChanged.connect(self.update)
+        model.dataChanged.connect(self.VIEW_UPDATED_SIGNAL.emit)
         self.setUniformRowHeights(True)
 
-    def get_row_height(self):
-        """Get row height.
+    # def get_row_height(self):
+    #     """Get row height.
 
-        Returns:
-            (int or None): pixel height of a row, if this is nonempty.
-        """
-        index = self.model().get_index_for_first_item()
-        if index is None:
-            return None
-        return self.rowHeight(index)
+    #     Returns:
+    #         (int or None): pixel height of a row, if this is nonempty.
+    #     """
+    #     index = self.model().get_index_for_first_item()
+    #     if index is None:
+    #         return None
+    #     return self.rowHeight(index)
 
     def resizeEvent(self, event):
         """Resize event.
@@ -187,7 +228,12 @@ class PlannerListView(BaseListView):
             event (QtCore.QEvent): the event.
         """
         super(PlannerListView, self).resizeEvent(event)
-        self.open_editors()
+        # self.open_editors()
+
+    # def sizeHint(self):
+    #     from scheduler.api.utils import indent_print
+    #     with indent_print(bookend="list view sizeHint"):
+    #         return super().sizeHint()
 
     def open_editors(self):
         """Open persistent editors on each column."""
@@ -205,7 +251,7 @@ class PlannerListView(BaseListView):
 
     def update(self):
         """Update view."""
-        self.open_editors()
+        # self.open_editors()
         super(PlannerListView, self).update()
 
     def keyPressEvent(self, event):

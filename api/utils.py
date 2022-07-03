@@ -1,6 +1,27 @@
 """Utility functions for scheduler api."""
 
+from contextlib import contextmanager
 import sys
+
+
+@contextmanager
+def indent_print(bookend=None, indent=1):
+    """Context manager to indent all prints, used for debugging.
+
+    Args:
+        indent (int): number of tabs to indent by.
+        bookend (str or None): string to print on either side.
+    """
+    if bookend is not None:
+        print ("[START]:", bookend)
+    old_print = __builtins__["print"]
+    def new_print(*strings):
+        old_print("\t" * indent, *strings)
+    __builtins__["print"] = new_print
+    yield
+    __builtins__["print"] = old_print
+    if bookend is not None:
+        print ("[END]:", bookend)
 
 
 def catch_exceptions(exceptions=None):
@@ -125,6 +146,7 @@ def backup_git_repo(repo_path, commit_message="backup"):
         )
 
     return None
+
 
 """Id registry to store floating items by temporary ids."""
 _TEMPORARY_ID_REGISTRY = {}

@@ -15,7 +15,7 @@ class BaseTab(QtWidgets.QWidget):
             project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        super(BaseTab, self).__init__(parent)
+        super(BaseTab, self).__init__(parent=parent)
         self.name = name
         self.tree_manager = project.get_tree_manager(name)
         self.outliner = Outliner(self, self.tree_manager, parent=self)
@@ -34,3 +34,15 @@ class BaseTab(QtWidgets.QWidget):
     def on_outliner_filter_changed(self, *args):
         """Callback for what to do when filter is changed in outliner."""
         pass
+
+    # def on_tab_resized(self, width):
+    #     """Callback for when tab is resized.
+
+    #     Note that this callback is not actually triggered by the tab's resize
+    #     event, because the implementations of this callback will often result
+    #     in the tab being resized again and that could cause recursion.
+
+    #     Args:
+    #         width (int): pixel width of resized tab.
+    #     """
+    #     pass

@@ -49,6 +49,7 @@ class NavigationPanel(QtWidgets.QWidget):
             calendar,
             calendar_period,
             view_types_dict,
+            start_view_type=None,
             hide_day_change_buttons=False,
             use_full_period_names=False,
             use_week_for_day=False,
@@ -62,6 +63,7 @@ class NavigationPanel(QtWidgets.QWidget):
             view_types_dict (OrderedDict(DateType, list(ViewType)): dict
                 associating a list of possible view types for each view date
                 type.
+            start_view_type (ViewType or None): start view type to use, if given.
             hide_day_change_buttons (bool): if True, always hide the day change
                 buttons that switch the week views to start on a different day.
             use_full_period_names (bool): if True, use long names for periods.
@@ -115,6 +117,9 @@ class NavigationPanel(QtWidgets.QWidget):
         self.view_type_dropdown.setModel(
             QtCore.QStringListModel(self.view_types_dict.get(self.date_type))
         )
+        if (start_view_type and
+                start_view_type in self.view_types_dict.get(self.date_type)):
+            self.view_type_dropdown.setCurrentText(start_view_type)
         self.view_type = self.view_type_dropdown.currentText()
 
         layout.addWidget(self.date_label)

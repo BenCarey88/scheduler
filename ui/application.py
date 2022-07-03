@@ -23,6 +23,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
     CURRENT_TAB_PREF = "current_tab"
     SPLITTER_SIZES = "splitter_sizes"
 
+    # TAB_RESIZED_SIGNAL = QtCore.pyqtSignal(int)
+
     def __init__(self, *args, **kwargs):
         """Initialise main window."""
         super(SchedulerWindow, self).__init__(*args, **kwargs)
@@ -48,17 +50,17 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
-        splitter = QtWidgets.QSplitter(self)
-        self.setCentralWidget(splitter)
-        splitter.setChildrenCollapsible(False)
+        self.splitter = QtWidgets.QSplitter(self)
+        self.setCentralWidget(self.splitter)
+        self.splitter.setChildrenCollapsible(False)
 
         self.outliner_stack = QtWidgets.QStackedWidget(self)
         self.tabs_widget = QtWidgets.QTabWidget(self)
-        splitter.addWidget(self.outliner_stack)
-        splitter.addWidget(self.tabs_widget)
+        self.splitter.addWidget(self.outliner_stack)
+        self.splitter.addWidget(self.tabs_widget)
 
-        splitter.splitterMoved.connect(self.on_splitter_moved)
-        splitter.setSizes(
+        self.splitter.splitterMoved.connect(self.on_splitter_moved)
+        self.splitter.setSizes(
             user_prefs.get_app_user_pref(self.SPLITTER_SIZES, [1, 1])
         )
 
@@ -100,6 +102,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             *args,
             **kwargs
         )
+        # self.TAB_RESIZED_SIGNAL.connect(tab.on_tab_resized)
         self.outliner_stack.addWidget(tab.outliner)
         tab_icon = QtGui.QIcon(
             os.path.join(
@@ -148,13 +151,21 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             new_pos (int): new position of splitter.
             index (int): index of splitter moved.
         """
-        print (self.tabs_widget.width())
-        print (self.tabs_widget.currentWidget().width())
-        print ("\n")
+        # self.TAB_RESIZED_SIGNAL.emit(self.tabs_widget.width())
         user_prefs.set_app_user_pref(
             self.SPLITTER_SIZES,
             [self.outliner_stack.width(), self.tabs_widget.width()]
         )
+
+    def resizeEvent(self, event):
+        """Resize event.
+
+        Args:
+            event (QtCore.QEvent): the event
+        """
+        result = super(SchedulerWindow, self).resizeEvent(event)
+        # self.TAB_RESIZED_SIGNAL.emit(self.tabs_widget.width())
+        return result
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

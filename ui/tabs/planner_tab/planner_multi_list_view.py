@@ -20,7 +20,8 @@ class PlannerMultiListWeekView(BaseMultiListWeekView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         list_views = [
-            TitledPlannerListView(name, project, PITP.DAY) for _ in range(7)
+            TitledPlannerListView(name, project, PITP.DAY)
+            for _ in range(7)
         ]
         super(PlannerMultiListWeekView, self).__init__(
             list_views,
@@ -39,7 +40,8 @@ class PlannerMultiListMonthView(BaseMultiListMonthView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         list_views = [
-            TitledPlannerListView(name, project, PITP.WEEK) for _ in range(5)
+            TitledPlannerListView(name, project, PITP.WEEK)
+            for _ in range(5)
         ]
         super(PlannerMultiListMonthView, self).__init__(
             list_views,
@@ -58,7 +60,8 @@ class PlannerMultiListYearView(BaseMultiListYearView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         list_views = [
-            TitledPlannerListView(name, project, PITP.MONTH) for _ in range(12)
+            TitledPlannerListView(name, project, PITP.MONTH)
+            for _ in range(12)
         ]
         super(PlannerMultiListYearView, self).__init__(
             list_views,

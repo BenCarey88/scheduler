@@ -34,15 +34,3 @@ class BaseTab(QtWidgets.QWidget):
     def on_outliner_filter_changed(self, *args):
         """Callback for what to do when filter is changed in outliner."""
         pass
-
-    # def on_tab_resized(self, width):
-    #     """Callback for when tab is resized.
-
-    #     Note that this callback is not actually triggered by the tab's resize
-    #     event, because the implementations of this callback will often result
-    #     in the tab being resized again and that could cause recursion.
-
-    #     Args:
-    #         width (int): pixel width of resized tab.
-    #     """
-    #     pass

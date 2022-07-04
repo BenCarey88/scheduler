@@ -2,30 +2,36 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.utils import fallback_value
+
 
 class WidgetListView(QtWidgets.QListView):
     """Base list view showing list of other widgets"""
     ITEM_SPACING = 5
+    HEIGHT_BUFFER = 18
 
-    def __init__(self, widget_list, parent=None):
+    def __init__(self, widget_list, item_spacing=None, parent=None):
         """Initialize class instance.
 
         Args:
             widget_list (list(QtWidgets.QWidget)): list of widgets to show.
+            item_spacing (int or None): verticla spacing for widgets.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(WidgetListView, self).__init__(parent=parent)
         self.setHorizontalScrollBarPolicy(
             QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.setVerticalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
+        # self.setVerticalScrollBarPolicy(
+        #     QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        # )
         self.setVerticalScrollMode(self.ScrollMode.ScrollPerPixel)
         self.widget_list = widget_list
         model = WidgetListModel(["" for _ in widget_list])
         self.setModel(model)
-        self.setItemDelegate(WidgetListDelegate(self))
+        self.setItemDelegate(
+            WidgetListDelegate(self, item_spacing=item_spacing)
+        )
         self.setSpacing(self.ITEM_SPACING)
         self.open_editors()
 
@@ -64,6 +70,7 @@ class WidgetListView(QtWidgets.QListView):
         """
         super(WidgetListView, self).resizeEvent(event)
         self.updateEditorGeometries()
+        self.scheduleDelayedItemsLayout()
 
     def open_editor(self, row, update=True):
         """Open persistent editors on given row.
@@ -93,6 +100,20 @@ class WidgetListView(QtWidgets.QListView):
         for row, _ in enumerate(self.widget_list):
             self.open_editor(row, update=False)
         self.scheduleDelayedItemsLayout()
+
+    def sizeHint(self):
+        """Get size hint.
+
+        Returns:
+            (QtCore.QSize): size hint.
+        """
+        height = (
+            sum([w.sizeHint().height() for w in self.widget_list]) +
+            self.ITEM_SPACING * (len(self.widget_list) - 1) +
+            self.HEIGHT_BUFFER
+        )
+        width = super(WidgetListView, self).sizeHint().width()
+        return QtCore.QSize(width, height)
 
 
 class WidgetListModel(QtCore.QAbstractListModel):
@@ -187,17 +208,19 @@ class WidgetListDelegate(QtWidgets.QStyledItemDelegate):
     """Delegate for multi-list view."""
     WIDTH_BUFFER = 10
 
-    def __init__(self, widget_list_view, parent=None):
+    def __init__(self, widget_list_view, item_spacing=None, parent=None):
         """Initialise delegate item.
 
         Args:
             widget_list_view (WidgetListView): the widget list view this is
                 a delegate for.
+            item_spacing (int or None): verticla spacing for widgets.
             parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(WidgetListDelegate, self).__init__(parent)
         self.widget_list = widget_list_view.widget_list
         self.widget_list_view = widget_list_view
+        self.item_spacing = item_spacing
 
     def sizeHint(self, option, index):
         """Get size hint for delegate.
@@ -207,7 +230,12 @@ class WidgetListDelegate(QtWidgets.QStyledItemDelegate):
             index (QtCore.QModelIndex): index to get size hint for.
         """
         widget = self.widget_list[index.row()]
-        return widget.sizeHint()
+        if self.item_spacing is None:
+            return widget.sizeHint()
+        return QtCore.QSize(
+            widget.sizeHint().width(),
+            widget.sizeHint().height() + 2 * self.item_spacing,
+        )
 
     def createEditor(self, parent, option, index):
         """Create editor widget for edit role.
@@ -238,4 +266,6 @@ class WidgetListDelegate(QtWidgets.QStyledItemDelegate):
             index (QtCore.QModelIndex): the index of the editor.
         """
         editor.setFixedWidth(editor.parent().width() - self.WIDTH_BUFFER)
+        # editor.setFixedHeight(1000)
+        # print ("Updating")
         return super().updateEditorGeometry(editor, option, index)

@@ -3,7 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.tabs.base_tab import BaseTab
-from .task_header_widget import TaskHeaderWidget
+from .task_header_widget import TaskHeaderWidget, TaskHeaderListView
 from .task_widget_layout import TaskWidgetLayout
 from .task_widget_tree import TaskWidgetTree
 
@@ -34,7 +34,7 @@ class TaskTab(BaseTab):
         # self.selected_subtask_item = None
         self._scroll_value = None
         self._fill_main_view()
-        self._fill_scroll_area()
+        # self._fill_scroll_area()
 
         self._views_being_reset = []
         tm = self.tree_manager
@@ -48,28 +48,38 @@ class TaskTab(BaseTab):
         self._apply_filters()
 
     def _fill_main_view(self):
-        """Fill main task view from tree root.
-
-        This also sets the size on the view so that the scroll area can use
-        it properly.
-        """
-        self.main_view = QtWidgets.QWidget()
-        self.main_view_layout = TaskWidgetLayout(
-            task_widget_tree=self.task_widget_tree,
-            height_buffer=self.TASK_WIDGET_HEIGHT_BUFFER,
-            spacing=self.OUTER_CATEGORY_SPACING,
+        """Fill main task view from tree root."""
+        self.widget_list_view = TaskHeaderListView(
+            self.tree_manager,
+            self.tree_root,
+            self,
+            item_spacing=self.OUTER_CATEGORY_SPACING,
         )
-        self.main_view.setLayout(self.main_view_layout)
+        self.outer_layout.addWidget(self.widget_list_view)
 
-        for category in self.tree_root.get_all_children():
-            widget = TaskHeaderWidget(
-                self.tree_manager,
-                category,
-                tab=self,
-                parent=self,
-            )
-            # self.task_header_widget_tree[category] = widget
-            self.main_view_layout.add_task_header(category, widget)
+    # def _fill_main_view(self):
+    #     """Fill main task view from tree root.
+
+    #     This also sets the size on the view so that the scroll area can use
+    #     it properly.
+    #     """
+    #     self.main_view = QtWidgets.QWidget()
+    #     self.main_view_layout = TaskWidgetLayout(
+    #         task_widget_tree=self.task_widget_tree,
+    #         height_buffer=self.TASK_WIDGET_HEIGHT_BUFFER,
+    #         spacing=self.OUTER_CATEGORY_SPACING,
+    #     )
+    #     self.main_view.setLayout(self.main_view_layout)
+
+    #     for category in self.tree_root.get_all_children():
+    #         widget = TaskHeaderWidget(
+    #             self.tree_manager,
+    #             category,
+    #             tab=self,
+    #             parent=self,
+    #         )
+    #         # self.task_header_widget_tree[category] = widget
+    #         self.main_view_layout.add_task_header(category, widget)
 
         # self.main_view.setSizePolicy(
         #     QtWidgets.QSizePolicy.Policy.Ignored,

@@ -50,6 +50,7 @@ class TaskViewWidget(BaseTreeView):
         #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
         # )
         self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
+        self.setUniformRowHeights(True)
 
         # Remove expand decorations and border
         utils.set_style(self, "task_widget.qss")

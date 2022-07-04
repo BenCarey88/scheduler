@@ -23,8 +23,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
     CURRENT_TAB_PREF = "current_tab"
     SPLITTER_SIZES = "splitter_sizes"
 
-    # TAB_RESIZED_SIGNAL = QtCore.pyqtSignal(int)
-
     def __init__(self, *args, **kwargs):
         """Initialise main window."""
         super(SchedulerWindow, self).__init__(*args, **kwargs)
@@ -102,7 +100,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             *args,
             **kwargs
         )
-        # self.TAB_RESIZED_SIGNAL.connect(tab.on_tab_resized)
         self.outliner_stack.addWidget(tab.outliner)
         tab_icon = QtGui.QIcon(
             os.path.join(
@@ -156,16 +153,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             self.SPLITTER_SIZES,
             [self.outliner_stack.width(), self.tabs_widget.width()]
         )
-
-    def resizeEvent(self, event):
-        """Resize event.
-
-        Args:
-            event (QtCore.QEvent): the event
-        """
-        result = super(SchedulerWindow, self).resizeEvent(event)
-        # self.TAB_RESIZED_SIGNAL.emit(self.tabs_widget.width())
-        return result
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

@@ -4,8 +4,9 @@
 class TaskWidgetTree(object):
     """Wrapper around a dict to store data for all task widgets."""
     # LAYOUT_KEY = "layout"
-    TASK_HEADER_WIDGET_KEY = "task_widget"
-    TASK_VIEW_WIDGET_KEY = "task_view"
+    TASK_HEADER_WIDGET_KEY = "task_header_widget"
+    TASK_HEADER_VIEW_KEY = "task_header_view"
+    TASK_VIEW_KEY = "task_view"
 
     def __init__(self):
         """Initialize."""
@@ -16,7 +17,8 @@ class TaskWidgetTree(object):
             tree_item,
             # layout,
             task_header_widget=None,
-            task_view_widget=None):
+            task_header_view=None,
+            task_view=None):
         """Add data for tree item.
 
         Args:
@@ -25,15 +27,20 @@ class TaskWidgetTree(object):
             task_header_widget (TaskHeaderWidget or None): the task
                 header widget that represents this item, if it's a
                 top-level task or category.
-            task_view_widget (TaskViewWidget): the task view widget for
+            task_header_view (TaskHeaderWidgetView or None): the task
+                header widget view used by this item, it's a top-level
+                task or category.
+            task_view (TaskViewWidget): the task view widget for
                 this item, if it's a task.
         """
         data_dict = self._widget_tree_data.setdefault(tree_item, {})
         # data_dict[self.LAYOUT_KEY] = layout
         if task_header_widget is not None:
             data_dict[self.TASK_HEADER_WIDGET_KEY] = task_header_widget
-        if task_view_widget is not None:
-            data_dict[self.TASK_VIEW_WIDGET_KEY] = task_view_widget
+        if task_header_view is not None:
+            data_dict[self.TASK_HEADER_VIEW_KEY] = task_header_view
+        if task_view is not None:
+            data_dict[self.TASK_VIEW_KEY] = task_view
 
     def remove_item(self, tree_item):
         """Remove tree item from tree.
@@ -84,7 +91,21 @@ class TaskWidgetTree(object):
             self.TASK_HEADER_WIDGET_KEY
         )
 
-    def get_task_view_widget(self, tree_item):
+    def get_task_header_view(self, tree_item):
+        """Get task header list view widget for item.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to query.
+
+        Returns:
+            (TaskHeaderListView or None): task list view widget for this item,
+                if found.
+        """
+        return self._widget_tree_data.get(tree_item, {}).get(
+            self.TASK_HEADER_VIEW_KEY
+        )
+
+    def get_task_view(self, tree_item):
         """Get task header view for item.
 
         Args:
@@ -94,29 +115,12 @@ class TaskWidgetTree(object):
             (TaskViewWidget or None): task widget for this item, if found.
         """
         widget = self._widget_tree_data.get(tree_item, {}).get(
-            self.TASK_VIEW_WIDGET_KEY
+            self.TASK_VIEW_KEY
         )
         if widget is None:
             for ancest in tree_item.iter_ancestors(reversed=True, strict=True):
-                widget = self.get_task_view_widget(ancest)
+                widget = self.get_task_view(ancest)
                 if widget is not None:
                     break
         return widget
 
-    def get_main_task_widget(self, tree_item):
-        """Get main task widget for item.
-
-        For task header items, this returns the task header widget. For
-        subtasks, this returns the task view widget.
-
-        Args:
-            tree_item (BaseTreeItem): tree item to query.
-
-        Returns:
-            (TaskViewWidget, TaskHeaderWidget or None): main widget for
-                this item, if found.
-        """
-        widget = self.get_task_header_widget(tree_item)
-        if widget is None:
-            widget = self.get_task_view_widget(tree_item)
-        return widget

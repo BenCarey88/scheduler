@@ -16,7 +16,7 @@ class TaskViewWidget(BaseTreeView):
     """
     # TODO: I sense most of this height stuff is actually irrelevant
     # go through and remove any unneeded ones
-    # HEIGHT_BUFFER = 5
+    HEIGHT_BUFFER = 10
     MIN_WIDTH = 1000
 
     def __init__(self, tree_manager, task_item, tab, parent=None):
@@ -33,6 +33,7 @@ class TaskViewWidget(BaseTreeView):
         self.tree_manager = tree_manager
         self.task_item = task_item
         self.tab = tab
+        tab.task_widget_tree.add_or_update_item(task_item, task_view=self)
 
         # setup model and delegate
         model = TaskTreeModel(tab.tree_manager, task_item, parent=self)
@@ -110,20 +111,33 @@ class TaskViewWidget(BaseTreeView):
         """End reset."""
         self.model().endResetModel()
         self.expandAll()
-        if self._current_item is not None:
-            row = self._current_item.index()
-            index = self.model().createIndex(row, 0, self._current_item)
-            if index.isValid():
-                with utils.suppress_signals(self.selectionModel()):
-                    self.selectionModel().setCurrentIndex(
-                        index,
-                        self.selectionModel().SelectionFlag.SelectCurrent,
-                    )
+        if self._current_item is None:
+            return
+        row = self._current_item.index()
+        if row is None:
+            return
+        index = self.model().createIndex(row, 0, self._current_item)
+        if not index.isValid():
+            return
+        with utils.suppress_signals(self.selectionModel()):
+            self.selectionModel().setCurrentIndex(
+                index,
+                self.selectionModel().SelectionFlag.SelectCurrent,
+            )
 
     def reset_model(self):
         """Full reset of model."""
         self.begin_reset()
         self.end_reset()
+
+    def sizeHint(self):
+        """Get item size hint.
+
+        Returns:
+            (QtCore.QSize): size hint.
+        """
+        size = super(TaskViewWidget, self).sizeHint()
+        return QtCore.QSize(size.width(), size.height() + self.HEIGHT_BUFFER)
 
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):

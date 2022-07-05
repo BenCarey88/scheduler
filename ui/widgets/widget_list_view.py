@@ -35,7 +35,7 @@ class WidgetListView(QtWidgets.QListView):
                 )
             self._widget_list.append(widget)
 
-        model = WidgetListModel(["" for _ in self._widget_list])
+        model = WidgetListModel(self._widget_list)
         self.setModel(model)
         self.setItemDelegate(WidgetListDelegate(self))
         self.setSpacing(self.ITEM_SPACING)
@@ -98,6 +98,10 @@ class WidgetListView(QtWidgets.QListView):
         else:
             return 0 <= row < len(self._widget_list)
 
+    def update_view(self):
+        """Update view to pick up geometry changes to widgets."""
+        self.scheduleDelayedItemsLayout()
+
     def insert_widget(self, row, widget):
         """Insert widget at given row.
 
@@ -113,8 +117,11 @@ class WidgetListView(QtWidgets.QListView):
                 self._widget_list[0].enable()
             spacer = Spacer(self._item_spacing, row != 0)
             self.model().insert_widgets(2 * row, [spacer, widget])
+            self.open_editor(2 * row)
+            self.open_editor(2 * row + 1)
         else:
             self.model().insert_widgets(row, [widget])
+            self.open_editor(row)
 
     def remove_widget(self, row):
         """Remove widget at given row.
@@ -132,6 +139,7 @@ class WidgetListView(QtWidgets.QListView):
             self.model().remove_widgets(2 * row, 2)
         else:
             self.model().remove_widgets(row, 1)
+        self.update_view()
 
     def move_widget(self, old_row, new_row):
         """Move widget to new row.
@@ -156,6 +164,7 @@ class WidgetListView(QtWidgets.QListView):
             self.model().move_widgets(2 * old_row, 2 * new_row, 2)
         else:
             self.model().move_widgets(old_row, new_row, 1)
+        self.update_view()
 
     def resizeEvent(self, event):
         """Resize event.
@@ -164,8 +173,8 @@ class WidgetListView(QtWidgets.QListView):
             event (QtCore.QEvent): the event.
         """
         super(WidgetListView, self).resizeEvent(event)
-        self.updateEditorGeometries()
-        self.scheduleDelayedItemsLayout()
+        # self.updateEditorGeometries()
+        self.update_view()
 
     def open_editor(self, row, update=True):
         """Open persistent editors on given row.
@@ -184,7 +193,7 @@ class WidgetListView(QtWidgets.QListView):
             self.openPersistentEditor(index)
             self.update(index)
         if update:
-            self.scheduleDelayedItemsLayout()
+            self.update_view()
 
     def open_editors(self):
         """Open persistent editors on each row.
@@ -194,7 +203,7 @@ class WidgetListView(QtWidgets.QListView):
         """
         for row, _ in enumerate(self._widget_list):
             self.open_editor(row, update=False)
-        self.scheduleDelayedItemsLayout()
+        self.update_view()
 
     def sizeHint(self):
         """Get size hint.
@@ -278,7 +287,7 @@ class WidgetListModel(QtCore.QAbstractListModel):
             self.beginInsertRows(
                 QtCore.QModelIndex(),
                 row,
-                row + len(widgets) - 1
+                row + len(widgets) - 1,
             )
             self.widget_list[row:row] = widgets
             self.endInsertRows()

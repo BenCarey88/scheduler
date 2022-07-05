@@ -34,7 +34,13 @@ class TaskTab(BaseTab):
         self.selected_task_item = None
         # self.selected_subtask_item = None
         self._scroll_value = None
-        self._fill_main_view()
+        self.header_list_view = TaskHeaderListView(
+            self.tree_manager,
+            self.tree_root,
+            self,
+            item_spacing=self.OUTER_CATEGORY_SPACING,
+        )
+        self.outer_layout.addWidget(self.header_list_view)
         # self._fill_scroll_area()
 
         self._views_being_reset = []
@@ -48,15 +54,6 @@ class TaskTab(BaseTab):
         tm.register_item_modified_callback(self, self.on_item_modified)
         self._apply_filters()
 
-    def _fill_main_view(self):
-        """Fill main task view from tree root."""
-        self.widget_list_view = TaskHeaderListView(
-            self.tree_manager,
-            self.tree_root,
-            self,
-            item_spacing=self.OUTER_CATEGORY_SPACING,
-        )
-        self.outer_layout.addWidget(self.widget_list_view)
 
     # def _fill_main_view(self):
     #     """Fill main task view from tree root.
@@ -88,24 +85,35 @@ class TaskTab(BaseTab):
         # )
         # self.main_view.setMinimumSize(self.main_view_layout.recommended_size)
 
-    def _fill_scroll_area(self, scroll_value=None):
-        """Create scroll area and set its widget as main view.
+    # def _fill_scroll_area(self, scroll_value=None):
+    #     """Create scroll area and set its widget as main view.
 
-        Args:
-            scroll_value (int or None): current position of scroll bar, to
-                maintain.
+    #     Args:
+    #         scroll_value (int or None): current position of scroll bar, to
+    #             maintain.
+    #     """
+    #     self.scroll_area = QtWidgets.QScrollArea()
+    #     self.outer_layout.addWidget(self.scroll_area)
+    #     self.scroll_area.setBackgroundRole(QtGui.QPalette.ColorRole.Light)
+    #     self.scroll_area.setWidget(self.main_view)
+    #     # TODO: TRY TO GET VIEW FILLING WHOLE OF SCROLL AREA
+    #     # self.scroll_area.setWidgetResizable(True)
+    #     # self.scroll_area.setSizeAdjustPolicy(
+    #     #     self.scroll_area.SizeAdjustPolicy.AdjustToContents
+    #     # )
+    #     if scroll_value is not None:
+    #         self.scroll_area.verticalScrollBar().setValue(scroll_value)
+
+    @property
+    def active_task_view(self):
+        """Get active task view widget.
+
+        Returns:
+            (TaskViewWidget or None): active task widget.
         """
-        self.scroll_area = QtWidgets.QScrollArea()
-        self.outer_layout.addWidget(self.scroll_area)
-        self.scroll_area.setBackgroundRole(QtGui.QPalette.ColorRole.Light)
-        self.scroll_area.setWidget(self.main_view)
-        # TODO: TRY TO GET VIEW FILLING WHOLE OF SCROLL AREA
-        # self.scroll_area.setWidgetResizable(True)
-        # self.scroll_area.setSizeAdjustPolicy(
-        #     self.scroll_area.SizeAdjustPolicy.AdjustToContents
-        # )
-        if scroll_value is not None:
-            self.scroll_area.verticalScrollBar().setValue(scroll_value)
+        if self._active_task is not None:
+            return self.task_widget_tree.get_task_view(self._active_task)
+        return None
 
     def switch_active_task_view(self, task_item, new_index, old_index):
         """Change active task view to new one.
@@ -128,19 +136,6 @@ class TaskTab(BaseTab):
         # selected_subtask_item = new_index.internalPointer()
         # if selected_subtask_item:
         #     self.selected_subtask_item  = selected_subtask_item
-
-    @property
-    def active_task_view(self):
-        """Get active task view widget.
-
-        Returns:
-            (TaskViewWidget or None): active task widget.
-        """
-        if self._active_task is not None:
-            return self.task_widget_tree.get_task_view_widget(
-                self._active_task
-            )
-        return None
 
     # @property
     # def active_task_header_widget(self):
@@ -165,7 +160,7 @@ class TaskTab(BaseTab):
             row (int): the index the item will be added at.
         """
         if self.tree_manager.is_task(parent):
-            widget = self.task_widget_tree.get_task_view_widget(parent)
+            widget = self.task_widget_tree.get_task_view(parent)
             if widget:
                 widget.begin_reset()
                 self._views_being_reset = [widget]
@@ -183,39 +178,38 @@ class TaskTab(BaseTab):
                 widget.end_reset()
             self._views_being_reset = []
         else:
-            if parent == self.tree_root:
-                layout = self.main_view_layout
-            else:
-                parent_widget = self.task_widget_tree.get_task_header_widget(
-                    parent
-                )
-                layout = parent_widget.widget_layout if parent_widget else None
-            new_widget = TaskHeaderWidget(self.tree_manager, item, tab=self)
-            if layout:
-                layout.add_task_header(item, new_widget, row)
+            header_list_view = self.task_widget_tree.get_task_header_view(
+                parent
+            )
+            if header_list_view:
+                header_list_view.insert_header_widget(row, item)
+        for anc in item.iter_ancestors(reversed=True):
+            list_view = self.task_widget_tree.get_task_header_view(anc)
+            if list_view:
+                list_view.open_editors()
 
-    def pre_item_removed(self, item, parent, index):
+    def pre_item_removed(self, item, parent, row):
         """Callback for before an item has been removed.
 
         Args:
             item (BaseTreeItem): the item to be removed.
             parent (BaseTreeItem): the parent of the removed item.
-            index (int): the old index of the removed item in its
+            row (int): the old row of the removed item in its
                 parent's child list.
         """
         if not self.tree_manager.is_task_category_or_top_level_task(item):
-            widget = self.task_widget_tree.get_task_view_widget(item)
+            widget = self.task_widget_tree.get_task_view(item)
             if widget:
                 widget.begin_reset()
                 self._views_being_reset = [widget]
 
-    def on_item_removed(self, item, parent, index):
+    def on_item_removed(self, item, parent, row):
         """Callback for after an item has been removed.
 
         Args:
             item (BaseTreeItem): the item removed.
             parent (BaseTreeItem): the parent of the removed item.
-            index (int): the old index of the removed item in its
+            row (int): the old index of the removed item in its
                 parent's child list.
         """
         if self._views_being_reset:
@@ -223,9 +217,12 @@ class TaskTab(BaseTab):
                 widget.end_reset()
             self._views_being_reset = []
         else:
-            layout = self.task_widget_tree.get_layout(item)
-            if layout:
-                layout.remove_tree_item(item)
+            header_list_view = self.task_widget_tree.get_task_header_view(
+                parent
+            )
+            if header_list_view:
+                header_list_view.remove_header_widget(row, item)
+        self.header_list_view.update_view()
 
     def pre_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for before an item is moved.
@@ -239,12 +236,12 @@ class TaskTab(BaseTab):
         """
         self._views_being_reset = []
         if self.tree_manager.is_task(old_parent):
-            old_widget = self.task_widget_tree.get_task_view_widget(old_parent)
+            old_widget = self.task_widget_tree.get_task_view(old_parent)
             if old_widget:
                 old_widget.begin_reset()
                 self._views_being_reset.append(old_widget)
-        if self.tree_manager.is_task(new_parent):
-            new_widget = self.task_widget_tree.get_task_view_widget(new_parent)
+        if new_parent != old_parent and self.tree_manager.is_task(new_parent):
+            new_widget = self.task_widget_tree.get_task_view(new_parent)
             if new_widget:
                 new_widget.begin_reset()
                 self._views_being_reset.append(new_widget)
@@ -263,6 +260,7 @@ class TaskTab(BaseTab):
             for widget in self._views_being_reset:
                 widget.end_reset()
             self._views_being_reset = []
+            self.header_list_view.update_view()
 
         if self.tree_manager.is_task_category(old_parent):
             self.on_item_removed(item, old_parent, old_row)
@@ -277,7 +275,7 @@ class TaskTab(BaseTab):
             new_item (BaseTreeItem): the item after modification.
         """
         if not self.tree_manager.is_task_category_or_top_level_task(old_item):
-            widget = self.task_widget_tree.get_task_view_widget(old_item)
+            widget = self.task_widget_tree.get_task_view(old_item)
             if widget:
                 widget.begin_reset()
                 self._views_being_reset = [widget]
@@ -297,6 +295,7 @@ class TaskTab(BaseTab):
             widget = self.task_widget_tree.get_task_header_widget(old_item)
             if widget:
                 widget.update_task_item(new_item)
+        self.header_list_view.update_view()
 
     def on_outliner_current_changed(self, tree_item):
         """Callback to scroll to item when current is changed in outliner.
@@ -310,9 +309,9 @@ class TaskTab(BaseTab):
         widget = self.task_widget_tree.get_task_header_widget(task_header)
         if not widget:
             return
-        point = widget.mapTo(self.scroll_area, QtCore.QPoint(0,0))
-        self.scroll_area.verticalScrollBar().setValue(
-            point.y() + self.scroll_area.verticalScrollBar().value()
+        point = widget.mapTo(self.header_list_view, QtCore.QPoint(0,0))
+        self.header_list_view.verticalScrollBar().setValue(
+            point.y() + self.header_list_view.verticalScrollBar().value()
         )
 
     def on_outliner_filter_changed(self, *args):
@@ -331,7 +330,7 @@ class TaskTab(BaseTab):
 
         # layout = self.task_widget_tree.get_layout(tree_item)
         header_widget = self.task_widget_tree.get_task_header_widget(tree_item)
-        view_widget = self.task_widget_tree.get_task_view_widget(tree_item)
+        view_widget = self.task_widget_tree.get_task_view(tree_item)
 
         if header_widget is not None:
             # spacer = None

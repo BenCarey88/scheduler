@@ -94,7 +94,7 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
         """Any setup that needs to be done after tab initialization."""
         for view in self.iter_widgets():
             view.setup()
-            view.VIEW_UPDATED_SIGNAL.connect(self.scheduleDelayedItemsLayout)
+            view.VIEW_UPDATED_SIGNAL.connect(self.update_view)
             view.VIEW_UPDATED_SIGNAL.connect(self.VIEW_UPDATED_SIGNAL.emit)
 
     def set_to_calendar_period(self, calendar_period):

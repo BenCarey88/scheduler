@@ -514,7 +514,7 @@ class BaseTreeItem(Hosted, NestedSerializable):
 
         Args:
             reversed (bool): if True, iter from lowest upwards.
-            strict (bool): if True, don;t include this item in the iteration.
+            strict (bool): if True, don't include this item in the iteration.
 
         Yields:
             (BaseTreeItem): ancestor items (including this one).

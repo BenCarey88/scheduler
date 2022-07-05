@@ -3,6 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.tabs.base_tab import BaseTab
+from scheduler.ui import utils
 from .task_header_widget import TaskHeaderWidget, TaskHeaderListView
 from .task_widget_layout import TaskWidgetLayout
 from .task_widget_tree import TaskWidgetTree
@@ -328,7 +329,7 @@ class TaskTab(BaseTab):
         if tree_item is None:
             tree_item = self.tree_root
 
-        layout = self.task_widget_tree.get_layout(tree_item)
+        # layout = self.task_widget_tree.get_layout(tree_item)
         header_widget = self.task_widget_tree.get_task_header_widget(tree_item)
         view_widget = self.task_widget_tree.get_task_view_widget(tree_item)
 

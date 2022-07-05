@@ -37,6 +37,10 @@ QTabBar::tab:!selected {
     color: rgb(93,109,109);
 }
 
+WidgetListView::item:hover {
+    background-color: transparent;
+}
+
 /* QFrame {
     border: 1px dotted grey;
 } */

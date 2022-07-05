@@ -4,9 +4,12 @@ TaskHeaderWidget {
 }
 
 TaskHeaderListView {
-    border: none
+    border: none;
+}
+TaskHeaderListView::item:hover {
+    background-color: transparent;
 }
 
 QLineEdit {
-    border: none
+    border: none;
 }

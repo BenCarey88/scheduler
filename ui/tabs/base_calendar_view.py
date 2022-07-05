@@ -92,7 +92,7 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
 
     def setup(self):
         """Any setup that needs to be done after tab initialization."""
-        for view in self.widget_list:
+        for view in self.iter_widgets():
             view.setup()
             view.VIEW_UPDATED_SIGNAL.connect(self.scheduleDelayedItemsLayout)
             view.VIEW_UPDATED_SIGNAL.connect(self.VIEW_UPDATED_SIGNAL.emit)
@@ -128,7 +128,7 @@ class BaseMultiListWeekView(BaseMultiListView):
             calendar_week (CalendarWeek): calendar week to set to.
         """
         calendar_days = list(calendar_week.iter_days())
-        for calendar_day, list_view in zip(calendar_days, self.widget_list):
+        for calendar_day, list_view in zip(calendar_days, self.get_widgets()):
             list_view.set_to_calendar_period(calendar_day)
 
 
@@ -159,10 +159,10 @@ class BaseMultiListMonthView(BaseMultiListView):
         """
         calendar_weeks = calendar_month.get_calendar_weeks()
         for i in range(5 - len(calendar_weeks)):
-            self.widget_list[-1 -i].setHidden(True)
-        for calendar_week, list_view in zip(calendar_weeks, self.widget_list):
-            list_view.set_to_calendar_period(calendar_week)
-            list_view.setHidden(False)
+            self.get_widget(-1 -i).setHidden(True)
+        for calendar_week, view in zip(calendar_weeks, self.get_widgets()):
+            view.set_to_calendar_period(calendar_week)
+            view.setHidden(False)
 
 
 class BaseMultiListYearView(BaseMultiListView):
@@ -185,8 +185,8 @@ class BaseMultiListYearView(BaseMultiListView):
             calendar_year (CalendarYear): calendar year to set to.
         """
         calendar_months = list(calendar_year.iter_months())
-        for calendar_month, list_view in zip(calendar_months, self.widget_list):
-            list_view.set_to_calendar_period(calendar_month)
+        for calendar_month, view in zip(calendar_months, self.get_widgets()):
+            view.set_to_calendar_period(calendar_month)
 
 
 ### TABLE ###

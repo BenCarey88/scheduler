@@ -35,14 +35,16 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             task_item (Task or TaskCategory): task or task category tree item.
             tab (TaskTab): task tab this widget is a descendant of.
             recursive_depth (int): how far down the tree this item is.
-            item_spacing (int or None): override of spacing for child items.
+            item_spacing (int): override of spacing for child items.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TaskHeaderWidget, self).__init__(parent)
         self.tree_manager = tree_manager
         self.task_item = task_item
         self.tab = tab
-        utils.set_style(self, "task_header_widget.qss")
+        if recursive_depth == 0:
+            # only need to set style on top-most widget.
+            utils.set_style(self, "task_header_widget.qss")
 
         # outer layout holds line edit layout and task widget layout
         self.outer_layout = QtWidgets.QVBoxLayout()
@@ -141,7 +143,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
 
 class TaskHeaderListView(WidgetListView):
     """List of task header widgets for subcategories/tasks."""
-    RECURSIVE_HEIGHT_BUFFER = 10
+    # BORDER_BUFFER = 3
 
     def __init__(
             self,
@@ -176,18 +178,21 @@ class TaskHeaderListView(WidgetListView):
             item_spacing=item_spacing,
             parent=parent,
         )
+        self.task_item = task_item
+        self.tree_manager = tree_manager
 
-    def sizeHint(self):
-        """Get size hint.
+    # def sizeHint(self):
+    #     """Get size hint.
 
-        Returns:
-            (QtCore.QSize): size hint.
-        """
-        size = super(TaskHeaderListView, self).sizeHint()
-        height = (
-            size.height() + self.recursive_depth * self.RECURSIVE_HEIGHT_BUFFER
-        )
-        return QtCore.QSize(size.width(), height)
+    #     Returns:
+    #         (QtCore.QSize): size hint.
+    #     """
+    #     size = super(TaskHeaderListView, self).sizeHint()
+    #     num_children = len(
+    #         self.tree_manager.get_filtered_children(self.task_item)
+    #     )
+    #     height = size.height() + self.BORDER_BUFFER * num_children
+    #     return QtCore.QSize(size.width(), height)
 
 
 # class TaskHeaderWidget(QtWidgets.QFrame):

@@ -20,8 +20,8 @@ class PlannerCallbacks(BaseCallbacks):
         """Initialize.
 
         Callback args:
-            add_edits: (planned_item)
-            remove_edits: (planned_item)
+            add_edits: (planned_item, index)
+            remove_edits: (planned_item, index)
             update_edits: (old_item, new_item)
             move_edits: (item, old_index, new_index)
             full_update: ()

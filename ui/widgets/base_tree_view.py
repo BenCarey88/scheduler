@@ -220,6 +220,9 @@ class BaseTreeView(QtWidgets.QTreeView):
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
                 success = self.add_sibling_item(current_item)
 
+        if success:
+            # ensure focus remains on this widget after callbacks
+            self.setFocus(True)
         else:
             super(BaseTreeView, self).keyPressEvent(event)
 

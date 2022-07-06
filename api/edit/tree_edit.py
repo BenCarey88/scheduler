@@ -194,9 +194,9 @@ class RenameChildrenEdit(BaseTreeEdit):
         )
 
         self._callback_args = self._undo_callback_args = ([
-            (tree_item.get(old_name), tree_item.get(old_name))
+            (tree_item.get_child(old_name), tree_item.get_child(old_name))
             for (old_name, _) in children_to_rename.items()
-            if tree_item.get(old_name) is not None
+            if tree_item.get_child(old_name) is not None
         ])
 
         self._name = "RenameChildren ({0})".format(tree_item.name)

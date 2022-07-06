@@ -125,6 +125,7 @@ class PlannerListView(BaseListView):
             model,
             parent=parent,
         )
+        self.setUniformRowHeights(True)
 
         self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
 
@@ -146,19 +147,13 @@ class PlannerListView(BaseListView):
 
         self.setSortingEnabled(True)
 
-        self.setItemDelegate(
-            PlannedItemDelegate(
-                self.planner_manager,
-                self.tree_manager,
-                model,
-            )
-        )
+        self.setItemDelegate(PlannedItemDelegate(self))
         self.open_editors()
-        model.modelReset.connect(self.update)
-        model.modelReset.connect(self.VIEW_UPDATED_SIGNAL.emit)
-        model.dataChanged.connect(self.update)
+        model.rowsInserted.connect(self.VIEW_UPDATED_SIGNAL.emit)
+        model.rowsRemoved.connect(self.VIEW_UPDATED_SIGNAL.emit)
+        model.rowsMoved.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.dataChanged.connect(self.VIEW_UPDATED_SIGNAL.emit)
-        self.setUniformRowHeights(True)
+        model.modelReset.connect(self.VIEW_UPDATED_SIGNAL.emit)
 
     def resizeEvent(self, event):
         """Resize event.
@@ -182,11 +177,6 @@ class PlannerListView(BaseListView):
                     if self.isPersistentEditorOpen(index):
                         self.closePersistentEditor(index)
                     self.openPersistentEditor(index)
-
-    def update(self):
-        """Update view."""
-        # self.open_editors()
-        super(PlannerListView, self).update()
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
@@ -233,24 +223,16 @@ class PlannerListView(BaseListView):
 
 class PlannedItemDelegate(QtWidgets.QStyledItemDelegate):
     """Delegate for planned items."""
-    def __init__(
-            self,
-            planner_manager,
-            tree_manager,
-            model,
-            parent=None):
+    def __init__(self, planner_list_view, parent=None):
         """Initialise planned item delegate item.
 
         Args:
-            planner_manager (PlannerManager): planner manager object.
-            tree_manager (TreeManager): tree manager object.
-            model (QtCore.QAbstractItemModel): the model this is modelling.
+            planner_list_view (PlannerListView): list view this is
+                a delegate for.
             parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(PlannedItemDelegate, self).__init__(parent)
-        self.model = model
-        self.planner_manager = planner_manager
-        self.tree_manager = tree_manager
+        self.model = planner_list_view.model()
 
     def createEditor(self, parent, option, index):
         """Create editor widget for edit role.

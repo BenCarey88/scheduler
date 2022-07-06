@@ -42,6 +42,8 @@ class PlannerEditManager(BasePlannerManager):
             archive_calendar,
         )
 
+    # TODO: once confirmed that new edit callbacks seem to be working,
+    # switch managers back to using create_and_run methods for edits
     def create_planned_item(self, *args, index=None, **kwargs):
         """Create planner item and add to calendar.
 

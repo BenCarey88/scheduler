@@ -12,6 +12,10 @@ class TaskTreeModel(BaseTreeModel):
     """Task tree model.
 
     This model is intended to be used in the main panel of the Task Tab.
+    Note that we do not register callbacks in this model as the task tab
+    uses a nested hierarchy of views rather than a standard qt-style
+    model-view framework and so it's necessary to handle tree manager
+    callbacks in the view classes instead here.
     """
     STATUS_COLUMN = "Status"
 

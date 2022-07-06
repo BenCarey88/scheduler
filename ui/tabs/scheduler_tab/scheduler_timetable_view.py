@@ -247,6 +247,7 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.scheduled_item_widgets.sort(
             key=(lambda w : 1 - int(w.scheduled_item.is_background))
         )
+        self.viewport().update()
 
     def set_to_week(self, calendar_week):
         """Set view to given calendar_week.
@@ -876,7 +877,6 @@ class SchedulerTimetableView(BaseWeekTableView):
                 )
                 item_editor.exec()
             self.selection_rect = None
-            self.viewport().update()
 
         elif self.selected_scheduled_item:
             if self.selected_scheduled_item.is_being_moved:
@@ -892,7 +892,6 @@ class SchedulerTimetableView(BaseWeekTableView):
                 )
                 item_editor.exec()
             self.selected_scheduled_item = None
-            self.viewport().update()
 
         return super(SchedulerTimetableView, self).mouseReleaseEvent(event)
 
@@ -935,7 +934,6 @@ class SchedulerTimetableView(BaseWeekTableView):
             item_editor.exec()
         else:
             item_editor.accept_and_close()
-        self.viewport().update()
 
 
 class SchedulerDelegate(QtWidgets.QStyledItemDelegate):

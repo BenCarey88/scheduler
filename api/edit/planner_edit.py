@@ -25,7 +25,10 @@ class AddPlannedItemEdit(ListEdit):
             [(index, planned_item)],
             ContainerOp.INSERT,
         )
-        self._callback_args = self._undo_callback_args = [planned_item]
+        self._callback_args = self._undo_callback_args = [
+            planned_item,
+            index,
+        ]
         self._name = "AddPlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Add {0} {1} to {2} at index {3}".format(
@@ -51,7 +54,10 @@ class RemovePlannedItemEdit(ListEdit):
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
-        self._callback_args = self._undo_callback_args = [planned_item]
+        self._callback_args = self._undo_callback_args = [
+            planned_item,
+            planned_item.index(),
+        ]
         self._name = "RemovePlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Remove {0} {1} at date {2}".format(

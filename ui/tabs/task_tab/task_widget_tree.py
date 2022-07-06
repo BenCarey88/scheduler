@@ -15,7 +15,6 @@ class TaskWidgetTree(object):
     def add_or_update_item(
             self,
             tree_item,
-            # layout,
             task_header_widget=None,
             task_header_view=None,
             task_view=None):
@@ -23,7 +22,6 @@ class TaskWidgetTree(object):
 
         Args:
             tree_item (BaseTreeItem): tree item to add.
-            layout (TaskWidgetLayout): layout this item lives in.
             task_header_widget (TaskHeaderWidget or None): the task
                 header widget that represents this item, if it's a
                 top-level task or category.

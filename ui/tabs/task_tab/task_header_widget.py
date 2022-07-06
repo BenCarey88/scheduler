@@ -20,6 +20,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
     FONT_SIZE_STEP = 1
     LINE_EDIT_BUFFER = 10
     HEIGHT_BUFFER = 30
+    NO_CHILDREN_HEIGT_BUFFER = 10
 
     def __init__(
             self,
@@ -78,17 +79,17 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         self.line_edit.setMinimumHeight(font_size + self.LINE_EDIT_BUFFER)
 
         self.task_view_widget = None
-        self.header_list_view = None
+        self.task_header_view = None
         if self.tree_manager.is_task_category(task_item):
-            self.header_list_view = TaskHeaderListView(
+            self.task_header_view = TaskHeaderListView(
                 tree_manager,
                 task_item,
                 tab=tab,
                 recursive_depth=recursive_depth+1,
                 item_spacing=item_spacing,
             )
-            self.outer_layout.addWidget(self.header_list_view)
-            self.child_widget = self.header_list_view
+            self.outer_layout.addWidget(self.task_header_view)
+            self.child_widget = self.task_header_view
 
         elif self.tree_manager.is_task(task_item):
             self.task_view_widget = TaskViewWidget(
@@ -134,6 +135,11 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         if not success:
             self.line_edit.setText(self.task_item.name)
 
+    def return_focus_to_line_edit(self):
+        """Return focus to line edit after updates."""
+        self.line_edit.setFocus(True)
+        self.line_edit.deselect()
+
     def eventFilter(self, obj, event):
         """Event filter for when object is clicked.
 
@@ -142,11 +148,9 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             event (QtCore.QEvent): event that is happening.
         """
         if obj == self.line_edit and event.type() == QtCore.QEvent.FocusIn:
-            if self.tree_manager.is_task(self.task_item):
-                # self.tab.selected_subtask_item = None
-                self.tab.selected_task_item = self.task_item
+            self.tab.selected_task_header_item = self.task_item
         if obj == self.line_edit and event.type() == QtCore.QEvent.FocusOut:
-            self.tab.selected_task_item = None
+            self.tab.selected_task_header_item = None
         return False
 
     def sizeHint(self):
@@ -161,7 +165,20 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             self.child_widget.sizeHint().height() +
             self.HEIGHT_BUFFER
         )
+        if not self.tree_manager.get_filtered_children(self.task_item):
+            height += self.NO_CHILDREN_HEIGT_BUFFER
         return QtCore.QSize(width, height)
+
+    def apply_filters(self, update=True):
+        """Apply filters to view.
+
+        Args:
+            update (bool): if True, update view after.
+        """
+        if self.task_header_view is not None:
+            self.task_header_view.apply_filters(update=update)
+        elif self.task_view_widget is not None:
+            self.task_view_widget.reset_model()
 
 
 class TaskHeaderListView(WidgetListView):
@@ -191,7 +208,7 @@ class TaskHeaderListView(WidgetListView):
             task_header_view=self,
         )
         widget_list = []
-        for child in tree_manager.get_filtered_children(task_item):
+        for child in task_item.get_all_children():
             widget = TaskHeaderWidget(
                 tree_manager,
                 child,
@@ -209,6 +226,23 @@ class TaskHeaderListView(WidgetListView):
         self.task_item = task_item
         self.tab = tab
         self.recursive_depth = recursive_depth
+        self.apply_filters()
+
+    def apply_filters(self, update=True):
+        """Apply filters to view.
+
+        Args:
+            update (bool): if True, update view after.
+        """
+        for i, child in enumerate(self.task_item.get_all_children()):
+            if self.tree_manager.is_filtered_out(child):
+                self.filter_row(i)
+            else:
+                self.unfilter_row(i)
+                header_widget = self.get_widget(i)
+                header_widget.apply_filters(update=False)
+        if update:
+            self.update_view()
 
     def insert_header_widget(self, row, task_header_item):
         """Create a new header widget for task item and add to list.

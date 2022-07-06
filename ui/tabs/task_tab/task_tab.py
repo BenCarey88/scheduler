@@ -31,16 +31,16 @@ class TaskTab(BaseTab):
         # self.task_widget_tree = OrderedDict()
         # self.task_header_widget_tree = OrderedDict()
         self._active_task = None
-        self.selected_task_item = None
+        self.selected_task_header_item = None
         # self.selected_subtask_item = None
         self._scroll_value = None
-        self.header_list_view = TaskHeaderListView(
+        self.task_header_view = TaskHeaderListView(
             self.tree_manager,
             self.tree_root,
             self,
             item_spacing=self.OUTER_CATEGORY_SPACING,
         )
-        self.outer_layout.addWidget(self.header_list_view)
+        self.outer_layout.addWidget(self.task_header_view)
         # self._fill_scroll_area()
 
         self._views_being_reset = []
@@ -52,8 +52,7 @@ class TaskTab(BaseTab):
         tm.register_pre_item_moved_callback(self, self.pre_item_moved)
         tm.register_item_moved_callback(self, self.on_item_moved)
         tm.register_item_modified_callback(self, self.on_item_modified)
-        self._apply_filters()
-
+        self.task_header_view.apply_filters()
 
     # def _fill_main_view(self):
     #     """Fill main task view from tree root.
@@ -115,6 +114,19 @@ class TaskTab(BaseTab):
             return self.task_widget_tree.get_task_view(self._active_task)
         return None
 
+    @property
+    def active_task_header_widget(self):
+        """Get active task header widget.
+
+        Returns:
+            (TaskHeaderWidget or None): active task header widget.
+        """
+        if self.selected_task_header_item is not None:
+            return self.task_widget_tree.get_task_header_widget(
+                self.selected_task_header_item
+            )
+        return None
+
     def switch_active_task_view(self, task_item, new_index, old_index):
         """Change active task view to new one.
 
@@ -144,9 +156,9 @@ class TaskTab(BaseTab):
     #     Returns:
     #         (TaskWidget or None): active task/task category widget.
     #     """
-    #     if self.selected_task_item:
+    #     if self.selected_task_header_item:
     #         return self.task_header_widget_tree.get(
-    #             self.selected_task_item,
+    #             self.selected_task_header_item,
     #             None,
     #         )
     #     return None
@@ -178,11 +190,11 @@ class TaskTab(BaseTab):
                 widget.end_reset()
             self._views_being_reset = []
         else:
-            header_list_view = self.task_widget_tree.get_task_header_view(
+            task_header_view = self.task_widget_tree.get_task_header_view(
                 parent
             )
-            if header_list_view:
-                header_list_view.insert_header_widget(row, item)
+            if task_header_view:
+                task_header_view.insert_header_widget(row, item)
         for anc in item.iter_ancestors(reversed=True):
             list_view = self.task_widget_tree.get_task_header_view(anc)
             if list_view:
@@ -217,12 +229,12 @@ class TaskTab(BaseTab):
                 widget.end_reset()
             self._views_being_reset = []
         else:
-            header_list_view = self.task_widget_tree.get_task_header_view(
+            task_header_view = self.task_widget_tree.get_task_header_view(
                 parent
             )
-            if header_list_view:
-                header_list_view.remove_header_widget(row, item)
-        self.header_list_view.update_view()
+            if task_header_view:
+                task_header_view.remove_header_widget(row, item)
+        self.task_header_view.update_view()
 
     def pre_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for before an item is moved.
@@ -260,7 +272,7 @@ class TaskTab(BaseTab):
             for widget in self._views_being_reset:
                 widget.end_reset()
             self._views_being_reset = []
-            self.header_list_view.update_view()
+            self.task_header_view.update_view()
 
         if self.tree_manager.is_task_category(old_parent):
             self.on_item_removed(item, old_parent, old_row)
@@ -295,7 +307,7 @@ class TaskTab(BaseTab):
             widget = self.task_widget_tree.get_task_header_widget(old_item)
             if widget:
                 widget.update_task_item(new_item)
-        self.header_list_view.update_view()
+        self.task_header_view.update_view()
 
     def on_outliner_current_changed(self, tree_item):
         """Callback to scroll to item when current is changed in outliner.
@@ -309,49 +321,14 @@ class TaskTab(BaseTab):
         widget = self.task_widget_tree.get_task_header_widget(task_header)
         if not widget:
             return
-        point = widget.mapTo(self.header_list_view, QtCore.QPoint(0,0))
-        self.header_list_view.verticalScrollBar().setValue(
-            point.y() + self.header_list_view.verticalScrollBar().value()
+        point = widget.mapTo(self.task_header_view, QtCore.QPoint(0,0))
+        self.task_header_view.verticalScrollBar().setValue(
+            point.y() + self.task_header_view.verticalScrollBar().value()
         )
 
     def on_outliner_filter_changed(self, *args):
         """Callback to update view to match current filter."""
-        self._apply_filters()
-
-    def _apply_filters(self, tree_item=None):
-        """Recursively apply filters to items in tree.
-
-        Args:
-            tree_item (BaseTreeItem or None): tree item to start from. Use
-                root if not given.
-        """
-        if tree_item is None:
-            tree_item = self.tree_root
-
-        # layout = self.task_widget_tree.get_layout(tree_item)
-        header_widget = self.task_widget_tree.get_task_header_widget(tree_item)
-        view_widget = self.task_widget_tree.get_task_view(tree_item)
-
-        if header_widget is not None:
-            # spacer = None
-            # if layout is not None:
-            #     spacer = layout.get_associated_spacer(header_widget)
-            if self.tree_manager.is_filtered_out(tree_item):
-                header_widget.setVisible(False)
-                # if spacer:
-                #     spacer.changeSize(0, 0)
-                #     layout.invalidate()
-                return
-            elif not header_widget.isVisible():
-                header_widget.setVisible(True)
-                # if spacer:
-                #     spacer.changeSize(0, layout._spacing)
-        elif view_widget is not None:
-            view_widget.reset_model()
-            return
-
-        for child in tree_item.get_all_children():
-            self._apply_filters(child)
+        self.task_header_view.apply_filters()
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
@@ -362,15 +339,24 @@ class TaskTab(BaseTab):
         modifiers = event.modifiers()
 
         if modifiers == QtCore.Qt.ControlModifier:
-            # ctrl+plus: add new child
+            # ctrl+plus: add new subtask
             if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
-                if self.selected_task_item:
-                    self.tree_manager.create_new_subtask(
-                        self.selected_task_item
+                if self.selected_task_header_item:
+                    header_widget = self.active_task_header_widget
+                    success = self.tree_manager.create_new_subtask(
+                        self.selected_task_header_item
                     )
-                    # self.update()
-                    # task_widget = self.active_category_widget
-                    # if task_widget:
-                    #     task_widget.setFocus(True)
+                    if success and header_widget:
+                        header_widget.return_focus_to_line_edit()
+            # ctrl+asterisk: add new subcategory
+            elif event.key() in (QtCore.Qt.Key_Asterisk, QtCore.Qt.Key_8):
+                item = self.selected_task_header_item
+                if item and self.tree_manager.is_task_category(item):
+                    header_widget = self.active_task_header_widget
+                    success = self.tree_manager.create_new_subcategory(
+                        self.selected_task_header_item
+                    )
+                    if success and header_widget:
+                        header_widget.return_focus_to_line_edit()
 
         super(TaskTab, self).keyPressEvent(event)

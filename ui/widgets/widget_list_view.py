@@ -1,8 +1,34 @@
 """List view of widgets."""
 
+from collections import OrderedDict
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.utils import fallback_value
+
+
+class WidgetData(object):
+    """Simple struct representing a widget used in the view."""
+    def __init__(self, widget, filtered=False):
+        """Initialize.
+
+        Args:
+            widget (QtWidgets.QWidget): the widget.
+            filtered (bool): whether or not the widget is filtered out.
+        """
+        self.widget = widget
+        self.filtered = filtered
+
+
+class WidgetDataList(list):
+    """List for storing widget data."""
+    def get_filtered(self):
+        """Get filtered list.
+
+        Returns:
+            (list(WidgetData)): filtered list.
+        """
+        return [w for w in self if not w.filtered]
 
 
 class WidgetListView(QtWidgets.QListView):
@@ -25,63 +51,87 @@ class WidgetListView(QtWidgets.QListView):
         )
         self.setVerticalScrollMode(self.ScrollMode.ScrollPerPixel)
         self.verticalScrollBar().setSingleStep(self.SCROLL_BAR_STEP)
-        self._widget_list = []
+        self._widget_data_list = WidgetDataList()
         self._has_spacers = (item_spacing is not None)
         self._item_spacing = item_spacing
         for i, widget in enumerate(widget_list):
             if self._has_spacers:
-                self._widget_list.append(
-                    Spacer(item_spacing, enable=(i != 0))
+                self._widget_data_list.append(
+                    WidgetData(Spacer(item_spacing, enable=(i!=0)))
                 )
-            self._widget_list.append(widget)
+            self._widget_data_list.append(WidgetData(widget))
 
-        model = WidgetListModel(self._widget_list)
+        model = WidgetListModel(self._widget_data_list)
         self.setModel(model)
         self.setItemDelegate(WidgetListDelegate(self))
         self.setSpacing(self.ITEM_SPACING)
         self.open_editors()
 
-    def get_widgets(self):
-        """Get non-gap widgets.
+    def get_widgets(self, filtered=False, include_spacers=False):
+        """Get all widgets (ignoring spacer widgets unless sepcidied).
+
+        Args:
+            filtered (bool): if True, only use filtered widgets.
+            include_spacers (bool): if True, include spacer widgets.
 
         Returns:
             (list(QtWidget.QWidget)): the widgets.
         """
-        if self._has_spacers:
-            return self._widget_list[1::2]
-        return self._widget_list
+        widget_data_list = self._widget_data_list
+        if filtered:
+            widget_data_list = widget_data_list.get_filtered()
+        if self._has_spacers and not include_spacers:
+            return [w.widget for w in widget_data_list[1::2]]
+        return [w.widget for w in widget_data_list]
 
-    def iter_widgets(self):
-        """Iterate through non-gap widgets.
+    def iter_widgets(self, filtered=False, include_spacers=False):
+        """Iterate through widgets (ignoring spacer widgets unless sepcidied).
+
+        Args:
+            filtered (bool): if True, only use filtered widgets.
+            include_spacers (bool): if True, include spacer widgets.
 
         Yields:
             (QtWidget.QWidget): the widgets.
         """
-        if self._has_spacers:
-            for widget in self._widget_list[1::2]:
-                yield widget
+        widget_data_list = self._widget_data_list
+        if filtered:
+            widget_data_list = widget_data_list.get_filtered()
+        if self._has_spacers and not include_spacers:
+            for widget_data in widget_data_list[1::2]:
+                yield widget_data.widget
         else:
-            for widget in self._widget_list:
-                yield widget
+            for widget_data in widget_data_list:
+                yield widget_data.widget
 
-    def get_widget(self, index):
-        """Get widget at index (ignoring gap-widgets).
+    def get_widget(self, index, filtered=False, include_spacers=False):
+        """Get widget at index (ignoring spacer widgets unless sepcidied).
+
+        Args:
+            index (int): index to check at. This allows negative indexes
+                too, in thesame way as negative list indexing works.
+            filtered (bool): if True, only use filtered widgets.
+            include_spacers (bool): if True, include spacer widgets.
 
         Returns:
             (QtWidget.QWidget or None): the widget, if found.
         """
-        if self._has_spacers:
-            if 0 <= 2 * index < len(self._widget_list):
-                return self._widget_list[2 * index + 1]
-            elif -len(self._widget_list) <= 2 * index < 0:
-                return self._widget_list[2 * (index + 1) - 1]
+        widget_data_list = self._widget_data_list
+        if filtered:
+            widget_data_list = widget_data_list.get_filtered()
+        if self._has_spacers and not include_spacers:
+            if -len(widget_data_list) <= 2 * index < len(widget_data_list):
+                return widget_data_list[2 * index + 1].widget
         else:
-            if -len(self._widget_list) <= index < len(self._widget_list):
-                return self._widget_list[index]
+            if -len(widget_data_list) <= index < len(widget_data_list):
+                return widget_data_list[index].widget
         return None
 
     def _row_is_in_range(self, row, allow_equal=False):
         """Check if given row is within range of widget list.
+
+        This checks against the unfiltered list, as edits to the widget list
+        must be applied to the unfiltered list.
 
         Args:
             row (int): row to check.
@@ -94,13 +144,25 @@ class WidgetListView(QtWidgets.QListView):
         if self._has_spacers:
             row = 2 * row
         if allow_equal:
-            return 0 <= row <= len(self._widget_list)
+            return 0 <= row <= len(self._widget_data_list)
         else:
-            return 0 <= row < len(self._widget_list)
+            return 0 <= row < len(self._widget_data_list)
 
     def update_view(self):
         """Update view to pick up geometry changes to widgets."""
         self.scheduleDelayedItemsLayout()
+        self.viewport().update()
+        # self.open_editors()
+
+    def _configure_spacers(self):
+        """Disable first unfiltered spacer and enable the rest."""
+        if not self._has_spacers:
+            return
+        active_widgets = self.get_widgets(filtered=True, include_spacers=True)
+        if active_widgets:
+            active_widgets[0].disable()
+            for spacer in active_widgets[2::2]:
+                spacer.enable()
 
     def insert_widget(self, row, widget):
         """Insert widget at given row.
@@ -111,16 +173,15 @@ class WidgetListView(QtWidgets.QListView):
         """
         if not self._row_is_in_range(row, allow_equal=True):
             return
+        widget_data = WidgetData(widget)
         if self._has_spacers:
-            if row == 0 and len(self._widget_list > 0):
-                # enable first spacer if we're adding a new first one
-                self._widget_list[0].enable()
-            spacer = Spacer(self._item_spacing, row != 0)
-            self.model().insert_widgets(2 * row, [spacer, widget])
+            spacer = WidgetData(Spacer(self._item_spacing))
+            self.model().insert_widgets(2 * row, [spacer, widget_data])
+            self._configure_spacers()
             self.open_editor(2 * row)
             self.open_editor(2 * row + 1)
         else:
-            self.model().insert_widgets(row, [widget])
+            self.model().insert_widgets(row, [widget_data])
             self.open_editor(row)
 
     def remove_widget(self, row):
@@ -133,10 +194,8 @@ class WidgetListView(QtWidgets.QListView):
         if not self._row_is_in_range(row):
             return
         if self._has_spacers:
-            if row == 0 and len(self._widget_list > 2):
-                # disable second spacer if we're removing first one
-                self._widget_list[2].disable()
             self.model().remove_widgets(2 * row, 2)
+            self._configure_spacers()
         else:
             self.model().remove_widgets(row, 1)
         self.update_view()
@@ -153,18 +212,47 @@ class WidgetListView(QtWidgets.QListView):
                 or not self._row_is_in_range(new_row)):
             return
         if self._has_spacers:
-            if old_row == 0:
-                # if moving first spacer, enable it and disable second one
-                self._widget_list[0].enable()
-                self._widget_list[2].disable()
-            if new_row == 0:
-                # if moving before first spacer, enable it and disable new one
-                self._widget_list[0].enable()
-                self._widget_list[2 * old_row].disable()
             self.model().move_widgets(2 * old_row, 2 * new_row, 2)
+            self._configure_spacers()
         else:
             self.model().move_widgets(old_row, new_row, 1)
         self.update_view()
+
+    def filter_row(self, row):
+        """Filter widget at given row so it's not longer shown.
+
+        Args:
+            row (int): row to filter at.
+        """
+        if not self._row_is_in_range(row):
+            return
+        self.model().beginResetModel()
+        if self._has_spacers:
+            self._widget_data_list[2 * row].filtered = True
+            self._widget_data_list[2 * row + 1].filtered = True
+        else:
+            self._widget_data_list[row].filtered = True
+        self.model().endResetModel()
+        self._configure_spacers()
+        self.open_editors()
+
+    def unfilter_row(self, row):
+        """Unfilter widget at given row so it's shown again.
+
+        Args:
+            row (int): row to unfilter.
+        """
+        if not self._row_is_in_range(row):
+            return
+        self.model().beginResetModel()
+        if self._has_spacers:
+            self._widget_data_list[2 * row].filtered = False
+            self._widget_data_list[2 * row + 1].filtered = False
+        else:
+            self._widget_data_list[row].filtered = False
+        self.model().endResetModel()
+        self._configure_spacers()
+        self.open_editors()
 
     def resizeEvent(self, event):
         """Resize event.
@@ -201,9 +289,10 @@ class WidgetListView(QtWidgets.QListView):
         Args:
             row (int or None): if given, only open editor on this row.
         """
-        for row, _ in enumerate(self._widget_list):
+        for row, _ in enumerate(self._widget_data_list.get_filtered()):
             self.open_editor(row, update=False)
-        self.update_view()
+        # self.update_view()
+        self.scheduleDelayedItemsLayout()
 
     def sizeHint(self):
         """Get size hint.
@@ -213,9 +302,9 @@ class WidgetListView(QtWidgets.QListView):
         """
         widget_heights = sum([
             w.sizeHint().height() + self.WIDGET_MARGIN_BUFFER
-            for w in self._widget_list
+            for w in self.iter_widgets(filtered=True, include_spacers=True)
         ])
-        spacing_heights = self.ITEM_SPACING * (2 * len(self._widget_list))
+        spacing_heights = self.ITEM_SPACING * (2 * len(self._widget_data_list))
         height = widget_heights + spacing_heights
         width = super(WidgetListView, self).sizeHint().width()
         return QtCore.QSize(width, height)
@@ -223,19 +312,19 @@ class WidgetListView(QtWidgets.QListView):
 
 class WidgetListModel(QtCore.QAbstractListModel):
     """Model to be used by widget list view."""
-    def __init__(self, widget_list, parent=None):
+    def __init__(self, widget_data_list, parent=None):
         """Initialize model.
 
         Args:
-            widget_list (list(QtWidgets.QWidget)): list of widgets.
+            widget_data_list (WidgetDataList): list of widget data.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(WidgetListModel, self).__init__(parent=parent)
-        self.widget_list = widget_list
+        self.widget_data_list = widget_data_list
 
     def rowCount(self, parent=None):
         """Get number of rows."""
-        return len(self.widget_list)
+        return len(self.widget_data_list.get_filtered())
 
     def data(self, index, role):
         """Get data.
@@ -278,18 +367,18 @@ class WidgetListModel(QtCore.QAbstractListModel):
 
         Args:
             row (int): row to insert at.
-            widgets (list(QtWidgets.QWidget) or QtWidgets.QWidget): widget
-                or widgets to insert.
+            widgets (list(WidgetData) or WidgetData): widgetor widgets
+                to insert.
         """
         if not isinstance(widgets, list):
             widgets = [widgets]
-        if len(widgets) > 0 and 0 <= row <= len(self.widget_list):
+        if len(widgets) > 0 and 0 <= row <= len(self.widget_data_list):
             self.beginInsertRows(
                 QtCore.QModelIndex(),
                 row,
                 row + len(widgets) - 1,
             )
-            self.widget_list[row:row] = widgets
+            self.widget_data_list[row:row] = widgets
             self.endInsertRows()
 
     def remove_widgets(self, row, num_rows_to_remove=1):
@@ -300,15 +389,15 @@ class WidgetListModel(QtCore.QAbstractListModel):
             num_rows_to_remove (int): number of subsequent rows to
                 remove from.
         """
-        if (0 <= row < len(self.widget_list)
+        if (0 <= row < len(self.widget_data_list)
                 and num_rows_to_remove > 0
-                and row + num_rows_to_remove <= len(self.widget_list)):
+                and row + num_rows_to_remove <= len(self.widget_data_list)):
             self.beginRemoveRows(
                 QtCore.QModelIndex(),
                 row,
                 row + num_rows_to_remove - 1,
             )
-            del self.widget_list[row : row + num_rows_to_remove]
+            del self.widget_data_list[row : row + num_rows_to_remove]
             self.endRemoveRows()
 
     def move_widgets(self, old_row, new_row, num_rows_to_move=1):
@@ -324,11 +413,11 @@ class WidgetListModel(QtCore.QAbstractListModel):
                 length of the list if we want to move it to the end)).
             num_rows_to_move (int): number of subsequent rows to move.
         """
-        if (0 <= old_row < len(self.widget_list)
-                and 0 <= new_row < len(self.widget_list)
+        if (0 <= old_row < len(self.widget_data_list)
+                and 0 <= new_row < len(self.widget_data_list)
                 and old_row != new_row
-                and old_row + num_rows_to_move <= len(self.widget_list)
-                and new_row + num_rows_to_move <= len(self.widget_list)):
+                and old_row + num_rows_to_move <= len(self.widget_data_list)
+                and new_row + num_rows_to_move <= len(self.widget_data_list)):
             if new_row > old_row:
                 new_row += num_rows_to_move
             self.beginMoveRows(
@@ -338,11 +427,11 @@ class WidgetListModel(QtCore.QAbstractListModel):
                 QtCore.QModelIndex(),
                 new_row,
             )
-            widgets_to_move = self.widget_list[
+            widgets_to_move = self.widget_data_list[
                 old_row : old_row + num_rows_to_move
             ]
-            del self.widget_list[old_row : num_rows_to_move]
-            self.widget_list[new_row:new_row] = widgets_to_move
+            del self.widget_data_list[old_row : num_rows_to_move]
+            self.widget_data_list[new_row:new_row] = widgets_to_move
             self.endMoveRows()
 
 
@@ -402,8 +491,7 @@ class WidgetListDelegate(QtWidgets.QStyledItemDelegate):
             parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(WidgetListDelegate, self).__init__(parent)
-        self.widget_list = widget_list_view._widget_list
-        self.widget_list_view = widget_list_view
+        self.widget_data_list = widget_list_view._widget_data_list
 
     def sizeHint(self, option, index):
         """Get size hint for delegate.
@@ -412,7 +500,7 @@ class WidgetListDelegate(QtWidgets.QStyledItemDelegate):
             option (QtWidgets.QStyleOptionViewItem): style options object.
             index (QtCore.QModelIndex): index to get size hint for.
         """
-        widget = self.widget_list[index.row()]
+        widget = self.widget_data_list.get_filtered()[index.row()].widget
         return widget.sizeHint()
 
     def createEditor(self, parent, option, index):
@@ -426,7 +514,7 @@ class WidgetListDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtWidgets.QWidget): editor widget.
         """
-        widget = self.widget_list[index.row()]
+        widget = self.widget_data_list.get_filtered()[index.row()].widget
         widget.setParent(parent)
         widget.setMaximumWidth(parent.width())
         return widget

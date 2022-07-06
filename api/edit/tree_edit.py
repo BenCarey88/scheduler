@@ -79,7 +79,6 @@ class BaseTreeEdit(CompositeEdit):
 
 class AddChildrenEdit(BaseTreeEdit):
     """Tree edit for adding children."""
-
     def __init__(self, tree_item, children_to_add):
         """Initialise edit item.
 
@@ -95,6 +94,13 @@ class AddChildrenEdit(BaseTreeEdit):
             op_type=ContainerOp.ADD,
         )
 
+        # TODO: really not sure what the best way to present args here is
+        self._callback_args = [
+            (child, tree_item, tree_item.num_children() + i)
+            for i, child in enumerate(children_to_add.values())
+        ]
+        self._undo_callback_args = reversed(self._callback_args)
+
         self._name = "AddChildren ({0})".format(tree_item.name)
         self._description = "Add children to {1}: [{0}]".format(
             ",".join(list(children_to_add.keys())),
@@ -104,7 +110,6 @@ class AddChildrenEdit(BaseTreeEdit):
 
 class InsertChildrenEdit(BaseTreeEdit):
     """Tree edit for adding children."""
-
     def __init__(self, tree_item, children_to_insert):
         """Initialise edit item.
 
@@ -121,6 +126,12 @@ class InsertChildrenEdit(BaseTreeEdit):
             op_type=ContainerOp.INSERT,
         )
 
+        self._callback_args = [
+            (child, tree_item, row)
+            for row, child in children_to_insert.values()
+        ]
+        self._undo_callback_args = list(reversed(self._callback_args))
+
         self._name = "InsertChildren ({0})".format(tree_item.name)
         self._description = (
             "Insert children to {0}: [{1}]".format(
@@ -135,7 +146,6 @@ class InsertChildrenEdit(BaseTreeEdit):
 
 class RemoveChildrenEdit(BaseTreeEdit):
     """Tree edit for removing children."""
-
     def __init__(self, tree_item, children_to_remove):
         """Initialise edit item.
 
@@ -152,6 +162,14 @@ class RemoveChildrenEdit(BaseTreeEdit):
             op_type=ContainerOp.REMOVE,
         )
 
+        self._callback_args = [
+            (tree_item.get_child(n), tree_item, tree_item.get_child(n).index())
+            for n in children_to_remove
+            if tree_item.get_child(n) is not None
+            and tree_item.get_child(n).index() is not None
+        ]
+        self._undo_callback_args = list(reversed(self._callback_args))
+
         self._name = "RemoveChildren ({0})".format(tree_item.name)
         self._description = "Remove children from {1}: [{0}]".format(
             ",".join(children_to_remove),
@@ -161,7 +179,6 @@ class RemoveChildrenEdit(BaseTreeEdit):
 
 class RenameChildrenEdit(BaseTreeEdit):
     """Tree edit for renaming children."""
-
     def __init__(self, tree_item, children_to_rename):
         """Initialise edit item.
 
@@ -175,6 +192,12 @@ class RenameChildrenEdit(BaseTreeEdit):
             diff_dict=OrderedDict(children_to_rename),
             op_type=ContainerOp.RENAME,
         )
+
+        self._callback_args = self._undo_callback_args = ([
+            (tree_item.get(old_name), tree_item.get(old_name))
+            for (old_name, _) in children_to_rename.items()
+            if tree_item.get(old_name) is not None
+        ])
 
         self._name = "RenameChildren ({0})".format(tree_item.name)
         self._description = (
@@ -190,7 +213,6 @@ class RenameChildrenEdit(BaseTreeEdit):
 
 class ModifyChildrenEdit(BaseTreeEdit):
     """Tree edit for swapping children of given names with new children."""
-
     def __init__(self, tree_item, children_to_modify):
         """Initialise edit item.
 
@@ -217,7 +239,6 @@ class ModifyChildrenEdit(BaseTreeEdit):
 
 class MoveChildrenEdit(BaseTreeEdit):
     """Tree edit for moving positions of children."""
-
     def __init__(self, tree_item, children_to_move):
         """Initialise edit item.
 
@@ -234,6 +255,31 @@ class MoveChildrenEdit(BaseTreeEdit):
             op_type=ContainerOp.MOVE,
         )
 
+        self._callback_args = [
+            (
+                tree_item.get_child(name),
+                tree_item,
+                tree_item.get_child(name).index(),
+                tree_item,
+                index,
+            )
+            for name, index in children_to_move.items()
+            if tree_item.get_child(name) is not None
+            and tree_item.get_child(name).index() is not None
+        ]
+        self._undo_callback_args = [
+            (
+                tree_item.get_child(name),
+                tree_item,
+                index,
+                tree_item,
+                tree_item.get_child(name).index(),
+            )
+            for name, index in reversed(children_to_move.items())
+            if tree_item.get_child(name) is not None
+            and tree_item.get_child(name).index() is not None
+        ]
+
         self._name = "MoveChildren ({0})".format(tree_item.name)
         self._description = (
             "Move children of {0}: [{1}]".format(
@@ -248,7 +294,6 @@ class MoveChildrenEdit(BaseTreeEdit):
 
 class MoveTreeItemEdit(CompositeEdit):
     """Tree edit for moving a tree item under another parent."""
-
     def __init__(self, tree_item, new_parent, index=None):
         """Initialise edit item.
 
@@ -288,6 +333,21 @@ class MoveTreeItemEdit(CompositeEdit):
             super(MoveTreeItemEdit, self).__init__(
                 [remove_child_edit, insert_child_edit],
             )
+
+        self._callback_args = [(
+            tree_item,
+            tree_item.parent,
+            tree_item.index(),
+            new_parent,
+            index if index is not None else new_parent.num_children(),
+        )]
+        self._undo_callback_args = [(
+            tree_item,
+            new_parent,
+            index if index is not None else new_parent.num_children(),
+            tree_item.parent,
+            tree_item.index(),
+        )]
 
         self._name = "MoveTreeItem ({0})".format(tree_item.name)
         self._description = (
@@ -340,6 +400,9 @@ class ReplaceTreeItemEdit(CompositeEdit):
                 MoveTreeItemEdit.create_unregistered(child, new_tree_item)
             )
         super(ReplaceTreeItemEdit, self).__init__(subedits)
+
+        self._callback_args = [(old_tree_item, new_tree_item)]
+        self._undo_callback_args = [(new_tree_item, old_tree_item)]
 
         self._name = "ReplaceTreeItem ({0})".format(old_tree_item.name)
         self._description = "Replace tree item {0} --> {1}".format(

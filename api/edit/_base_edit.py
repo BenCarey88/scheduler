@@ -1,7 +1,5 @@
 """Base edit class, containing edits that can be added to the edit log."""
 
-from uuid import uuid4
-
 from .edit_log import EDIT_LOG
 
 
@@ -12,8 +10,7 @@ class EditError(Exception):
 class BaseEdit(object):
     """Base class representing an edit that we can register in the log.
 
-    In general, subclasses need to implement _run and _inverse_run.
-    """
+    In general, subclasses need to implement _run and _inverse_run."""
 
     def __init__(self):
         """Initialise edit.
@@ -33,6 +30,10 @@ class BaseEdit(object):
             _has_been_done (bool): used by undo/redo to determine if the
                 edit has been done (and hence can be undone) or not (and
                 hence can be run/redone).
+            _callback_args (list or None): list of arguments to be used in
+                edit callbacks, if callbacks accepted.
+            _undo_callback_args (list or None): list of arguments to be used
+                in undo edit callbacks, if callbacks accepted.
             _previous_edit_in_stack (BaseEdit or None): the previous edit in
                 the edit stack, if this is part of one. An edit stack is a
                 collection of edits that should all be undone/redone together.
@@ -51,6 +52,8 @@ class BaseEdit(object):
         self._continuous_run_in_progress = False
         self._is_valid = True
         self._has_been_done = False
+        self._callback_args = None
+        self._undo_callback_args = None
         self._previous_edit_in_stack = None
         self._next_edit_in_stack = None
         self._name = "Unnamed Edit"
@@ -89,6 +92,50 @@ class BaseEdit(object):
         edit._register_edit = False
         return edit
 
+    @classmethod
+    def register_pre_edit_callback(cls, id, callback):
+        """Register callback to be run before an edit of this class is done.
+
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _callback_args as arguments.
+        """
+        EDIT_LOG.register_pre_edit_callback(cls, id, callback)
+
+    @classmethod
+    def register_post_edit_callback(cls, id, callback):
+        """Register callback to be run after an edit of this class is done.
+
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _callback_args as arguments.
+        """
+        EDIT_LOG.register_post_edit_callback(cls, id, callback)
+
+    @classmethod
+    def register_pre_undo_callback(cls, id, callback):
+        """Register callback to be run before an edit of this class is undone.
+
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _undo_callback_args as arguments.
+        """
+        EDIT_LOG.register_pre_undo_callback(cls, id, callback)
+
+    @classmethod
+    def register_post_undo_callback(cls, id, callback):
+        """Register callback to be run after an edit of this class is undone.
+
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _undo_callback_args as arguments.
+        """
+        EDIT_LOG.register_post_undo_callback(cls, id, callback)
+
     def _check_validity(self):
         """Check if edit is valid. This is done in initialization and update.
 
@@ -122,7 +169,9 @@ class BaseEdit(object):
             # don't run registerable edits if they can't be added to log
             return
         if self._is_valid:
+            EDIT_LOG.run_pre_edit_callbacks(self)
             self._run()
+            EDIT_LOG.run_post_edit_callbacks(self)
             if self._register_edit:
                 self._registered = EDIT_LOG.add_edit(self)
         self._has_been_done = True
@@ -222,7 +271,9 @@ class BaseEdit(object):
             raise EditError(
                 "Can't call undo on edit that's already been undone."
             )
+        EDIT_LOG.run_pre_undo_callbacks(self)
         self._inverse_run()
+        EDIT_LOG.run_post_undo_callbacks(self)
         self._has_been_done = False
 
     def _redo(self):
@@ -231,7 +282,9 @@ class BaseEdit(object):
             raise EditError(
                 "Can't call redo on edit that's not been undone."
             )
+        EDIT_LOG.run_pre_edit_callbacks(self)
         self._run()
+        EDIT_LOG.run_post_edit_callbacks(self)
         self._has_been_done = True
 
     def _stacks_with(self, edit):

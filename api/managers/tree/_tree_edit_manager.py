@@ -25,6 +25,7 @@ from scheduler.api.tree.task_root import TaskRoot
 from scheduler.api.tree._base_tree_item import BaseTreeItem
 
 from .._base_manager import require_class
+from .. _base_callbacks import BaseCallbacks
 from ._base_tree_manager import BaseTreeManager
 from ._tree_callbacks import TREE_CALLBACKS as TC
 
@@ -101,9 +102,7 @@ class TreeEditManager(BaseTreeManager):
             {name: (index, child)},
         )
         if edit.is_valid:
-            TC.run_pre_item_added_callbacks(child, tree_item, index)
             edit.run()
-            TC.run_item_added_callbacks(child, tree_item, index)
         return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
@@ -281,10 +280,7 @@ class TreeEditManager(BaseTreeManager):
             [tree_item.name],
         )
         if edit.is_valid:
-            index = tree_item.index()
-            TC.run_pre_item_removed_callbacks(tree_item, parent, index)
             edit.run()
-            TC.run_item_removed_callbacks(tree_item, parent, index)
         return edit.is_valid
 
     @require_class((Task, TaskCategory), raise_error=True)
@@ -310,9 +306,7 @@ class TreeEditManager(BaseTreeManager):
             {tree_item.name: new_name},
         )
         if edit.is_valid:
-            TC.run_pre_item_modified_callbacks(tree_item, tree_item)
             edit.run()
-            TC.run_item_modified_callbacks(tree_item, tree_item)
         return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
@@ -338,21 +332,7 @@ class TreeEditManager(BaseTreeManager):
             {tree_item.name: new_index},
         )
         if edit.is_valid:
-            TC.run_pre_item_moved_callbacks(
-                tree_item,
-                tree_item.parent,
-                old_index,
-                tree_item.parent,
-                new_index,
-            )
             edit.run()
-            TC.run_item_moved_callbacks(
-                tree_item,
-                tree_item.parent,
-                old_index,
-                tree_item.parent,
-                new_index,
-            )
         return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
@@ -374,29 +354,13 @@ class TreeEditManager(BaseTreeManager):
             index = new_parent.num_children()
         if index < 0 or index > new_parent.num_children():
             return False
-        old_parent = item.parent
-        old_index = item.index()
         edit = MoveTreeItemEdit(
             item,
             new_parent,
             index,
         )
         if edit.is_valid:
-            TC.run_pre_item_moved_callbacks(
-                item,
-                old_parent,
-                old_index,
-                new_parent,
-                index
-            )
             edit.run()
-            TC.run_item_moved_callbacks(
-                item,
-                old_parent,
-                old_index,
-                new_parent,
-                index
-            )
         return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
@@ -424,9 +388,7 @@ class TreeEditManager(BaseTreeManager):
         new_tree_item = new_class(tree_item.name)
         edit = ReplaceTreeItemEdit(tree_item, new_tree_item)
         if edit.is_valid:
-            TC.run_pre_item_modified_callbacks(tree_item, new_tree_item)
             edit.run()
-            TC.run_item_modified_callbacks(tree_item, new_tree_item)
         return edit.is_valid
 
     @require_class(Task, raise_error=False)
@@ -475,9 +437,7 @@ class TreeEditManager(BaseTreeManager):
             comment=comment,
         )
         if edit.is_valid:
-            TC.run_pre_item_modified_callbacks(task_item, task_item)
             edit.run()
-            TC.run_item_modified_callbacks(task_item, task_item)
         return edit.is_valid
 
     @require_class(Task, raise_error=False)
@@ -501,7 +461,5 @@ class TreeEditManager(BaseTreeManager):
             return False
         edit = ChangeTaskTypeEdit(task_item, new_type)
         if edit.is_valid:
-            TC.run_pre_item_modified_callbacks(task_item, task_item)
             edit.run()
-            TC.run_item_modified_callbacks(task_item, task_item)
         return edit.is_valid

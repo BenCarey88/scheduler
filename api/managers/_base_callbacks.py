@@ -1,55 +1,63 @@
-"""Callbacks to be used by manager classes after edits."""
+"""Class for managing edit callbacks."""
 
 
-class CallbackError(Exception):
-    """Exception for callback class errors."""
+from scheduler.api.edit import edit_log
 
 
 class BaseCallbacks(object):
-    """Class to store callbacks."""
-    def __init__(self, include_move=False, include_full_update=False):
+    """Class to store callbacks.
+
+    Note that the implementations of the registry functions here depend
+    on the way that the edit and undo callback args are set up in the
+    relevant edit classes (eg. that the add edit callback args are the
+    same as the remove undo callback args). Any edit classes with logic
+    that doesn't match this will require different implementations in the
+    correspding callback subclass.
+    """
+    def __init__(
+            self,
+            add_item_edit_classes,
+            remove_item_edit_classes,
+            update_item_edit_classes,
+            move_item_edit_classes=None,
+            full_update_edit_classes=None):
         """Initialize.
 
         Args:
-            include_move (bool): if True, include move callbacks too.
-            include_complete_update (bool): if True, include callbacks that
-                represent a complete update to the whole model.
+            add_item_edit_classes (tuple(class)): list of edit classes that
+                add the items this manager manages.
+            remove_item_edit_classes (tuple(class)): list of edit classes that
+                remove the items this manager manages.
+            update_item_edit_classes (tuple(class)): list of edit classes that
+                update the items this manager manages.
+            move_item_edit_classes (tuple(class) or None): list of edit classes
+                that move the items this manager manages (if used).
+            full_update_edit_classes (tuple(class) or None): list of edit
+                classes that require a full update (if used).
         """
-        self._pre_item_added_callbacks = {}
-        self._item_added_callbacks = {}
-        self._pre_item_removed_callbacks = {}
-        self._item_removed_callbacks = {}
-        self._pre_item_modified_callbacks = {}
-        self._item_modified_callbacks = {}
-        if include_move:
-            self._pre_item_moved_callbacks = {}
-            self._item_moved_callbacks = {}
-        if include_full_update:
-            self._pre_full_update_callbacks = {}
-            self._full_update_callbacks = {}
+        self._add_item_edit_classes = add_item_edit_classes
+        self._remove_item_edit_classes = remove_item_edit_classes
+        self._update_item_edit_classes = update_item_edit_classes
+        self._move_item_edit_classes = move_item_edit_classes or ()
+        self._full_update_edit_classes = full_update_edit_classes or ()
 
-        self._all_callbacks = [
-            self._pre_item_added_callbacks,
-            self._item_added_callbacks,
-            self._pre_item_removed_callbacks,
-            self._item_removed_callbacks,
-            self._pre_item_modified_callbacks,
-            self._item_modified_callbacks,
-        ]
-        if include_move:
-            self._all_callbacks.extend([
-                self._pre_item_moved_callbacks,
-                self._item_moved_callbacks,
-            ])
-        if include_full_update:
-            self._all_callbacks.extend([
-                self._pre_full_update_callbacks,
-                self._full_update_callbacks,
-            ])
+    def _modify_callback(self, callback):
+        """Modify a callback before registering it.
+
+        Args:
+            callback (function): callback to modify.
+
+        Returns:
+            (function): modified callback.
+        """
+        return callback
 
     ### Register Callbacks ###
     def register_pre_item_added_callback(self, id, callback):
         """Register pre item added callback.
+
+        Note that this implementation requires that the remove undo and the
+        add redo callbacks take in the same arguments.
 
         Args:
             id (variant): id to register callback at. Generally this will
@@ -57,12 +65,11 @@ class BaseCallbacks(object):
             callback (function): callback to run before an item is added.
                 This should accept arguments specified in the run func below.
         """
-        if id in self._pre_item_added_callbacks:
-            raise CallbackError(
-                "there is already a pre_item_added_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._pre_item_added_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._add_item_edit_classes:
+            edit_class.register_pre_edit_callback(id, callback)
+        for edit_class in self._remove_item_edit_classes:
+            edit_class.register_pre_undo_callback(id, callback)
 
     def register_item_added_callback(self, id, callback):
         """Register item added callback.
@@ -73,12 +80,11 @@ class BaseCallbacks(object):
             callback (function): callback to run when an item is added. This
                 should accept arguments specified in the run func below.
         """
-        if id in self._item_added_callbacks:
-            raise CallbackError(
-                "there is already an item_added_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._item_added_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._add_item_edit_classes:
+            edit_class.register_post_edit_callback(id, callback)
+        for edit_class in self._remove_item_edit_classes:
+            edit_class.register_post_undo_callback(id, callback)
 
     def register_pre_item_removed_callback(self, id, callback):
         """Register callback to use before an item is removed.
@@ -89,12 +95,11 @@ class BaseCallbacks(object):
             callback (function): function to call before an item is removed.
                 This should accept arguments specified in the run func below.
         """
-        if id in self._pre_item_removed_callbacks:
-            raise CallbackError(
-                "there is already a pre_item_removed_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._pre_item_removed_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._remove_item_edit_classes:
+            edit_class.register_pre_edit_callback(id, callback)
+        for edit_class in self._add_item_edit_classes:
+            edit_class.register_pre_undo_callback(id, callback)
 
     def register_item_removed_callback(self, id, callback):
         """Register callback to use when an item is removed.
@@ -105,12 +110,11 @@ class BaseCallbacks(object):
             callback (function): function to call when an item is removed.
                 This should accept arguments specified in the run func below.
         """
-        if id in self._item_removed_callbacks:
-            raise CallbackError(
-                "there is already an item_removed_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._item_removed_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._remove_item_edit_classes:
+            edit_class.register_post_edit_callback(id, callback)
+        for edit_class in self._add_item_edit_classes:
+            edit_class.register_post_undo_callback(id, callback)
 
     def register_pre_item_moved_callback(self, id, callback):
         """Register callback to use before an item is moved.
@@ -121,12 +125,10 @@ class BaseCallbacks(object):
             callback (function): function to call before an item is moved.
                 This should accept arguments specified in the run func below.
         """
-        if id in self._pre_item_moved_callbacks:
-            raise CallbackError(
-                "there is already a pre_item_moved_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._pre_item_moved_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._move_item_edit_classes:
+            edit_class.register_pre_edit_callback(id, callback)
+            edit_class.register_pre_undo_callback(id, callback)
 
     def register_item_moved_callback(self, id, callback):
         """Register callback to use when an item is moved.
@@ -137,12 +139,10 @@ class BaseCallbacks(object):
             callback (function): function to call when an item is moved.
                 This should accept arguments specified in the run func below.
         """
-        if id in self._item_moved_callbacks:
-            raise CallbackError(
-                "there is already an item_moved_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._item_moved_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._move_item_edit_classes:
+            edit_class.register_post_edit_callback(id, callback)
+            edit_class.register_post_undo_callback(id, callback)
 
     def register_pre_item_modified_callback(self, id, callback):
         """Register callback to use before an item is modified.
@@ -153,12 +153,10 @@ class BaseCallbacks(object):
             callback (function): function to call before an item is modified.
                 This should accept arguments specified in the run func below.
         """
-        if id in self._pre_item_modified_callbacks:
-            raise CallbackError(
-                "there is already an _item_modified_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._item_modified_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._update_item_edit_classes:
+            edit_class.register_pre_edit_callback(id, callback)
+            edit_class.register_pre_undo_callback(id, callback)
 
     def register_item_modified_callback(self, id, callback):
         """Register callback to use when an item is modified.
@@ -169,12 +167,10 @@ class BaseCallbacks(object):
             callback (function): function to call when an item is modified.
                 This should accept arguments specified in the run func below.
         """
-        if id in self._item_modified_callbacks:
-            raise CallbackError(
-                "there is already an _item_modified_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._item_modified_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._update_item_edit_classes:
+            edit_class.register_post_edit_callback(id, callback)
+            edit_class.register_post_undo_callback(id, callback)
 
     def register_pre_full_update_callback(self, id, callback):
         """Register callback to use before the underlying data is updated.
@@ -184,12 +180,10 @@ class BaseCallbacks(object):
                 be the ui class that defines the callback.
             callback (function): function to call before the update.
         """
-        if id in self._pre_full_update_callbacks:
-            raise CallbackError(
-                "there is already an _pre_full_update_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._pre_full_update_callbacks[id] = callback
+        callback = self._modify_callback(callback)
+        for edit_class in self._full_update_edit_classes:
+            edit_class.register_pre_edit_callback(id, callback)
+            edit_class.register_pre_undo_callback(id, callback)
 
     def register_full_update_callback(self, id, callback):
         """Register callback to use when the underlying data is updated.
@@ -199,93 +193,10 @@ class BaseCallbacks(object):
                 be the ui class that defines the callback.
             callback (function): function to call before the update.
         """
-        if id in self._full_update_callbacks:
-            raise CallbackError(
-                "there is already an _full_update_callback registered for "
-                "{0}".format(str(id))
-            )
-        self._full_update_callbacks[id] = callback
-
-    ### Run Callbacks ###
-    def run_pre_item_added_callbacks(self, *args, **kwargs):
-        """Run callbacks before an item has been added.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._pre_item_added_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_item_added_callbacks(self, *args, **kwargs):
-        """Run callbacks after an item has been added.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._item_added_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_pre_item_removed_callbacks(self, *args, **kwargs):
-        """Run callbacks before an item is removed.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._pre_item_removed_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_item_removed_callbacks(self, *args, **kwargs):
-        """Run callbacks after an item has been removed.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._item_removed_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_pre_item_modified_callbacks(self, *args, **kwargs):
-        """Run callbacks before an item has been modified.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._pre_item_modified_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_item_modified_callbacks(self, *args, **kwargs):
-        """Run callbacks after an item has been modified.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._item_modified_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_pre_item_moved_callbacks(self, *args, **kwargs):
-        """Run callbacks before an item is moved.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._pre_item_moved_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_item_moved_callbacks(self, *args, **kwargs):
-        """Run callbacks after an item has been moved.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._item_moved_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_pre_full_update_callbacks(self, *args, **kwargs):
-        """Run callbacks before the data is updated.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._pre_full_update_callbacks.values():
-            callback(*args, **kwargs)
-
-    def run_full_update_callbacks(self, *args, **kwargs):
-        """Run callbacks after the data has been updated.
-
-        Args should be defined in subclasses.
-        """
-        for callback in self._full_update_callbacks.values():
-            callback(*args, **kwargs)
+        callback = self._modify_callback(callback)
+        for edit_class in self._full_update_edit_classes:
+            edit_class.register_post_edit_callback(id, callback)
+            edit_class.register_post_undo_callback(id, callback)
 
     ### Remove Callbacks ##
     def remove_callbacks(self, id):
@@ -294,6 +205,4 @@ class BaseCallbacks(object):
         Args:
             id (variant): id to remove callbacks for.
         """
-        for callback_dict in self._all_callbacks:
-            if id in callback_dict:
-                del callback_dict[id]
+        edit_log.remove_edit_callbacks(id)

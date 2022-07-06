@@ -62,9 +62,7 @@ class ScheduleEditManager(BaseScheduleManager):
         item = item_class(*args, **kwargs)
         edit = AddScheduledItemEdit(item)
         if edit.is_valid:
-            SC.run_pre_item_added_callbacks(item)
             edit.run()
-            SC.run_item_added_callbacks(item)
         return edit.is_valid
 
     def create_scheduled_item(self, *args, **kwargs):
@@ -103,9 +101,7 @@ class ScheduleEditManager(BaseScheduleManager):
         """
         edit = RemoveScheduledItemEdit(scheduled_item)
         if edit.is_valid:
-            SC.run_pre_item_removed_callbacks(scheduled_item)
             edit.run()
-            SC.run_item_removed_callbacks(scheduled_item)
         return edit.is_valid
 
     @require_class((ScheduledItem, RepeatScheduledItem), raise_error=True)
@@ -219,15 +215,7 @@ class ScheduleEditManager(BaseScheduleManager):
             edit = ReplaceScheduledItemEdit(scheduled_item, new_scheduled_item)
 
         if edit.is_valid:
-            SC.run_pre_item_modified_callbacks(
-                scheduled_item,
-                new_scheduled_item,
-            )
             edit.run()
-            SC.run_item_modified_callbacks(
-                scheduled_item,
-                new_scheduled_item,
-            )
         return edit.is_valid
 
     @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
@@ -269,9 +257,7 @@ class ScheduleEditManager(BaseScheduleManager):
             )
         edit = edit_class(scheduled_item, attr_dict)
         if edit.is_valid:
-            SC.run_pre_item_modified_callbacks(scheduled_item, scheduled_item)
             edit.run()
-            SC.run_item_modified_callbacks(scheduled_item, scheduled_item)
         return edit.is_valid
 
     # @require_class((ScheduledItem, RepeatScheduledItemInstance), True)

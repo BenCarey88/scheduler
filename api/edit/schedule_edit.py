@@ -26,6 +26,7 @@ class AddScheduledItemEdit(ListEdit):
             [scheduled_item],
             ContainerOp.ADD,
         )
+        self._callback_args = self._undo_callback_args = [scheduled_item]
         self._name = "AddScheduledItem ({0})".format(scheduled_item.name)
         self._description = (
             "Add {0} {1} at {2}".format(
@@ -51,6 +52,7 @@ class RemoveScheduledItemEdit(ListEdit):
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
+        self._callback_args = self._undo_callback_args = [scheduled_item]
         self._name = "RemoveScheduledItem ({0})".format(scheduled_item.name)
         self._description = (
             "Remove {0} {1} at {2}".format(
@@ -104,6 +106,10 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             subedits,
             reverse_order_for_inverse=reverse_order_for_inverse,
         )
+        self._callback_args = self._undo_callback_args = [
+            scheduled_item,
+            scheduled_item,
+        ]
         self._name = "ModifyScheduledItem ({0})".format(scheduled_item.name)
 
     def _modified_attrs(self):
@@ -419,6 +425,14 @@ class ReplaceScheduledItemEdit(CompositeEdit):
             [remove_edit, add_edit, switch_host_edit],
         )
 
+        self._callback_args = [
+            old_scheduled_item,
+            new_scheduled_item,
+        ]
+        self._undo_callback_args = [
+            new_scheduled_item,
+            old_scheduled_item,
+        ]
         self._name = "ReplaceScheduledItem ({0})".format(old_scheduled_item.name)
         self._description = "Replace scheduled item {0} --> {1}".format(
             old_scheduled_item.name,

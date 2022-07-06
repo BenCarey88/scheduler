@@ -56,9 +56,7 @@ class PlannerEditManager(BasePlannerManager):
         item = PlannedItem(*args, **kwargs)
         edit = AddPlannedItemEdit(item, index)
         if edit.is_valid:
-            PC.run_pre_item_added_callbacks(item, index)
             edit.run()
-            PC.run_item_added_callbacks(item, index)
         return edit.is_valid
 
     @require_class(PlannedItem, True)
@@ -73,10 +71,7 @@ class PlannerEditManager(BasePlannerManager):
         """
         edit = RemovePlannedItemEdit(planned_item)
         if edit.is_valid:
-            index = planned_item.index()
-            PC.run_pre_item_removed_callbacks(planned_item, index)
             edit.run()
-            PC.run_item_removed_callbacks(planned_item, index)
         return edit.is_valid
 
     @require_class(PlannedItem, True)
@@ -92,10 +87,7 @@ class PlannerEditManager(BasePlannerManager):
         """
         edit = MovePlannedItemEdit(planned_item, index)
         if edit.is_valid:
-            old_index = planned_item.index()
-            PC.run_pre_item_moved_callbacks(planned_item, old_index, index)
             edit.run()
-            PC.run_item_moved_callbacks(planned_item, old_index, index)
         return edit.is_valid
 
     @require_class(PlannedItem, True)
@@ -132,9 +124,7 @@ class PlannerEditManager(BasePlannerManager):
         }
         edit = ModifyPlannedItemEdit(planned_item, attr_dict)
         if edit.is_valid:
-            PC.run_pre_item_modified_callbacks(planned_item, planned_item)
             edit.run()
-            PC.run_item_modified_callbacks(planned_item, planned_item)
         return edit.is_valid
 
     def sort_planned_items(self, calendar_period, key=None, reverse=False):
@@ -151,7 +141,5 @@ class PlannerEditManager(BasePlannerManager):
         """
         edit = SortPlannedItemsEdit(calendar_period, key=key, reverse=reverse)
         if edit.is_valid:
-            PC.run_pre_full_update_callbacks()
             edit.run()
-            PC.run_full_update_callbacks()
         return edit.is_valid

@@ -21,7 +21,10 @@ class ChangeTaskTypeEdit(AttributeEdit):
         super(ChangeTaskTypeEdit, self).__init__(
             {item._type: new_type for item in task_item.get_family()},
         )
-
+        self._callback_args = self._undo_callback_args = [(
+            task_item,
+            task_item,
+        )]
         self._name = "ChangeTaskType ({0})".format(task_item.name)
         self._description = "Change task type of {0} ({1} --> {2})".format(
             task_item.path,
@@ -88,6 +91,10 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             or new_status != task_item.get_status_at_date(date)
             or comment is not None
         )
+        self._callback_args = self._undo_callback_args = [(
+            task_item,
+            task_item,
+        )]
         self._name = "UpdateTaskHistory ({0})".format(task_item.name)
 
         update_texts = []

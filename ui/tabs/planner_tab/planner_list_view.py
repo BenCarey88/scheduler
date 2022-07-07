@@ -8,10 +8,6 @@ from scheduler.api.calendar import (
     CalendarMonth,
     CalendarYear,
 )
-from scheduler.api.calendar.planned_item import (
-    PlannedItemImportance,
-    PlannedItemSize,
-)
 from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
 from scheduler.api.utils import fallback_value
 
@@ -165,9 +161,6 @@ class PlannerListView(BaseListView):
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
 
         self.setSortingEnabled(True)
-
-        self.setItemDelegate(PlannedItemDelegate(self))
-        self.open_editors()
         model.rowsInserted.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.rowsRemoved.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.rowsMoved.connect(self.VIEW_UPDATED_SIGNAL.emit)
@@ -227,30 +220,6 @@ class PlannerListView(BaseListView):
         elif callback_type == CallbackType.PLANNER_FULL_UPDATE:
             self.model().on_full_update(*args)
 
-
-    def resizeEvent(self, event):
-        """Resize event.
-
-        Args:
-            event (QtCore.QEvent): the event.
-        """
-        super(PlannerListView, self).resizeEvent(event)
-        # self.open_editors()
-
-    def open_editors(self):
-        """Open persistent editors on each column."""
-        model = self.model()
-        for i in range(model.rowCount()):
-            for j in range(model.columnCount()):
-                index = model.index(i, j, QtCore.QModelIndex())
-                if (model.get_column_name(index) not in
-                        [model.IMPORTANCE_COLUMN, model.SIZE_COLUMN]):
-                    continue
-                if index.isValid():
-                    if self.isPersistentEditorOpen(index):
-                        self.closePersistentEditor(index)
-                    self.openPersistentEditor(index)
-
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
 
@@ -276,45 +245,3 @@ class PlannerListView(BaseListView):
                         self.update()
 
         super(PlannerListView, self).keyPressEvent(event)
-
-
-class PlannedItemDelegate(QtWidgets.QStyledItemDelegate):
-    """Delegate for planned items."""
-    def __init__(self, planner_list_view, parent=None):
-        """Initialise planned item delegate item.
-
-        Args:
-            planner_list_view (PlannerListView): list view this is
-                a delegate for.
-            parent (QtWidgets.QWidget or None): Qt parent of delegate.
-        """
-        super(PlannedItemDelegate, self).__init__(parent)
-        self.model = planner_list_view.model()
-
-    def createEditor(self, parent, option, index):
-        """Create editor widget for edit role.
-
-        Args:
-            parent (QtWidgets.QWidget): parent widget.
-            option (QtWidgets.QStyleOptionViewItem): style options object.
-            index (QtCore.QModelIndex) index of the edited item.
-
-        Returns:
-            (QtWidgets.QWidget): editor widget.
-        """
-        column_name = self.model.get_column_name(index)
-        if column_name == self.model.IMPORTANCE_COLUMN:
-            editor_widget = QtWidgets.QComboBox(parent=parent)
-            editor_widget.addItem("")
-            editor_widget.addItems(PlannedItemImportance.VALUES_LIST)
-            return editor_widget
-        elif column_name == self.model.SIZE_COLUMN:
-            editor_widget = QtWidgets.QComboBox(parent=parent)
-            editor_widget.addItem("")
-            editor_widget.addItems(PlannedItemSize.VALUES_LIST)
-            return editor_widget
-        return super(PlannedItemDelegate, self).createEditor(
-            parent,
-            option,
-            index,
-        )

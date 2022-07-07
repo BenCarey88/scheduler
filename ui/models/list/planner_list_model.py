@@ -2,10 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.calendar.planned_item import (
-    PlannedItemImportance,
-    PlannedItemSize,
-)
+
 from scheduler.ui import constants, utils
 from scheduler.ui.widgets.planned_item_dialog import PlannedItemDialog
 
@@ -14,8 +11,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
     """Model for planned items list."""
     NAME_COLUMN = "Name"
     PATH_COLUMN = "Path"
-    IMPORTANCE_COLUMN = "Importance"
-    SIZE_COLUMN = "Size"
 
     def __init__(
             self,
@@ -49,12 +44,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         if calendar_period is None:
             calendar_period = self.calendar.get_current_period(time_period)
         self.calendar_period = calendar_period
-        self.columns = [
-            self.NAME_COLUMN,
-            self.PATH_COLUMN,
-            self.IMPORTANCE_COLUMN,
-            self.SIZE_COLUMN,
-        ]
+        self.columns = [self.NAME_COLUMN, self.PATH_COLUMN]
         self.open_dialog_on_drop_event = open_dialog_on_drop_event
 
         self._insert_rows_in_progress = False
@@ -145,10 +135,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             key = lambda item : item.name
         elif column_name == self.PATH_COLUMN:
             key = lambda item : item.tree_path
-        elif column_name == self.IMPORTANCE_COLUMN:
-            key = lambda item : PlannedItemImportance.key(item.importance)
-        elif column_name == self.SIZE_COLUMN:
-            key = lambda item : PlannedItemSize.key(item.size)
         self.planner_manager.sort_planned_items(
             self.calendar_period,
             key=key,
@@ -230,8 +216,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             return {
                 self.NAME_COLUMN: item.name,
                 self.PATH_COLUMN: item.tree_path,
-                self.IMPORTANCE_COLUMN: item.importance,
-                self.SIZE_COLUMN: item.size,
             }.get(column_name)
         return QtCore.QVariant()
 
@@ -254,20 +238,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         planned_item = index.internalPointer()
         if planned_item is None:
             return False
-        if self.get_column_name(index) == self.IMPORTANCE_COLUMN:
-            self.planner_manager.modify_planned_item(
-                planned_item,
-                importance=value,
-            )
-            self.dataChanged.emit(index, index)
-            return True
-        if self.get_column_name(index) == self.SIZE_COLUMN:
-            self.planner_manager.modify_planned_item(
-                planned_item,
-                size=value,
-            )
-            self.dataChanged.emit(index, index)
-            return True
         return False
 
     def headerData(self, section, orientation, role):
@@ -303,9 +273,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         )
         if self.get_column_name(index) == self.NAME_COLUMN:
             return flags | QtCore.Qt.ItemFlag.ItemIsDragEnabled
-        if (self.get_column_name(index) in 
-                [self.IMPORTANCE_COLUMN, self.SIZE_COLUMN]):
-            return flags | QtCore.Qt.ItemFlag.ItemIsEditable
         return flags
 
     def mimeTypes(self):

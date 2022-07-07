@@ -2,12 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.calendar.planned_item import (
-    PlannedItem,
-    PlannedItemImportance,
-    PlannedItemSize,
-)
-
+from scheduler.api.calendar.planned_item import PlannedItem
 from scheduler.ui import utils
 from .item_dialog import ItemDialog
 
@@ -57,8 +52,6 @@ class PlannedItemDialog(ItemDialog):
                 calendar_period,
                 tree_item,
             )
-        size = planned_item.size
-        importance = planned_item.importance
         tree_item = planned_item.tree_item
 
         self.setMinimumSize(900, 700)
@@ -66,29 +59,6 @@ class PlannedItemDialog(ItemDialog):
 
         self.task_label = QtWidgets.QLabel()
         self.main_layout.addWidget(self.task_label)
-
-        importance_layout = QtWidgets.QHBoxLayout()
-        importance_label = QtWidgets.QLabel("Importance")
-        self.importance_combobox = QtWidgets.QComboBox()
-        self.importance_combobox.addItem("")
-        self.importance_combobox.addItems(PlannedItemImportance.VALUES_LIST)
-        importance_layout.addWidget(importance_label)
-        importance_layout.addWidget(self.importance_combobox)
-        self.main_layout.addLayout(importance_layout)
-        if importance is not None:
-            self.importance_combobox.setCurrentText(importance)
-
-        size_layout = QtWidgets.QHBoxLayout()
-        size_label = QtWidgets.QLabel("Size")
-        self.size_combobox = QtWidgets.QComboBox()
-        self.size_combobox.addItem("")
-        self.size_combobox.addItems(PlannedItemSize.VALUES_LIST)
-        size_layout.addWidget(size_label)
-        size_layout.addWidget(self.size_combobox)
-        self.main_layout.addLayout(size_layout)
-        if size is not None:
-            self.size_combobox.setCurrentText(size)
-
         self.update()
 
     def update(self):
@@ -106,24 +76,6 @@ class PlannedItemDialog(ItemDialog):
         """
         return self._item
 
-    @property
-    def importance(self):
-        """Get planned item importance.
-
-        Returns:
-            (PlannedItemImportance or None): planned item importance.
-        """
-        return self.importance_combobox.currentText() or None
-
-    @property
-    def size(self):
-        """Get planned item size.
-
-        Returns:
-            (PlannedItemSize or None): planned item size.
-        """
-        return self.size_combobox.currentText() or None
-
     def accept_and_close(self):
         """Run add or modify scheduled item edit.
 
@@ -134,16 +86,12 @@ class PlannedItemDialog(ItemDialog):
                 self.planned_item,
                 calendar_period=self._calendar_period,
                 tree_item=self.tree_item,
-                size=self.size,
-                importance=self.importance,
             )
         else:
             self._planner_manager.create_planned_item(
                 self._calendar,
                 self._calendar_period,
                 self.tree_item,
-                size=self.size,
-                importance=self.importance,
                 index=self._index,
             )
         super(PlannedItemDialog, self).accept_and_close()

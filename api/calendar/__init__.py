@@ -17,8 +17,6 @@ from .scheduled_item import (
 )
 from .planned_item import (
     PlannedItem,
-    PlannedItemImportance,
-    PlannedItemSize,
     PlannedItemTimePeriod,
 )
 from .tracker import Tracker

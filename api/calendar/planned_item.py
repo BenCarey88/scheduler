@@ -20,42 +20,12 @@ class PlannedItemTimePeriod(object):
     YEAR = "year"
 
 
-class _PlannedItemEnum(object):
-    """Base planned item enumerator struct."""
-    VALUES_LIST = []
-    @classmethod
-    def key(cls, value):
-        """Get key, used to order values."""
-        for i, val in enumerate(cls.VALUES_LIST):
-            if val == value:
-                return i
-        return i + 1
-
-
-class PlannedItemSize(_PlannedItemEnum):
-    """Struct to store size types of item."""
-    BIG = "big"
-    MEDIUM = "medium"
-    SMALL = "small"
-    VALUES_LIST = [BIG, MEDIUM, SMALL]
-
-
-class PlannedItemImportance(_PlannedItemEnum):
-    """Struct to store levels of importance for item."""
-    CRITICAL = "critical"
-    MODERATE = "moderate"
-    MINOR = "minor"
-    VALUES_LIST = [CRITICAL, MODERATE, MINOR]
-
-
 class PlannedItem(NestedSerializable):
     """Class for items in planner tab."""
     _SAVE_TYPE = SaveType.NESTED
 
     TREE_ITEM_KEY = "tree_item"
     TIME_PERIOD_KEY = "time_period"
-    SIZE_KEY = "size"
-    IMPORTANCE_KEY = "importance"
     SCHEDULED_ITEMS_KEY = "scheduled_items"
     PLANNED_CHILDREN_KEY = "planned_children"
     ID_KEY = "id"
@@ -64,9 +34,7 @@ class PlannedItem(NestedSerializable):
             self,
             calendar,
             calendar_period,
-            tree_item,
-            size=None,
-            importance=None):
+            tree_item):
         """Initialize class.
 
         Args:
@@ -74,8 +42,6 @@ class PlannedItem(NestedSerializable):
             calendar_period (BaseCalendarPeriod): calendar period this is
                 associated to.
             tree_item (BaseTreeItem): the task that this item represents.
-            size (PlannedItemSize or None): size of item.
-            importance (PlannedItemImportance or None): importance of item.
 
         Attrs:
             _planned_children (PlannedItem): associated items planned for
@@ -94,14 +60,6 @@ class PlannedItem(NestedSerializable):
             "calendar_period"
         )
         self._tree_item = MutableHostedAttribute(tree_item, "tree_item")
-        self._size = MutableAttribute(
-            utils.fallback_value(size, PlannedItemSize.MEDIUM),
-            "size"
-        )
-        self._importance = MutableAttribute(
-            utils.fallback_value(importance, PlannedItemImportance.MODERATE),
-            "importance"
-        )
         self._planned_children = []
         self._scheduled_items = []
         self._id = None
@@ -159,24 +117,6 @@ class PlannedItem(NestedSerializable):
             (str): path of tree item.
         """
         return self.tree_item.path
-
-    @property
-    def size(self):
-        """Get size of item.
-
-        Returns:
-            (PlannedItemSize or None): size of item.
-        """
-        return self._size.value
-
-    @property
-    def importance(self):
-        """Get importance of item.
-
-        Returns:
-            (PlannedItemImportance or None): importance of item.
-        """
-        return self._importance.value
 
     @property
     def scheduled_items(self):
@@ -280,14 +220,10 @@ class PlannedItem(NestedSerializable):
         tree_item = calendar.task_root.get_item_at_path(
             dict_repr.get(cls.TREE_ITEM_KEY)
         )
-        size = dict_repr.get(cls.SIZE_KEY, None)
-        importance = dict_repr.get(cls.IMPORTANCE_KEY, None)
         planned_item = cls(
             calendar,
             calendar_period,
             tree_item,
-            size=size,
-            importance=importance,
         )
 
         for scheduled_item_id in dict_repr.get(cls.SCHEDULED_ITEMS_KEY, []):
@@ -313,10 +249,6 @@ class PlannedItem(NestedSerializable):
             self.TREE_ITEM_KEY: self.tree_item.path,
             self.ID_KEY: self._get_id(),
         }
-        if self._size:
-            dict_repr[self.SIZE_KEY] = self.size
-        if self._importance:
-            dict_repr[self.IMPORTANCE_KEY] = self.importance
         if self._scheduled_items:
             dict_repr[self.SCHEDULED_ITEMS_KEY] = [
                 scheduled_item._get_id()

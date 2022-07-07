@@ -303,7 +303,7 @@ class TreeFilterManager(BaseTreeManager):
     def set_expanded_from_filtered(self, item=None):
         """Set filtered items as collapsed and unfiltered as expanded.
 
-        This only exapnds TaskCategory items, to avoid opening full tree
+        This only expands TaskCategory items, to avoid opening full tree
         unnecessarily.
 
         Args:

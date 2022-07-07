@@ -51,9 +51,10 @@ class ContainerEditFlag(object):
     Flag types:
         LIST_FIND_BY_VALUE: if set, list edits will use values rather than
             indexes to find items. This means that edits that remove, move
-            and modify edits will take in values in place of indexes and
+            and modify items will accept values in place of indexes and
             apply the edit to the first instance of that value they find
-            in the list (so any repeats will only be applied once).
+            in the list (so if there are any repeats of a value in the list,
+            the edit will only be applied once to that value).
     """
     LIST_FIND_BY_VALUE = "List_Find_By_Value"
 
@@ -408,7 +409,8 @@ class BaseContainerEdit(BaseEdit):
             (bool): whether or not edit is valid ie. whether or not edit
                 actually modifies container. Note that this return value is
                 currently not used for anything, since we now calculate
-                is_valid during edit init, but may well deprecate in future.
+                is_valid during edit init. Leaving it here for now in case
+                it becomes useful.
         """
         is_valid = False
         # note that in the case of lists, key is an index here

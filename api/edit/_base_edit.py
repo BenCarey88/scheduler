@@ -10,7 +10,8 @@ class EditError(Exception):
 class BaseEdit(object):
     """Base class representing an edit that we can register in the log.
 
-    In general, subclasses need to implement _run and _inverse_run."""
+    In general, subclasses need to implement _run and _inverse_run.
+    """
 
     def __init__(self):
         """Initialise edit.

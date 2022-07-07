@@ -3,6 +3,7 @@
 from functools import partial
 
 from scheduler.api.common.object_wrappers import BaseObjectWrapper, Hosted
+from scheduler.api.utils import fallback_value
 from ._base_edit import BaseEdit, EditError
 
 
@@ -74,7 +75,8 @@ class CompositeEdit(BaseEdit):
     def __init__(
             self,
             edits_list,
-            reverse_order_for_inverse=True):
+            reverse_order_for_inverse=True,
+            validity_check_edits=None):
         """Initialize composite edit.
 
         The edits passed to the edits_list must have their register flag
@@ -84,6 +86,8 @@ class CompositeEdit(BaseEdit):
             edits_list (list(BaseEdit)): list of edits to compose.
             reverse_order_for_inverse (bool): if True, we reverse the order
                 of the edits for the inverse.
+            validity_check_edits (list(BaseEdit) or None): if given,
+                determine validity based just on this sublist of edits.
         """
         for edit in edits_list:
             if edit._register_edit or edit._registered or edit._has_been_done:
@@ -95,7 +99,8 @@ class CompositeEdit(BaseEdit):
         self._edits_list = edits_list
         self._reverse_order_for_inverse = reverse_order_for_inverse
         super(CompositeEdit, self).__init__()
-        self._is_valid = any([edit._is_valid for edit in self._edits_list])
+        validity_edits = fallback_value(validity_check_edits, self._edits_list)
+        self._is_valid = any([edit._is_valid for edit in validity_edits])
 
     def _run(self):
         """Run each edit in turn."""

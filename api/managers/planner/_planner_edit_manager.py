@@ -117,5 +117,5 @@ class PlannerEditManager(BasePlannerManager):
         return SortPlannedItemsEdit.create_and_run(
             calendar_period,
             key=key,
-            reverse=reverse
+            reverse=reverse,
         )

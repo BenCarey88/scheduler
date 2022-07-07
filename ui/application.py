@@ -161,7 +161,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             new_pos (int): new position of splitter.
             index (int): index of splitter moved.
         """
-        # self.TAB_RESIZED_SIGNAL.emit(self.tabs_widget.width())
         user_prefs.set_app_user_pref(
             self.SPLITTER_SIZES,
             [self.outliner_stack.width(), self.tabs_widget.width()]

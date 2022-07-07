@@ -74,7 +74,10 @@ class BaseTreeEdit(CompositeEdit):
             )
             edit_list = [ordered_dict_edit, modify_parent_edit]
 
-        super(BaseTreeEdit, self).__init__(edit_list)
+        super(BaseTreeEdit, self).__init__(
+            edit_list,
+            validity_check_edits=[ordered_dict_edit],
+        )
 
 
 class AddChildrenEdit(BaseTreeEdit):
@@ -377,8 +380,9 @@ class ReplaceTreeItemEdit(CompositeEdit):
             old_tree_item (BaseTreeItem): tree item to replace.
             new_tree_item (BaseTreeItem): tree item to replace it with.
         """
-        if old_tree_item.parent is None:
+        if old_tree_item.parent is None or old_tree_item == new_tree_item:
             super(ReplaceTreeItemEdit, self).__init__([])
+            self._is_valid = False
             return
 
         remove_edit = RemoveChildrenEdit.create_unregistered(

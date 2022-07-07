@@ -31,7 +31,6 @@ class TaskWidgetTree(object):
                 this item, if it's a task.
         """
         data_dict = self._widget_tree_data.setdefault(tree_item, {})
-        # data_dict[self.LAYOUT_KEY] = layout
         if task_header_widget is not None:
             data_dict[self.TASK_HEADER_WIDGET_KEY] = task_header_widget
         if task_header_view is not None:

@@ -86,6 +86,9 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             subedits.append(global_history_edit)
 
         super(UpdateTaskHistoryEdit, self).__init__(subedits)
+        # TODO: use validity_check_edits __init__ arg instead
+        # of setting is_valid explicitly - just need to make sure
+        # the ContainerEdit is_valid logic works for recursive edits
         self._is_valid = (
             new_value != task_item.get_value_at_date(date)
             or new_status != task_item.get_status_at_date(date)

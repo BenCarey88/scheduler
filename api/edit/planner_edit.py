@@ -121,16 +121,17 @@ class ModifyPlannedItemEdit(CompositeEdit):
         subedits = [attribute_edit]
         if planned_item._calendar_period in attr_dict:
             new_calendar_period = attr_dict[planned_item._calendar_period]
-            # remove items from old container and add to new one
-            remove_edit = RemovePlannedItemEdit.create_unregistered(
-                planned_item
-            )
-            add_edit = ListEdit.create_unregistered(
-                planned_item.get_item_container(new_calendar_period),
-                [planned_item],
-                ContainerOp.ADD,
-            )
-            subedits.extend([remove_edit, add_edit])
+            if new_calendar_period != planned_item.calendar_period:
+                # remove items from old container and add to new one
+                remove_edit = RemovePlannedItemEdit.create_unregistered(
+                    planned_item
+                )
+                add_edit = ListEdit.create_unregistered(
+                    planned_item.get_item_container(new_calendar_period),
+                    [planned_item],
+                    ContainerOp.ADD,
+                )
+                subedits.extend([remove_edit, add_edit])
 
         super(ModifyPlannedItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [

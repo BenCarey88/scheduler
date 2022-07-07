@@ -71,8 +71,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         self.calendar_period = calendar_period
         self.beginResetModel()
         self.endResetModel()
-        # self.insertRows(0, len(self.calendar_period._planned_items))
-        # self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     def get_column_name(self, index):
         """Get name of column at index.

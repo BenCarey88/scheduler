@@ -227,7 +227,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not item:
             return False
         if self.tree_manager.set_item_name(item, value):
-            # self.dataChanged.emit(index, index)
             return True
         return False
 
@@ -245,7 +244,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         flags = QtCore.Qt.ItemFlag.ItemIsEnabled
         if self.get_column_name(index) == self.NAME_COLUMN:
             flags |= (
-                QtCore.Qt.ItemFlag.ItemIsEnabled | 
                 QtCore.Qt.ItemFlag.ItemIsSelectable |
                 QtCore.Qt.ItemFlag.ItemIsEditable
             )
@@ -498,7 +496,3 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         index = self.get_index_from_item(old_item)
         if index is not None:
             self.dataChanged.emit(index, index)
-
-    def remove_callbacks(self):
-        """Deregister all callbacks for this model."""
-        self.tree_manager.remove_callbacks(self)

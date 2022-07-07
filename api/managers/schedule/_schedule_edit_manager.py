@@ -196,7 +196,7 @@ class ScheduleEditManager(BaseScheduleManager):
             )
         return ReplaceScheduledItemEdit.create_and_run(
             scheduled_item,
-            new_scheduled_item
+            new_scheduled_item,
         )
 
     @require_class((ScheduledItem, RepeatScheduledItemInstance), True)

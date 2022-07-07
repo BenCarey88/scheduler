@@ -4,6 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.edit.edit_callbacks import CallbackType
 from scheduler.api.tree import TaskType
 
 from scheduler.ui import utils
@@ -32,6 +33,36 @@ class BaseTreeView(QtWidgets.QTreeView):
         self.setDragEnabled(True)
         self.setDropIndicatorShown(True)
         self.viewport().setAcceptDrops(True)
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type == CallbackType.TREE_ADD:
+            self.model().pre_item_added(*args)
+        elif callback_type == CallbackType.TREE_REMOVE:
+            self.model().pre_item_removed(*args)
+        elif callback_type == CallbackType.TREE_MOVE:
+            self.model().pre_item_moved(*args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type == CallbackType.TREE_ADD:
+            self.model().on_item_added(*args)
+        elif callback_type == CallbackType.TREE_REMOVE:
+            self.model().on_item_removed(*args)
+        elif callback_type == CallbackType.TREE_MOVE:
+            self.model().on_item_moved(*args)
+        elif callback_type == CallbackType.TREE_MODIFY:
+            self.model().on_item_modified(*args)
 
     def _get_selected_items(self):
         """Get tree items that are selected.

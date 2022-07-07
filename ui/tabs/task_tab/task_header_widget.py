@@ -207,6 +207,10 @@ class TaskHeaderListView(WidgetListView):
             task_item,
             task_header_view=self,
         )
+        self.tree_manager = tree_manager
+        self.task_item = task_item
+        self.tab = tab
+        self.recursive_depth = recursive_depth
         widget_list = []
         for child in task_item.get_all_children():
             widget = TaskHeaderWidget(
@@ -216,16 +220,11 @@ class TaskHeaderListView(WidgetListView):
                 recursive_depth=recursive_depth,
             )
             widget_list.append(widget)
-        self.recursive_depth = recursive_depth
         super(TaskHeaderListView, self).__init__(
             widget_list,
             item_spacing=item_spacing,
             parent=parent,
         )
-        self.tree_manager = tree_manager
-        self.task_item = task_item
-        self.tab = tab
-        self.recursive_depth = recursive_depth
         self.apply_filters()
 
     def apply_filters(self, update=True):
@@ -240,7 +239,7 @@ class TaskHeaderListView(WidgetListView):
             else:
                 self.unfilter_row(i)
                 header_widget = self.get_widget(i)
-                header_widget.apply_filters(update=False)
+                header_widget.apply_filters(update=update)
         if update:
             self.update_view()
 

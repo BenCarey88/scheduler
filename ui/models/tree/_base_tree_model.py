@@ -16,7 +16,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             tree_root=None,
             filters=None,
             mime_data_format=None,
-            register_tree_manager_callbacks=True,
+            # register_tree_manager_callbacks=True,
             parent=None):
         """Initialise base tree model.
 
@@ -51,18 +51,18 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             constants.OUTLINER_TREE_MIME_DATA_FORMAT
         )
 
-        if register_tree_manager_callbacks:
-            self._insert_rows_in_progress = False
-            self._remove_rows_in_progress = False
-            self._move_rows_in_progress = False
-            tm = tree_manager
-            tm.register_pre_item_added_callback(self, self.pre_item_added)
-            tm.register_item_added_callback(self, self.on_item_added)
-            tm.register_pre_item_removed_callback(self, self.pre_item_removed)
-            tm.register_item_removed_callback(self, self.on_item_removed)
-            tm.register_pre_item_moved_callback(self, self.pre_item_moved)
-            tm.register_item_moved_callback(self, self.on_item_moved)
-            tm.register_item_modified_callback(self, self.on_item_modified)
+        # if register_tree_manager_callbacks:
+        #     self._insert_rows_in_progress = False
+        #     self._remove_rows_in_progress = False
+        #     self._move_rows_in_progress = False
+        #     tm = tree_manager
+        #     tm.register_pre_item_added_callback(self, self.pre_item_added)
+        #     tm.register_item_added_callback(self, self.on_item_added)
+        #     tm.register_pre_item_removed_callback(self, self.pre_item_removed)
+        #     tm.register_item_removed_callback(self, self.on_item_removed)
+        #     tm.register_pre_item_moved_callback(self, self.pre_item_moved)
+        #     tm.register_item_moved_callback(self, self.on_item_moved)
+        #     tm.register_item_modified_callback(self, self.on_item_modified)
 
     @property
     def child_filters(self):

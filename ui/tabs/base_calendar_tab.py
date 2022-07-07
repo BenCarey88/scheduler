@@ -144,3 +144,23 @@ class BaseCalendarTab(BaseTab):
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(BaseCalendarTab, self).pre_edit_callback(callback_type, *args)
+        self.main_view.pre_edit_callback(callback_type, *args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(BaseCalendarTab, self).post_edit_callback(callback_type, *args)
+        self.main_view.post_edit_callback(callback_type, *args)

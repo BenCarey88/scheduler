@@ -5,7 +5,6 @@ from functools import partial
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.ui.models.tree import OutlinerTreeModel
-
 from .base_tree_view import BaseTreeView
 
 

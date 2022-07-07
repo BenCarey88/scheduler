@@ -1,6 +1,7 @@
 """List view of widgets."""
 
 from collections import OrderedDict
+from turtle import update
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -150,9 +151,9 @@ class WidgetListView(QtWidgets.QListView):
 
     def update_view(self):
         """Update view to pick up geometry changes to widgets."""
+        self.open_editors(update=False)
         self.scheduleDelayedItemsLayout()
         self.viewport().update()
-        # self.open_editors()
 
     def _configure_spacers(self):
         """Disable first unfiltered spacer and enable the rest."""
@@ -283,16 +284,16 @@ class WidgetListView(QtWidgets.QListView):
         if update:
             self.update_view()
 
-    def open_editors(self):
+    def open_editors(self, update=True):
         """Open persistent editors on each row.
 
         Args:
-            row (int or None): if given, only open editor on this row.
+            update (bool): if True, update view after.
         """
         for row, _ in enumerate(self._widget_data_list.get_filtered()):
             self.open_editor(row, update=False)
-        # self.update_view()
-        self.scheduleDelayedItemsLayout()
+        if update:
+            self.update_view()
 
     def sizeHint(self):
         """Get size hint.

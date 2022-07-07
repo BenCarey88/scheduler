@@ -12,6 +12,7 @@ from scheduler.api.calendar.planned_item import (
     PlannedItemImportance,
     PlannedItemSize,
 )
+from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
 from scheduler.api.utils import fallback_value
 
 from scheduler.ui.models.list import PlannerListModel
@@ -93,6 +94,24 @@ class TitledPlannerListView(BaseCalendarView, QtWidgets.QFrame):
         if isinstance(calendar_period, CalendarYear):
             return str(calendar_period.year)
 
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        self.planner_list_view.pre_edit_callback(callback_type, *args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        self.planner_list_view.post_edit_callback(callback_type, *args)
+
 
 class PlannerListView(BaseListView):
     """Planner list view."""
@@ -154,6 +173,46 @@ class PlannerListView(BaseListView):
         model.rowsMoved.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.dataChanged.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.modelReset.connect(self.VIEW_UPDATED_SIGNAL.emit)
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(PlannerListView, self).pre_edit_callback(callback_type, *args)
+        if callback_type[0] != CallbackItemType.PLANNER:
+            return
+        if callback_type == CallbackType.PLANNER_ADD:
+            self.model().pre_item_added(*args)
+        elif callback_type == CallbackType.PLANNER_REMOVE:
+            self.model().pre_item_removed(*args)
+        elif callback_type == CallbackType.PLANNER_MOVE:
+            self.model().pre_item_moved(*args)
+        elif callback_type == CallbackType.PLANNER_FULL_UPDATE:
+            self.model().pre_full_update(*args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type[0] != CallbackItemType.PLANNER:
+            return
+        if callback_type == CallbackType.PLANNER_ADD:
+            self.model().on_item_added(*args)
+        elif callback_type == CallbackType.PLANNER_REMOVE:
+            self.model().on_item_removed(*args)
+        elif callback_type == CallbackType.PLANNER_MOVE:
+            self.model().on_item_moved(*args)
+        elif callback_type == CallbackType.PLANNER_MODIFY:
+            self.model().on_item_modified(*args)
+        elif callback_type == CallbackType.PLANNER_FULL_UPDATE:
+            self.model().on_full_update(*args)
+
 
     def resizeEvent(self, event):
         """Resize event.

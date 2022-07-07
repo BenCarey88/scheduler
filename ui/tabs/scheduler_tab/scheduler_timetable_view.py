@@ -6,6 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import ScheduledItemType
+from scheduler.api.edit.edit_callbacks import CallbackItemType
 
 from scheduler.ui import constants, utils
 from scheduler.ui.models.table import SchedulerWeekModel
@@ -201,18 +202,18 @@ class SchedulerTimetableView(BaseWeekTableView):
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
         self.refresh_scheduled_items_list()
-        self.schedule_manager.register_item_added_callback(
-            self,
-            self.refresh_scheduled_items_list,
-        )
-        self.schedule_manager.register_item_removed_callback(
-            self,
-            self.refresh_scheduled_items_list,
-        )
-        self.schedule_manager.register_item_modified_callback(
-            self,
-            self.refresh_scheduled_items_list,
-        )
+        # self.schedule_manager.register_item_added_callback(
+        #     self,
+        #     self.refresh_scheduled_items_list,
+        # )
+        # self.schedule_manager.register_item_removed_callback(
+        #     self,
+        #     self.refresh_scheduled_items_list,
+        # )
+        # self.schedule_manager.register_item_modified_callback(
+        #     self,
+        #     self.refresh_scheduled_items_list,
+        # )
 
         self.setItemDelegate(SchedulerDelegate(self))
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -248,6 +249,20 @@ class SchedulerTimetableView(BaseWeekTableView):
             key=(lambda w : 1 - int(w.scheduled_item.is_background))
         )
         self.viewport().update()
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type[0] == CallbackItemType.SCHEDULER:
+            self.refresh_scheduled_items_list()
+        super(SchedulerTimetableView, self).post_edit_callback(
+            callback_type,
+            *args
+        )
 
     def set_to_week(self, calendar_week):
         """Set view to given calendar_week.

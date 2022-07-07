@@ -2,6 +2,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.edit.edit_callbacks import CallbackItemType
+
 from scheduler.ui.widgets.outliner import Outliner
 
 
@@ -34,3 +36,23 @@ class BaseTab(QtWidgets.QWidget):
     def on_outliner_filter_changed(self, *args):
         """Callback for what to do when filter is changed in outliner."""
         pass
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type[0] == CallbackItemType.TREE:
+            self.outliner.pre_edit_callback(callback_type, *args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type[0] == CallbackItemType.TREE:
+            self.outliner.post_edit_callback(callback_type, *args)

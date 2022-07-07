@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants as api_constants
 from scheduler.api.common import user_prefs
-from scheduler.api.edit import edit_log
+from scheduler.api.edit import edit_callbacks, edit_log
 # from scheduler.api.managers import ScheduleManager, TreeManager
 from scheduler.api.project import Project
 
@@ -45,6 +45,14 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.autosaved_edit = edit_log.latest_edit()
         self.timer_id = self.startTimer(ui_constants.SHORT_TIMER_INTERVAL)
         edit_log.open_edit_registry()
+        edit_callbacks.register_general_purpose_pre_callback(
+            self,
+            self.pre_edit_callback,
+        )
+        edit_callbacks.register_general_purpose_post_callback(
+            self,
+            self.post_edit_callback,
+        )
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
@@ -129,6 +137,30 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         undo_action.triggered.connect(self.undo)
         redo_action = edit_menu.addAction("Redo")
         redo_action.triggered.connect(self.redo)
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        self.tabs_widget.currentWidget().pre_edit_callback(
+            callback_type,
+            *args
+        )
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        self.tabs_widget.currentWidget().post_edit_callback(
+            callback_type,
+            *args
+        )
 
     def on_tab_changed(self, index):
         """Called when changing to different tab.

@@ -19,18 +19,18 @@ from scheduler.api.utils import fallback_value
 
 from .._base_manager import require_class
 from ._base_schedule_manager import BaseScheduleManager
-from ._schedule_callbacks import SCHEDULE_CALLBACKS as SC
+# from ._schedule_callbacks import SCHEDULE_CALLBACKS as SC
 
 
 class ScheduleEditManager(BaseScheduleManager):
     """Calendar edit manager to apply edits to scheduled items."""
-    register_pre_item_added_callback = SC.register_pre_item_added_callback
-    register_item_added_callback = SC.register_item_added_callback
-    register_pre_item_removed_callback = SC.register_pre_item_removed_callback
-    register_item_removed_callback = SC.register_item_removed_callback
-    register_pre_item_modified_callback = SC.register_item_modified_callback
-    register_item_modified_callback = SC.register_item_modified_callback
-    remove_callbacks = SC.remove_callbacks
+    # register_pre_item_added_callback = SC.register_pre_item_added_callback
+    # register_item_added_callback = SC.register_item_added_callback
+    # register_pre_item_removed_callback = SC.register_pre_item_removed_callback
+    # register_item_removed_callback = SC.register_item_removed_callback
+    # register_pre_item_modified_callback = SC.register_item_modified_callback
+    # register_item_modified_callback = SC.register_item_modified_callback
+    # remove_callbacks = SC.remove_callbacks
 
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.

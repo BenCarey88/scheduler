@@ -2,6 +2,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
+
 from scheduler.ui.tabs.base_tab import BaseTab
 from scheduler.ui import utils
 from .task_header_widget import TaskHeaderWidget, TaskHeaderListView
@@ -44,15 +46,15 @@ class TaskTab(BaseTab):
         # self._fill_scroll_area()
 
         self._views_being_reset = []
-        tm = self.tree_manager
-        tm.register_pre_item_added_callback(self, self.pre_item_added)
-        tm.register_item_added_callback(self, self.on_item_added)
-        tm.register_pre_item_removed_callback(self, self.pre_item_removed)
-        tm.register_item_removed_callback(self, self.on_item_removed)
-        tm.register_pre_item_moved_callback(self, self.pre_item_moved)
-        tm.register_item_moved_callback(self, self.on_item_moved)
-        tm.register_item_modified_callback(self, self.on_item_modified)
-        self.task_header_view.apply_filters()
+        # tm = self.tree_manager
+        # tm.register_pre_item_added_callback(self, self.pre_item_added)
+        # tm.register_item_added_callback(self, self.on_item_added)
+        # tm.register_pre_item_removed_callback(self, self.pre_item_removed)
+        # tm.register_item_removed_callback(self, self.on_item_removed)
+        # tm.register_pre_item_moved_callback(self, self.pre_item_moved)
+        # tm.register_item_moved_callback(self, self.on_item_moved)
+        # tm.register_item_modified_callback(self, self.on_item_modified)
+        # self.task_header_view.apply_filters()
 
     # def _fill_main_view(self):
     #     """Fill main task view from tree root.
@@ -163,6 +165,56 @@ class TaskTab(BaseTab):
     #         )
     #     return None
 
+    def update_task_header_views_for_item(self, item):
+        """Update task header views for given item.
+
+        Args:
+            item (BaseTreeItem): item to update for.
+        """
+        task_header_view = self.task_widget_tree.get_task_header_view(item)
+        if task_header_view is not None:
+            task_header_view.update_view()
+        if item.parent is not None:
+            self.update_task_header_views_for_item(item.parent)
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(TaskTab, self).pre_edit_callback(callback_type, *args)
+        if callback_type[0] != CallbackItemType.TREE:
+            return
+        if callback_type == CallbackType.TREE_ADD:
+            self.pre_item_added(*args)
+        elif callback_type == CallbackType.TREE_REMOVE:
+            self.pre_item_removed(*args)
+        elif callback_type == CallbackType.TREE_MOVE:
+            self.pre_item_moved(*args)
+        elif callback_type == CallbackType.TREE_MODIFY:
+            self.pre_item_modified(*args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(TaskTab, self).post_edit_callback(callback_type, *args)
+        if callback_type[0] != CallbackItemType.TREE:
+            return
+        if callback_type == CallbackType.TREE_ADD:
+            self.on_item_added(*args)
+        elif callback_type == CallbackType.TREE_REMOVE:
+            self.on_item_removed(*args)
+        elif callback_type == CallbackType.TREE_MOVE:
+            self.on_item_moved(*args)
+        elif callback_type == CallbackType.TREE_MODIFY:
+            self.on_item_modified(*args)
+
     def pre_item_added(self, item, parent, row):
         """Callback for before an item has been added.
 
@@ -195,10 +247,7 @@ class TaskTab(BaseTab):
             )
             if task_header_view:
                 task_header_view.insert_header_widget(row, item)
-        for anc in item.iter_ancestors(reversed=True):
-            list_view = self.task_widget_tree.get_task_header_view(anc)
-            if list_view:
-                list_view.open_editors()
+        self.update_task_header_views_for_item(item)
 
     def pre_item_removed(self, item, parent, row):
         """Callback for before an item has been removed.
@@ -234,7 +283,7 @@ class TaskTab(BaseTab):
             )
             if task_header_view:
                 task_header_view.remove_header_widget(row, item)
-        self.task_header_view.update_view()
+        self.update_task_header_views_for_item(item)
 
     def pre_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for before an item is moved.
@@ -272,7 +321,9 @@ class TaskTab(BaseTab):
             for widget in self._views_being_reset:
                 widget.end_reset()
             self._views_being_reset = []
-            self.task_header_view.update_view()
+            self.update_task_header_views_for_item(old_parent)
+            if old_parent != new_parent:
+                self.update_task_header_views_for_item(new_parent)
 
         if self.tree_manager.is_task_category(old_parent):
             self.on_item_removed(item, old_parent, old_row)

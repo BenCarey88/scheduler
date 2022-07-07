@@ -4,8 +4,8 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.edit import edit_callbacks
 from scheduler.ui.models.tree import ItemDialogTreeModel
-
 from .base_tree_view import BaseTreeView
 
 
@@ -86,6 +86,15 @@ class ItemDialog(QtWidgets.QDialog):
             self.update
         )
 
+        edit_callbacks.register_general_purpose_pre_callback(
+            self,
+            self.tree_view.pre_edit_callback,
+        )
+        edit_callbacks.register_general_purpose_post_callback(
+            self,
+            self.tree_view.post_edit_callback,
+        )
+
     @property
     def tree_item(self):
         """Get tree item this is associated to.
@@ -120,7 +129,7 @@ class ItemDialog(QtWidgets.QDialog):
 
     def close(self):
         """Override close event to remove callbacks."""
-        self.tree_view.model().remove_callbacks()
+        edit_callbacks.remove_callbacks(self)
         super(ItemDialog, self).close()
 
 

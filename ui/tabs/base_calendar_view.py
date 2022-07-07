@@ -33,6 +33,24 @@ class BaseCalendarView(object):
             "set_to_calendar_period must be implemented in subclasses"
         )
 
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        pass
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        pass
+
 
 ### LIST ###
 class BaseListView(BaseCalendarView, QtWidgets.QTreeView):
@@ -83,7 +101,7 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
         """Initialize class instance.
 
         Args:
-            list_views (list(QtWidgets.QWidget)): list of subviews. These
+            list_views (list(BaseCalendarView)): list of subviews. These
                 subviews each represent a calendar period below the current
                 one.
             parent (QtGui.QWidget or None): QWidget parent of widget.
@@ -106,6 +124,26 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
         raise NotImplementedError(
             "set to calendar period implemented in BaseTableView subclasses."
         )
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        for view in self.iter_widgets():
+            view.pre_edit_callback(callback_type, *args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        for view in self.iter_widgets():
+            view.post_edit_callback(callback_type, *args)
 
 
 class BaseMultiListWeekView(BaseMultiListView):
@@ -314,8 +352,8 @@ class BaseHybridView(BaseCalendarView, QtWidgets.QSplitter):
         """Initialize class instance.
 
         Args:
-            left_view (QtWidgets.QWidget): left view.
-            right_view (QtWidgets.QWidget): right view.
+            left_view (BaseCalendarView): left view.
+            right_view (BaseCalendarView): right view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseHybridView, self).__init__(parent=parent)
@@ -339,3 +377,23 @@ class BaseHybridView(BaseCalendarView, QtWidgets.QSplitter):
         for view in (self.left_view, self.right_view):
             view.setup()
             view.VIEW_UPDATED_SIGNAL.connect(self.VIEW_UPDATED_SIGNAL.emit)
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        for view in (self.left_view, self.right_view):
+            view.pre_edit_callback(callback_type, *args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        for view in (self.left_view, self.right_view):
+            view.post_edit_callback(callback_type, *args)

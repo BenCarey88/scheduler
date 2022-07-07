@@ -11,22 +11,22 @@ from scheduler.api.calendar.planned_item import PlannedItem
 
 from .._base_manager import require_class
 from ._base_planner_manager import BasePlannerManager
-from ._planner_callbacks import PLANNER_CALLBACKS as PC
+# from ._planner_callbacks import PLANNER_CALLBACKS as PC
 
 
 class PlannerEditManager(BasePlannerManager):
     """Planner edit manager to apply edits to planned items."""
-    register_pre_item_added_callback = PC.register_pre_item_added_callback
-    register_item_added_callback = PC.register_item_added_callback
-    register_pre_item_removed_callback = PC.register_pre_item_removed_callback
-    register_item_removed_callback = PC.register_item_removed_callback
-    register_pre_item_modified_callback = PC.register_item_modified_callback
-    register_item_modified_callback = PC.register_item_modified_callback
-    register_pre_item_moved_callback = PC.register_pre_item_moved_callback
-    register_item_moved_callback = PC.register_item_moved_callback
-    register_pre_full_update_callback = PC.register_pre_full_update_callback
-    register_full_update_callback = PC.register_full_update_callback
-    remove_callbacks = PC.remove_callbacks
+    # register_pre_item_added_callback = PC.register_pre_item_added_callback
+    # register_item_added_callback = PC.register_item_added_callback
+    # register_pre_item_removed_callback = PC.register_pre_item_removed_callback
+    # register_item_removed_callback = PC.register_item_removed_callback
+    # register_pre_item_modified_callback = PC.register_item_modified_callback
+    # register_item_modified_callback = PC.register_item_modified_callback
+    # register_pre_item_moved_callback = PC.register_pre_item_moved_callback
+    # register_item_moved_callback = PC.register_item_moved_callback
+    # register_pre_full_update_callback = PC.register_pre_full_update_callback
+    # register_full_update_callback = PC.register_full_update_callback
+    # remove_callbacks = PC.remove_callbacks
 
     def __init__(self, user_prefs, calendar, archive_calendar):
         """Initialize class.

@@ -1,5 +1,6 @@
 """Scheduler week view."""
 
+from calendar import calendar
 import math
 
 from PyQt5 import QtCore, QtGui, QtWidgets

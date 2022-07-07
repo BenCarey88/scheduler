@@ -174,15 +174,24 @@ class PlannerListView(BaseListView):
         model.dataChanged.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.modelReset.connect(self.VIEW_UPDATED_SIGNAL.emit)
 
-    def pre_edit_callback(self, callback_type, *args):
+    # TODO: this is dependent on each planner edit callback starting with
+    # a calendar period arg that determines which period it applies to.
+    # when we create edits to change the period of an item, we'll need
+    # two args (old_period, new_period), which will need to be handled
+    # separately.
+    def pre_edit_callback(self, callback_type, calendar_period, *args):
         """Callback for before an edit of any type is run.
 
         Args:
             callback_type (CallbackType): edit callback type.
+            calendar_period (BaseCalendarPeriod): calendar period that edit
+                applies to, passed as an arg to all planner edit callbacks.
             *args: additional args dependent on type of edit.
         """
         super(PlannerListView, self).pre_edit_callback(callback_type, *args)
         if callback_type[0] != CallbackItemType.PLANNER:
+            return
+        if calendar_period != self.calendar_period:
             return
         if callback_type == CallbackType.PLANNER_ADD:
             self.model().pre_item_added(*args)
@@ -193,14 +202,18 @@ class PlannerListView(BaseListView):
         elif callback_type == CallbackType.PLANNER_FULL_UPDATE:
             self.model().pre_full_update(*args)
 
-    def post_edit_callback(self, callback_type, *args):
+    def post_edit_callback(self, callback_type, calendar_period, *args):
         """Callback for after an edit of any type is run.
 
         Args:
             callback_type (CallbackType): edit callback type.
+            calendar_period (BaseCalendarPeriod): calendar period that edit
+                applies to, passed as an arg to all planner edit callbacks.
             *args: additional args dependent on type of edit.
         """
         if callback_type[0] != CallbackItemType.PLANNER:
+            return
+        if calendar_period != self.calendar_period:
             return
         if callback_type == CallbackType.PLANNER_ADD:
             self.model().on_item_added(*args)

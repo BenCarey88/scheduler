@@ -90,7 +90,7 @@ class CallbackType(object):
             Args:   (tree_item, old_parent, old_row, new_parent, new_row)
             Edits:  [MoveChildrenEdit, MoveTreeItemEdit]
 
-    Scheduler:              
+    Scheduler:      
         SCHEDULER_ADD:
             Args:   (scheduled_item)
             Edits:  [AddScheduledItemEdit]
@@ -108,19 +108,19 @@ class CallbackType(object):
 
     Planner:
         PLANNER_ADD:
-            Args:   (planned_item, row)
+            Args:   (calendar_period, planned_item, row)
             Edits:  [AddPlannedItemEdit]
         PLANNER_REMOVE:
-            Args:   (planned_item, row)
+            Args:   (calendar_period, planned_item, row)
             Edits:  [RemovePlannedItemEdit]
         PLANNER_MODIFY:
-            Args:   (old_planned_item, new_planned_item)
+            Args:   (calendar_period, old_planned_item, new_planned_item)
             Edits:  [ModifyPlannedItemEdit]
         PLANNER_MOVE:
-            Args:   (planned_item, old_row, new_row)
+            Args:   (calendar_period, old_row, new_row)
             Edits:  [MovePlannedItemEdit]
         PLANNER_FULL_UPDATE:
-            Args:   ()
+            Args:   (calendar_period)
             Edits:  [SortPlannedItemsEdit]
     """
     TREE_ADD = (CallbackItemType.TREE, CallbackEditType.ADD)

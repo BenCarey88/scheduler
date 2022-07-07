@@ -344,6 +344,7 @@ class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
         super(ModifyRepeatScheduledItemInstanceEdit, self).__init__(
             scheduled_item,
             attr_dict,
+            subedits=subedits,
             reverse_order_for_inverse=False,
         )
 

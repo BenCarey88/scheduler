@@ -26,6 +26,7 @@ class AddPlannedItemEdit(ListEdit):
             ContainerOp.INSERT,
         )
         self._callback_args = self._undo_callback_args = [
+            planned_item.calendar_period,
             planned_item,
             index,
         ]
@@ -55,6 +56,7 @@ class RemovePlannedItemEdit(ListEdit):
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
         self._callback_args = self._undo_callback_args = [
+            planned_item.calendar_period,
             planned_item,
             planned_item.index(),
         ]
@@ -83,8 +85,18 @@ class MovePlannedItemEdit(ListEdit):
             ContainerOp.MOVE,
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
-        self._callback_args = [planned_item, planned_item.index(), index]
-        self._undo_callback_args = [planned_item, index, planned_item.index()]
+        self._callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            planned_item.index(),
+            index
+        ]
+        self._undo_callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            index,
+            planned_item.index()
+        ]
         self._name = "MovePlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Move {0} {1} at date {2} to index {3}".format(
@@ -121,8 +133,11 @@ class ModifyPlannedItemEdit(CompositeEdit):
             subedits.extend([remove_edit, add_edit])
 
         super(ModifyPlannedItemEdit, self).__init__(subedits)
-        self._callback_args = [planned_item, planned_item]
-        self._undo_callback_args = [planned_item, planned_item]
+        self._callback_args = self._undo_callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            planned_item
+        ]
         self._name = "ModifyPlannedItem ({0})".format(planned_item.name)
         self._description = attribute_edit.get_description(
             planned_item,
@@ -146,7 +161,7 @@ class SortPlannedItemsEdit(ListEdit):
             [(key, reverse)],
             ContainerOp.SORT,
         )
-        self._callback_args = self._undo_callback_args = []
+        self._callback_args = self._undo_callback_args = [calendar_period]
         self._name = "SortPlannedItems for {0}".format(
             calendar_period.name
         )

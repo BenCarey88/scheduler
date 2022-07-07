@@ -462,6 +462,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             item (PlannedItem): the item to add.
             row (int): the index the item will be added at.
         """
+        print ("ADDING")
         self.beginInsertRows(QtCore.QModelIndex(), row, row)
         self._insert_rows_in_progress = True
 

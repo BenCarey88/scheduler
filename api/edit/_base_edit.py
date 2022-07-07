@@ -152,7 +152,7 @@ class BaseEdit(object):
             raise EditError("Cannot run edit multiple times without undo.")
         if self._register_edit and EDIT_LOG.is_locked:
             # don't run registerable edits if they can't be added to log
-            return
+            return False
         if self._is_valid:
             EDIT_LOG.run_pre_edit_callbacks(self)
             self._run()

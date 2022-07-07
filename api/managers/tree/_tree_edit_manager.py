@@ -79,13 +79,10 @@ class TreeEditManager(BaseTreeManager):
             index = len(tree_item._children)
         if index < 0 or index > len(tree_item._children):
             raise IndexError("Index given is larger than number of children.")
-        edit = InsertChildrenEdit(
+        return InsertChildrenEdit.create_and_run(
             tree_item,
             {name: (index, child)},
         )
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
     def create_new_child(
@@ -257,13 +254,10 @@ class TreeEditManager(BaseTreeManager):
         parent = tree_item.parent
         if not parent:
             return False
-        edit = RemoveChildrenEdit(
+        return RemoveChildrenEdit.create_and_run(
             parent,
             [tree_item.name],
         )
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
 
     @require_class((Task, TaskCategory), raise_error=True)
     def set_item_name(self, tree_item, new_name):
@@ -283,13 +277,10 @@ class TreeEditManager(BaseTreeManager):
             return False
         if parent.get_child(new_name):
             return False
-        edit = RenameChildrenEdit(
+        return RenameChildrenEdit.create_and_run(
             parent,
             {tree_item.name: new_name},
         )
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
     def move_item_local(self, tree_item, new_index):
@@ -309,13 +300,10 @@ class TreeEditManager(BaseTreeManager):
         old_index = tree_item.index()
         if new_index == old_index:
             return False
-        edit = MoveChildrenEdit(
+        return MoveChildrenEdit.create_and_run(
             tree_item.parent,
             {tree_item.name: new_index},
         )
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
     def move_item(self, item, new_parent, index=None):
@@ -336,14 +324,11 @@ class TreeEditManager(BaseTreeManager):
             index = new_parent.num_children()
         if index < 0 or index > new_parent.num_children():
             return False
-        edit = MoveTreeItemEdit(
+        return MoveTreeItemEdit.create_and_run(
             item,
             new_parent,
             index,
         )
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
 
     @require_class(BaseTreeItem, raise_error=True)
     def change_item_class(self, tree_item):
@@ -368,10 +353,7 @@ class TreeEditManager(BaseTreeManager):
                 )
             )
         new_tree_item = new_class(tree_item.name)
-        edit = ReplaceTreeItemEdit(tree_item, new_tree_item)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return ReplaceTreeItemEdit.create_and_run(tree_item, new_tree_item)
 
     @require_class(Task, raise_error=False)
     def update_task(
@@ -411,16 +393,13 @@ class TreeEditManager(BaseTreeManager):
             elif current_status == TaskStatus.COMPLETE:
                 status = TaskStatus.UNSTARTED
 
-        edit = UpdateTaskHistoryEdit(
+        return UpdateTaskHistoryEdit.create_and_run(
             task_item,
             date_time,
             status,
             value,
             comment=comment,
         )
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
 
     @require_class(Task, raise_error=False)
     def change_task_type(self, task_item, new_type=None):
@@ -441,7 +420,4 @@ class TreeEditManager(BaseTreeManager):
             )
         if new_type == task_item.type:
             return False
-        edit = ChangeTaskTypeEdit(task_item, new_type)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return ChangeTaskTypeEdit.create_and_run(task_item, new_type)

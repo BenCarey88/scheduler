@@ -49,10 +49,7 @@ class ScheduleEditManager(BaseScheduleManager):
             (bool): whether or not edit was successful.
         """
         item = item_class(*args, **kwargs)
-        edit = AddScheduledItemEdit(item)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return AddScheduledItemEdit.create_and_run(item)
 
     def create_scheduled_item(self, *args, **kwargs):
         """Create single scheduled item and add to calendar.
@@ -88,10 +85,7 @@ class ScheduleEditManager(BaseScheduleManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        edit = RemoveScheduledItemEdit(scheduled_item)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return RemoveScheduledItemEdit.create_and_run(scheduled_item)
 
     @require_class((ScheduledItem, RepeatScheduledItem), raise_error=True)
     def modify_scheduled_item(
@@ -153,59 +147,57 @@ class ScheduleEditManager(BaseScheduleManager):
                     )
                 )
             new_scheduled_item = scheduled_item
-            edit = edit_class(scheduled_item, attr_dict)
+            return edit_class.create_and_run(scheduled_item, attr_dict)
 
-        else:
-            # otherwise a class change is needed, use ReplaceScheduledItemEdit
-            date = fallback_value(date, scheduled_item.date)
-            start_time = fallback_value(start_time, scheduled_item.start_time)
-            end_time = fallback_value(end_time, scheduled_item.end_time)
-            repeat_pattern = fallback_value(
+        # otherwise a class change is needed, use ReplaceScheduledItemEdit
+        date = fallback_value(date, scheduled_item.date)
+        start_time = fallback_value(start_time, scheduled_item.start_time)
+        end_time = fallback_value(end_time, scheduled_item.end_time)
+        repeat_pattern = fallback_value(
+            repeat_pattern,
+            scheduled_item.repeat_pattern
+        )
+        item_type = fallback_value(item_type, scheduled_item.type)
+        tree_item = fallback_value(tree_item, scheduled_item.tree_item)
+        event_category = fallback_value(
+            event_category,
+            scheduled_item.category
+        )
+        event_name = fallback_value(event_name, scheduled_item.name)
+        is_background = fallback_value(
+            is_background,
+            scheduled_item.is_background
+        )
+
+        if is_repeating:
+            new_scheduled_item = RepeatScheduledItem(
+                self._calendar,
+                start_time,
+                end_time,
                 repeat_pattern,
-                scheduled_item.repeat_pattern
+                item_type=item_type,
+                tree_item=tree_item,
+                event_category=event_category,
+                event_name=event_name,
+                is_background=is_background,
             )
-            item_type = fallback_value(item_type, scheduled_item.type)
-            tree_item = fallback_value(tree_item, scheduled_item.tree_item)
-            event_category = fallback_value(
-                event_category,
-                scheduled_item.category
+        else:
+            new_scheduled_item = ScheduledItem(
+                self._calendar,
+                start_time,
+                end_time,
+                date,
+                item_type=item_type,
+                tree_item=tree_item,
+                event_category=event_category,
+                event_name=event_name,
+                is_background=is_background,
+                repeat_pattern=repeat_pattern,
             )
-            event_name = fallback_value(event_name, scheduled_item.name)
-            is_background = fallback_value(
-                is_background,
-                scheduled_item.is_background
-            )
-
-            if is_repeating:
-                new_scheduled_item = RepeatScheduledItem(
-                    self._calendar,
-                    start_time,
-                    end_time,
-                    repeat_pattern,
-                    item_type=item_type,
-                    tree_item=tree_item,
-                    event_category=event_category,
-                    event_name=event_name,
-                    is_background=is_background,
-                )
-            else:
-                new_scheduled_item = ScheduledItem(
-                    self._calendar,
-                    start_time,
-                    end_time,
-                    date,
-                    item_type=item_type,
-                    tree_item=tree_item,
-                    event_category=event_category,
-                    event_name=event_name,
-                    is_background=is_background,
-                    repeat_pattern=repeat_pattern,
-                )
-            edit = ReplaceScheduledItemEdit(scheduled_item, new_scheduled_item)
-
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return ReplaceScheduledItemEdit.create_and_run(
+            scheduled_item,
+            new_scheduled_item
+        )
 
     @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
     def move_scheduled_item(
@@ -244,7 +236,4 @@ class ScheduleEditManager(BaseScheduleManager):
                     scheduled_item.__class__.__name__
                 )
             )
-        edit = edit_class(scheduled_item, attr_dict)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return edit_class.create_and_run(scheduled_item, attr_dict)

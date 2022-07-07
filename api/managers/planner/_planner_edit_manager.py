@@ -29,8 +29,6 @@ class PlannerEditManager(BasePlannerManager):
             archive_calendar,
         )
 
-    # TODO: once confirmed that new edit callbacks seem to be working,
-    # switch managers back to using create_and_run methods for edits
     def create_planned_item(self, *args, index=None, **kwargs):
         """Create planner item and add to calendar.
 
@@ -43,10 +41,7 @@ class PlannerEditManager(BasePlannerManager):
             (bool): whether or not edit was successful.
         """
         item = PlannedItem(*args, **kwargs)
-        edit = AddPlannedItemEdit(item, index)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return AddPlannedItemEdit.create_and_run(item, index)
 
     @require_class(PlannedItem, True)
     def remove_planned_item(self, planned_item):
@@ -58,10 +53,7 @@ class PlannerEditManager(BasePlannerManager):
         Returns:
             (bool): whether or not edit was successful
         """
-        edit = RemovePlannedItemEdit(planned_item)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return RemovePlannedItemEdit.create_and_run(planned_item)
 
     @require_class(PlannedItem, True)
     def move_planned_item(self, planned_item, index):
@@ -74,10 +66,7 @@ class PlannerEditManager(BasePlannerManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        edit = MovePlannedItemEdit(planned_item, index)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return MovePlannedItemEdit.create_and_run(planned_item, index)
 
     @require_class(PlannedItem, True)
     def modify_planned_item(
@@ -111,10 +100,7 @@ class PlannerEditManager(BasePlannerManager):
             attr: value
             for attr, value in attr_dict.items() if value is not None
         }
-        edit = ModifyPlannedItemEdit(planned_item, attr_dict)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return ModifyPlannedItemEdit.create_and_run(planned_item, attr_dict)
 
     def sort_planned_items(self, calendar_period, key=None, reverse=False):
         """Sort order of planned items.
@@ -128,7 +114,8 @@ class PlannerEditManager(BasePlannerManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        edit = SortPlannedItemsEdit(calendar_period, key=key, reverse=reverse)
-        if edit.is_valid:
-            edit.run()
-        return edit.is_valid
+        return SortPlannedItemsEdit.create_and_run(
+            calendar_period,
+            key=key,
+            reverse=reverse
+        )

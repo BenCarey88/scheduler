@@ -1,9 +1,7 @@
 """Scheduled item dialog for creating and editing scheduled items."""
 
-from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date, DateTime, Time
 from scheduler.api.calendar.planned_item import (
     PlannedItem,
     PlannedItemImportance,

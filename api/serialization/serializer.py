@@ -151,63 +151,6 @@ class TreeSerializer(BaseSerializer):
         return self._tree_root.get_item_at_path(obj)
 
 
-# class IdSerializer(BaseSerializer):
-#     """Serialize and deserialize items by id.
-
-#     Types:
-#         Id
-#     """
-#     def __init__(self, serializer, *args, **kwargs):
-#         """Initialize id serializer.
-
-#         This serializer uses get_object_by_id to convert the id into another
-#         object, then uses another serializer to serialize that object.
-
-#         Args:
-#             serializer (BaseSerializer): serializer to use on object once
-#                 we've found it based on id.
-#             args (list): additional args, to be ignored.
-#             kwargs (dict): additional_kwargs, to be ignored.
-#         """
-#         super(IdSerializer, self).__init__()
-#         self._serializer = serializer
-
-#     def serialize(self, id):
-#         object = get_object_by_id(id)
-#         if object:
-#             return self._serializer.serialize(object)
-#         return None
-
-#     def deserialize(self, obj):
-#         object = self._serializer.deserialize(obj)
-#         return get_object_id(object)
-
-#     def string(self):
-#         """Serialize serializer class as string.
-
-#         Returns:
-#             (str): serialized serializer.
-#         """
-#         return "{0}({1})".format(
-#             self.__class__.__name__,
-#             self._serializer.__class__.__name__
-#         )
-
-#     @classmethod
-#     def from_string(cls, string, *args, **kwargs):
-#         """Get serializer from string.
-
-#         Args:
-#             string (str): string repr of serializer, as defined in its
-#                 string method.
-#             args (list): additional args to pass to subserializer init.
-#             kwargs (dict): additional kwargs to pass to subserializer init.
-#         """
-#         string = string[len(cls.__name__)+1:-1]
-#         subserializer = get_serializer_from_string(string, *args, **kwargs)
-#         return cls(subserializer)
-
-
 # TODO: should we make these strings smaller, eg. just letters with an ! or etc
 # still needs to be distinctive so we don't create it accidentally but could
 # make it something that doesn't disrupt readability of the serialized files

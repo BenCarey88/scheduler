@@ -57,7 +57,7 @@ class PlannerEditManager(BasePlannerManager):
 
     @require_class(PlannedItem, True)
     def move_planned_item(self, planned_item, index):
-        """Remove planned item from calendar.
+        """Move planned item to different index in list.
 
         Args:
             planned_item (PlannedItem): planned item to remove.
@@ -100,10 +100,7 @@ class PlannerEditManager(BasePlannerManager):
             attr: value
             for attr, value in attr_dict.items() if value is not None
         }
-        return ModifyPlannedItemEdit.create_and_run(
-            planned_item,
-            attr_dict,
-        )
+        return ModifyPlannedItemEdit.create_and_run(planned_item, attr_dict)
 
     def sort_planned_items(self, calendar_period, key=None, reverse=False):
         """Sort order of planned items.

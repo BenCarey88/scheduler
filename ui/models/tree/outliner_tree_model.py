@@ -2,7 +2,6 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree import filters
 from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from ._base_tree_model import BaseTreeModel
@@ -31,13 +30,15 @@ class OutlinerTreeModel(BaseTreeModel):
                 deselected in the outliner.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        child_filters=[]
+        child_filters = []
+        self._hide_filtered_items = hide_filtered_items
         if hide_filtered_items and tree_manager.child_filter:
             child_filters.append(tree_manager.child_filter)
         super(OutlinerTreeModel, self).__init__(
             tree_manager,
+            filters=child_filters,
+            mime_data_format=constants.OUTLINER_TREE_MIME_DATA_FORMAT,
             parent=parent,
-            filters=child_filters
         )
 
     def data(self, index, role):
@@ -107,6 +108,8 @@ class OutlinerTreeModel(BaseTreeModel):
                     self.tree_manager.unfilter_item(item)
                 else:
                     self.tree_manager.filter_item(item)
+            if self._hide_filtered_items:
+                self.set_items_hidden(True)
             self.dataChanged.emit(index, index)
             return True
         return super(OutlinerTreeModel, self).setData(index, value, role)
@@ -123,22 +126,31 @@ class OutlinerTreeModel(BaseTreeModel):
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
         if self.get_column_name(index) == self.NAME_COLUMN:
-            item = index.internalPointer()
-            parent_item = item.parent
-            if parent_item and self.tree_manager.is_filtered_out(parent_item):
-                return (
-                    QtCore.Qt.ItemFlag.ItemIsSelectable |
-                    QtCore.Qt.ItemFlag.ItemIsEditable |
-                    QtCore.Qt.ItemFlag.ItemIsUserCheckable |
-                    QtCore.Qt.ItemFlag.ItemIsDragEnabled |
-                    QtCore.Qt.ItemFlag.ItemIsDropEnabled
-                )
-            return (
-                QtCore.Qt.ItemFlag.ItemIsEnabled |
+            flags = (
                 QtCore.Qt.ItemFlag.ItemIsSelectable |
                 QtCore.Qt.ItemFlag.ItemIsEditable |
                 QtCore.Qt.ItemFlag.ItemIsUserCheckable |
                 QtCore.Qt.ItemFlag.ItemIsDragEnabled |
                 QtCore.Qt.ItemFlag.ItemIsDropEnabled
             )
+            item = index.internalPointer()
+            parent_item = item.parent
+            if parent_item and self.tree_manager.is_filtered_out(parent_item):
+                return flags
+            return QtCore.Qt.ItemFlag.ItemIsEnabled | flags
         return super(OutlinerTreeModel, self).flags(index)
+
+    def set_items_hidden(self, hide):
+        """Hide or unhide filtered items in outliner.
+
+        Args:
+            hide (bool): if True, hide items, else unhide them.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        self._hide_filtered_items = hide
+        if hide:
+            return self.set_filters([self.tree_manager.child_filter])
+        else:
+            return self.set_filters([])

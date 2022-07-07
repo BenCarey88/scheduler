@@ -17,7 +17,7 @@ from scheduler.api.tree.task import Task
 from scheduler.ui import utils
 from scheduler.ui.models.full_task_tree_model import ItemDialogTreeModel
 from scheduler.ui.models.outliner_tree_model import OutlinerTreeModel
-from scheduler.ui.models.task_model import TaskModel
+from scheduler.ui.models.task_tree_model import TaskTreeModel
 from scheduler.ui.widgets.outliner import Outliner
 
 
@@ -359,7 +359,7 @@ class OutlinerComboBox(TreeComboBox):
 
     def setup_task_combobox(self, index):
         if isinstance(self.selected_task_item, Task):
-            model = TaskModel(
+            model = TaskTreeModel(
                 self.selected_task_item,
                 self.tree_manager,
                 num_cols=1,
@@ -385,7 +385,7 @@ class TaskViewComboBox(TreeComboBox):
         )
         if task_item and task_category_item:
             self.setEnabled(True)
-            model = TaskModel(
+            model = TaskTreeModel(
                 task_category_item,
                 tree_manager,
                 num_cols=1,

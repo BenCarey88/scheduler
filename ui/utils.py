@@ -5,6 +5,8 @@ import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.utils import generate_temporary_id, get_item_by_id
+
 
 @contextmanager
 def suppress_signals(*QObjects_list):
@@ -102,3 +104,58 @@ def set_style(widget, stylesheet_filename):
     with open(stylesheet_path, "r") as stylesheet_file:
         stylesheet = stylesheet_file.read()
     widget.setStyleSheet(stylesheet)
+
+
+def encode_mime_data(items, mime_data_format):
+    """Encode items as mime data.
+
+    Args:
+        tree_items (list(variant) or variant): items to encode.
+        mime_data_format (str): format for mime data.
+
+    Returns:
+        (QtCore.QMimeData): the mimedata.
+    """
+    mimedata = QtCore.QMimeData()
+    encoded_data = QtCore.QByteArray()
+    stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
+
+    if not isinstance(items, list):
+        items = [items]
+    if len(items) > 1:
+        raise NotImplementedError(
+            "Mime data currently only works for single item."
+        )
+    text = None
+    for item in items:
+        text = generate_temporary_id(item)
+    if text:
+        stream << QtCore.QByteArray(text.encode('utf-8'))
+        mimedata.setData(mime_data_format, encoded_data)
+    return mimedata
+
+
+def decode_mime_data(mime_data, mime_data_format, drop=False):
+    """Decode mime data.
+
+    Args:
+        mime_data (QtCore.QMimeData): the mime data to decode.
+        mime_data_format (str or None): the format to decode.
+        drop (bool): if True, this decoding is part of a drop action, meaning
+            that we can delete the item's id after decoding.
+
+    Returns:
+        (BaseTreeItem or list(BaseTreeItem) or None): the encoded
+            item/s, if found.
+    """
+    if mime_data_format is None:
+        return None
+    encoded_data = mime_data.data(mime_data_format)
+    stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
+    if stream.atEnd():
+        return False
+    while not stream.atEnd():
+        byte_array = QtCore.QByteArray()
+        stream >> byte_array
+        encoded_id = bytes(byte_array).decode('utf-8')
+    return get_item_by_id(encoded_id, remove_from_registry=drop)

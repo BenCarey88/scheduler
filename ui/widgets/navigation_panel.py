@@ -41,14 +41,15 @@ class NavigationPanel(QtWidgets.QWidget):
             week view of panel. Argument is the new week.
     """
     CALENDAR_PERIOD_CHANGED_SIGNAL = QtCore.pyqtSignal(BaseCalendarPeriod)
-    DATE_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str, BaseCalendarPeriod)
-    VIEW_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str)
+    DATE_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str, str, BaseCalendarPeriod)
+    VIEW_TYPE_CHANGED_SIGNAL = QtCore.pyqtSignal(str, BaseCalendarPeriod)
 
     def __init__(
             self,
             calendar,
             calendar_period,
             view_types_dict,
+            start_view_type=None,
             hide_day_change_buttons=False,
             use_full_period_names=False,
             use_week_for_day=False,
@@ -62,11 +63,15 @@ class NavigationPanel(QtWidgets.QWidget):
             view_types_dict (OrderedDict(DateType, list(ViewType)): dict
                 associating a list of possible view types for each view date
                 type.
+            start_view_type (ViewType or None): start view type to use, if given.
             hide_day_change_buttons (bool): if True, always hide the day change
                 buttons that switch the week views to start on a different day.
             use_full_period_names (bool): if True, use long names for periods.
             use_week_for_day (bool): if True, use calendar week item to
-                represent a calendar day, so they can use the same model.
+                represent a calendar day in the navigation panel. In practice,
+                I don't intend to use this, as I think it's easier for the
+                navigation panel to always return the relevant period and take
+                care of switching type if needed in the view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(NavigationPanel, self).__init__(parent=parent)
@@ -112,6 +117,9 @@ class NavigationPanel(QtWidgets.QWidget):
         self.view_type_dropdown.setModel(
             QtCore.QStringListModel(self.view_types_dict.get(self.date_type))
         )
+        if (start_view_type and
+                start_view_type in self.view_types_dict.get(self.date_type)):
+            self.view_type_dropdown.setCurrentText(start_view_type)
         self.view_type = self.view_type_dropdown.currentText()
 
         layout.addWidget(self.date_label)
@@ -151,6 +159,7 @@ class NavigationPanel(QtWidgets.QWidget):
             self.hide_day_change_buttons or
             self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
         )
+        super(NavigationPanel, self).update()
 
     @staticmethod
     def get_current_calendar_period(
@@ -191,7 +200,7 @@ class NavigationPanel(QtWidgets.QWidget):
         return calendar.get_current_period(
             period_type,
             starting_weekday,
-            length
+            length,
         )
 
     @staticmethod
@@ -217,6 +226,11 @@ class NavigationPanel(QtWidgets.QWidget):
             return DateType.MONTH
         elif isinstance(calendar_period, CalendarYear):
             return DateType.YEAR
+        raise Exception(
+            "cannot find date type for calendar period {0}".format(
+                calendar_period.name
+            )
+        )
 
     def get_date_label(self, calendar_period=None):
         """Get date label for current calendar period.
@@ -453,10 +467,14 @@ class NavigationPanel(QtWidgets.QWidget):
         self.view_type = self.view_type_dropdown.currentText()
         self.cached_view_types_dict[self.date_type] = self.view_type
         self.update()
-        self.DATE_TYPE_CHANGED_SIGNAL.emit(date_type, self.calendar_period)
+        self.DATE_TYPE_CHANGED_SIGNAL.emit(
+            date_type,
+            self.view_type,
+            self.calendar_period,
+        )
 
     def change_view_type(self, view_type):
         """Change view type."""
         self.view_type = view_type
         self.cached_view_types_dict[self.date_type] = self.view_type
-        self.VIEW_TYPE_CHANGED_SIGNAL.emit(view_type)
+        self.VIEW_TYPE_CHANGED_SIGNAL.emit(view_type, self.calendar_period)

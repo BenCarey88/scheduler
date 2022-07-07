@@ -2,8 +2,6 @@
 
 from collections import OrderedDict
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 
@@ -40,6 +38,5 @@ class HistoryTab(BaseCalendarTab):
             main_views_dict,
             DateType.WEEK,
             ViewType.TIMETABLE,
-            use_week_for_day=True,
             parent=parent,
         )

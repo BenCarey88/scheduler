@@ -14,8 +14,6 @@ like this has happened, though not sure off the top of my head if that's doable.
 Ui and Tree Class Hierarchy
 ---------------------------
 
-(PROBABLY SCRAP THIS PLAN)
-
 At the moment, the ui to tree class hierarchy is roughly trying to do:
 
 widget -> (model) -> tree_manager -> tree_items -> edits
@@ -33,6 +31,7 @@ with them through the model/tree manager. Something a bit more like:
 widget  -->   [if item view]  -->   model  -->  tree_manager  --> tree_items
       \                                           ^
         -->       [else]       -------------------/
+
 
 
 Ui Specific Edits

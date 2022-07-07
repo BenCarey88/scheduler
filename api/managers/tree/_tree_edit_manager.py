@@ -1,7 +1,5 @@
 """Tree edit manager for managing edits on tree items."""
 
-
-from types import new_class
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.edit.tree_edit import (
     InsertChildrenEdit,
@@ -15,14 +13,9 @@ from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit,
 )
-from scheduler.api.tree.exceptions import (
-    ChildNameError,
-    MultipleParentsError,
-    UnallowedChildType,
-)
+from scheduler.api.tree.exceptions import UnallowedChildType
 from scheduler.api.tree.task import Task, TaskStatus, TaskType
 from scheduler.api.tree.task_category import TaskCategory
-from scheduler.api.tree.task_root import TaskRoot
 from scheduler.api.tree._base_tree_item import BaseTreeItem
 
 from .._base_manager import require_class
@@ -209,7 +202,7 @@ class TreeEditManager(BaseTreeManager):
             (bool): whether or not edit was successful.
         """
         if not tree_item.parent:
-            return None
+            return False
         return self.create_child(
             tree_item.parent,
             name,
@@ -239,7 +232,7 @@ class TreeEditManager(BaseTreeManager):
             (bool): whether or not edit was successful.
         """
         if not tree_item.parent:
-            return None
+            return False
         return self.create_new_child(
             tree_item.parent,
             default_name,
@@ -249,38 +242,21 @@ class TreeEditManager(BaseTreeManager):
         )
 
     @require_class(BaseTreeItem, raise_error=True)
-    def remove_child(self, tree_item, name):
-        """Remove an existing child from this item's children dict.
+    def remove_item(self, tree_item):
+        """Remove an existing tree item from its parent's children dict.
 
         Args:
-            tree_item (BaseTreeItem): the tree item to edit.
-            name (str): name of child item to remove.
+            tree_item (BaseTreeItem): the tree item to remove.
 
         Returns:
             (bool): whether or not edit was successful.
         """
-        if name in tree_item._children.keys():
-            return RemoveChildrenEdit.create_and_run(
-                tree_item,
-                [name],
-            )
-        return False
-
-    @require_class(BaseTreeItem, raise_error=True)
-    def remove_children(self, tree_item, names):
-        """Remove existing children from this item's children dict.
-
-        Args:
-            tree_item (BaseTreeItem): the tree item to edit.
-            name (list(str)): name of child items to remove.
-
-        Returns:
-            (bool): whether or not edit was successful.
-        """
-        names = [name for name in names if name in tree_item._children.keys()]
+        parent = tree_item.parent
+        if not parent:
+            return False
         return RemoveChildrenEdit.create_and_run(
-            tree_item,
-            names,
+            parent,
+            [tree_item.name],
         )
 
     @require_class((Task, TaskCategory), raise_error=True)
@@ -297,14 +273,14 @@ class TreeEditManager(BaseTreeManager):
             (bool): whether or not name was successfully set.
         """
         parent = tree_item.parent
-        if parent:
-            if parent.get_child(new_name):
-                return False
-            return RenameChildrenEdit.create_and_run(
-                parent,
-                {tree_item.name: new_name},
-            )
-        return False
+        if not parent:
+            return False
+        if parent.get_child(new_name):
+            return False
+        return RenameChildrenEdit.create_and_run(
+            parent,
+            {tree_item.name: new_name},
+        )
 
     @require_class(BaseTreeItem, raise_error=True)
     def move_item_local(self, tree_item, new_index):
@@ -321,41 +297,31 @@ class TreeEditManager(BaseTreeManager):
             return False
         if new_index >= tree_item.parent.num_children() or new_index < 0:
             return False
-        if new_index == tree_item.index():
+        old_index = tree_item.index()
+        if new_index == old_index:
             return False
         return MoveChildrenEdit.create_and_run(
             tree_item.parent,
             {tree_item.name: new_index},
         )
 
-    def move_item_by_path(
-            self,
-            path_to_item,
-            path_to_new_parent,
-            index=None):
+    @require_class(BaseTreeItem, raise_error=True)
+    def move_item(self, item, new_parent, index=None):
         """Move item at given path under parent at given path.
 
         Args:
-            path_to_item (list(str) or str): path of item to move.
-            path_to_new_parent (list(str) or str): path of parent to move it
-                to.
+            item (BaseTreeItem): item to move.
+            new_parent (BaseTreeItem): parent to move it to.
             index (int or None): index in new parent's _children dict to move
                 it to. If None, add at end.
 
         Returns:
             (bool): whether or not edit was successful.
         """
-        item = self._tree_root.get_item_at_path(path_to_item)
-        new_parent = self._tree_root.get_item_at_path(path_to_new_parent)
-        if not item or not new_parent or item.is_ancestor(new_parent):
+        if not self.can_accept_child(new_parent, item):
             return False
         if index is None:
             index = new_parent.num_children()
-        if (item.parent != new_parent
-                and item.name in new_parent._children.keys()):
-            return False
-        if type(item) not in new_parent._allowed_child_types:
-            return False
         if index < 0 or index > new_parent.num_children():
             return False
         return MoveTreeItemEdit.create_and_run(
@@ -452,6 +418,6 @@ class TreeEditManager(BaseTreeManager):
                 TaskType.ROUTINE if task_item.type == TaskType.GENERAL
                 else TaskType.GENERAL
             )
-        if new_type != task_item.type:
-            return ChangeTaskTypeEdit.create_and_run(task_item, new_type)
-        return False
+        if new_type == task_item.type:
+            return False
+        return ChangeTaskTypeEdit.create_and_run(task_item, new_type)

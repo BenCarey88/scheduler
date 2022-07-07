@@ -1,9 +1,5 @@
 """Task tree model."""
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
-from scheduler.api.tree.task import TaskStatus, TaskType
-
 from scheduler.ui import constants
 from ._base_tree_model import BaseTreeModel
 
@@ -11,7 +7,7 @@ from ._base_tree_model import BaseTreeModel
 class ItemDialogTreeModel(BaseTreeModel):
     """Model for the full task tree."""
 
-    def __init__(self, tree_manager, hide_filtered_items=False, parent=None):
+    def __init__(self, tree_manager, parent=None):
         """Initialise task tree model.
 
         Args:
@@ -23,5 +19,6 @@ class ItemDialogTreeModel(BaseTreeModel):
         """
         super(ItemDialogTreeModel, self).__init__(
             tree_manager,
-            parent=parent
+            mime_data_format=constants.ITEM_DIALOG_TREE_MIME_DATA_FORMAT,
+            parent=parent,
         )

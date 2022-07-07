@@ -92,20 +92,6 @@ class BaseCalendarPeriod(NestedSerializable):
             "name property is implemented in BaseCalendarPeriod subclasses."
         )
 
-    @property
-    def full_name(self):
-        """Get full name of class to use inserialization.
-
-        In most cases this is just name - the difference is that fullname
-        must give enough information to work out the calendar period on its
-        own, so if the name doesn't carry all the information, fullname must
-        be reimplemented.
-
-        Returns:
-            (str): full name of class.
-        """
-        return self.name
-
     def get_time_period_type(self):
         """Get time period type of item.
 
@@ -217,6 +203,14 @@ class CalendarDay(BaseCalendarPeriod):
             self._date.weekday_string(),
             self._date.ordinal_string()
         )
+
+    def get_as_one_day_week(self):
+        """Get this day as a one-day CalendarWeek object.
+
+        Returns:
+            (CalendarWeek): this day represented as a one day week.
+        """
+        return CalendarWeek(self.calendar, self.date, length=1)
 
     def iter_scheduled_items(self):
         """Iterate through scheduled scheduled items.
@@ -365,24 +359,6 @@ class CalendarDay(BaseCalendarPeriod):
         calendar_day._planned_week_items = planned_week_items
 
         return calendar_day
-
-    @classmethod
-    def from_name(cls, calendar, name):
-        """Get calendar day using name string.
-
-        Args:
-            calendar (Calendar): calendar object.
-            name (str): name of day.
-
-        Returns:
-            (CalendarDay or None): calendar day corresponding to name,
-                or None if couldn't be initialized.
-        """
-        try:
-            date = Date.from_string(name)
-        except DateTimeError:
-            return None
-        return calendar.get_day(date)
 
 
 class CalendarWeek(BaseCalendarPeriod):
@@ -702,27 +678,6 @@ class CalendarWeek(BaseCalendarPeriod):
                 calendar._add_day(calendar_day)
         return calendar_week
 
-    @classmethod
-    def from_name(cls, calendar, name):
-        """Get calendar week using name string.
-
-        Args:
-            calendar (Calendar): calendar object.
-            name (str): name of week.
-
-        Returns:
-            (CalendarWeek or None): calendar week corresponding to name,
-                or None if couldn't be initialized.
-        """
-        try:
-            start_date_string, end_date_string = name.split(" to ")
-            start_date = Date.from_string(start_date_string)
-            end_date = Date.from_string(end_date_string)
-        except (DateTimeError, ValueError):
-            return None
-        length = (end_date - start_date).days + 1
-        return cls(calendar, start_date, length)
-
 
 class CalendarMonth(BaseCalendarPeriod):
     """Class representing a month of calendar data."""
@@ -787,18 +742,6 @@ class CalendarMonth(BaseCalendarPeriod):
         return Date.month_string_from_int(self._month, short=False)
 
     @property
-    def full_name(self):
-        """Get full name to use for month.
-
-        Returns:
-            (str): month name, including year.
-        """
-        return "{0} {1}".format(
-            Date.month_string_from_int(self._month, short=False),
-            str(self._year)
-        )
-
-    @property
     def start_day(self):
         """Get start day of calendar month.
 
@@ -842,12 +785,14 @@ class CalendarMonth(BaseCalendarPeriod):
             length=length,
         )
 
-    def get_calendar_weeks(self, starting_day=0):
+    def get_calendar_weeks(self, starting_day=0, overspill=False):
         """Get calendar weeks list.
 
         Args:
             starting_day (int or str): integer or string representing starting
                 day for weeks. By default we start weeks on monday.
+            overspill (bool): if True, overspill weeks at either side to ensure
+                all weeks have length 7.
 
         Returns:
             (list(CalendarWeek)): list of calendar week objects for this month.
@@ -856,16 +801,25 @@ class CalendarMonth(BaseCalendarPeriod):
         if isinstance(starting_day, str):
             starting_day = Date.weekday_int_from_string(starting_day)
         date = self._start_date
-        while date <= self._end_date:
-            length = 7
-            if date.weekday != starting_day:
-                # beginning of month, restrict length til next start day
-                length = (starting_day - date.weekday) % 7
-            elif (self._end_date - date).days + 1 < 7:
-                # end of month, restrict length til end of month
-                length = (self._end_date - date).days + 1
-            week_list.append(CalendarWeek(self.calendar, date, length))
-            date += TimeDelta(days=length)
+
+        if overspill:
+            distance_from_start_day = (date.weekday - starting_day) % 7
+            date -= (TimeDelta(days=distance_from_start_day))
+            while date <= self._end_date:
+                week_list.append(CalendarWeek(self.calendar, date))
+                date += TimeDelta(weeks=1)
+
+        else:
+            while date <= self._end_date:
+                length = 7
+                if date.weekday != starting_day:
+                    # beginning of month, restrict length til next start day
+                    length = (starting_day - date.weekday) % 7
+                elif (self._end_date - date).days + 1 < 7:
+                    # end of month, restrict length til end of month
+                    length = (self._end_date - date).days + 1
+                week_list.append(CalendarWeek(self.calendar, date, length))
+                date += TimeDelta(days=length)
         return week_list
 
     def iter_days(self):
@@ -1002,26 +956,6 @@ class CalendarMonth(BaseCalendarPeriod):
         ]
         return calendar_month
 
-    @classmethod
-    def from_name(cls, calendar, full_name):
-        """Get calendar month using name string.
-
-        Args:
-            calendar (Calendar): calendar object.
-            full_name (str): full_name of month.
-
-        Returns:
-            (CalendarMonth or None): calendar month corresponding to name,
-                or None if couldn't be initialized.
-        """
-        try:
-            month, year = full_name.split(" ")
-            month = Date.month_int_from_string(month)
-            year = int(year)
-        except (DateTimeError, ValueError):
-            return None
-        return calendar.get_month(year, month)
-
 
 class CalendarYear(BaseCalendarPeriod):
     """Class representing a year of calendar data."""
@@ -1143,7 +1077,7 @@ class CalendarYear(BaseCalendarPeriod):
         Returns:
             (CalendarYear): calendar year before this one.
         """
-        return self.calendar.get_year(self._year + 1)
+        return self.calendar.get_year(self._year - 1)
 
     def contains(self, calendar_period):
         """Check if this calendar period contains another.
@@ -1222,21 +1156,3 @@ class CalendarYear(BaseCalendarPeriod):
             for dict_ in dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
         ]
         return calendar_year
-
-    @classmethod
-    def from_name(cls, calendar, name):
-        """Get calendar year using name string.
-
-        Args:
-            calendar (Calendar): calendar object.
-            name (str): name of year.
-
-        Returns:
-            (CalendarYear or None): calendar year corresponding to name,
-                or None if couldn't be initialized.
-        """
-        try:
-            year = int(name)
-        except ValueError:
-            return None
-        return calendar.get_year(year)

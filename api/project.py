@@ -213,6 +213,7 @@ class Project(CustomSerializable):
         """
         return self._project_tree.root_directory
 
+    # TODO: make consistent across repo 'tree root' /'task root'
     @property
     def task_root(self):
         """Get task root component.

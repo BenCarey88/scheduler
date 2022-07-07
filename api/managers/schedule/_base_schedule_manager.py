@@ -3,6 +3,7 @@
 from scheduler.api.calendar.scheduled_item import(
     BaseScheduledItem,
     ScheduledItem,
+    ScheduledItemType,
     RepeatScheduledItem,
     RepeatScheduledItemInstance,
 )
@@ -44,6 +45,32 @@ class BaseScheduleManager(BaseCalendarManager):
             return scheduled_item
         elif isinstance(scheduled_item, RepeatScheduledItemInstance):
             return scheduled_item.repeat_scheduled_item
+
+    @require_class(BaseScheduledItem, True)
+    def has_task_type(self, scheduled_item):
+        """Check if item is a task item.
+
+        Args:
+            scheduled_item (ScheduledItem or RepeatScheduledItem): scheduled
+                item to check.
+
+        Returns:
+            (bool): whether or not item is task item.
+        """
+        return scheduled_item.type == ScheduledItemType.TASK
+
+    @require_class(BaseScheduledItem, True)
+    def has_event_type(self, scheduled_item):
+        """Check if item is an event item.
+
+        Args:
+            scheduled_item (ScheduledItem or RepeatScheduledItem): scheduled
+                item to check.
+
+        Returns:
+            (bool): whether or not item is an event item.
+        """
+        return scheduled_item.type == ScheduledItemType.EVENT
 
     @require_class((ScheduledItem, RepeatScheduledItem), True)
     def is_repeat_item(self, scheduled_item):

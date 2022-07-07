@@ -67,13 +67,12 @@ class BaseMonthModel(BaseTableModel):
         Args:
             week_start_day (int or str): day week is considered to start from.
         """
-        if isinstance(weekday_start, str):
-            weekday_start = Date.weekday_int_from_string(weekday_start)
-        self.weekday_start = weekday_start
+        if isinstance(week_start_day, str):
+            week_start_day = Date.weekday_int_from_string(week_start_day)
+        self.weekday_start = week_start_day
         self.num_rows = len(
-            self.calendar_month.get_calendar_weeks(weekday_start)
+            self.calendar_month.get_calendar_weeks(week_start_day)
         )
-        self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     def day_from_row_and_column(self, row, column):
         """Get calendar day at given row and column.

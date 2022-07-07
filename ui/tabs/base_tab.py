@@ -2,20 +2,13 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.managers import TreeManager
+from scheduler.api.edit.edit_callbacks import CallbackItemType
 
 from scheduler.ui.widgets.outliner import Outliner
 
 
 class BaseTab(QtWidgets.QWidget):
-    """Base Tab class.
-
-    Signals:
-        MODEL_UPDATED_SIGNAL: emitted whenever the tree model is updated by
-            the outliner.
-    """
-    MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
-
+    """Base Tab class."""
     def __init__(self, name, project, parent=None):
         """Initialise tab.
 
@@ -24,35 +17,42 @@ class BaseTab(QtWidgets.QWidget):
             project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        super(BaseTab, self).__init__(parent)
+        super(BaseTab, self).__init__(parent=parent)
         self.name = name
         self.tree_manager = project.get_tree_manager(name)
-        self.outliner = Outliner(self.tree_manager, parent=self)
+        self.outliner = Outliner(self, self.tree_manager, parent=self)
 
         self.outer_layout = QtWidgets.QVBoxLayout()
         self.setLayout(self.outer_layout)
 
-        self.MODEL_UPDATED_SIGNAL.connect(
-            self._update_outliner
-        )
-        self.outliner.MODEL_UPDATED_SIGNAL.connect(
-            self._update_and_return_focus_to_outliner
-        )
+    def on_outliner_current_changed(self, new_item):
+        """Callback for what to do when current is changed in outliner.
 
-    # TODO: neaten this section - should they probably both just always update
-    # everything? ie. no need for the separate outliner and tab update functions?
-    def _update_outliner(self):
-        """Update outliner to sync with model, then return focus to this."""
-        self.outliner.update()
-        self.setFocus()
+        Args:
+            new_item (BaseTreeItem): new item selected in outliner.
+        """
+        pass
 
-    def _update_and_return_focus_to_outliner(self):
-        """Update main view, then return focus to outliner after."""
-        self.update()
-        self.outliner.setFocus()
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        pass
 
-    def update(self):
-        """Update main view to sync with model."""
-        raise NotImplementedError(
-            "update method needs to be implemented in subclasses."
-        )
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type[0] == CallbackItemType.TREE:
+            self.outliner.pre_edit_callback(callback_type, *args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type[0] == CallbackItemType.TREE:
+            self.outliner.post_edit_callback(callback_type, *args)

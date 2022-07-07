@@ -3,7 +3,6 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.calendar.planned_item import (
-    PlannedItem,
     PlannedItemImportance,
     PlannedItemSize,
 )
@@ -58,6 +57,11 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         ]
         self.open_dialog_on_drop_event = open_dialog_on_drop_event
 
+        self._insert_rows_in_progress = False
+        self._remove_rows_in_progress = False
+        self._move_rows_in_progress = False
+        self._full_update_in_progress = False
+
     def set_calendar_period(self, calendar_period):
         """Set model to use given calendar period.
 
@@ -67,8 +71,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         self.calendar_period = calendar_period
         self.beginResetModel()
         self.endResetModel()
-        # self.insertRows(0, len(self.calendar_period._planned_items))
-        # self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
     def get_column_name(self, index):
         """Get name of column at index.
@@ -97,6 +99,18 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             return self.columns[column]
         return None
 
+    def get_index_for_first_item(self):
+        """Get index of first item in model.
+
+        Returns:
+            (QtCore.QModelIndex or None): index, if found.
+        """
+        item_list = self.calendar_period.get_planned_items_container()
+        if not item_list:
+            return None
+        item = item_list[0]
+        return self.createIndex(0, 0, item)
+
     def remove_item(self, index, force=False):
         """Remove item at given index.
 
@@ -114,14 +128,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                     "Delete Planned Item ({0})?".format(item.name),
                 )
                 if continue_deletion:
-                    self.beginRemoveRows(
-                        QtCore.QModelIndex(),
-                        index.row(),
-                        index.row(),
-                    )
-                    success = self.planner_manager.remove_planned_item(item)
-                    self.endRemoveRows()
-                    return success
+                    return self.planner_manager.remove_planned_item(item)
         return False
 
     def sort(self, column, order):
@@ -142,13 +149,11 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             key = lambda item : PlannedItemImportance.key(item.importance)
         elif column_name == self.SIZE_COLUMN:
             key = lambda item : PlannedItemSize.key(item.size)
-        self.beginResetModel()
         self.planner_manager.sort_planned_items(
             self.calendar_period,
             key=key,
             reverse=reverse,
         )
-        self.endResetModel()
         super(PlannerListModel, self).sort(column, order)
 
     def index(self, row, column, parent_index):
@@ -291,26 +296,17 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.Qt.Flag): Qt flags for item.
         """
-        if self.get_column_name(index) == self.NAME_COLUMN:
-            return (
-                QtCore.Qt.ItemFlag.ItemIsEnabled |
-                QtCore.Qt.ItemFlag.ItemIsSelectable |
-                QtCore.Qt.ItemFlag.ItemIsDragEnabled |
-                QtCore.Qt.ItemFlag.ItemIsDropEnabled
-            )
-        if (self.get_column_name(index) in 
-                [self.IMPORTANCE_COLUMN, self.SIZE_COLUMN]):
-            return (
-                QtCore.Qt.ItemFlag.ItemIsEnabled |
-                QtCore.Qt.ItemFlag.ItemIsSelectable |
-                QtCore.Qt.ItemFlag.ItemIsEditable |
-                QtCore.Qt.ItemFlag.ItemIsDropEnabled
-            )
-        return (
+        flags = (
             QtCore.Qt.ItemFlag.ItemIsEnabled |
             QtCore.Qt.ItemFlag.ItemIsSelectable |
             QtCore.Qt.ItemFlag.ItemIsDropEnabled
         )
+        if self.get_column_name(index) == self.NAME_COLUMN:
+            return flags | QtCore.Qt.ItemFlag.ItemIsDragEnabled
+        if (self.get_column_name(index) in 
+                [self.IMPORTANCE_COLUMN, self.SIZE_COLUMN]):
+            return flags | QtCore.Qt.ItemFlag.ItemIsEditable
+        return flags
 
     def mimeTypes(self):
         """Get accepted mime data types.
@@ -343,24 +339,15 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.QMimeData): mimedata for given indexes.
         """
-        mimedata = QtCore.QMimeData()
-        encoded_data = QtCore.QByteArray()
-        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
-        if len(indexes) > 1:
-            raise NotImplementedError(
-                "Mime data currently only works for single item."
-            )
-        text = None
-        for index in indexes:
-            if index.isValid() and index.internalPointer():
-                text = index.internalPointer().get_temp_id()
-        if text:
-            stream << QtCore.QByteArray(text.encode('utf-8'))
-            mimedata.setData(
-                constants.PLANNED_ITEM_MIME_DATA_FORMAT,
-                encoded_data
-            )
-        return mimedata
+        planned_items = [
+            index.internalPointer()
+            for index in indexes
+            if index.isValid() and index.internalPointer()
+        ]
+        return utils.encode_mime_data(
+            planned_items,
+            constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+        )
 
     def canDropMimeData(self, data, action, row, column, parent):
         """Check whether mime data can be dropped.
@@ -373,10 +360,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             parent_index (QtCore.QModelIndex): index of parent item we're
                 dropping under.
         """
-        # Only drop on empty spaces or between items
-        if not parent.isValid():
-            return True
-        return False
+        return True
 
     def dropMimeData(self, data, action, row, column, parent_index):
         """Add mime data at given index.
@@ -389,7 +373,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             row (int): the row we're dropping on. If -1, this means that we're
                 dropping directly on the parent item (interpreted as dropping
                 it on the final row).
-            column (int): the column we're dropping on.
+            column (int): the column we're dropping on. If we're dropping
+                directly on the parent item this is again -1.
             parent_index (QtCore.QModelIndex): index of parent item we're
                 dropping under.
 
@@ -398,32 +383,27 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return True
-        if column > 0:
-            return False
 
         if row < 0:
-            # if row is -1 this means we've dropped it on the parent,
-            # add to end of row
-            row = self.rowCount(parent_index)
-
-        root = self.planner_manager.tree_root
+            parent = parent_index.internalPointer()
+            if parent is None:
+                # if no parent, we've added it at end of list
+                row = self.rowCount(parent_index)
+            else:
+                # otherwise we've dropped on item, add it before item
+                row = parent.index()
+                if row is None:
+                    return False
 
         if data.hasFormat(constants.OUTLINER_TREE_MIME_DATA_FORMAT):
-            encoded_data = data.data(constants.OUTLINER_TREE_MIME_DATA_FORMAT)
-            stream = QtCore.QDataStream(
-                encoded_data,
-                QtCore.QIODevice.ReadOnly
+            tree_item = utils.decode_mime_data(
+                data,
+                constants.OUTLINER_TREE_MIME_DATA_FORMAT,
+                drop=True,
             )
-            while not stream.atEnd():
-                byte_array = QtCore.QByteArray()
-                stream >> byte_array
-                encoded_path = bytes(byte_array).decode('utf-8')
-
-            tree_item = root.get_item_at_path(encoded_path)
             if tree_item is None:
                 return False
 
-            self.beginResetModel()
             if self.open_dialog_on_drop_event:
                 dialog = PlannedItemDialog(
                     self.tree_manager,
@@ -440,28 +420,115 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                     tree_item,
                     index=row,
                 )
-            self.endResetModel()
             return bool(success)
 
         elif data.hasFormat(constants.PLANNED_ITEM_MIME_DATA_FORMAT):
-            encoded_data = data.data(constants.PLANNED_ITEM_MIME_DATA_FORMAT)
-            stream = QtCore.QDataStream(
-                encoded_data,
-                QtCore.QIODevice.ReadOnly
+            planned_item = utils.decode_mime_data(
+                data,
+                constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+                drop=True,
             )
-            while not stream.atEnd():
-                byte_array = QtCore.QByteArray()
-                stream >> byte_array
-                encoded_id = bytes(byte_array).decode('utf-8')
-
-            planned_item = PlannedItem.from_temp_id(encoded_id)
             if planned_item is None:
                 return False
 
-            self.beginResetModel()
             success = self.planner_manager.move_planned_item(
                 planned_item,
                 row,
             )
-            self.endResetModel()
             return bool(success)
+
+    ### Callbacks ###
+    def pre_item_added(self, item, row):
+        """Callback for before an item has been added.
+
+        Args:
+            item (PlannedItem): the item to add.
+            row (int): the index the item will be added at.
+        """
+        self.beginInsertRows(QtCore.QModelIndex(), row, row)
+        self._insert_rows_in_progress = True
+
+    def on_item_added(self, item, row):
+        """Callback for after an item has been added.
+
+        Args:
+            item (PlannedItem): the added item.
+            row (int): the index the item was added at.
+        """
+        if self._insert_rows_in_progress:
+            self.endInsertRows()
+            self._insert_rows_in_progress = False
+
+    def pre_item_removed(self, item, row):
+        """Callbacks for before an item is removed.
+
+        Args:
+            item (PlannedItem): the item to remove.
+            row (int): the index the item will be removed from.
+        """
+        self.beginRemoveRows(QtCore.QModelIndex(), row, row)
+        self._remove_rows_in_progress = True
+
+    def on_item_removed(self, item, row):
+        """Callback for after an item has been removed.
+
+        Args:
+            item (PlannedItem): the item that was removed.
+            row (int): the index the item was removed from.
+        """
+        if self._remove_rows_in_progress:
+            self.endRemoveRows()
+            self._remove_rows_in_progress = False
+
+    def pre_item_moved(self, item, old_row, new_row):
+        """Callback for before an item is moved.
+
+        Args:
+            item (PlannedItem): the item to move.
+            old_row (int): the original index of the item.
+            new_row (int): the new index of the moved item.
+        """
+        if new_row > old_row:
+            new_row += 1
+        self.beginMoveRows(
+            QtCore.QModelIndex(),
+            old_row,
+            old_row,
+            QtCore.QModelIndex(),
+            new_row,
+        )
+
+    def on_item_moved(self, item, old_row, new_row):
+        """Callback for after an item has been moved.
+
+        Args:
+            item (PlannedItem): the item that was moved.
+            old_row (int): the original index of the item.
+            new_row (int): the new index of the moved item.
+        """
+        if self._move_rows_in_progress:
+            self.endMoveRows()
+            self._move_rows_in_progress = False
+
+    def on_item_modified(self, old_item, new_item):
+        """Callback for after an item has been modified.
+
+        Args:
+            old_item (BaseTreeItem): the item that was modified.
+            new_item (BaseTreeItem): the item after modification.
+        """
+        row = new_item.index()
+        if row is not None:
+            index = self.index(row, 0, QtCore.QModelIndex())
+            self.dataChanged.emit(index, index)
+
+    def pre_full_update(self):
+        """Callbacks for before a full reset."""
+        self.beginResetModel()
+        self._full_update_in_progress = True
+
+    def on_full_update(self):
+        """Callback for after a full reset."""
+        if self._full_update_in_progress:
+            self.endResetModel()
+            self._full_update_in_progress = False

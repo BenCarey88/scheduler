@@ -6,7 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
 
-from scheduler.ui.widgets.navigation_panel import DateType, NavigationPanel
+from scheduler.ui.widgets.navigation_panel import NavigationPanel
 from .base_tab import BaseTab
 
 
@@ -28,7 +28,6 @@ class BaseCalendarTab(BaseTab):
             view_type,
             hide_day_change_buttons=False,
             use_full_period_names=False,
-            use_week_for_day=False,
             parent=None):
         """Initialise tab.
 
@@ -43,8 +42,6 @@ class BaseCalendarTab(BaseTab):
                 buttons that switch the week views to start on a different day.
             use_full_period_names (bool): if True, use long names for periods
                 in navigation bar.
-            use_week_for_day (bool): if True, day view will use a calendar
-                week object, so it can make use of the week model.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         if (date_type, view_type) not in main_views_dict.keys():
@@ -64,7 +61,6 @@ class BaseCalendarTab(BaseTab):
             project.calendar,
             self.date_type,
             self.WEEK_START_DAY,
-            use_week_for_day=use_week_for_day,
         )
         self.main_views_dict = main_views_dict
         view_types_dict = OrderedDict()
@@ -75,9 +71,9 @@ class BaseCalendarTab(BaseTab):
             self.calendar,
             calendar_period,
             view_types_dict,
+            start_view_type=self.view_type,
             hide_day_change_buttons=hide_day_change_buttons,
             use_full_period_names=use_full_period_names,
-            use_week_for_day=use_week_for_day,
             parent=self,
         )
         self.main_view = main_views_dict.get((self.date_type, self.view_type))
@@ -94,6 +90,7 @@ class BaseCalendarTab(BaseTab):
         self.main_views_stack = QtWidgets.QStackedWidget()
         for view in self.main_views_dict.values():
             self.main_views_stack.addWidget(view)
+            view.setup()
         self.main_views_stack.setCurrentWidget(self.main_view)
 
         self.outer_layout.addWidget(self.navigation_panel)
@@ -112,6 +109,7 @@ class BaseCalendarTab(BaseTab):
     def update(self):
         """Update widget."""
         self.main_view.update()
+        super(BaseCalendarTab, self).update()
 
     def set_to_calendar_period(self, calendar_period):
         """Set main view to calendar period.
@@ -121,25 +119,48 @@ class BaseCalendarTab(BaseTab):
         """
         self.main_view.set_to_calendar_period(calendar_period)
 
-    def update_date_type(self, date_type, calendar_period):
+    def update_date_type(self, date_type, view_type, calendar_period):
         """Change main view based on date type.
 
         Args:
             date_type (DateType): new date type to set.
+            view_type (ViewType): view type of new date type.
             calendar_period (BaseCalendarPeriod): calendar period to set.
         """
         self.date_type = date_type
-        self.main_view = self.main_views_dict.get((date_type, self.view_type))
+        self.view_type = view_type
+        self.main_view = self.main_views_dict.get((date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
 
-    def update_view_type(self, view_type):
+    def update_view_type(self, view_type, calendar_period):
         """Change main view based on view type.
 
         Args:
             view_type (ViewType): new view type to set.
+            calendar_period (BaseCalendarPeriod): calendar period to set.
         """
         self.view_type = view_type
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
         self.main_views_stack.setCurrentWidget(self.main_view)
-        self.update()
+        self.set_to_calendar_period(calendar_period)
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(BaseCalendarTab, self).pre_edit_callback(callback_type, *args)
+        self.main_view.pre_edit_callback(callback_type, *args)
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(BaseCalendarTab, self).post_edit_callback(callback_type, *args)
+        self.main_view.post_edit_callback(callback_type, *args)

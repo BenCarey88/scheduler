@@ -3,6 +3,7 @@
 from functools import partial
 
 from scheduler.api.common.object_wrappers import BaseObjectWrapper, Hosted
+from scheduler.api.utils import fallback_value
 from ._base_edit import BaseEdit, EditError
 
 
@@ -68,14 +69,14 @@ class SelfInverseSimpleEdit(SimpleEdit):
         )
 
 
-# TODO: use check_validity function for these classes.
 class CompositeEdit(BaseEdit):
     """Edit made up of a combination of other edit types."""
 
     def __init__(
             self,
             edits_list,
-            reverse_order_for_inverse=True):
+            reverse_order_for_inverse=True,
+            validity_check_edits=None):
         """Initialize composite edit.
 
         The edits passed to the edits_list must have their register flag
@@ -85,9 +86,9 @@ class CompositeEdit(BaseEdit):
             edits_list (list(BaseEdit)): list of edits to compose.
             reverse_order_for_inverse (bool): if True, we reverse the order
                 of the edits for the inverse.
+            validity_check_edits (list(BaseEdit) or None): if given,
+                determine validity based just on this sublist of edits.
         """
-        super(CompositeEdit, self).__init__()
-        self._is_valid = bool(edits_list)
         for edit in edits_list:
             if edit._register_edit or edit._registered or edit._has_been_done:
                 raise EditError(
@@ -97,16 +98,14 @@ class CompositeEdit(BaseEdit):
                 )
         self._edits_list = edits_list
         self._reverse_order_for_inverse = reverse_order_for_inverse
-        self._valid_subedits = set()
+        super(CompositeEdit, self).__init__()
+        validity_edits = fallback_value(validity_check_edits, self._edits_list)
+        self._is_valid = any([edit._is_valid for edit in validity_edits])
 
     def _run(self):
         """Run each edit in turn."""
         for edit in self._edits_list:
             edit._run()
-            if not self._registered and edit._is_valid:
-                self._valid_subedits.add(edit)
-        if not self._registered:
-            self._is_valid = bool(self._valid_subedits)
 
     def _inverse_run(self):
         """Run each inverse edit in reverse order of edits_list."""
@@ -116,75 +115,6 @@ class CompositeEdit(BaseEdit):
             inverse_edits_list = self._edits_list
         for edit in inverse_edits_list:
             edit._inverse_run()
-
-    def _update(
-            self,
-            edit_updates=None,
-            edit_replacements=None,
-            edit_additions=None):
-        """Update subedits for continuous run functionality.
-
-        args:
-            edit_updates (dict(BaseEdit, tuple) or None): dictionary of
-                subedits to update along with args and kwargs for those
-                _update methods.
-            edit_replacements (dict(BaseEdit, BaseEdit) or None): dictionary
-                of subedits to replace, along with edits to replace them.
-            edit_additions (list(BaseEdit)): additional edits to add.
-        """
-        edit_updates = edit_updates or {}
-        edit_replacements = edit_replacements or {}
-        edit_additions = edit_additions or []
-
-        for edit, args_and_kwargs in edit_updates.items():
-            if not edit in self._edits_list:
-                raise EditError(
-                    "Edit ({0}) not part of this composite edit. Cannot "
-                    "update it.".format(edit.name)
-                )
-            args, kwargs = args_and_kwargs
-            edit._update(*args, **kwargs)
-            if edit._is_valid:
-                self._valid_subedits.add(edit)
-            else:
-                self._valid_subedits.discard(edit)
-
-        for edit, replacement_edit in edit_replacements.items():
-            if not edit in self._edits_list:
-                raise EditError(
-                    "Edit ({0}) not part of this composite edit. Cannot "
-                    "replace it.".format(edit.name)
-                )
-            if (replacement_edit._register_edit
-                    or replacement_edit._registered
-                    or replacement_edit._has_been_done):
-                raise EditError(
-                    "Edits passed to CompositeEdit update cannot be "
-                    "registered individually, and must not have already "
-                    "been run."
-                )
-            if edit._is_valid:
-                edit._inverse_run()
-            replacement_edit._run()
-            index = self._edits_list.index(edit)
-            self._edits_list[index] = replacement_edit
-            self._valid_subedits.discard(edit)
-            if replacement_edit._is_valid:
-                self._valid_subedits.add(replacement_edit)
-
-        for edit in edit_additions:
-            if edit._register_edit or edit._registered or edit._has_been_done:
-                raise EditError(
-                    "Edits passed to CompositeEdit update cannot be "
-                    "registered individually, and must not have already "
-                    "been run."
-                )
-            self._edits_list.append(edit)
-            edit._run()
-            if edit._is_valid:
-                self._valid_subedits.add(edit)
-
-        self._is_valid = bool(self._valid_subedits)
 
 
 class AttributeEdit(BaseEdit):
@@ -206,43 +136,21 @@ class AttributeEdit(BaseEdit):
                     "MutableAttributes or MutableHostedAttributes."
                 )
             self._orig_attr_dict[attr] = attr.value
-        self._modified_attrs = set()
+
+        self._is_valid = any([
+            self._orig_attr_dict[attr] != self._attr_dict[attr]
+            for attr in self._attr_dict
+        ])
 
     def _run(self):
         """Run edit."""
         for attr, value in self._attr_dict.items():
-            if attr.set_value(value) and not self._registered:
-                self._modified_attrs.add(value)
-        if not self._registered:
-            self._is_valid = bool(self._modified_attrs)
+            attr.set_value(value)
 
     def _inverse_run(self):
         """Run edit inverse."""
         for attr, value in self._orig_attr_dict.items():
             attr.set_value(value)
-
-    def _update(self, attr_dict):
-        """Update attr dict for continuous run functionality.
-
-        args:
-            attr_dict (dict(MutableAttribute, variant)): dictionary of
-                attributes with new values to update them to.
-        """
-        for attr in attr_dict:
-            if not isinstance(attr, BaseObjectWrapper):
-                raise EditError(
-                    "attr_dict in AttributeEdit must be keyed by "
-                    "MutableAttributes or MutableHostedAttributes."
-                )
-        self._attr_dict.update(attr_dict)
-        for attr, value in self._attr_dict.items():
-            if attr not in self._orig_attr_dict:
-                self._orig_attr_dict[attr] = attr.value
-            if attr.set_value(value):
-                self._modified_attrs.add(value)
-            else:
-                self._modified_attrs.discard(value)
-        self._is_valid = bool(self._modified_attrs)
 
     def _get_attr_value_change_string(self, attr):
         """Get string describing value change for attribute.
@@ -316,8 +224,8 @@ class HostedDataEdit(SimpleEdit):
             raise EditError(
                 "args passed to HostedDataEdit must be Hosted class objects."
             )
-        self._is_valid = (old_data != new_data)
         super(HostedDataEdit, self).__init__(
             run_func=partial(new_data._switch_host, old_data.host),
             inverse_run_func=partial(old_data._switch_host, new_data.host),
         )
+        self._is_valid = (old_data != new_data)

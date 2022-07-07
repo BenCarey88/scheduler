@@ -10,7 +10,7 @@ class BaseFilter(object):
         return child_dict
 
 
-class NoFilter(object):
+class NoFilter(BaseFilter):
     """Filter that does nothing."""
 
     def __bool__(self):

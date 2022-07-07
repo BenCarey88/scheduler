@@ -8,7 +8,7 @@ from scheduler.ui import constants
 from ._base_tree_model import BaseTreeModel
 
 
-class TaskModel(BaseTreeModel):
+class TaskTreeModel(BaseTreeModel):
     """Task tree model.
 
     This model is intended to be used in the main panel of the Task Tab.
@@ -23,11 +23,11 @@ class TaskModel(BaseTreeModel):
             tree_manager (TreeManager): tree manager item.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
-        super(TaskModel, self).__init__(
+        super(TaskTreeModel, self).__init__(
             tree_manager,
             tree_root=root_task,
             mime_data_format=constants.TASK_TAB_TREE_MIME_DATA_FORMAT,
-            parent=parent
+            parent=parent,
         )
         self.columns = [self.NAME_COLUMN, self.STATUS_COLUMN]
 
@@ -40,9 +40,9 @@ class TaskModel(BaseTreeModel):
                 filters passed during construction, and the id filter from
                 the tree manager.
         """
-        id_filter = self.tree_manager.child_filter
-        if id_filter:
-            return self._base_filters + [id_filter]
+        item_filter = self.tree_manager.child_filter
+        if item_filter:
+            return self._base_filters + [item_filter]
         return self._base_filters
 
     def data(self, index, role):
@@ -87,7 +87,7 @@ class TaskModel(BaseTreeModel):
                         item.status
                     )
 
-        return super(TaskModel, self).data(index, role)
+        return super(TaskTreeModel, self).data(index, role)
 
     def setData(self, index, value, role):
         """Set data at given index to given value.
@@ -108,9 +108,8 @@ class TaskModel(BaseTreeModel):
             if not task_item:
                 return False
             self.tree_manager.update_task(task_item)
-            self.dataChanged.emit(index, index)
             return True
-        return super(TaskModel, self).setData(index, value, role)
+        return super(TaskTreeModel, self).setData(index, value, role)
 
     def flags(self, index):
         """Get flags for given item item.
@@ -124,12 +123,10 @@ class TaskModel(BaseTreeModel):
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
         if self.get_column_name(index) == self.STATUS_COLUMN:
-            # TODO: work out how to create a selection of base flags
-            # and then just add/remove some for each model subclass
             return (
                 QtCore.Qt.ItemFlag.ItemIsEnabled |
                 QtCore.Qt.ItemFlag.ItemIsSelectable |
                 QtCore.Qt.ItemFlag.ItemIsEditable |
                 QtCore.Qt.ItemFlag.ItemIsUserCheckable
             )
-        return super(TaskModel, self).flags(index)
+        return super(TaskTreeModel, self).flags(index)

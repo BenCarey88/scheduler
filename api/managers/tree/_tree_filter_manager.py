@@ -6,10 +6,12 @@ editing the underlying tree item data, eg. whether or not the item
 is being filtered for in the current tab.
 """
 
+from scheduler.api.tree._base_tree_item import BaseTreeItem
 from scheduler.api.tree.filters import NoFilter, FilterByItem
 from scheduler.api.utils import fallback_value
 
 from ._base_tree_manager import BaseTreeManager
+from .._base_manager import require_class
 
 
 class TreeFilterManager(BaseTreeManager):
@@ -298,15 +300,21 @@ class TreeFilterManager(BaseTreeManager):
         )
         self.set_attribute(tree_item, self.IS_EXPANDED, value, default=default)
 
-    def set_expanded_from_filtered(self, item):
+    def set_expanded_from_filtered(self, item=None):
         """Set filtered items as collapsed and unfiltered as expanded.
 
-        This only exapdns TaskCategory items, to avoid opening full tree
+        This only expands TaskCategory items, to avoid opening full tree
         unnecessarily.
 
         Args:
-            item (BaseTreeItem): tree item to set from.
+            item (BaseTreeItem or None): tree item to set from. If not given,
+                use root.
+
+        Returns:
+            (bool): whether or not action was successful.
         """
+        if item is None:
+            item = self.tree_root
         if self.is_filtered_out(item):
             self.expand_item(item, False)
         else:
@@ -314,6 +322,7 @@ class TreeFilterManager(BaseTreeManager):
                 self.expand_item(item, True)
             for child in item.get_all_children():
                 self.set_expanded_from_filtered(child)
+        return True
 
     @property
     def child_filter(self):
@@ -325,6 +334,19 @@ class TreeFilterManager(BaseTreeManager):
         if self._filtered_items:
             return FilterByItem(list(self._filtered_items))
         return NoFilter()
+
+    @require_class(BaseTreeItem, raise_error=True)
+    def get_filtered_children(self, tree_item):
+        """Get filtered children of tree item.
+
+        Args:
+            tree_item (BaseTreeItem): item to get chidren of.
+
+        Returns:
+            (list(BaseTreeItem)): children with filter applied.
+        """
+        with tree_item.filter_children([self.child_filter]):
+            return tree_item.get_all_children()
 
     def set_current_item(self, item):
         """Set given item as the currently selected one.

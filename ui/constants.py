@@ -2,9 +2,10 @@
 
 from collections import OrderedDict
 
-from PyQt5 import QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.tree.task import TaskStatus
+
 
 # General
 TASK_STATUS_CHECK_STATES = OrderedDict([
@@ -18,6 +19,7 @@ LONG_TIMER_INTERVAL = 300000 # every 5 mins
 # Mime Data
 OUTLINER_TREE_MIME_DATA_FORMAT = "outliner_tree_mime_data"
 TASK_TAB_TREE_MIME_DATA_FORMAT = "task_tab_tree_mime_data"
+ITEM_DIALOG_TREE_MIME_DATA_FORMAT = "item_dialog_tree_mime_data"
 PLANNED_ITEM_MIME_DATA_FORMAT = "planned_item_mime_data"
 
 # Colors
@@ -28,6 +30,9 @@ TASK_STATUS_COLORS = {
     TaskStatus.IN_PROGRESS: QtGui.QColor(175, 100, 255),
     TaskStatus.COMPLETE: QtGui.QColor(100, 160, 36),
 }
+BASE_SCHEDULED_EVENT_COLOR = QtGui.QColor(173, 216, 230)
+BASE_SCHEDULED_TASK_COLOR = QtGui.QColor(245, 245, 190)
+SCHEDULER_SELECTION_RECT_COLOR = QtGui.QColor(0, 255, 204)
 
 # Buttons
 YES_BUTTON = QtWidgets.QMessageBox.StandardButton.Yes

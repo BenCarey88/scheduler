@@ -1,167 +1,18 @@
 """Scheduler week view."""
 
+from calendar import calendar
 import math
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
-from scheduler.api.calendar.scheduled_item import ScheduledItemType
+from scheduler.api.common.date_time import DateTime, Time, TimeDelta
+from scheduler.api.edit.edit_callbacks import CallbackItemType
 
-from scheduler.ui import constants
+from scheduler.ui import constants, utils
 from scheduler.ui.models.table import SchedulerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
 from scheduler.ui.widgets.scheduled_item_dialog import ScheduledItemDialog
-
-
-class SelectionRect(object):
-    """Class representing a selection rectangle in the table view."""
-    def __init__(self, column, date, time):
-        """Initialise class.
-
-        Args:
-            column (int): column of the selection, passed for convenience.
-            date (Date): the date of that column.
-            time (Time): the time at the the start of the selection creation.
-        """
-        self.column = column
-        self.date = date
-        self._time_at_selection_start = time
-        self._time_at_selection_end = time
-
-    def set_time_at_selection_end(self, time):
-        """Set time at other end of selection.
-
-        Args:
-            time (Time): time to set.
-        """
-        self._time_at_selection_end = time
-
-    @property
-    def start_time(self):
-        """Get starting time of selection.
-
-        Returns:
-            (Time): start time.
-        """
-        return min(self._time_at_selection_start, self._time_at_selection_end)
-
-    @property
-    def end_time(self):
-        """Get ending time of selection.
-
-        Returns:
-            (Time): end time.
-        """
-        return max(self._time_at_selection_start, self._time_at_selection_end)
-
-    @property
-    def time_range(self):
-        """Get time range of selection.
-
-        Returns:
-            (TimeDelta): time range.
-        """
-        return self.end_time - self.start_time
-
-    @property
-    def start_datetime(self):
-        """Get starting datetime of selection.
-
-        Returns:
-            (DateTime): start datetime.
-        """
-        return DateTime.from_date_and_time(self.date, self.start_time)
-
-    @property
-    def end_datetime(self):
-        """Get ending datetime of selection.
-
-        Returns:
-            (DateTime): end datetime.
-        """
-        return DateTime.from_date_and_time(self.date, self.end_time)
-
-
-class SelectedCalenderItem(object):
-    """Wrapper class around the selected scheduled item in the table view."""
-    def __init__(
-            self,
-            schedule_manager,
-            scheduled_item,
-            orig_mouse_pos):
-        """Initialise class.
-
-        Args:
-            schedule_manager (ScheduleManager): the calendar manager.
-            scheduled_item (ScheduledItem): the currently selected scheduled item.
-            orig_mouse_pos (QtCore.QPoint): mouse position that the selected
-                item started at.
-        """
-        self._schedule_manager = schedule_manager
-        self._scheduled_item = scheduled_item
-        self.orig_mouse_pos = orig_mouse_pos
-        self.orig_start_time = scheduled_item.start_time
-        self.orig_end_time = scheduled_item.end_time
-        self.orig_date = scheduled_item.date
-        self.is_being_moved = False
-
-    @property
-    def start_time(self):
-        """Get current start time of item.
-
-        Returns:
-            (Time): current start time.
-        """
-        return self._scheduled_item.start_time
-
-    @property
-    def end_time(self):
-        """Get current end time of item.
-
-        Returns:
-            (Time): current end time.
-        """
-        return self._scheduled_item.end_time
-
-    @property
-    def date(self):
-        """Get current end time of item.
-
-        Returns:
-            (Time): current end time.
-        """
-        return self._scheduled_item.date
-
-    def change_time(self, new_start_datetime, new_end_datetime):
-        """Change the time of the scheduled item.
-
-        Args:
-            new_start_time (DateTime): new start time for item.
-            new_end_date_time (DateTime): new end time for item.
-        """
-        if not self.is_being_moved:
-            self._schedule_manager.begin_move_item(self._scheduled_item)
-            self.is_being_moved = True
-        self._schedule_manager.update_move_item(
-            self._scheduled_item,
-            new_start_datetime.date(),
-            new_start_datetime.time(),
-            new_end_datetime.time(),
-        )
-
-    def deselect(self):
-        """Call when we've finished using this item."""
-        self._schedule_manager.end_move_item(self._scheduled_item)
-
-    def get_item_to_modify(self):
-        """Get the scheduled item to open with the scheduled item dialog.
-
-        Returns:
-            (BaseScheduledItem): either the scheduled item, or the repeat item
-                that it's an instance of, in the case of repeat scheduled item
-                instances.
-        """
-        return self._schedule_manager.get_item_to_modify(self._scheduled_item)
+from .scheduler_widgets import SelectionRect, ScheduledItemWidget
 
 
 class SchedulerTimetableView(BaseWeekTableView):
@@ -171,6 +22,8 @@ class SchedulerTimetableView(BaseWeekTableView):
     TIME_INTERVAL = TimeDelta(hours=1)
     SELECTION_TIME_STEP = TimeDelta(minutes=15)
     SELECTION_TIME_STEP_SECS = SELECTION_TIME_STEP.total_seconds()
+
+    ITEM_BORDER_SIZE = 1
 
     def __init__(
             self,
@@ -194,8 +47,10 @@ class SchedulerTimetableView(BaseWeekTableView):
         )
         self.schedule_manager = project.get_schedule_manager()
         self.selection_rect = None
+        self.selected_scheduled_item = None
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
+        self.refresh_scheduled_items_list()
 
         self.setItemDelegate(SchedulerDelegate(self))
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -214,7 +69,46 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.viewport().setAcceptDrops(True)
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
 
-        self.startTimer(constants.LONG_TIMER_INTERVAL)
+        self.timer_id = self.startTimer(constants.LONG_TIMER_INTERVAL)
+
+    def refresh_scheduled_items_list(self, *args):
+        """Refresh list of scheduled items.
+
+        Unused args are passed so this can be connected to callbacks.
+        """
+        self.scheduled_item_widgets = [
+            ScheduledItemWidget(self, self.schedule_manager, item)
+            for calendar_day in self.calendar_week.iter_days()
+            for item in calendar_day.iter_scheduled_items()
+        ]
+        # Put background items below foreground ones
+        self.scheduled_item_widgets.sort(
+            key=(lambda w : 1 - int(w.scheduled_item.is_background))
+        )
+        self.viewport().update()
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        if callback_type[0] == CallbackItemType.SCHEDULER:
+            self.refresh_scheduled_items_list()
+        super(SchedulerTimetableView, self).post_edit_callback(
+            callback_type,
+            *args
+        )
+
+    def set_to_week(self, calendar_week):
+        """Set view to given calendar_week.
+
+        Args:
+            calendar_week (CalendarWeek): calendar week to set to.
+        """
+        super(SchedulerTimetableView, self).set_to_week(calendar_week)
+        self.refresh_scheduled_items_list()
 
     @property
     def table_top(self):
@@ -275,24 +169,6 @@ class SchedulerTimetableView(BaseWeekTableView):
             (TimeDelta): time range.
         """
         return self.DAY_END - self.DAY_START
-
-    @property
-    def column_width(self):
-        """Get width of columns.
-
-        Returns:
-            (int): pixel width of columns.
-        """
-        return self.columnWidth(0)
-
-    @property
-    def row_height(self):
-        """Get height of rows.
-
-        Returns:
-            (int): pixel height of rows.
-        """
-        return self.row_height(0)
 
     @property
     def row_count(self):
@@ -427,6 +303,17 @@ class SchedulerTimetableView(BaseWeekTableView):
             return column
         return None
 
+    def column_from_date(self, date):
+        """Get column from date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (int): the column number corresponding to that date.
+        """
+        return (date - self.calendar_week.start_date).days
+
     def date_from_column(self, col):
         """Get date for given column.
 
@@ -455,48 +342,23 @@ class SchedulerTimetableView(BaseWeekTableView):
         date = self.date_from_column(column)
         return DateTime.from_date_and_time(date, time)
 
-    # TODO: make proper exception class for this func. Also maybe find more
-    # efficient way to do this (eg. separate item attrs in CalendarDay?)
-    def get_item_rects(self, background_only=False, foreground_only=False):
-        """Get all qt rectangles to display for scheduled items.
+    def rect_from_date_time_range(self, date, time_start, time_end):
+        """Get a qrect from a date and time range.
 
         Args:
-            background_only (bool): if True, only return background items.
-            foreground_only (bool): if True, only return foreground items.
+            date (Date): the date.
+            time_start (Time): start time.
+            time_end (Time): end time.
 
-        Raises:
-            (Exception): if both background_only and foreground_only are True.
-
-        Yields:
-            (QtCore.QRectF): rectangle for a given scheduled item.
-            (ScheduledItem): the corresponding scheduled item.
+        Returns:
+            (QtCore.QRectF): rectangle representing this range in the view.
         """
-        if background_only and foreground_only:
-            raise Exception(
-                "Cannot call get_item_rects with both background_only "
-                "and foreground_only flags set to True."
-            )
-        for i, calendar_day in enumerate(self.calendar_week.iter_days()):
-            rect_x = self.columnViewportPosition(i)
-            rect_width = self.columnWidth(i)
-            for scheduled_item in calendar_day.iter_scheduled_items():
-                if foreground_only and scheduled_item.is_background:
-                    continue
-                elif background_only and not scheduled_item.is_background:
-                    continue
-                time_start = scheduled_item.start_time
-                time_end = scheduled_item.end_time
-                rect_y = self.y_pos_from_time(time_start)
-                rect_height = self.height_from_time_range(
-                    time_end - time_start
-                )
-                rect = QtCore.QRectF(
-                    rect_x,
-                    rect_y,
-                    rect_width,
-                    rect_height
-                )
-                yield rect, scheduled_item
+        column = self.column_from_date(date)
+        x_start = self.columnViewportPosition(column)
+        width = self.columnWidth(column)
+        y_start = self.y_pos_from_time(time_start)
+        height = self.height_from_time_range(time_end - time_start)
+        return QtCore.QRectF(x_start, y_start, width, height)
 
     def resize_table(self):
         """Resize table rows and columns to contents."""
@@ -520,111 +382,8 @@ class SchedulerTimetableView(BaseWeekTableView):
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        self.viewport().update()
-
-    def _paint_item(self, painter, rect, item, border_size, alpha, rounding):
-        """Paint scheduled item.
-
-        Args:
-            painter (QtGui.QPainter): qt painter object.
-            rect (QtCore.QRectF): rectangle to paint.
-            item (ScheduledItem): scheduled item we're painting.
-            border_size (int): size of border of items.
-            alpha (int): alpha value for colours.
-            rounding (int): amount of rounding for rects.
-        """
-        if item.type == ScheduledItemType.TASK:
-            tree_item = item.tree_item
-            if tree_item and tree_item.colour:
-                brush_color = QtGui.QColor(*tree_item.colour, alpha)
-            else:
-                brush_color = QtGui.QColor(245, 245, 190, alpha)
-        else:
-            brush_color = QtGui.QColor(173, 216, 230, alpha)
-        brush = QtGui.QBrush(brush_color)
-        painter.setBrush(brush)
-
-        path = QtGui.QPainterPath()
-        rect.adjust(
-            border_size/2, border_size/2, -border_size/2, -border_size/2
-        )
-        path.addRoundedRect(rect, rounding, rounding)
-        painter.setClipPath(path)
-        painter.fillPath(path, painter.brush())
-        painter.strokePath(path, painter.pen())
-
-        padding = 10
-        text_height = 20
-        category_text_rect = None
-        time_text_rect = None
-        # TODO: neaten this whole bit
-        if rect.height() <= 2 * text_height + 3 * padding:
-            name_text_rect = rect.adjusted(
-                padding, 0, -padding, 0
-            )
-        elif (2 * text_height + 3 * padding <= rect.height() 
-                and rect.height() < 3 * text_height + 5 * padding):
-            name_text_rect = rect.adjusted(
-                padding,
-                padding,
-                -padding,
-                padding + text_height - rect.height(),
-            )
-            time_text_rect = rect.adjusted(
-                padding,
-                2 * padding + text_height,
-                -padding, 
-                2 * padding + 2 * text_height - rect.height()
-            )
-        else:
-            category_text_rect = rect.adjusted(
-                padding,
-                padding,
-                -padding,
-                padding + text_height - rect.height()
-            )
-            name_text_rect = rect.adjusted(
-                padding,
-                2 * padding + text_height,
-                -padding, 
-                2 * padding + 2 * text_height - rect.height()
-            )
-            time_text_rect = rect.adjusted(
-                padding,
-                3 * padding + 2 * text_height,
-                -padding,
-                3 * padding + 3 * text_height - rect.height()
-            )
-
-        if category_text_rect:
-            painter.drawText(
-                category_text_rect,
-                (
-                    QtCore.Qt.AlignmentFlag.AlignLeft|
-                    QtCore.Qt.AlignmentFlag.AlignVCenter
-                ),
-                str(item.category)
-            )
-        painter.drawText(
-            name_text_rect,
-            (
-                QtCore.Qt.AlignmentFlag.AlignLeft |
-                QtCore.Qt.AlignmentFlag.AlignVCenter
-            ),
-            str(item.name)
-        )
-        if time_text_rect:
-            painter.drawText(
-                time_text_rect,
-                (
-                    QtCore.Qt.AlignmentFlag.AlignLeft |
-                    QtCore.Qt.AlignmentFlag.AlignVCenter
-                ),
-                "{0} - {1}".format(
-                    item.start_time.string(),
-                    item.end_time.string()
-                )
-            )
+        if event.timerId() == self.timer_id:
+            self.viewport().update()
 
     def paintEvent(self, event):
         """Override paint event to draw item rects and selection rect.
@@ -637,50 +396,16 @@ class SchedulerTimetableView(BaseWeekTableView):
         # Create painter
         painter = QtGui.QPainter(self.viewport())
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        border_size = 1
-        pen = QtGui.QPen(QtGui.QColor(0,0,0), border_size)
+        pen = QtGui.QPen(QtGui.QColor(0,0,0), self.ITEM_BORDER_SIZE)
         painter.setPen(pen)
 
-        # Scheduled item background rects
-        for rect, item in self.get_item_rects(background_only=True):
-            self._paint_item(
-                painter,
-                rect,
-                item,
-                border_size,
-                100,
-                1,
-            )
-
-        # Scheduled item foreground rects
-        for rect, item in self.get_item_rects(foreground_only=True):
-            self._paint_item(
-                painter,
-                rect,
-                item,
-                border_size,
-                255,
-                5,
-            )
+        # Scheduled item rects
+        for item_widget in self.scheduled_item_widgets:
+            item_widget.paint(painter)
 
         # Selection Rect
-        if self.selection_rect:
-            brush = QtGui.QBrush(QtGui.QColor(0, 255, 204))
-            painter.setBrush(brush)
-
-            path = QtGui.QPainterPath()
-            x_start = self.columnViewportPosition(self.selection_rect.column)
-            width = self.columnWidth(self.selection_rect.column)
-            y_start = self.y_pos_from_time(self.selection_rect.start_time)
-            height = self.height_from_time_range(
-                self.selection_rect.time_range
-            )
-            rect = QtCore.QRectF(x_start, y_start, width, height)
-            path.addRoundedRect(rect, 5, 5)
-            painter.setClipPath(path)
-
-            painter.fillPath(path, painter.brush())
-            # painter.strokePath(path, painter.pen())
+        if self.selection_rect is not None:
+            self.selection_rect.paint(painter)
 
         # Current Time Line
         date_time = DateTime.now()
@@ -711,17 +436,11 @@ class SchedulerTimetableView(BaseWeekTableView):
         """
         pos = event.pos()
         # item rects drawn last are the ones we should click first
-        foreground_rects = list(self.get_item_rects(foreground_only=True))
-        foreground_rects.reverse()
-        background_rects = list(self.get_item_rects(background_only=True))
-        background_rects.reverse()
-        for rect, scheduled_item in foreground_rects + background_rects:
-            if rect.contains(pos):
-                self.selected_scheduled_item = SelectedCalenderItem(
-                    self.schedule_manager,
-                    scheduled_item,
-                    pos
-                )
+        for item_widget in reversed(self.scheduled_item_widgets):
+            if item_widget.contains(pos):
+                time = self.time_from_y_pos(pos.y())
+                item_widget.set_mouse_pos_start_time(time)
+                self.selected_scheduled_item = item_widget
                 return
 
         mouse_col = self.column_from_mouse_pos(pos)
@@ -729,11 +448,7 @@ class SchedulerTimetableView(BaseWeekTableView):
             date = self.date_from_column(mouse_col)
             y_pos = self.round_y_pos_to_time_step(event.pos().y())
             time_start = self.time_from_y_pos(y_pos)
-            self.selection_rect = SelectionRect(
-                mouse_col,
-                date,
-                time_start
-            )
+            self.selection_rect = SelectionRect(self, date, time_start)
         return super(SchedulerTimetableView, self).mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
@@ -757,10 +472,13 @@ class SchedulerTimetableView(BaseWeekTableView):
                 date = self.date_from_column(mouse_col)
             else:
                 date = self.selected_scheduled_item.date
+
             y_pos = self.round_height_to_time_step(event.pos().y())
-            y_pos_change = self.round_height_to_time_step(
-                y_pos - self.selected_scheduled_item.orig_mouse_pos.y()
+            orig_y_pos = self.y_pos_from_time(
+                self.selected_scheduled_item.mouse_pos_start_time
             )
+            y_pos_change = self.round_height_to_time_step(y_pos - orig_y_pos)
+
             time_change = self.time_range_from_height(y_pos_change)
             orig_start = self.selected_scheduled_item.orig_start_time
             orig_end = self.selected_scheduled_item.orig_end_time
@@ -770,6 +488,7 @@ class SchedulerTimetableView(BaseWeekTableView):
                 time_change = self.DAY_START - orig_start
             new_start_time = orig_start + time_change
             new_end_time = orig_end + time_change
+
             if (new_start_time != self.selected_scheduled_item.start_time
                     or date != self.selected_scheduled_item.date):
                 self.selected_scheduled_item.is_moving = True
@@ -798,11 +517,10 @@ class SchedulerTimetableView(BaseWeekTableView):
                 )
                 item_editor.exec()
             self.selection_rect = None
-            self.viewport().update()
 
         elif self.selected_scheduled_item:
             if self.selected_scheduled_item.is_being_moved:
-                # if being moved, deselect the item to finish continuous edit
+                # if being moved, deselect the item to trigger edit
                 self.selected_scheduled_item.deselect()
             else:
                 # otherwise, we want to open the editor
@@ -814,7 +532,6 @@ class SchedulerTimetableView(BaseWeekTableView):
                 )
                 item_editor.exec()
             self.selected_scheduled_item = None
-            self.viewport().update()
 
         return super(SchedulerTimetableView, self).mouseReleaseEvent(event)
 
@@ -827,19 +544,11 @@ class SchedulerTimetableView(BaseWeekTableView):
         Args:
             event (QtCore.QEvent): the drop event.
         """
-        # TODO: if we use this same setup here as from tree model to decode mime data
-        # should add as utils function or similar.
-        encoded_data = event.mimeData().data(
-            constants.OUTLINER_TREE_MIME_DATA_FORMAT
+        tree_item = utils.decode_mime_data(
+            event.mimeData(),
+            constants.OUTLINER_TREE_MIME_DATA_FORMAT,
+            drop=True,
         )
-        stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.ReadOnly)
-        if stream.atEnd():
-            return
-        while not stream.atEnd():
-            byte_array = QtCore.QByteArray()
-            stream >> byte_array
-            encoded_path = bytes(byte_array).decode('utf-8')
-        tree_item = self.tree_root.get_item_at_path(encoded_path)
         if not tree_item:
             return
 
@@ -869,6 +578,7 @@ class SchedulerTimetableView(BaseWeekTableView):
 
 class SchedulerDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for calendar."""
+    NUM_ROWS_ON_SCREEN = 12
 
     def __init__(self, table, parent=None):
         """Initialise task delegate item."""
@@ -885,14 +595,10 @@ class SchedulerDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtCore.QSize): size hint.
         """
-        # TODO set num_rows as constant? and call it something more
-        # explicit, like num_visible_rows or num_rows_on_screen
-        num_rows = 12
         table_size = self.table.viewport().size()
         line_width = 1
-        rows = self.table.row_count or 1
+        rows = self.NUM_ROWS_ON_SCREEN
         cols = self.table.column_count or 1
         width = (table_size.width() - (line_width * (cols - 1))) / cols
-        # TODO: why does the expression below use rows AND num_rows?
-        height = (table_size.height() -  (line_width * (rows - 1))) / num_rows
+        height = (table_size.height() -  (line_width * (rows - 1))) / rows
         return QtCore.QSize(width, height)

@@ -199,24 +199,15 @@ class HistoryListModel(QtCore.QAbstractItemModel):
             # add to end of row
             row = self.rowCount(parent_index)
 
-        root = self.tree_manager.tree_root
-
         if data.hasFormat(constants.OUTLINER_TREE_MIME_DATA_FORMAT):
-            encoded_data = data.data(constants.OUTLINER_TREE_MIME_DATA_FORMAT)
-            stream = QtCore.QDataStream(
-                encoded_data,
-                QtCore.QIODevice.ReadOnly
+            tree_item = utils.decode_mime_data(
+                data,
+                constants.OUTLINER_TREE_MIME_DATA_FORMAT,
+                drop=True,
             )
-            while not stream.atEnd():
-                byte_array = QtCore.QByteArray()
-                stream >> byte_array
-                encoded_path = bytes(byte_array).decode('utf-8')
-
-            tree_item = root.get_item_at_path(encoded_path)
             if tree_item is None:
                 return False
 
-            self.beginResetModel()
             date_time = DateTime.from_date_and_time(
                 self.date,
                 Time.now(),
@@ -225,5 +216,4 @@ class HistoryListModel(QtCore.QAbstractItemModel):
                 tree_item,
                 date_time=date_time
             )
-            self.endResetModel()
             return bool(success)

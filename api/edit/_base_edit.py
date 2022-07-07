@@ -1,7 +1,5 @@
 """Base edit class, containing edits that can be added to the edit log."""
 
-from uuid import uuid4
-
 from .edit_log import EDIT_LOG
 
 
@@ -25,14 +23,16 @@ class BaseEdit(object):
                 creating the edit with the class method create_unregistered.
             _registered (bool): determines if the edit has been registered
                 or not.
-            _continuous_run_in_progress (bool): tells us if the edit is
-                currently being continuously run and so can be updated.
             _is_valid (bool): determines if edit is valid or not. This is used
                 by the edit log to determine whether or not we should add the
                 edit.
             _has_been_done (bool): used by undo/redo to determine if the
                 edit has been done (and hence can be undone) or not (and
                 hence can be run/redone).
+            _callback_args (list or None): list of arguments to be used in
+                edit callbacks, if callbacks accepted.
+            _undo_callback_args (list or None): list of arguments to be used
+                in undo edit callbacks, if callbacks accepted.
             _previous_edit_in_stack (BaseEdit or None): the previous edit in
                 the edit stack, if this is part of one. An edit stack is a
                 collection of edits that should all be undone/redone together.
@@ -48,9 +48,10 @@ class BaseEdit(object):
         """
         self._register_edit = True
         self._registered = False
-        self._continuous_run_in_progress = False
         self._is_valid = True
         self._has_been_done = False
+        self._callback_args = None
+        self._undo_callback_args = None
         self._previous_edit_in_stack = None
         self._next_edit_in_stack = None
         self._name = "Unnamed Edit"
@@ -62,16 +63,6 @@ class BaseEdit(object):
     @classmethod
     def create_and_run(cls, *args, **kwargs):
         """Create and run an edit.
-
-        This is what should be used by client classes in most cases: there
-        shouldn't be any need for most client classes to maintain an edit
-        after initialisation or call any of its other methods; this allows
-        us to create the edit, run it and then (if it gets registered) hand
-        ownership of it over to the EDIT_LOG.
-
-        Exceptions to this rule are:
-            - when creating an unregistered edit as part of a composite edit
-            - when creating an edit to be used as part of a continuous run
 
         Args:
             args (tuple): args to pass to __init__.
@@ -99,13 +90,49 @@ class BaseEdit(object):
         edit._register_edit = False
         return edit
 
-    def _check_validity(self):
-        """Check if edit is valid. This is done after run and update.
+    @classmethod
+    def register_pre_edit_callback(cls, id, callback):
+        """Register callback to be run before an edit of this class is done.
 
-        This can be used to check validitiy of the edits. Override this in
-        base class for validity checks that rely on run having been done.
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _callback_args as arguments.
         """
-        pass
+        EDIT_LOG.register_pre_edit_callback(cls, id, callback)
+
+    @classmethod
+    def register_post_edit_callback(cls, id, callback):
+        """Register callback to be run after an edit of this class is done.
+
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _callback_args as arguments.
+        """
+        EDIT_LOG.register_post_edit_callback(cls, id, callback)
+
+    @classmethod
+    def register_pre_undo_callback(cls, id, callback):
+        """Register callback to be run before an edit of this class is undone.
+
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _undo_callback_args as arguments.
+        """
+        EDIT_LOG.register_pre_undo_callback(cls, id, callback)
+
+    @classmethod
+    def register_post_undo_callback(cls, id, callback):
+        """Register callback to be run after an edit of this class is undone.
+
+        Args:
+            id (variant): id for specific callback.
+            callback (function): callback to register. Must accept this edit's
+                _undo_callback_args as arguments.
+        """
+        EDIT_LOG.register_post_undo_callback(cls, id, callback)
 
     def run(self):
         """Call edit function externally, and register with edit log if needed.
@@ -122,76 +149,18 @@ class BaseEdit(object):
             raise EditError(
                 "Edit object cannot be run externally after registration."
             )
-        if self._continuous_run_in_progress:
-            raise EditError(
-                "Edit object cannot call run when a continuous_run is already "
-                "in progress."
-            )
         if self._has_been_done:
             raise EditError("Cannot run edit multiple times without undo.")
         if self._register_edit and EDIT_LOG.is_locked:
             # don't run registerable edits if they can't be added to log
-            return
-        self._run()
-        self._check_validity()
+            return False
+        if self._is_valid:
+            EDIT_LOG.run_pre_edit_callbacks(self)
+            self._run()
+            EDIT_LOG.run_post_edit_callbacks(self)
+            if self._register_edit:
+                self._registered = EDIT_LOG.add_edit(self)
         self._has_been_done = True
-        if self._register_edit:
-            self._registered = EDIT_LOG.add_edit(self)
-        return self._is_valid
-
-    def begin_continuous_run(self):
-        """Run edit continuously.
-
-        This runs the edit but allows it to be updated before adding to the log
-        (using update_continuous_run method). This requires end_continuous_run
-        to be called afterwards in order to unlock the edit log and finish
-        registering the edit.
-        """
-        if self._registered:
-            raise EditError(
-                "Edit object cannot be run externally after registration."
-            )
-        if self._register_edit:
-            if EDIT_LOG.is_locked:
-                # don't run registerable edits if they can't be added to log
-                return
-            EDIT_LOG.begin_add_edit(self)
-        self._run()
-        self._continuous_run_in_progress = True
-
-    def update_continuous_run(self, *args, **kwargs):
-        """Update and run changes on continuous edit.
-
-        Args:
-            args (list): args to pass to _update method.
-            kwargs (dict): kwargs to pass to _update method.
-        """
-        if self._registered:
-            raise EditError(
-                "Edit object cannot be run externally after registration."
-            )
-        if not self._continuous_run_in_progress:
-            return
-        self._update(*args, **kwargs)
-
-    def end_continuous_run(self):
-        """Finish updating continuous edit and add to edit log.
-        
-        Returns:
-            (bool): whether or not edit was successful (and hence added to
-                the edit log).
-        """
-        if self._registered:
-            raise EditError(
-                "Edit object cannot be run externally after registration."
-            )
-        if not self._continuous_run_in_progress:
-            return
-        self._check_validity()
-        if self._register_edit:
-            self._has_been_done = True
-            self._registered = EDIT_LOG.end_add_edit()
-        self._continuous_run_in_progress = False
         return self._is_valid
 
     def _run(self):
@@ -203,16 +172,6 @@ class BaseEdit(object):
         """
         raise NotImplementedError(
             "_run must be implemented in BaseEdit subclasses."
-        )
-
-    def _update(self, *args, **kwargs):
-        """Update parameters of edit and run updates.
-
-        This is used during continuous run functionality and so only needs to
-        be implemented in edit classes that support this.
-        """
-        raise NotImplementedError(
-            "_update not implemented. Class doesn't support continous edits."
         )
 
     def _inverse_run(self):
@@ -233,7 +192,9 @@ class BaseEdit(object):
             raise EditError(
                 "Can't call undo on edit that's already been undone."
             )
+        EDIT_LOG.run_pre_undo_callbacks(self)
         self._inverse_run()
+        EDIT_LOG.run_post_undo_callbacks(self)
         self._has_been_done = False
 
     def _redo(self):
@@ -242,7 +203,9 @@ class BaseEdit(object):
             raise EditError(
                 "Can't call redo on edit that's not been undone."
             )
+        EDIT_LOG.run_pre_edit_callbacks(self)
         self._run()
+        EDIT_LOG.run_post_edit_callbacks(self)
         self._has_been_done = True
 
     def _stacks_with(self, edit):
@@ -258,6 +221,15 @@ class BaseEdit(object):
                 always false).
         """
         return False
+
+    @property
+    def is_valid(self):
+        """Check whether edit is valid (ie. actually changes underlying data).
+
+        Returns:
+            (bool): whether or not edit is valid.
+        """
+        return self._is_valid
 
     @property
     def name(self):

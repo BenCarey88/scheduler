@@ -36,8 +36,6 @@ class ScheduleEditManager(BaseScheduleManager):
             calendar,
             archive_calendar,
         )
-        self._item_being_moved = None
-        self._continuous_edit = None
 
     def _create_scheduled_item(self, item_class, *args, **kwargs):
         """Create scheduled item and add to calendar.
@@ -148,6 +146,7 @@ class ScheduleEditManager(BaseScheduleManager):
                         scheduled_item.__class__.__name__
                     )
                 )
+            new_scheduled_item = scheduled_item
             return edit_class.create_and_run(scheduled_item, attr_dict)
 
         # otherwise a class change is needed, use ReplaceScheduledItemEdit
@@ -201,7 +200,7 @@ class ScheduleEditManager(BaseScheduleManager):
         )
 
     @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
-    def begin_move_item(
+    def move_scheduled_item(
             self,
             scheduled_item,
             date=None,
@@ -214,6 +213,9 @@ class ScheduleEditManager(BaseScheduleManager):
             date (Date or None): new date.
             start_time (DateTime or None): new start date time.
             end_time (DateTime or None): new end date time.
+
+        Returns:
+            (bool): whether or not edit was successful.
         """
         attr_dict = {
             scheduled_item._date: date,
@@ -234,57 +236,4 @@ class ScheduleEditManager(BaseScheduleManager):
                     scheduled_item.__class__.__name__
                 )
             )
-        self._continuous_edit = edit_class(scheduled_item, attr_dict)
-        self._item_being_moved = scheduled_item
-        self._continuous_edit.begin_continuous_run()
-
-    @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
-    def update_move_item(
-            self,
-            scheduled_item,
-            date=None,
-            start_time=None,
-            end_time=None):
-        """Update edit to move scheduled item to new start and end datetimes.
-
-        Args:
-            scheduled_item (BaseScheduledItem): item to edit.
-            date (Date or None): new date.
-            start_time (DateTime or None): new start date time.
-            end_time (DateTime or None): new end date time.
-        """
-        if self._continuous_edit is None:
-            # TODO: sort exception
-            raise ScheduledItemError(
-                "Cannot update edit when none is in progress."""
-            )
-        if self._item_being_moved != scheduled_item:
-            raise ScheduledItemError(
-                "item {0} is not currently being moved".format(
-                    scheduled_item.name
-                )
-            )
-        self._continuous_edit.update_continuous_run(date, start_time, end_time)
-
-    @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
-    def end_move_item(self, scheduled_item):
-        """Finish edit to move scheduled item to new start and end datetimes.
-
-        Args:
-            scheduled_item (BaseScheduledItem): item to edit.
-
-        Returns:
-            (bool): whether or not edit was successful.
-        """
-        if self._continuous_edit is None:
-            # TODO: sort exception
-            raise ScheduledItemError(
-                "Cannot end edit when none is in progress."
-            )
-        if self._item_being_moved != scheduled_item:
-            raise ScheduledItemError(
-                "item {0} is not currently being moved".format(
-                    scheduled_item.name
-                )
-            )
-        return self._continuous_edit.end_continuous_run()
+        return edit_class.create_and_run(scheduled_item, attr_dict)

@@ -25,6 +25,11 @@ class AddPlannedItemEdit(ListEdit):
             [(index, planned_item)],
             ContainerOp.INSERT,
         )
+        self._callback_args = self._undo_callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            index,
+        ]
         self._name = "AddPlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Add {0} {1} to {2} at index {3}".format(
@@ -48,8 +53,13 @@ class RemovePlannedItemEdit(ListEdit):
             planned_item.get_item_container(),
             [planned_item],
             ContainerOp.REMOVE,
-            edit_flags=[ContainerEditFlag.REMOVE_BY_VALUE],
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
+        self._callback_args = self._undo_callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            planned_item.index(),
+        ]
         self._name = "RemovePlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Remove {0} {1} at date {2}".format(
@@ -73,8 +83,20 @@ class MovePlannedItemEdit(ListEdit):
             planned_item.get_item_container(),
             [(planned_item, index)],
             ContainerOp.MOVE,
-            edit_flags=[ContainerEditFlag.MOVE_BY_VALUE],
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
+        self._callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            planned_item.index(),
+            index
+        ]
+        self._undo_callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            index,
+            planned_item.index()
+        ]
         self._name = "MovePlannedItem ({0})".format(planned_item.name)
         self._description = (
             "Move {0} {1} at date {2} to index {3}".format(
@@ -99,18 +121,24 @@ class ModifyPlannedItemEdit(CompositeEdit):
         subedits = [attribute_edit]
         if planned_item._calendar_period in attr_dict:
             new_calendar_period = attr_dict[planned_item._calendar_period]
-            # remove items from old container and add to new one
-            remove_edit = RemovePlannedItemEdit.create_unregistered(
-                planned_item
-            )
-            add_edit = ListEdit.create_unregistered(
-                planned_item.get_item_container(new_calendar_period),
-                [planned_item],
-                ContainerOp.ADD,
-            )
-            subedits.extend([remove_edit, add_edit])
+            if new_calendar_period != planned_item.calendar_period:
+                # remove items from old container and add to new one
+                remove_edit = RemovePlannedItemEdit.create_unregistered(
+                    planned_item
+                )
+                add_edit = ListEdit.create_unregistered(
+                    planned_item.get_item_container(new_calendar_period),
+                    [planned_item],
+                    ContainerOp.ADD,
+                )
+                subedits.extend([remove_edit, add_edit])
 
         super(ModifyPlannedItemEdit, self).__init__(subedits)
+        self._callback_args = self._undo_callback_args = [
+            planned_item.calendar_period,
+            planned_item,
+            planned_item
+        ]
         self._name = "ModifyPlannedItem ({0})".format(planned_item.name)
         self._description = attribute_edit.get_description(
             planned_item,
@@ -134,6 +162,7 @@ class SortPlannedItemsEdit(ListEdit):
             [(key, reverse)],
             ContainerOp.SORT,
         )
+        self._callback_args = self._undo_callback_args = [calendar_period]
         self._name = "SortPlannedItems for {0}".format(
             calendar_period.name
         )

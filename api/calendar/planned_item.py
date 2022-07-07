@@ -204,13 +204,27 @@ class PlannedItem(NestedSerializable):
                 to query at. If None, use self.calendar_period.
 
         Returns:
-            (dict)): dict that planned item should be contained in.
+            (list): list that planned item should be contained in.
         """
         calendar_period = utils.fallback_value(
             calendar_period,
             self.calendar_period
         )
         return self.calendar_period.get_planned_items_container()
+
+    def index(self):
+        """Get index of item in its container.
+
+        Returns:
+            (int or None): index of item, if found.
+        """
+        container = self.get_item_container()
+        if container is None:
+            return None
+        try:
+            return container.index(self)
+        except ValueError:
+            return None
 
     def _add_scheduled_item(self, scheduled_item):
         """Add scheduled item (to be used during deserialization).
@@ -249,23 +263,6 @@ class PlannedItem(NestedSerializable):
         if self._id is None:
             self._id = item_registry.generate_unique_id(self.name)
         return self._id
-
-    def get_temp_id(self):
-        """Generate temporary id for item.
-
-        Returns:
-            (str): id of item.
-        """
-        return utils.generate_temporary_id(self)
-
-    @staticmethod
-    def from_temp_id(id):
-        """Find class from temporary id.
-
-        Returns:
-            (PlannedItem or None): class instance, if found.
-        """
-        return utils.get_item_by_id(id)
 
     @classmethod
     def from_dict(cls, dict_repr, calendar, calendar_period):

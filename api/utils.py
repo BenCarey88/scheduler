@@ -1,6 +1,27 @@
 """Utility functions for scheduler api."""
 
+from contextlib import contextmanager
 import sys
+
+
+@contextmanager
+def indent_print(bookend=None, indent=1):
+    """Context manager to indent all prints, used for debugging.
+
+    Args:
+        indent (int): number of tabs to indent by.
+        bookend (str or None): string to print on either side.
+    """
+    if bookend is not None:
+        print ("[START]:", bookend)
+    old_print = __builtins__["print"]
+    def new_print(*strings):
+        old_print("\t" * indent, *strings)
+    __builtins__["print"] = new_print
+    yield
+    __builtins__["print"] = old_print
+    if bookend is not None:
+        print ("[END]:", bookend)
 
 
 def catch_exceptions(exceptions=None):
@@ -126,6 +147,7 @@ def backup_git_repo(repo_path, commit_message="backup"):
 
     return None
 
+
 """Id registry to store floating items by temporary ids."""
 _TEMPORARY_ID_REGISTRY = {}
 _GLOBAL_COUNT = 0
@@ -147,16 +169,18 @@ def generate_temporary_id(item):
     return id
 
 
-def get_item_by_id(id):
+def get_item_by_id(id, remove_from_registry=False):
     """Get item by id and remove from registry.
 
     Args:
         id (str): id of item to get.
+        remove_from_registry (bool): if True, remove the item from
+            the registry after returning it.
 
     Returns:
         (variant or None): item, if found.
     """
     item = _TEMPORARY_ID_REGISTRY.get(id, None)
-    if item is not None:
+    if remove_from_registry and item is not None:
         del _TEMPORARY_ID_REGISTRY[id]
     return item

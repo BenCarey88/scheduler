@@ -3,9 +3,11 @@
 from collections import OrderedDict
 
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
+from scheduler.ui.tabs.planner_tab.planner_hybrid_view import (
+    PlannerHybridDayView
+)
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
-
 from .scheduler_timetable_view import SchedulerTimetableView
 
 
@@ -26,6 +28,10 @@ class SchedulerTab(BaseCalendarTab):
                 SchedulerTimetableView(name, project, num_days=1)
             ),
             (
+                (DateType.DAY, ViewType.HYBRID),
+                PlannerHybridDayView(name, project)
+            ),
+            (
                 (DateType.THREE_DAYS, ViewType.TIMETABLE),
                 SchedulerTimetableView(name, project, num_days=3)
             ),
@@ -40,7 +46,6 @@ class SchedulerTab(BaseCalendarTab):
             main_views_dict,
             DateType.WEEK,
             ViewType.TIMETABLE,
-            use_week_for_day=True,
             parent=parent,
         )
         utils.set_style(self, "scheduler.qss")

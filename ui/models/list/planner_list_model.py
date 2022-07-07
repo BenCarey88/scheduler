@@ -3,7 +3,6 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.calendar.planned_item import (
-    PlannedItem,
     PlannedItemImportance,
     PlannedItemSize,
 )
@@ -62,16 +61,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         self._remove_rows_in_progress = False
         self._move_rows_in_progress = False
         self._full_update_in_progress = False
-        # pm = planner_manager
-        # pm.register_pre_item_added_callback(self, self.pre_item_added)
-        # pm.register_item_added_callback(self, self.on_item_added)
-        # pm.register_pre_item_removed_callback(self, self.pre_item_removed)
-        # pm.register_item_removed_callback(self, self.on_item_removed)
-        # pm.register_pre_item_moved_callback(self, self.pre_item_moved)
-        # pm.register_item_moved_callback(self, self.on_item_moved)
-        # pm.register_item_modified_callback(self, self.on_item_modified)
-        # pm.register_pre_full_update_callback(self, self.pre_full_update)
-        # pm.register_full_update_callback(self, self.on_full_update)
 
     def set_calendar_period(self, calendar_period):
         """Set model to use given calendar period.
@@ -374,10 +363,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 dropping under.
         """
         return True
-        # # Only drop on empty spaces or between items
-        # if not parent.isValid():
-        #     return True
-        # return False
 
     def dropMimeData(self, data, action, row, column, parent_index):
         """Add mime data at given index.
@@ -462,7 +447,6 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             item (PlannedItem): the item to add.
             row (int): the index the item will be added at.
         """
-        print ("ADDING")
         self.beginInsertRows(QtCore.QModelIndex(), row, row)
         self._insert_rows_in_progress = True
 

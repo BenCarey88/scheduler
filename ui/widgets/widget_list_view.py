@@ -219,11 +219,12 @@ class WidgetListView(QtWidgets.QListView):
             self.model().move_widgets(old_row, new_row, 1)
         self.update_view()
 
-    def filter_row(self, row):
-        """Filter widget at given row so it's not longer shown.
+    def filter_row(self, row, update=True):
+        """Filter widget at given row so it's no longer shown.
 
         Args:
             row (int): row to filter at.
+            update (bool): whether or not to update after.
         """
         if not self._row_is_in_range(row):
             return
@@ -235,13 +236,15 @@ class WidgetListView(QtWidgets.QListView):
             self._widget_data_list[row].filtered = True
         self.model().endResetModel()
         self._configure_spacers()
-        self.open_editors()
+        if update:
+            self.open_editors()
 
-    def unfilter_row(self, row):
+    def unfilter_row(self, row, update=True):
         """Unfilter widget at given row so it's shown again.
 
         Args:
             row (int): row to unfilter.
+            update (bool): whether or not to update after.
         """
         if not self._row_is_in_range(row):
             return
@@ -253,7 +256,8 @@ class WidgetListView(QtWidgets.QListView):
             self._widget_data_list[row].filtered = False
         self.model().endResetModel()
         self._configure_spacers()
-        self.open_editors()
+        if update:
+            self.open_editors()
 
     def resizeEvent(self, event):
         """Resize event.

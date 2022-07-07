@@ -8,13 +8,10 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api import constants as api_constants
 from scheduler.api.common import user_prefs
 from scheduler.api.edit import edit_callbacks, edit_log
-# from scheduler.api.managers import ScheduleManager, TreeManager
 from scheduler.api.project import Project
 
 from . import constants as ui_constants
 from .tabs import SchedulerTab, HistoryTab, PlannerTab, TaskTab, TrackerTab
-# from .tabs.notes_tab import NotesTab
-# from .tabs.suggestions_tab import SuggestionsTab
 from .utils import custom_message_dialog, set_style, simple_message_dialog
 
 
@@ -31,12 +28,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
         # TODO: need functionality here for if active project not set
         self.project = Project.read(user_prefs.get_active_project())
-
-        # TODO: make consistent across repo 'tree root' /'task root'
-        # self.tree_root = self.project.task_root
-        # self.calendar = self.project.calendar
-        # self.planner = self.project.planner
-        # self.tracker = self.project.tracker
         self.project_user_prefs = self.project.user_prefs
 
         self.setup_tabs()
@@ -75,22 +66,12 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.scheduler_tab = self.create_tab_and_outliner(SchedulerTab)
         self.tracker_tab = self.create_tab_and_outliner(TrackerTab)
         self.history_tab = self.create_tab_and_outliner(HistoryTab)
-        # self.suggestions_tab = self.create_tab_and_outliner(
-        #     "Suggestions",
-        #     SuggestionsTab
-        # )
-        # self.notes_tab = self.create_tab_and_outliner(
-        #     "Notes",
-        #     NotesTab
-        # )
 
         self.tabs_widget.currentChanged.connect(self.on_tab_changed)
         self.tabs_widget.setCurrentIndex(
             user_prefs.get_app_user_pref(self.CURRENT_TAB_PREF, 0)
         )
 
-    # TODO: neaten up args for this? Maybe add calendar to everything? 
-    # Or remove this function altogether?
     def create_tab_and_outliner(self, tab_class, *args, **kwargs):
         """Create tab and outliner combo for given tab_type.
 

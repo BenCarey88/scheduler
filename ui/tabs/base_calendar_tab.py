@@ -6,7 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
 
-from scheduler.ui.widgets.navigation_panel import DateType, NavigationPanel
+from scheduler.ui.widgets.navigation_panel import NavigationPanel
 from .base_tab import BaseTab
 
 

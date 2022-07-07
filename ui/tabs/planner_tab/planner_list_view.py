@@ -277,22 +277,6 @@ class PlannerListView(BaseListView):
 
         super(PlannerListView, self).keyPressEvent(event)
 
-    # def eventFilter(self, obj, event):
-    #     """Event filter for when object is resized.
-
-    #     Args:
-    #         obj (QtCore.QObject): QObject that event is happening on.
-    #         event (QtCore.QEvent): event that is happening.
-    #     """
-    #     if self.title_widget is None:
-    #         return False
-    #     if obj == self.title_widget and event.type() == QtCore.QEvent.Resize:
-    #         self.title_widget.setMinimumHeight(
-    #             event.size().height()
-    #         )
-    #         print (event.size().height())
-    #     return False
-
 
 class PlannedItemDelegate(QtWidgets.QStyledItemDelegate):
     """Delegate for planned items."""

@@ -3,7 +3,6 @@
 
 class TaskWidgetTree(object):
     """Wrapper around a dict to store data for all task widgets."""
-    # LAYOUT_KEY = "layout"
     TASK_HEADER_WIDGET_KEY = "task_header_widget"
     TASK_HEADER_VIEW_KEY = "task_header_view"
     TASK_VIEW_KEY = "task_view"
@@ -64,17 +63,6 @@ class TaskWidgetTree(object):
         if old_item_dict is not None:
             del self._widget_tree_data[old_item]
             self._widget_tree_data[new_item] = old_item_dict
-
-    # def get_layout(self, tree_item):
-    #     """Get layout that tree item lives in.
-
-    #     Args:
-    #         tree_item (BaseTreeItem): tree item to query.
-
-    #     Returns:
-    #         (TaskWidgetLayout or None): layout this item lives in, if found.
-    #     """
-    #     return self._widget_tree_data.get(tree_item, {}).get(self.LAYOUT_KEY)
 
     def get_task_header_widget(self, tree_item):
         """Get task header widget for item.

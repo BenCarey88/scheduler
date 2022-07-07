@@ -1,6 +1,5 @@
 """Tree edit manager for managing edits on tree items."""
 
-
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.edit.tree_edit import (
     InsertChildrenEdit,
@@ -14,34 +13,17 @@ from scheduler.api.edit.task_edit import (
     ChangeTaskTypeEdit,
     UpdateTaskHistoryEdit,
 )
-from scheduler.api.tree.exceptions import (
-    ChildNameError,
-    MultipleParentsError,
-    UnallowedChildType,
-)
+from scheduler.api.tree.exceptions import UnallowedChildType
 from scheduler.api.tree.task import Task, TaskStatus, TaskType
 from scheduler.api.tree.task_category import TaskCategory
-from scheduler.api.tree.task_root import TaskRoot
 from scheduler.api.tree._base_tree_item import BaseTreeItem
 
 from .._base_manager import require_class
-# from .. _base_callbacks import BaseCallbacks
 from ._base_tree_manager import BaseTreeManager
-# from ._tree_callbacks import TREE_CALLBACKS as TC
 
 
 class TreeEditManager(BaseTreeManager):
     """Tree edit manager to apply edits to tree items."""
-    # register_pre_item_added_callback = TC.register_pre_item_added_callback
-    # register_item_added_callback = TC.register_item_added_callback
-    # register_pre_item_removed_callback = TC.register_pre_item_removed_callback
-    # register_item_removed_callback = TC.register_item_removed_callback
-    # register_pre_item_modified_callback = TC.register_item_modified_callback
-    # register_item_modified_callback = TC.register_item_modified_callback
-    # register_pre_item_moved_callback = TC.register_pre_item_moved_callback
-    # register_item_moved_callback = TC.register_item_moved_callback
-    # remove_callbacks = TC.remove_callbacks
-
     def __init__(self, name, user_prefs, tree_root, archive_tree_root):
         """Initialise class.
 

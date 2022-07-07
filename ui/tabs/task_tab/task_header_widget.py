@@ -5,7 +5,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.ui import utils
 from scheduler.ui.widgets.widget_list_view import WidgetListView
 from .task_view_widget import TaskViewWidget
-from .task_widget_layout import TaskWidgetLayout
 
 
 class TaskHeaderWidget(QtWidgets.QFrame):
@@ -55,10 +54,8 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         # outer layout holds line edit layout and task widget layout
         self.outer_layout = QtWidgets.QVBoxLayout()
         self.line_edit_layout = QtWidgets.QHBoxLayout()
-        # self.widget_layout = TaskWidgetLayout(self.task_widget_tree)
         self.setLayout(self.outer_layout)
         self.outer_layout.addLayout(self.line_edit_layout)
-        # self.outer_layout.addLayout(self.widget_layout)
 
         # line edit layout holds line edit (and potential additions)
         self.line_edit = QtWidgets.QLineEdit(self.task_item.name)
@@ -100,15 +97,9 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             self.outer_layout.addWidget(self.task_view_widget)
             self.child_widget = self.task_view_widget
 
-        # self.setMinimumHeight(self._height)
-        # self.setSizePolicy(
-        #     QtWidgets.QSizePolicy.Policy.Expanding,
-        #     QtWidgets.QSizePolicy.Policy.Preferred,
-        # )
         self.line_edit.editingFinished.connect(
             self.on_editing_finished
         )
-        # self.setMinimumSize(self.child_widget.minimumSize())
 
     def update_task_item(self, task_item):
         """Update task item that this represents.

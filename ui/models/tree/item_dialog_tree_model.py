@@ -1,9 +1,5 @@
 """Task tree model."""
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
-from scheduler.api.tree.task import TaskStatus, TaskType
-
 from scheduler.ui import constants
 from ._base_tree_model import BaseTreeModel
 

@@ -2,8 +2,6 @@
 
 from collections import OrderedDict
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 

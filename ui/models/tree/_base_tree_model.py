@@ -1,7 +1,6 @@
 """Abstract Base Tree model."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from scheduler.api.tree import Task, TaskCategory
 
 from scheduler.ui import constants, utils
 
@@ -16,7 +15,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             tree_root=None,
             filters=None,
             mime_data_format=None,
-            # register_tree_manager_callbacks=True,
             parent=None):
         """Initialise base tree model.
 
@@ -33,12 +31,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 to the filter from the tree_manager.
             mime_data_format (str or None): data format of any mime data
                 created - if None, mimedata can't be created.
-            register_tree_manager_callbacks (bool): if True, we register
-                callbacks to update the model based on tree manager edits.
-                If False, we don't register these by default so they need to
-                be manually defined in subclasses, or the corresponding view
-                needs to define a way to update with the tree manager. By
-                default this is True.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         super(BaseTreeModel, self).__init__(parent)
@@ -50,19 +42,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             mime_data_format or
             constants.OUTLINER_TREE_MIME_DATA_FORMAT
         )
-
-        # if register_tree_manager_callbacks:
-        #     self._insert_rows_in_progress = False
-        #     self._remove_rows_in_progress = False
-        #     self._move_rows_in_progress = False
-        #     tm = tree_manager
-        #     tm.register_pre_item_added_callback(self, self.pre_item_added)
-        #     tm.register_item_added_callback(self, self.on_item_added)
-        #     tm.register_pre_item_removed_callback(self, self.pre_item_removed)
-        #     tm.register_item_removed_callback(self, self.on_item_removed)
-        #     tm.register_pre_item_moved_callback(self, self.pre_item_moved)
-        #     tm.register_item_moved_callback(self, self.on_item_moved)
-        #     tm.register_item_modified_callback(self, self.on_item_modified)
 
     @property
     def child_filters(self):
@@ -118,22 +97,6 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if row is not None:
             return self.createIndex(row, 0, item)
         return None
-
-    # def get_row_and_parent_index(self, item):
-    #     """Get index of parent of item and row of item in parent list.
-
-    #     Args:
-    #         item (BaseTreeItem): tree item to get index for.
-
-    #     Returns:
-    #         (int or None): row of item in parent's child list.
-    #         (QtCore.QModelIndex or None): index for that item in the model,
-    #             if found.
-    #     """
-    #     row = item.index()
-    #     if row is not None:
-    #         return row, self.get_index_from_item(item.parent)
-    #     return None, None
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -416,152 +379,10 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             if row > item.index():
                 row -= 1
         orig_row = item.index()
-        # orig_row, orig_parent_index = self.get_row_and_parent_index(item)
-        if orig_row is None: # or orig_parent_index is None:
+        if orig_row is None:
             return False
 
-        # [ERROR_SEARCH] IF THIS SEGFAULTS, TRY JUST USING RESET MODEL
-        # self.beginResetModel()
-        # self.beginMoveRows(
-        #     orig_parent_index,
-        #     orig_row,
-        #     orig_row,
-        #     parent_index,
-        #     row
-        # )
         return self.tree_manager.move_item(item, parent, row)
-        # self.endResetModel()
-        # self.endMoveRows()
-        # return success
-
-    # def remove_items(self, items, force=False, *args):
-    #     """Remove items.
-
-    #     Args:
-    #         items (list(BaseTreeItem) or None): items to remove.
-    #         force (bool): if False, show user dialog to prompt continuation.
-
-    #     Returns:
-    #         (bool): whether or not action was successful.
-    #     """
-    #     if not items:
-    #         return False
-    #     if not force:
-    #         continue_deletion = utils.simple_message_dialog(
-    #             "Delete the following items?",
-    #             "\n".join([item.name for item in items]),
-    #             parent=self
-    #         )
-    #         if not continue_deletion:
-    #             return False
-    #     success = False
-    #     for item in items:
-    #         # TODO: stack these edits, or make them a single edit
-    #         row, parent_index = self.get_row_and_parent_index(item)
-    #         if parent_index is None or row is None:
-    #             continue
-    #         self.beginRemoveRows(parent_index, row)
-    #         success = self.tree_manager.remove_item(item) or success
-    #         self.endRemoveRows()
-    #     return success
-
-    # def add_subtask(self, item, *args):
-    #     """Add task child to item.
-
-    #     Args:
-    #         item (BaseTreeItem or None): item to add to.
-
-    #     Returns:
-    #         (bool): whether or not action was successful.
-    #     """
-    #     if item is None:
-    #         return False
-    #     index = self.get_index_from_item(item)
-    #     if index is None:
-    #         return None
-    #     row = item.num_children()
-    #     self.beginInsertRows(index, row, row)
-    #     success = self.tree_manager.create_new_subtask(item)
-    #     self.endInsertRows()
-    #     return success
-
-    # def add_subcategory(self, item, *args):
-    #     """Add category child to item.
-
-    #     Args:
-    #         item (BaseTreeItem or None): item to add to.
-
-    #     Returns:
-    #         (bool): whether or not action was successful.
-    #     """
-    #     index = self.get_index_from_item(item)
-    #     if index is None:
-    #         return None
-    #     row = item.num_children()
-    #     self.beginInsertRows(index, row, row)
-    #     success = self.tree_manager.create_new_subcategory(item)
-    #     self.endInsertRows()
-    #     return success
-
-    # def add_sibling_item(self, item, *args):
-    #     """Add sibling for given item.
-
-    #     Args:
-    #         item (BaseTreeItem or None): item to add sibling to.
-
-    #     Returns:
-    #         (bool): whether or not action was successful.
-    #     """
-    #     if item is None:
-    #         return False
-    #     row, parent_index = self.get_row_and_parent_index(item)
-    #     if parent_index is None or row is None:
-    #         return
-    #     row = item.parent.num_children()
-    #     self.beginInsertRows(parent_index, row, row)
-    #     success = self.tree_manager.create_new_sibling(item)
-    #     self.endInsertRows()
-    #     return success
-
-    # def move_item_one_space(self, item, up=False, *args):
-    #     """Move item one space up or down in sibling list.
-
-    #     Args:
-    #         item (BaseTreeItem or None): item to move.
-    #         up (bool): if True, move up, else move down a space.
-
-    #     Returns:
-    #         (bool): whether or not action was successful.
-    #     """
-    #     if item is None:
-    #         return False
-    #     row, parent_index = self.get_row_and_parent_index(item)
-    #     if parent_index is None or row is None:
-    #         return False
-    #     new_row = row - 1 if up else row + 1
-    #     self.beginMoveRows(parent_index, row, row, parent_index, new_row)
-    #     success = self.tree_manager.move_item_local(item, new_row)
-    #     self.endMoveRows()
-    #     return success
-
-    # def toggle_task_type(self, item, *args):
-    #     """Switch task to routine or back again.
-
-    #     Args:
-    #         item (BaseTreeItem or None): item to switch.
-
-    #     Returns:
-    #         (bool): whether or not action was successful.
-    #     """
-    #     if item is None:
-    #         return False
-    #     index = self.get_index_from_item(item)
-    #     if index is None:
-    #         return False
-    #     if self.tree_manager.change_task_type(item):
-    #         self.dataChanged.emit(index, index)
-    #         return True
-    #     return False
 
     def set_filters(self, new_filters, *args):
         """Set filters for model.

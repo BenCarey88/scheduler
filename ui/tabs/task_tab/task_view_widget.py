@@ -14,10 +14,7 @@ class TaskViewWidget(BaseTreeView):
 
     This widget holds the tree view for the various tasks.
     """
-    # TODO: I sense most of this height stuff is actually irrelevant
-    # go through and remove any unneeded ones
     HEIGHT_BUFFER = 10
-    MIN_WIDTH = 1000
 
     def __init__(self, tree_manager, task_item, tab, parent=None):
         """Initialise task category widget.
@@ -41,15 +38,6 @@ class TaskViewWidget(BaseTreeView):
         self.setModel(model)
         self.expandAll()
         self.setItemsExpandable(False)
-        # model.dataChanged.connect(self.tab.update)
-
-        # height = task_item.num_descendants() * TaskDelegate.HEIGHT
-        # self.setFixedHeight(height + self.HEIGHT_BUFFER)
-        self.setMinimumWidth(self.MIN_WIDTH)
-        # self.setSizePolicy(
-        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-        #     QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-        # )
         self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
         self.setUniformRowHeights(True)
 
@@ -77,30 +65,6 @@ class TaskViewWidget(BaseTreeView):
             partial(self.tab.switch_active_task_view, self.task_item)
         )
         self._current_item = None
-        # self.select_subtask_item()
-
-    # def select_subtask_item(self):
-    #     """Select the subtask item marked as active in the task tab."""
-    #     if (self.tab.selected_subtask_item and
-    #             self.task_item.path in self.tab.selected_subtask_item.path):
-    #         item_index = self.tab.selected_subtask_item.index()
-    #         if item_index is not None:
-    #             index = self.model().createIndex(
-    #                 item_index,
-    #                 0,
-    #                 self.tab.selected_subtask_item
-    #             )
-    #             if index.isValid():
-    #                 self.selectionModel().select(
-    #                     index,
-    #                     self.selectionModel().SelectionFlag.Select
-    #                 )
-    #                 self.selectionModel().setCurrentIndex(
-    #                     index,
-    #                     self.selectionModel().SelectionFlag.Select
-    #                 )
-    #                 self.setFocus(True)
-    #                 self.grabKeyboard()
 
     def begin_reset(self):
         """Begin reset."""

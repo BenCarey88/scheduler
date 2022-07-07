@@ -27,7 +27,6 @@ class TaskTreeModel(BaseTreeModel):
             tree_manager,
             tree_root=root_task,
             mime_data_format=constants.TASK_TAB_TREE_MIME_DATA_FORMAT,
-            # register_tree_manager_callbacks=False,
             parent=parent,
         )
         self.columns = [self.NAME_COLUMN, self.STATUS_COLUMN]
@@ -109,7 +108,6 @@ class TaskTreeModel(BaseTreeModel):
             if not task_item:
                 return False
             self.tree_manager.update_task(task_item)
-            # self.dataChanged.emit(index, index)
             return True
         return super(TaskTreeModel, self).setData(index, value, role)
 

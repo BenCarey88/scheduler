@@ -2,7 +2,6 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree import filters
 from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from ._base_tree_model import BaseTreeModel

@@ -5,9 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
 
 from scheduler.ui.tabs.base_tab import BaseTab
-from scheduler.ui import utils
-from .task_header_widget import TaskHeaderWidget, TaskHeaderListView
-from .task_widget_layout import TaskWidgetLayout
+from .task_header_widget import TaskHeaderListView
 from .task_widget_tree import TaskWidgetTree
 
 
@@ -30,11 +28,8 @@ class TaskTab(BaseTab):
         )
         self.tree_root = project.task_root
         self.task_widget_tree = TaskWidgetTree()
-        # self.task_widget_tree = OrderedDict()
-        # self.task_header_widget_tree = OrderedDict()
         self._active_task = None
         self.selected_task_header_item = None
-        # self.selected_subtask_item = None
         self._scroll_value = None
         self.task_header_view = TaskHeaderListView(
             self.tree_manager,
@@ -43,67 +38,7 @@ class TaskTab(BaseTab):
             item_spacing=self.OUTER_CATEGORY_SPACING,
         )
         self.outer_layout.addWidget(self.task_header_view)
-        # self._fill_scroll_area()
-
         self._views_being_reset = []
-        # tm = self.tree_manager
-        # tm.register_pre_item_added_callback(self, self.pre_item_added)
-        # tm.register_item_added_callback(self, self.on_item_added)
-        # tm.register_pre_item_removed_callback(self, self.pre_item_removed)
-        # tm.register_item_removed_callback(self, self.on_item_removed)
-        # tm.register_pre_item_moved_callback(self, self.pre_item_moved)
-        # tm.register_item_moved_callback(self, self.on_item_moved)
-        # tm.register_item_modified_callback(self, self.on_item_modified)
-        # self.task_header_view.apply_filters()
-
-    # def _fill_main_view(self):
-    #     """Fill main task view from tree root.
-
-    #     This also sets the size on the view so that the scroll area can use
-    #     it properly.
-    #     """
-    #     self.main_view = QtWidgets.QWidget()
-    #     self.main_view_layout = TaskWidgetLayout(
-    #         task_widget_tree=self.task_widget_tree,
-    #         height_buffer=self.TASK_WIDGET_HEIGHT_BUFFER,
-    #         spacing=self.OUTER_CATEGORY_SPACING,
-    #     )
-    #     self.main_view.setLayout(self.main_view_layout)
-
-    #     for category in self.tree_root.get_all_children():
-    #         widget = TaskHeaderWidget(
-    #             self.tree_manager,
-    #             category,
-    #             tab=self,
-    #             parent=self,
-    #         )
-    #         # self.task_header_widget_tree[category] = widget
-    #         self.main_view_layout.add_task_header(category, widget)
-
-        # self.main_view.setSizePolicy(
-        #     QtWidgets.QSizePolicy.Policy.Ignored,
-        #     QtWidgets.QSizePolicy.Policy.Expanding,
-        # )
-        # self.main_view.setMinimumSize(self.main_view_layout.recommended_size)
-
-    # def _fill_scroll_area(self, scroll_value=None):
-    #     """Create scroll area and set its widget as main view.
-
-    #     Args:
-    #         scroll_value (int or None): current position of scroll bar, to
-    #             maintain.
-    #     """
-    #     self.scroll_area = QtWidgets.QScrollArea()
-    #     self.outer_layout.addWidget(self.scroll_area)
-    #     self.scroll_area.setBackgroundRole(QtGui.QPalette.ColorRole.Light)
-    #     self.scroll_area.setWidget(self.main_view)
-    #     # TODO: TRY TO GET VIEW FILLING WHOLE OF SCROLL AREA
-    #     # self.scroll_area.setWidgetResizable(True)
-    #     # self.scroll_area.setSizeAdjustPolicy(
-    #     #     self.scroll_area.SizeAdjustPolicy.AdjustToContents
-    #     # )
-    #     if scroll_value is not None:
-    #         self.scroll_area.verticalScrollBar().setValue(scroll_value)
 
     @property
     def active_task_view(self):
@@ -147,23 +82,6 @@ class TaskTab(BaseTab):
         if self.active_task_view:
             self.active_task_view.selectionModel().clearSelection()
         self._active_task = task_item
-        # selected_subtask_item = new_index.internalPointer()
-        # if selected_subtask_item:
-        #     self.selected_subtask_item  = selected_subtask_item
-
-    # @property
-    # def active_task_header_widget(self):
-    #     """Get active task header widget for categories or top-level tasks.
-
-    #     Returns:
-    #         (TaskWidget or None): active task/task category widget.
-    #     """
-    #     if self.selected_task_header_item:
-    #         return self.task_header_widget_tree.get(
-    #             self.selected_task_header_item,
-    #             None,
-    #         )
-    #     return None
 
     def update_task_header_views_for_item(self, item):
         """Update task header views for given item.

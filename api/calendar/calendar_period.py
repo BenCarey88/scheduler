@@ -851,12 +851,14 @@ class CalendarMonth(BaseCalendarPeriod):
             length=length,
         )
 
-    def get_calendar_weeks(self, starting_day=0):
+    def get_calendar_weeks(self, starting_day=0, overspill=False):
         """Get calendar weeks list.
 
         Args:
             starting_day (int or str): integer or string representing starting
                 day for weeks. By default we start weeks on monday.
+            overspill (True): if True, overspill weeks at either side to ensure
+                all weeks have length 7.
 
         Returns:
             (list(CalendarWeek)): list of calendar week objects for this month.
@@ -865,16 +867,25 @@ class CalendarMonth(BaseCalendarPeriod):
         if isinstance(starting_day, str):
             starting_day = Date.weekday_int_from_string(starting_day)
         date = self._start_date
-        while date <= self._end_date:
-            length = 7
-            if date.weekday != starting_day:
-                # beginning of month, restrict length til next start day
-                length = (starting_day - date.weekday) % 7
-            elif (self._end_date - date).days + 1 < 7:
-                # end of month, restrict length til end of month
-                length = (self._end_date - date).days + 1
-            week_list.append(CalendarWeek(self.calendar, date, length))
-            date += TimeDelta(days=length)
+
+        if overspill:
+            distance_from_start_day = (date.weekday - starting_day) % 7
+            date -= (TimeDelta(days=distance_from_start_day))
+            while date <= self._end_date:
+                week_list.append(CalendarWeek(self.calendar, date))
+                date += TimeDelta(weeks=1)
+
+        else:
+            while date <= self._end_date:
+                length = 7
+                if date.weekday != starting_day:
+                    # beginning of month, restrict length til next start day
+                    length = (starting_day - date.weekday) % 7
+                elif (self._end_date - date).days + 1 < 7:
+                    # end of month, restrict length til end of month
+                    length = (self._end_date - date).days + 1
+                week_list.append(CalendarWeek(self.calendar, date, length))
+                date += TimeDelta(days=length)
         return week_list
 
     def iter_days(self):

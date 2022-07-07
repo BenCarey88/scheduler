@@ -28,7 +28,6 @@ class ScheduledItemWidget(object):
         self._timetable_view = timetable_view
         self._schedule_manager = schedule_manager
         self._scheduled_item = scheduled_item
-        #self.orig_mouse_pos = orig_mouse_pos
         self.is_being_moved = False
         self.mouse_pos_start_time = None
         self._edited_date = None
@@ -126,15 +125,6 @@ class ScheduledItemWidget(object):
             new_start_time (DateTime): new start time for item.
             new_end_date_time (DateTime): new end time for item.
         """
-        # if not self.is_being_moved:
-        #     self._schedule_manager.begin_move_item(self._scheduled_item)
-        #     self.is_being_moved = True
-        # self._schedule_manager.update_move_item(
-        #     self._scheduled_item,
-        #     new_start_datetime.date(),
-        #     new_start_datetime.time(),
-        #     new_end_datetime.time(),
-        # )
         if not self.is_being_moved:
             self.is_being_moved = True
         self._edited_date = new_start_datetime.date()
@@ -143,8 +133,6 @@ class ScheduledItemWidget(object):
 
     def deselect(self):
         """Call when we've finished using this item."""
-        # self._schedule_manager.end_move_item(self._scheduled_item)
-        # self.update_orig_datetime_attrs()
         self._schedule_manager.move_scheduled_item(
             self._scheduled_item,
             self._edited_date,
@@ -200,8 +188,6 @@ class ScheduledItemWidget(object):
         painter.fillPath(path, painter.brush())
         painter.strokePath(path, painter.pen())
 
-        # if self._scheduled_item.is_background:
-        #     return
         text_padding = 3
         text_margin = min(rect.width() / 2, 7)
         text_height = 20

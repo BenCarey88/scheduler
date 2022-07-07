@@ -1,8 +1,6 @@
 """Base calendar view to view models in calendar tabs."""
 
 
-from functools import partial
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.calendar.calendar_period import CalendarDay
@@ -81,7 +79,6 @@ class BaseListView(BaseCalendarView, QtWidgets.QTreeView):
         self.setModel(list_model)
         self.setItemsExpandable(False)
         utils.set_style(self, "base_list_view.qss")
-        # self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.
@@ -195,12 +192,15 @@ class BaseMultiListMonthView(BaseMultiListView):
         Args:
             calendar_month (CalendarMonth): calendar month to set to.
         """
-        calendar_weeks = calendar_month.get_calendar_weeks()
+        calendar_weeks = calendar_month.get_calendar_weeks(overspill=True)
         for i in range(5 - len(calendar_weeks)):
-            self.get_widget(-1 -i).setHidden(True)
-        for calendar_week, view in zip(calendar_weeks, self.get_widgets()):
+            # filter out any weeks that don't fit into current month
+            self.filter_row(4 - i, update=False)
+        index_week_view = zip(range(5), calendar_weeks, self.get_widgets())
+        for i, calendar_week, view in index_week_view:
+            self.unfilter_row(i, update=False)
             view.set_to_calendar_period(calendar_week)
-            view.setHidden(False)
+        self.update_view()
 
 
 class BaseMultiListYearView(BaseMultiListView):

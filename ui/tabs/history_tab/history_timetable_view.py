@@ -1,17 +1,14 @@
 """Tracker timetable view."""
 
-from functools import partial
-
 from PyQt5 import QtCore, QtWidgets
 
-from scheduler.api.common.date_time import DateTime, Time
 from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
 
 from scheduler.ui.models.list import HistoryListModel
 from scheduler.ui.models.table import HistoryWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
 
-from scheduler.ui import constants, utils
+from scheduler.ui import utils
 
 
 class HistoryTimeTableView(BaseWeekTableView):
@@ -31,7 +28,6 @@ class HistoryTimeTableView(BaseWeekTableView):
             HistoryWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
-        # utils.set_style(self, "tracker_view.qss")
         self.setItemDelegate(HistoryDelegate(self))
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed

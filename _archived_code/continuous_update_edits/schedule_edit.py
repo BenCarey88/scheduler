@@ -110,7 +110,6 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             scheduled_item,
             scheduled_item,
         ]
-        self._is_valid = bool(self._modified_attrs())
         self._name = "ModifyScheduledItem ({0})".format(scheduled_item.name)
 
     def _modified_attrs(self):
@@ -123,6 +122,10 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             attr for attr, value in self._attr_dict.items()
             if self._original_attrs.get(attr) != value
         ])
+
+    def _check_validity(self):
+        """Check if edit is valid."""
+        self._is_valid = bool(self._modified_attrs())
 
     @property
     def description(self):
@@ -138,9 +141,53 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             self._scheduled_item.name
         )
 
+    def _update(
+            self,
+            new_date=None,
+            new_start_time=None,
+            new_end_time=None,
+            edit_replacements=None,
+            edit_additions=None):
+        """Update parameters of edit and run.
+
+        Args:
+            new_date (Date or None): new override date.
+            new_start_time (Time or None): new override start time.
+            new_end_time (Time or None): new override end time.
+            edit_replacements (dict or None): dict of edit replacements to
+                pass to superclass _update if needed.
+            edit_additions (list or None): list of edit additions to pass to
+                superclass _update if needed.
+        """
+        if (new_date is None
+                and new_start_time is None
+                and new_end_time is None):
+            return
+
+        edit_updates = {}
+        attr_updates = {}
+        if new_date is not None:
+            attr_updates[self._scheduled_item._date] = new_date
+        if new_start_time is not None:
+            attr_updates[self._scheduled_item._start_time] = new_start_time
+        if new_end_time is not None:
+            attr_updates[self._scheduled_item._end_time] = new_end_time
+        self._attr_dict.update(attr_updates)
+        edit_updates[self._attribute_edit] = ([attr_updates], {})
+
+        super(BaseModifyScheduledItemEdit, self)._update(
+            edit_updates=edit_updates,
+            edit_replacements=edit_replacements,
+            edit_additions=edit_additions,
+        )
+
 
 class ModifyScheduledItemEdit(BaseModifyScheduledItemEdit):
-    """Modify attributes and start and end datetimes of scheduled item."""
+    """Modify attributes and start and end datetimes of scheduled item.
+
+    This edit can be performed continuously via drag and drop and hence must
+    allow continuous editing to respond to user updates.
+    """
     def __init__(self, scheduled_item, attr_dict):
         """Initialise edit.
 
@@ -154,17 +201,8 @@ class ModifyScheduledItemEdit(BaseModifyScheduledItemEdit):
         if scheduled_item._date in attr_dict:
             new_date = attr_dict[scheduled_item._date]
             # remove items from old container and add to new one
-            self._remove_edit = ListEdit.create_unregistered(
-                scheduled_item.get_item_container(),
-                [scheduled_item],
-                ContainerOp.REMOVE,
-                edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
-            )
-            self._add_edit = ListEdit.create_unregistered(
-                scheduled_item.get_item_container(new_date),
-                [scheduled_item],
-                ContainerOp.ADD,
-            )
+            self._remove_edit = self._get_remove_edit(scheduled_item)
+            self._add_edit = self._get_add_edit(scheduled_item, new_date)
             subedits.extend([self._remove_edit, self._add_edit])
 
         super(ModifyScheduledItemEdit, self).__init__(
@@ -172,6 +210,78 @@ class ModifyScheduledItemEdit(BaseModifyScheduledItemEdit):
             attr_dict,
             subedits=subedits,
         )
+
+    @staticmethod
+    def _get_remove_edit(scheduled_item):
+        """Get remove edit for moving scheduled item to new date.
+
+        Args:
+            scheduled_item (ScheduledItem): scheduled item to get edits for.
+
+        Returns:
+            (ListEdit): edit to remove scheduled item from old container.
+        """
+        return ListEdit.create_unregistered(
+            scheduled_item.get_item_container(),
+            [scheduled_item],
+            ContainerOp.REMOVE,
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
+        )
+
+    @staticmethod
+    def _get_add_edit(scheduled_item, new_date):
+        """Get add edit for moving scheduled item to new date.
+
+        Args:
+            scheduled_item (ScheduledItem): scheduled item to get edit for.
+            new_date (Date): date to move to.
+
+        Returns:
+            (ListEdit): edit to add scheduled item to new container.
+        """
+        return ListEdit.create_unregistered(
+            scheduled_item.get_item_container(new_date),
+            [scheduled_item],
+            ContainerOp.ADD,
+        )
+
+    def _update(self, new_date=None, new_start_time=None, new_end_time=None):
+        """Update parameters of edit and run.
+
+        Args:
+            new_date (Date or None): new date.
+            new_start_time (Time or None): new start time.
+            new_end_time (Time or None): new end time.
+        """
+        edit_replacements = {}
+        edit_additions = []
+        new_add_edit = None
+
+        if new_date is not None:
+            if self._add_edit is None:
+                self._remove_edit = self._get_remove_edit(self._scheduled_item)
+                self._add_edit = self._get_add_edit(
+                    self._scheduled_item,
+                    new_date
+                )
+                edit_additions.extend([self._remove_edit, self._add_edit])
+
+            else:
+                new_add_edit = self._get_add_edit(
+                    self._scheduled_item,
+                    new_date
+                )
+                edit_replacements[self._add_edit] = new_add_edit
+
+        super(ModifyScheduledItemEdit, self)._update(
+            new_date,
+            new_start_time,
+            new_end_time,
+            edit_replacements=edit_replacements,
+            edit_additions=edit_additions,
+        )
+        if new_add_edit is not None:
+            self._add_edit = new_add_edit
 
 
 class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
@@ -206,7 +316,11 @@ class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
 
 
 class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
-    """Modify attributes and start and end overrides of repeat instance."""
+    """Modify attributes and start and end overrides of repeat instance.
+
+    This edit can be performed continuously via drag and drop and hence must
+    allow continuous editing to respond to user updates.
+    """
     def __init__(
             self,
             scheduled_item,
@@ -272,6 +386,21 @@ class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
 
         return modified_attrs
 
+    def _update(self, new_date=None, new_start_time=None, new_end_time=None):
+        """Update parameters of edit and run.
+
+        Args:
+            new_date (Date or None): new override date.
+            new_start_time (Time or None): new override start time.
+            new_end_time (Time or None): new override end time.
+        """
+        super(ModifyRepeatScheduledItemInstanceEdit, self)._update(
+            new_date,
+            new_start_time,
+            new_end_time
+        )
+        self._scheduled_item._compute_override()
+
 
 class ReplaceScheduledItemEdit(CompositeEdit):
     """Replace one scheduled item with another."""
@@ -296,7 +425,6 @@ class ReplaceScheduledItemEdit(CompositeEdit):
         super(ReplaceScheduledItemEdit, self).__init__(
             [remove_edit, add_edit, switch_host_edit],
         )
-        self._is_valid = (old_scheduled_item != new_scheduled_item)
 
         self._callback_args = [
             old_scheduled_item,

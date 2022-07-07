@@ -22,6 +22,8 @@ class BaseEdit(object):
                 creating the edit with the class method create_unregistered.
             _registered (bool): determines if the edit has been registered
                 or not.
+            _continuous_run_in_progress (bool): tells us if the edit is
+                currently being continuously run and so can be updated.
             _is_valid (bool): determines if edit is valid or not. This is used
                 by the edit log to determine whether or not we should add the
                 edit.
@@ -47,6 +49,7 @@ class BaseEdit(object):
         """
         self._register_edit = True
         self._registered = False
+        self._continuous_run_in_progress = False
         self._is_valid = True
         self._has_been_done = False
         self._callback_args = None
@@ -133,6 +136,13 @@ class BaseEdit(object):
         """
         EDIT_LOG.register_post_undo_callback(cls, id, callback)
 
+    def _check_validity(self):
+        """Check if edit is valid. This is done in initialization and update.
+
+        This can be used to set _is_valid value (by default it's set to True).
+        """
+        pass
+
     def run(self):
         """Call edit function externally, and register with edit log if needed.
 
@@ -148,6 +158,11 @@ class BaseEdit(object):
             raise EditError(
                 "Edit object cannot be run externally after registration."
             )
+        if self._continuous_run_in_progress:
+            raise EditError(
+                "Edit object cannot call run when a continuous_run is already "
+                "in progress."
+            )
         if self._has_been_done:
             raise EditError("Cannot run edit multiple times without undo.")
         if self._register_edit and EDIT_LOG.is_locked:
@@ -162,6 +177,61 @@ class BaseEdit(object):
         self._has_been_done = True
         return self._is_valid
 
+    def begin_continuous_run(self):
+        """Run edit continuously.
+
+        This runs the edit but allows it to be updated before adding to the log
+        (using update_continuous_run method). This requires end_continuous_run
+        to be called afterwards in order to unlock the edit log and finish
+        registering the edit.
+        """
+        if self._registered:
+            raise EditError(
+                "Edit object cannot be run externally after registration."
+            )
+        if self._register_edit:
+            if EDIT_LOG.is_locked:
+                # don't run registerable edits if they can't be added to log
+                return
+            EDIT_LOG.begin_add_edit(self)
+        self._run()
+        self._continuous_run_in_progress = True
+
+    def update_continuous_run(self, *args, **kwargs):
+        """Update and run changes on continuous edit.
+
+        Args:
+            args (list): args to pass to _update method.
+            kwargs (dict): kwargs to pass to _update method.
+        """
+        if self._registered:
+            raise EditError(
+                "Edit object cannot be run externally after registration."
+            )
+        if not self._continuous_run_in_progress:
+            return
+        self._update(*args, **kwargs)
+
+    def end_continuous_run(self):
+        """Finish updating continuous edit and add to edit log.
+        
+        Returns:
+            (bool): whether or not edit was successful (and hence added to
+                the edit log).
+        """
+        if self._registered:
+            raise EditError(
+                "Edit object cannot be run externally after registration."
+            )
+        if not self._continuous_run_in_progress:
+            return
+        self._check_validity()
+        if self._register_edit:
+            self._has_been_done = True
+            self._registered = EDIT_LOG.end_add_edit()
+        self._continuous_run_in_progress = False
+        return self._is_valid
+
     def _run(self):
         """Run edit function.
 
@@ -171,6 +241,16 @@ class BaseEdit(object):
         """
         raise NotImplementedError(
             "_run must be implemented in BaseEdit subclasses."
+        )
+
+    def _update(self, *args, **kwargs):
+        """Update parameters of edit and run updates.
+
+        This is used during continuous run functionality and so only needs to
+        be implemented in edit classes that support this.
+        """
+        raise NotImplementedError(
+            "_update not implemented. Class doesn't support continous edits."
         )
 
     def _inverse_run(self):

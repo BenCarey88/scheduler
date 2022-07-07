@@ -95,6 +95,9 @@ class CompositeEdit(BaseEdit):
         self._edits_list = edits_list
         self._reverse_order_for_inverse = reverse_order_for_inverse
         super(CompositeEdit, self).__init__()
+
+    def _check_validity(self):
+        """Check edit validitiy. This is done in initialization and update."""
         self._is_valid = any([edit._is_valid for edit in self._edits_list])
 
     def _run(self):
@@ -110,6 +113,64 @@ class CompositeEdit(BaseEdit):
             inverse_edits_list = self._edits_list
         for edit in inverse_edits_list:
             edit._inverse_run()
+
+    def _update(
+            self,
+            edit_updates=None,
+            edit_replacements=None,
+            edit_additions=None):
+        """Update subedits for continuous run functionality.
+
+        args:
+            edit_updates (dict(BaseEdit, tuple) or None): dictionary of
+                subedits to update along with args and kwargs for those
+                _update methods.
+            edit_replacements (dict(BaseEdit, BaseEdit) or None): dictionary
+                of subedits to replace, along with edits to replace them.
+            edit_additions (list(BaseEdit)): additional edits to add.
+        """
+        edit_updates = edit_updates or {}
+        edit_replacements = edit_replacements or {}
+        edit_additions = edit_additions or []
+
+        for edit, args_and_kwargs in edit_updates.items():
+            if not edit in self._edits_list:
+                raise EditError(
+                    "Edit ({0}) not part of this composite edit. Cannot "
+                    "update it.".format(edit.name)
+                )
+            args, kwargs = args_and_kwargs
+            edit._update(*args, **kwargs)
+
+        for edit, replacement_edit in edit_replacements.items():
+            if not edit in self._edits_list:
+                raise EditError(
+                    "Edit ({0}) not part of this composite edit. Cannot "
+                    "replace it.".format(edit.name)
+                )
+            if (replacement_edit._register_edit
+                    or replacement_edit._registered
+                    or replacement_edit._has_been_done):
+                raise EditError(
+                    "Edits passed to CompositeEdit update cannot be "
+                    "registered individually, and must not have already "
+                    "been run."
+                )
+            if edit._is_valid:
+                edit._inverse_run()
+            replacement_edit._run()
+            index = self._edits_list.index(edit)
+            self._edits_list[index] = replacement_edit
+
+        for edit in edit_additions:
+            if edit._register_edit or edit._registered or edit._has_been_done:
+                raise EditError(
+                    "Edits passed to CompositeEdit update cannot be "
+                    "registered individually, and must not have already "
+                    "been run."
+                )
+            self._edits_list.append(edit)
+            edit._run()
 
 
 class AttributeEdit(BaseEdit):
@@ -132,6 +193,8 @@ class AttributeEdit(BaseEdit):
                 )
             self._orig_attr_dict[attr] = attr.value
 
+    def _check_validity(self):
+        """Check edit validitiy. This is done in initialization and update."""
         self._is_valid = any([
             self._orig_attr_dict[attr] != self._attr_dict[attr]
             for attr in self._attr_dict
@@ -145,6 +208,25 @@ class AttributeEdit(BaseEdit):
     def _inverse_run(self):
         """Run edit inverse."""
         for attr, value in self._orig_attr_dict.items():
+            attr.set_value(value)
+
+    def _update(self, attr_dict):
+        """Update attr dict for continuous run functionality.
+
+        args:
+            attr_dict (dict(MutableAttribute, variant)): dictionary of
+                attributes with new values to update them to.
+        """
+        for attr in attr_dict:
+            if not isinstance(attr, BaseObjectWrapper):
+                raise EditError(
+                    "attr_dict in AttributeEdit must be keyed by "
+                    "MutableAttributes or MutableHostedAttributes."
+                )
+        self._attr_dict.update(attr_dict)
+        for attr, value in self._attr_dict.items():
+            if attr not in self._orig_attr_dict:
+                self._orig_attr_dict[attr] = attr.value
             attr.set_value(value)
 
     def _get_attr_value_change_string(self, attr):

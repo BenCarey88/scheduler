@@ -127,32 +127,32 @@ class BaseContainerEdit(BaseEdit):
         self._inverse_diff_container = None
         self._inverse_operation_type = ContainerOp.get_inverse_op(op_type)
         super(BaseContainerEdit, self).__init__()
+        self._is_valid = self._check_validity()
 
     def _check_validity(self):
         """Check if edit is valid.
 
-        Args:
-            operation_type (ContainerOp or None): type of operation to check.
-                If None, use self._operation_type.
+        Returns:
+            (bool): whether or not edit is valid.
         """
         if isinstance(self._container, list):
             if self._operation_type == ContainerOp.ADD:
-                self._is_valid = True
+                return True
 
             elif self._operation_type == ContainerOp.INSERT:
-                self._is_valid = any([
+                return any([
                     0 <= index <= len(self._container)
                     for (index, _) in self._diff_container
                 ])
 
             elif self._operation_type == ContainerOp.REMOVE:
                 if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
-                    self._is_valid = any ([
+                    return any ([
                         value in self._container
                         for value in self._diff_container
                     ])
                 else:
-                    self._is_valid = any(
+                    return any(
                         0 <= index < len(self._container)
                         for index in self._diff_container
                     )
@@ -160,18 +160,18 @@ class BaseContainerEdit(BaseEdit):
             elif (self._operation_type
                     in [ContainerOp.MODIFY, ContainerOp.MOVE]):
                 if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
-                    self._is_valid = any ([
+                    return any ([
                         value in self._container
                         for (value, _) in self._diff_container
                     ])
                 else:
-                    self._is_valid = any(
+                    return any(
                         0 <= index < len(self._container)
                         for (index, _) in self._diff_container
                     )
 
             elif self._operation_type == ContainerOp.SORT:
-                self._is_valid = any([
+                return any([
                     sorted(
                         self._container,
                         key=key,
@@ -182,38 +182,38 @@ class BaseContainerEdit(BaseEdit):
 
         elif isinstance(self._container, dict):
             if self._operation_type == ContainerOp.ADD:
-                self._is_valid = any([
+                return any([
                     key not in self._container for key in self._diff_container
                 ])
 
             elif self._operation_type == ContainerOp.INSERT:
-                self._is_valid = any([
+                return any([
                     key not in self._container
                     and 0 <= index <= len(self._container)
-                    for key, (index, _) in self._diff_container.values()
+                    for key, (index, _) in self._diff_container.items()
                 ])
 
             elif self._operation_type in [ContainerOp.REMOVE, ContainerOp.MODIFY]:
-                self._is_valid = any([
+                return any([
                     key in self._container for key in self._diff_container
                 ])
 
             elif self._operation_type == ContainerOp.RENAME:
-                self._is_valid = any([
+                return any([
                     key in self._container and new_key not in self._container
-                    for key, new_key in self._diff_container.values()
+                    for key, new_key in self._diff_container.items()
                 ])
 
             elif self._operation_type in (
                     [ContainerOp.ADD_OR_MODIFY, ContainerOp.REMOVE_OR_MODIFY]):
-                self._is_valid = True
+                return True
 
             elif isinstance(self._container, OrderedDict):
                 if self._operation_type == ContainerOp.MOVE:
-                    self._is_valid = any([
+                    return any([
                         key in self._container 
                         and 0 <= index < len(self._container)
-                        for key, index in self._diff_container.values()
+                        for key, index in self._diff_container.items()
                     ])
 
         raise EditError(

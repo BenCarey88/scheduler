@@ -24,6 +24,11 @@ class EditLog(object):
             _registration_locked (bool): toggle to tell if the log is currently
                 being modified. This allows us to ensure we don't re-add
                 functions to the log when they're being used to undo or redo.
+            _edit_to_add (BaseEdit or None): edit that we're in the process
+                of performing and adding to the log. This is used for
+                continuous edits where the edit can be updated continuously by
+                the user before being added to the log (eg. dragging a calendar
+                item to change its time).
             _pre_edit_callback_dict (dict): dictionary representing callbacks
                 to be run before certain types of edit are done.
             _post_edit_callback_dict (dict): dictionary representing callbacks
@@ -35,11 +40,25 @@ class EditLog(object):
         """
         self._log = []
         self._undo_log = []
-        self._registration_locked = True
+        self.__registration_locked = True
+        self._edit_to_add = None
         self._pre_edit_callback_dict = {}
         self._post_edit_callback_dict = {}
         self._pre_undo_callback_dict = {}
         self._post_undo_callback_dict = {}
+
+    @property
+    def _registration_locked(self):
+        """Check whether registration is locked.
+
+        We treat the edit registry as locked if either:
+            - the __registration_locked attribute is True
+            - there is an edit currently saved in the _edit_to_add attribute
+
+        Returns:
+            (bool): whether or not edit registration is locked.
+        """
+        return (self.__registration_locked or self._edit_to_add is not None)
 
     @property
     def is_locked(self):
@@ -173,7 +192,7 @@ class EditLog(object):
 
     def open_registry(self):
         """Open edit registry so edits can be added."""
-        self._registration_locked = False
+        self.__registration_locked = False
 
     @contextmanager
     def lock_registry(self):
@@ -182,12 +201,12 @@ class EditLog(object):
         In theory this shouldn't be needed right now but maybe could be
         useful/necessary down the line.
         """
-        _registration_locked = self._registration_locked
-        self._registration_locked = True
+        __registration_locked = self.__registration_locked
+        self.__registration_locked = True
         try:
             yield
         finally:
-            self._registration_locked = _registration_locked
+            self.__registration_locked = __registration_locked
 
     def add_edit(self, edit):
         """Add edit object to list.
@@ -213,6 +232,25 @@ class EditLog(object):
             latest_edit._next_edit_in_stack = edit
         self._log.append(edit)
         return True
+
+    # TODO: deprecate continuous edit stuff
+    def begin_add_edit(self, edit):
+        """Begin adding edit to log.
+
+        This is for continuous edits, where the edit can be updated
+        continuously by the user before being added to the log (eg. dragging
+        a scheduled item to change its time).
+
+        Args:
+            edit (BaseEdit): edit object to register.
+        """
+        self._edit_to_add = edit
+
+    def end_add_edit(self):
+        """Finish adding edit to log and unlock registry."""
+        edit = self._edit_to_add
+        self._edit_to_add = None
+        self.add_edit(edit)
 
     def undo(self):
         """Undo most recent edit.

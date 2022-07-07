@@ -211,6 +211,7 @@ class PlannerListView(BaseListView):
                 applies to, passed as an arg to all planner edit callbacks.
             *args: additional args dependent on type of edit.
         """
+        super(PlannerListView, self).post_edit_callback(callback_type, *args)
         if callback_type[0] != CallbackItemType.PLANNER:
             return
         if calendar_period != self.calendar_period:

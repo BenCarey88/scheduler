@@ -208,7 +208,6 @@ class HistoryListModel(QtCore.QAbstractItemModel):
             if tree_item is None:
                 return False
 
-            self.beginResetModel()
             date_time = DateTime.from_date_and_time(
                 self.date,
                 Time.now(),
@@ -217,5 +216,4 @@ class HistoryListModel(QtCore.QAbstractItemModel):
                 tree_item,
                 date_time=date_time
             )
-            self.endResetModel()
             return bool(success)

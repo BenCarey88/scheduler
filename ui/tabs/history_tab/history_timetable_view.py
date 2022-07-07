@@ -5,6 +5,7 @@ from functools import partial
 from PyQt5 import QtCore, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time
+from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
 
 from scheduler.ui.models.list import HistoryListModel
 from scheduler.ui.models.table import HistoryWeekModel
@@ -41,6 +42,39 @@ class HistoryTimeTableView(BaseWeekTableView):
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.open_editors()
+
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(HistoryTimeTableView, self).pre_edit_callback(
+            callback_type,
+            *args
+        )
+        if callback_type[0] != CallbackItemType.TREE:
+            return
+        if callback_type == CallbackType.TREE_MODIFY:
+            self.model().beginResetModel()
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(HistoryTimeTableView, self).post_edit_callback(
+            callback_type,
+            *args
+        )
+        if callback_type[0] != CallbackItemType.TREE:
+            return
+        if callback_type == CallbackType.TREE_MODIFY:
+            self.model().endResetModel()
+            self.update()
 
     def update(self):
         """Update widget and viewport."""

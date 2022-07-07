@@ -29,7 +29,7 @@ class BaseTab(QtWidgets.QWidget):
         """Callback for what to do when current is changed in outliner.
 
         Args:
-            new_item (BaseTreeItem): new item selected in outliner.
+            new_item (BaseTaskItem): new item selected in outliner.
         """
         pass
 

@@ -109,7 +109,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         changes and etc.
 
         Args:
-            task_item (BaseTreeItem): new task item that this represents.
+            task_item (BaseTaskItem): new task item that this represents.
         """
         if task_item != self.task_item:
             self.task_widget_tree.update_widget_item(self.task_item, task_item)

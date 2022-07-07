@@ -434,7 +434,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
                 in standard scheduled items so it's saved when converting to a
                 repeat one.
             item_type (ScheduledItemType or None): type of scheduled item.
-            tree_item (BaseTreeItem or None): tree item representing task,
+            tree_item (BaseTaskItem or None): tree item representing task,
                 if item_type is task.
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
@@ -588,7 +588,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         """Get tree item representing task.
 
         Returns:
-            (BaseTreeItem or None): task or task category tree item, if one
+            (BaseTaskItem or None): task or task category tree item, if one
                 exists.
         """
         return self._tree_item.value
@@ -770,7 +770,7 @@ class ScheduledItem(BaseScheduledItem):
             end_datetime (Time): end time.
             date (Date): date of item.
             item_type (ScheduledItemType or None): type of scheduled item.
-            tree_item (BaseTreeItem or None): tree item representing task,
+            tree_item (BaseTaskItem or None): tree item representing task,
                 if item_type is task.
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
@@ -894,7 +894,7 @@ class RepeatScheduledItem(BaseScheduledItem):
             repeat_pattern (ScheduledItemRepeatPattern): repeat pattern object,
                 describing what days this item repeats on.
             item_type (ScheduledItemType or None): type of scheduled item.
-            tree_item (BaseTreeItem or None): tree item representing task,
+            tree_item (BaseTaskItem or None): tree item representing task,
                 if item_type is task.
             event_category (str or None): name to be used for category of item,
                 if item_type is event.

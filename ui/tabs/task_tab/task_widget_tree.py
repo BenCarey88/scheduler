@@ -20,7 +20,7 @@ class TaskWidgetTree(object):
         """Add data for tree item.
 
         Args:
-            tree_item (BaseTreeItem): tree item to add.
+            tree_item (BaseTaskItem): tree item to add.
             task_header_widget (TaskHeaderWidget or None): the task
                 header widget that represents this item, if it's a
                 top-level task or category.
@@ -42,7 +42,7 @@ class TaskWidgetTree(object):
         """Remove tree item from tree.
 
         Args:
-            tree_item (BaseTreeItem): tree item to remove.
+            tree_item (BaseTaskItem): tree item to remove.
         """
         if tree_item in self._widget_tree_data:
             del self._widget_tree_data[tree_item]
@@ -51,9 +51,9 @@ class TaskWidgetTree(object):
         """Update widget representing old item to represent new item.
 
         Args:
-            old_item (BaseTreeItem): the tree item the widget used to
+            old_item (BaseTaskItem): the tree item the widget used to
                 represent.
-            new_item (BaseTreeItem): the tree item the widget now represents.
+            new_item (BaseTaskItem): the tree item the widget now represents.
         """
         if new_item in self._widget_tree_data:
             # Can only update if new item isn't already in use.
@@ -67,7 +67,7 @@ class TaskWidgetTree(object):
         """Get task header widget for item.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
 
         Returns:
             (TaskHeaderWidget or None): task widget for this item, if found.
@@ -80,7 +80,7 @@ class TaskWidgetTree(object):
         """Get task header list view widget for item.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
 
         Returns:
             (TaskHeaderListView or None): task list view widget for this item,
@@ -94,7 +94,7 @@ class TaskWidgetTree(object):
         """Get task header view for item.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
 
         Returns:
             (TaskViewWidget or None): task widget for this item, if found.

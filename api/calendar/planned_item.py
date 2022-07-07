@@ -41,7 +41,7 @@ class PlannedItem(NestedSerializable):
             calendar (Calendar): calendar object.
             calendar_period (BaseCalendarPeriod): calendar period this is
                 associated to.
-            tree_item (BaseTreeItem): the task that this item represents.
+            tree_item (BaseTaskItem): the task that this item represents.
 
         Attrs:
             _planned_children (PlannedItem): associated items planned for
@@ -96,7 +96,7 @@ class PlannedItem(NestedSerializable):
         """Get task this item is planning.
 
         Returns:
-            (BaseTreeItem): task that this item is using.
+            (BaseTaskItem): task that this item is using.
         """
         return self._tree_item.value
 

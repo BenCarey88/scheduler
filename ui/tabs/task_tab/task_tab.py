@@ -87,7 +87,7 @@ class TaskTab(BaseTab):
         """Update task header views for given item.
 
         Args:
-            item (BaseTreeItem): item to update for.
+            item (BaseTaskItem): item to update for.
         """
         task_header_view = self.task_widget_tree.get_task_header_view(item)
         if task_header_view is not None:
@@ -137,8 +137,8 @@ class TaskTab(BaseTab):
         """Callback for before an item has been added.
 
         Args:
-            item (BaseTreeItem): the item to be added.
-            parent (BaseTreeItem): the parent the item will be added under.
+            item (BaseTaskItem): the item to be added.
+            parent (BaseTaskItem): the parent the item will be added under.
             row (int): the index the item will be added at.
         """
         if self.tree_manager.is_task(parent):
@@ -151,8 +151,8 @@ class TaskTab(BaseTab):
         """Callback for after an item has been added.
 
         Args:
-            item (BaseTreeItem): the item that was added.
-            parent (BaseTreeItem): the parent the item was added under.
+            item (BaseTaskItem): the item that was added.
+            parent (BaseTaskItem): the parent the item was added under.
             row (int): the index the item was added at.
         """
         if self._views_being_reset:
@@ -171,8 +171,8 @@ class TaskTab(BaseTab):
         """Callback for before an item has been removed.
 
         Args:
-            item (BaseTreeItem): the item to be removed.
-            parent (BaseTreeItem): the parent of the removed item.
+            item (BaseTaskItem): the item to be removed.
+            parent (BaseTaskItem): the parent of the removed item.
             row (int): the old row of the removed item in its
                 parent's child list.
         """
@@ -186,8 +186,8 @@ class TaskTab(BaseTab):
         """Callback for after an item has been removed.
 
         Args:
-            item (BaseTreeItem): the item removed.
-            parent (BaseTreeItem): the parent of the removed item.
+            item (BaseTaskItem): the item removed.
+            parent (BaseTaskItem): the parent of the removed item.
             row (int): the old index of the removed item in its
                 parent's child list.
         """
@@ -207,10 +207,10 @@ class TaskTab(BaseTab):
         """Callback for before an item is moved.
 
         Args:
-            item (BaseTreeItem): the item to be moved.
-            old_parent (BaseTreeItem): the original parent of the item.
+            item (BaseTaskItem): the item to be moved.
+            old_parent (BaseTaskItem): the original parent of the item.
             old_row (int): the original index of the item.
-            new_parent (BaseTreeItem): the new parent of the moved item.
+            new_parent (BaseTaskItem): the new parent of the moved item.
             new_row (int): the new index of the moved item.
         """
         self._views_being_reset = []
@@ -229,10 +229,10 @@ class TaskTab(BaseTab):
         """Callback for after an item has been moved.
 
         Args:
-            item (BaseTreeItem): the item that was moved.
-            old_parent (BaseTreeItem): the original parent of the item.
+            item (BaseTaskItem): the item that was moved.
+            old_parent (BaseTaskItem): the original parent of the item.
             old_row (int): the original index of the item.
-            new_parent (BaseTreeItem): the new parent of the moved item.
+            new_parent (BaseTaskItem): the new parent of the moved item.
             new_row (int): the new index of the moved item.
         """
         if self._views_being_reset:
@@ -252,8 +252,8 @@ class TaskTab(BaseTab):
         """Run callbacks before an item has been modified.
 
         Args:
-            old_item (BaseTreeItem): the item to be modified.
-            new_item (BaseTreeItem): the item after modification.
+            old_item (BaseTaskItem): the item to be modified.
+            new_item (BaseTaskItem): the item after modification.
         """
         if not self.tree_manager.is_task_category_or_top_level_task(old_item):
             widget = self.task_widget_tree.get_task_view(old_item)
@@ -265,8 +265,8 @@ class TaskTab(BaseTab):
         """Run callbacks after an item has been modified.
 
         Args:
-            old_item (BaseTreeItem): the item that was modified.
-            new_item (BaseTreeItem): the item after modification.
+            old_item (BaseTaskItem): the item that was modified.
+            new_item (BaseTaskItem): the item after modification.
         """
         if self._views_being_reset:
             for widget in self._views_being_reset:
@@ -282,7 +282,7 @@ class TaskTab(BaseTab):
         """Callback to scroll to item when current is changed in outliner.
 
         Args:
-            tree_item (BaseTreeItem): new item selected in outliner.
+            tree_item (BaseTaskItem): new item selected in outliner.
         """
         task_header = self.tree_manager.get_task_category_or_top_level_task(
             tree_item

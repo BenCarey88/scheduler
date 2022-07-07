@@ -1,10 +1,6 @@
-"""Task class."""
+"""Task category class."""
 
 from collections import OrderedDict
-from functools import partial
-import os
-import shutil
-import tempfile
 
 from scheduler.api.serialization.serializable import (
     SaveType,
@@ -12,7 +8,7 @@ from scheduler.api.serialization.serializable import (
 )
 from .exceptions import DuplicateChildNameError
 from ._base_filters import KeepChildrenOfType
-from ._base_tree_item import BaseTreeItem
+from .base_task_item import BaseTaskItem
 from .task import Task
 
 
@@ -28,8 +24,7 @@ class TaskCategoryFilter(KeepChildrenOfType):
         super(TaskCategoryFilter, self).__init__(TaskCategory)
 
 
-
-class TaskCategory(BaseTreeItem):
+class TaskCategory(BaseTaskItem):
     """Class representing a task category.
 
     This class has two types of children: subcategories and tasks.

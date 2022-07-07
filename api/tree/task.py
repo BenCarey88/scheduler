@@ -5,21 +5,24 @@ from collections import OrderedDict
 from scheduler.api.common.date_time import Date, Time
 from scheduler.api.common.object_wrappers import MutableAttribute
 from scheduler.api.serialization.serializable import SaveType
+from scheduler.api.utils import OrderedEnum
 
-from ._base_tree_item import BaseTreeItem
+from .base_task_item import BaseTaskItem
 
 
-class TaskType():
+class TaskType(OrderedEnum):
     """Enumeration for task types."""
     ROUTINE = "Routine"
     GENERAL = "General"
+    VALUES_LIST = [ROUTINE, GENERAL]
 
 
-class TaskStatus():
+class TaskStatus(OrderedEnum):
     """Enumeration for task statuses."""
     UNSTARTED = "Unstarted"
     IN_PROGRESS = "In Progress"
     COMPLETE = "Complete"
+    VALUES_LIST = [UNSTARTED, IN_PROGRESS, COMPLETE]
 
 
 class TaskValueType():
@@ -32,7 +35,23 @@ class TaskValueType():
     MULTI = "Multi"
 
 
-class Task(BaseTreeItem):
+class TaskSize(OrderedEnum):
+    """Struct to store size types of task."""
+    BIG = "big"
+    MEDIUM = "medium"
+    SMALL = "small"
+    VALUES_LIST = [BIG, MEDIUM, SMALL]
+
+
+class TaskImportance(OrderedEnum):
+    """Struct to store levels of importance for task."""
+    CRITICAL = "critical"
+    MODERATE = "moderate"
+    MINOR = "minor"
+    VALUES_LIST = [CRITICAL, MODERATE, MINOR]
+
+
+class Task(BaseTaskItem):
     """Class representing a generic task."""
     _SAVE_TYPE = SaveType.FILE
 

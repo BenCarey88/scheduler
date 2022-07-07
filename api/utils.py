@@ -148,6 +148,22 @@ def backup_git_repo(repo_path, commit_message="backup"):
     return None
 
 
+class OrderedEnum():
+    """Base ordered enumerator struct with string values.
+
+    Enumerators with an ordering should inherit from this and
+    fill in the values list to define the ordering.
+    """
+    VALUES_LIST = []
+    @classmethod
+    def key(cls, value):
+        """Get key, used to order values."""
+        for i, val in enumerate(cls.VALUES_LIST):
+            if val == value:
+                return i
+        return i + 1
+
+
 """Id registry to store floating items by temporary ids."""
 _TEMPORARY_ID_REGISTRY = {}
 _GLOBAL_COUNT = 0

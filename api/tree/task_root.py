@@ -1,15 +1,13 @@
 """Root task item.
 
 At any one time the scheduler ui should have one TaskRoot item that is
-used across all its tabs and widgets.
+used across all its tabs and widgets, and one archive TaskRoot.
 """
 
 from collections import OrderedDict
 
-from scheduler.api.edit.tree_edit import MoveTreeItemEdit
 from scheduler.api.serialization.serializable import (
     SaveType,
-    SerializationError,
     SerializableFileTypes,
 )
 
@@ -63,7 +61,7 @@ class TaskRoot(TaskCategory):
             path (list(str) or str): path to item as a list or a string.
 
         Returns:
-            (BaseTreeItem or None): tree item at given path, if one exists.
+            (BaseTaskItem or None): tree item at given path, if one exists.
         """
         if isinstance(path, str):
             path_list = path.split(self.TREE_PATH_SEPARATOR)

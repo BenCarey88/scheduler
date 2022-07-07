@@ -80,7 +80,7 @@ class PlannerEditManager(BasePlannerManager):
             planned_item (PlannedItem): planned item to remove.
             calendar_period (BaseCalendarPeriod or None): calendar period
                 item is planned over.
-            tree_item (BaseTreeItem or None): the task that this item
+            tree_item (BaseTaskItem or None): the task that this item
                 represents.
 
         Returns:

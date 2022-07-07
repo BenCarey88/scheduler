@@ -4,7 +4,6 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 from scheduler.api.common.object_wrappers import Hosted, MutableAttribute
-from scheduler.api.constants import TASK_COLORS
 from scheduler.api.serialization.serializable import NestedSerializable
 
 
@@ -13,17 +12,12 @@ class BaseTreeItem(Hosted, NestedSerializable):
     TREE_PATH_SEPARATOR = "/"
     DEFAULT_NAME = "tree_item"
 
-    # TODO: remove id argument
-    def __init__(self, name, parent=None, id=None):
+    def __init__(self, name, parent=None):
         """Initialise tree item class.
 
         Args:
             name (str): name of tree item.
             parent (Task or None): parent of current item, if it's not a root.
-            id (uuid4 or None): id of tree item. If not given, we create one.
-                This argument allows us to create a new tree item but treat it
-                as if it's the same as an old one (eg. if we want to change a
-                Task to a TaskCategory).
         """
         super(BaseTreeItem, self).__init__()
         self._name = MutableAttribute(name, "name")
@@ -32,10 +26,6 @@ class BaseTreeItem(Hosted, NestedSerializable):
         # base class must be overridden, has no allowed child types.
         self._allowed_child_types = []
 
-    # TODO: this is only here so it can be accessed in the drag-drop stuff to find
-    # the root of any model bc we're into the super-hacky just get something that
-    # works stage of release1. We can probably remove this function (and maybe
-    # replace some of that functionality with the tree manager?)
     @property
     def root(self):
         """Get root of tree.
@@ -87,20 +77,6 @@ class BaseTreeItem(Hosted, NestedSerializable):
             (str): path with names of all ancestors.
         """
         return self.TREE_PATH_SEPARATOR.join(self.path_list)
-
-    # TODO: does this belong here?
-    @property
-    def color(self):
-        """Get color of tree item.
-
-        Returns:
-            (tuple(int) or None): rgb color of item, if defined.
-        """
-        if self.name in TASK_COLORS:
-            return TASK_COLORS.get(self.name)
-        if self.parent:
-            return self.parent.color
-        return None
 
     def __str__(self):
         """Get string representation of self.

@@ -111,7 +111,7 @@ class ScheduleEditManager(BaseScheduleManager):
             end_time (DateTime or None): new end date time.
             repeat_pattern (RepeatPattern or None): new repeat pattern.
             item_type (ScheduledItemType or None): new type.
-            tree_item (BaseTreeItem or None): new tree item.
+            tree_item (BaseTaskItem or None): new tree item.
             event_category (str or None): new category name.
             event_name (str or None): new event name.
             is_background (bool or None): new background value.

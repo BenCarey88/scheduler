@@ -6,7 +6,7 @@ editing the underlying tree item data, eg. whether or not the item
 is being filtered for in the current tab.
 """
 
-from scheduler.api.tree._base_tree_item import BaseTreeItem
+from scheduler.api.tree.base_task_item import BaseTaskItem
 from scheduler.api.tree.filters import NoFilter, FilterByItem
 from scheduler.api.utils import fallback_value
 
@@ -85,7 +85,7 @@ class TreeFilterManager(BaseTreeManager):
         """Check if tree item already has attribute defined in internal dict.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query for.
+            tree_item (BaseTaskItem): tree item to query for.
             atttribute (str): attribute name.
 
         Returns:
@@ -98,7 +98,7 @@ class TreeFilterManager(BaseTreeManager):
         """Get the attribute for the given tree item.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query for.
+            tree_item (BaseTaskItem): tree item to query for.
             atttribute (str): attribute name.
             default (variant or None): default value for attribute.
                 If None, try to find from ATTRIBUTE_DEFAULTS instead.
@@ -117,7 +117,7 @@ class TreeFilterManager(BaseTreeManager):
         """Set the attribute for the given tree item.
 
         Args:
-            tree_item (BaseTreeItem): tree item to set attribute for.
+            tree_item (BaseTaskItem): tree item to set attribute for.
             atttribute (str): attribute name.
             value (variant): value to set.
             default (variant or None): default value for attribute.
@@ -140,7 +140,7 @@ class TreeFilterManager(BaseTreeManager):
         """Check if the given tree item is filtered out.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
 
         Returns:
             (bool): whether or not the given item is being filtered out.
@@ -163,7 +163,7 @@ class TreeFilterManager(BaseTreeManager):
         If this is True, its checkbox should be deselected in the ui.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
 
         Returns:
             (bool): whether or not the given item is selected for filtering.
@@ -174,7 +174,7 @@ class TreeFilterManager(BaseTreeManager):
         """Check if all this tree_item's siblings are selected for filtering.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
 
         Returns:
             (bool): whether or not the item's siblings are all selected for
@@ -189,7 +189,7 @@ class TreeFilterManager(BaseTreeManager):
         """Check if all item's ancestoral siblings are selected for filtering.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
 
         Returns:
             (bool): whether or not the item's ancestoral siblings (ie. siblings
@@ -208,7 +208,7 @@ class TreeFilterManager(BaseTreeManager):
         """Check if the given tree item has been expanded in the outliner.
 
         Args:
-            tree_item (BaseTreeItem): tree item to query.
+            tree_item (BaseTaskItem): tree item to query.
             default (bool or None): default value to use, if given.
 
         Returns:
@@ -224,7 +224,7 @@ class TreeFilterManager(BaseTreeManager):
         """Add tree item to filter list.
 
         Args:
-            tree_item (BaseTreeItem): tree item to filter out.
+            tree_item (BaseTaskItem): tree item to filter out.
             from_user_selection (bool): if True, this is being set because the
                 user has selected to filter out the given item. Otherwise,
                 this is being called recursively because one of this item's
@@ -241,7 +241,7 @@ class TreeFilterManager(BaseTreeManager):
         """Remove tree item from filter list.
 
         Args:
-            tree_item (BaseTreeItem): tree item to remove filter from.
+            tree_item (BaseTaskItem): tree item to remove filter from.
             from_user_selection (bool): if True, this is being set because the
                 user has selected to unfilter the given item. Otherwise, this
                 is being called recursively because one of this item's
@@ -267,7 +267,7 @@ class TreeFilterManager(BaseTreeManager):
         """Add all siblings of tree item and ancestors to filter list.
 
         Args:
-            tree_item (BaseTreeItem): tree item to filter out.
+            tree_item (BaseTaskItem): tree item to filter out.
         """
         for sibling in tree_item.get_all_siblings():
             self.filter_item(sibling)
@@ -278,7 +278,7 @@ class TreeFilterManager(BaseTreeManager):
         """Remove all sibling of tree item and ancestors from filter list.
 
         Args:
-            tree_item (BaseTreeItem): tree item to unfilter.
+            tree_item (BaseTaskItem): tree item to unfilter.
         """
         for sibling in tree_item.get_all_siblings():
             self.unfilter_item(sibling)
@@ -289,7 +289,7 @@ class TreeFilterManager(BaseTreeManager):
         """Mark item as collapsed/expanded in the outliner.
 
         Args:
-            tree_item (BaseTreeItem): tree item to expand or collapse.
+            tree_item (BaseTaskItem): tree item to expand or collapse.
             value (bool): the value to mark it as (True means expanded, False
                 means collapsed).
             default (bool or None): default value to use, if given.
@@ -307,7 +307,7 @@ class TreeFilterManager(BaseTreeManager):
         unnecessarily.
 
         Args:
-            item (BaseTreeItem or None): tree item to set from. If not given,
+            item (BaseTaskItem or None): tree item to set from. If not given,
                 use root.
 
         Returns:
@@ -335,15 +335,15 @@ class TreeFilterManager(BaseTreeManager):
             return FilterByItem(list(self._filtered_items))
         return NoFilter()
 
-    @require_class(BaseTreeItem, raise_error=True)
+    @require_class(BaseTaskItem, raise_error=True)
     def get_filtered_children(self, tree_item):
         """Get filtered children of tree item.
 
         Args:
-            tree_item (BaseTreeItem): item to get chidren of.
+            tree_item (BaseTaskItem): item to get chidren of.
 
         Returns:
-            (list(BaseTreeItem)): children with filter applied.
+            (list(BaseTaskItem)): children with filter applied.
         """
         with tree_item.filter_children([self.child_filter]):
             return tree_item.get_all_children()
@@ -352,7 +352,7 @@ class TreeFilterManager(BaseTreeManager):
         """Set given item as the currently selected one.
 
         Args:
-            item (BaseTreeItem): item to select.
+            item (BaseTaskItem): item to select.
         """
         self._current_item = item
 
@@ -360,6 +360,6 @@ class TreeFilterManager(BaseTreeManager):
         """Get currently selected item.
 
         Returns:
-            (BaseTreeItem or None): current selected item, if there is one.
+            (BaseTaskItem or None): current selected item, if there is one.
         """
         return self._current_item

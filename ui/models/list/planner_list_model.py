@@ -481,8 +481,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """Callback for after an item has been modified.
 
         Args:
-            old_item (BaseTreeItem): the item that was modified.
-            new_item (BaseTreeItem): the item after modification.
+            old_item (PlannedItem): the item that was modified.
+            new_item (PlannedItem): the item after modification.
         """
         row = new_item.index()
         if row is not None:

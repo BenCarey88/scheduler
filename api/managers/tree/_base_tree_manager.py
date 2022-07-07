@@ -1,6 +1,6 @@
 """Base tree manager class."""
 
-from scheduler.api.tree._base_tree_item import BaseTreeItem
+from scheduler.api.tree.base_task_item import BaseTaskItem
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
 
@@ -51,55 +51,55 @@ class BaseTreeManager(BaseManager):
             include_root (bool): if True, include root in iteration.
 
         Yields:
-            (BaseTreeItem): each item in tree, from top down.
+            (BaseTaskItem): each item in tree, from top down.
         """
         if include_root:
             yield self._tree_root
         for descendant in self._tree_root.iter_descendants:
             yield descendant
 
-    @require_class(BaseTreeItem, raise_error=True)
+    @require_class(BaseTaskItem, raise_error=True)
     def is_task(self, item):
         """Check if tree item is task.
 
         Args:
-            item (BaseTreeItem): tree item to check.
+            item (BaseTaskItem): tree item to check.
 
         Return:
             (bool): whether or not item is task.
         """
         return isinstance(item, Task)
 
-    @require_class(BaseTreeItem, raise_error=True)
+    @require_class(BaseTaskItem, raise_error=True)
     def is_task_category(self, item):
         """Check if tree item is task category.
 
         Args:
-            item (BaseTreeItem): tree item to check.
+            item (BaseTaskItem): tree item to check.
 
         Return:
             (bool): whether or not item is task category.
         """
         return isinstance(item, TaskCategory)
 
-    @require_class(BaseTreeItem, raise_error=True)
+    @require_class(BaseTaskItem, raise_error=True)
     def is_top_level_task(self, item):
         """Check if tree item is a top level task.
 
         Args:
-            item (BaseTreeItem): tree item to check.
+            item (BaseTaskItem): tree item to check.
 
         Return:
             (bool): whether or not item is top level task.
         """
         return isinstance(item, Task) and isinstance(item.parent, TaskCategory)
 
-    @require_class(BaseTreeItem, raise_error=True)
+    @require_class(BaseTaskItem, raise_error=True)
     def is_task_category_or_top_level_task(self, item):
         """Check if tree item is a top level task.
 
         Args:
-            item (BaseTreeItem): tree item to check.
+            item (BaseTaskItem): tree item to check.
 
         Return:
             (bool): whether or not item is task category or top level task.
@@ -111,7 +111,7 @@ class BaseTreeManager(BaseManager):
         """Get task category or top level task ancestor of item.
 
         Args:
-            item (BaseTreeItem): tree item to use.
+            item (BaseTaskItem): tree item to use.
 
         Return:
             (Task or TaskCategory or None): task category or top level task
@@ -123,7 +123,7 @@ class BaseTreeManager(BaseManager):
             return None
         return self.get_task_category_or_top_level_task(item.parent)
 
-    @require_class(BaseTreeItem, raise_error=True)
+    @require_class(BaseTaskItem, raise_error=True)
     def can_accept_child(self, parent_item, child_item):
         """Check if tree item can accept given item as a child.
 
@@ -133,8 +133,8 @@ class BaseTreeManager(BaseManager):
         - the item is not in the parent's allowed children.
 
         Args:
-            parent_item (BaseTreeItem): parent item to check.
-            child_item (BaseTreeItem): child item to check if can be accepted.
+            parent_item (BaseTaskItem): parent item to check.
+            child_item (BaseTaskItem): child item to check if can be accepted.
 
         Return:
             (bool): whether or not parent item can accept child item.

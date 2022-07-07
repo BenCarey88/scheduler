@@ -54,10 +54,6 @@ class Outliner(BaseTreeView):
         self.expanded.connect(partial(self.mark_item_expanded, value=True))
         self.collapsed.connect(partial(self.mark_item_expanded, value=False))
 
-        # self.setSelectionBehavior(
-        #     QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
-        # )
-
     def _expand_item_from_tree_manager(self, index):
         """Recursively expand item at given index.
 
@@ -160,7 +156,7 @@ class Outliner(BaseTreeView):
         """Build right click menu for given item.
 
         Args:
-            item (BaseTreeItem or None): item to build menu for.
+            item (BaseTaskItem or None): item to build menu for.
 
         Returns:
             (QtWidgets.QMenu): the right click menu.

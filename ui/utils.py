@@ -110,7 +110,7 @@ def encode_mime_data(items, mime_data_format):
     """Encode items as mime data.
 
     Args:
-        tree_items (list(variant) or variant): items to encode.
+        items (list(variant) or variant): items to encode.
         mime_data_format (str): format for mime data.
 
     Returns:
@@ -145,8 +145,7 @@ def decode_mime_data(mime_data, mime_data_format, drop=False):
             that we can delete the item's id after decoding.
 
     Returns:
-        (BaseTreeItem or list(BaseTreeItem) or None): the encoded
-            item/s, if found.
+        (variant or list(variant) or None): the encoded item/s, if found.
     """
     if mime_data_format is None:
         return None

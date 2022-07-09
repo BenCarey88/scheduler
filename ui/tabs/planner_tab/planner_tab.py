@@ -17,7 +17,7 @@ from .planner_hybrid_view import (
     PlannerHybridDayView,
     PlannerHybridWeekView,
     PlannerHybridMonthView,
-    PlannerHybridYearView,
+    OverlayedPlannerHybridYearView,
 )
 
 
@@ -78,7 +78,7 @@ class PlannerTab(BaseCalendarTab):
             ),
             (
                 (DateType.YEAR, ViewType.HYBRID),
-                PlannerHybridYearView(name, project)
+                OverlayedPlannerHybridYearView(name, project)
             ),
         ])
         super(PlannerTab, self).__init__(
@@ -86,7 +86,7 @@ class PlannerTab(BaseCalendarTab):
             project,
             main_views_dict,
             DateType.YEAR,
-            ViewType.MULTILIST,
+            ViewType.HYBRID,
             hide_day_change_buttons=True,
             use_full_period_names=True,
             parent=parent,

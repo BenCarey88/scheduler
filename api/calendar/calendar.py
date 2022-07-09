@@ -118,7 +118,7 @@ class Calendar(NestedSerializable):
             raise CalendarError(
                 "year {0} already exists in calendar".format(calendar_year.name)
             )
-        self._days[calendar_year._year] = calendar_year
+        self._years[calendar_year._year] = calendar_year
 
     def get_day(self, date):
         """Get calendar day data for given date.

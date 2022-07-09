@@ -1,6 +1,9 @@
 """Planned item class."""
 
+from functools import partial
+
 from scheduler.api.common.object_wrappers import (
+    Hosted,
     MutableAttribute,
     MutableHostedAttribute,
 )
@@ -9,18 +12,19 @@ from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
 )
-from scheduler.api import utils
+from scheduler.api.utils import fallback_value, OrderedEnum
 
 
-class PlannedItemTimePeriod(object):
+class PlannedItemTimePeriod(OrderedEnum):
     """Struct to store potential time periods to plan over."""
     DAY = "day"
     WEEK = "week"
     MONTH = "month"
     YEAR = "year"
+    VALUES = [DAY, WEEK, MONTH, YEAR]
 
 
-class PlannedItem(NestedSerializable):
+class PlannedItem(Hosted, NestedSerializable):
     """Class for items in planner tab."""
     _SAVE_TYPE = SaveType.NESTED
 
@@ -54,13 +58,23 @@ class PlannedItem(NestedSerializable):
                 add a day planned child item which is associated to the
                 scheduled item. We don't need to be rigid on this however.
         """
+        super(PlannedItem, self).__init__()
         self._calendar = calendar
         self._calendar_period = MutableAttribute(
             calendar_period,
             "calendar_period"
         )
         self._tree_item = MutableHostedAttribute(tree_item, "tree_item")
-        self._planned_children = []
+        self._planned_children = {
+            time_period: []
+            for time_period in PlannedItemTimePeriod.VALUES
+            if PlannedItemTimePeriod.is_lesser(time_period, self.time_period)
+        }
+        self._planned_parents = {
+            time_period: []
+            for time_period in PlannedItemTimePeriod.VALUES
+            if PlannedItemTimePeriod.is_greater(time_period, self.time_period)
+        }
         self._scheduled_items = []
         self._id = None
 
@@ -132,12 +146,51 @@ class PlannedItem(NestedSerializable):
         """Get child items associated to this one.
 
         Returns:
-            (list(PlannedItem)): associated child items.
+            (dict(PlannedItemTimePeriod, list(PlannedItem))): associated child
+                items.
         """
-        return self._planned_children
+        return {
+            time_period: [child.value for child in child_list]
+            for time_period, child_list in self._planned_children.items()
+        }
+
+    @property
+    def planned_parents(self):
+        """Get parent items associated to this one.
+
+        Returns:
+            (dict(PlannedItemTimePeriod, list(PlannedItem))): associated parent
+                items.
+        """
+        return {
+            time_period: [parent.value for parent in parent_list]
+            for time_period, parent_list in self._planned_parents.items()
+        }
+
+    def get_planned_children(self, time_period):
+        """Get child items associated to this one for given time period.
+
+        Args:
+            time_period (PlannedItemTimePeriod): time period to check
+
+        Returns:
+            (list(PlannedItem)): associated child items for given time period.
+        """
+        return [c.value for c in self._planned_children.get(time_period, [])]
+
+    def get_planned_parents(self, time_period):
+        """Get parent items associated to this one for given time period.
+
+        Args:
+            time_period (PlannedItemTimePeriod): time period to check
+
+        Returns:
+            (list(PlannedItem)): associated parent items for given time period.
+        """
+        return [c.value for c in self._planned_parents.get(time_period, [])]
 
     def get_item_container(self, calendar_period=None):
-        """Get the dict that this item should be contained in.
+        """Get the list that this item should be contained in.
 
         Args:
             calendar_period (BaseCalendarPeriod or None): calendar period
@@ -146,11 +199,35 @@ class PlannedItem(NestedSerializable):
         Returns:
             (list): list that planned item should be contained in.
         """
-        calendar_period = utils.fallback_value(
+        calendar_period = fallback_value(
             calendar_period,
             self.calendar_period
         )
-        return self.calendar_period.get_planned_items_container()
+        return calendar_period.get_planned_items_container()
+
+    def get_child_container(self, planned_child):
+        """Get the container that the given child should live in.
+
+        Args:
+            planned_child (PlannedItem): child to look for.
+
+        Returns:
+            (list or None): container from this class that the child should
+                live in, if exists.
+        """
+        return self._planned_children.get(planned_child.time_period)
+
+    def get_parent_container(self, planned_parent):
+        """Get the container that the given parent should live in.
+
+        Args:
+            planned_parent (PlannedItem): parent to look for.
+
+        Returns:
+            (list or None): container from this class that the parent should
+                live in, if exists.
+        """
+        return self._planned_parents.get(planned_parent.time_period)
 
     def index(self):
         """Get index of item in its container.
@@ -166,8 +243,44 @@ class PlannedItem(NestedSerializable):
         except ValueError:
             return None
 
+    def child_index(self, planned_parent):
+        """Get index of this item as a child of the given parent.
+
+        Args:
+            planned_parent (PlannedItem): planned item to check against.
+
+        Returns:
+            (int or None): index, if found.
+        """
+        container = planned_parent.get_child_container(self)
+        if container is None:
+            return None
+        try:
+            return container.index(self)
+        except ValueError:
+            return None
+
+    def parent_index(self, planned_child):
+        """Get index of this item as a parent of the given child.
+
+        Args:
+            planned_parent (PlannedItem): planned item to check against.
+
+        Returns:
+            (int or None): index, if found.
+        """
+        container = planned_child.get_parent_container(self)
+        if container is None:
+            return None
+        try:
+            return container.index(self)
+        except ValueError:
+            return None
+
     def _add_scheduled_item(self, scheduled_item):
         """Add scheduled item (to be used during deserialization).
+
+        This method also associates the scheduled item to this class.
 
         Args:
             scheduled_item (BaseScheduledItem): scheduled item to associate
@@ -177,16 +290,33 @@ class PlannedItem(NestedSerializable):
             self._scheduled_items.append(
                 MutableHostedAttribute(scheduled_item)
             )
+            PITP = PlannedItemTimePeriod
+            scheduled_item_method = {
+                PITP.DAY: scheduled_item._add_planned_day_item(self),
+                PITP.WEEK: scheduled_item._add_planned_week_item(self),
+                PITP.MONTH: scheduled_item._add_planned_month_item(self),
+                PITP.YEAR: scheduled_item._add_planned_year_item(self),
+            }.get(self.time_period)
+            scheduled_item_method(self)
 
-    def _add_planned_child(self, planned_item):
+    def _add_planned_child(self, time_period, planned_item):
         """Add planned item child (to be used during deserialization).
 
         Args:
+            time_period (PlannedItemTimePeriod): time period of child.
             planned_item (PlannedItem): planned item to associate as child
                 of this planned item.
         """
-        if planned_item not in self._planned_children:
-            self._planned_children.append(planned_item)
+        if time_period != planned_item.time_period:
+            return
+        child_list = self._planned_children.get(time_period)
+        if child_list is not None and planned_item not in child_list:
+            self._planned_children.append(
+                MutableHostedAttribute(planned_item)
+            )
+            planned_item._planned_parents.append(
+                MutableAttribute(self)
+            )
 
     def _get_id(self):
         """Generate unique id for object.
@@ -231,11 +361,14 @@ class PlannedItem(NestedSerializable):
                 scheduled_item_id,
                 planned_item._add_scheduled_item
             )
-        for planned_item_id in dict_repr.get(cls.PLANNED_CHILDREN_KEY, []):
-            item_registry.register_callback(
-                planned_item_id,
-                planned_item._add_planned_child
-            )
+        for tuple_ in dict_repr.get(cls.PLANNED_CHILDREN_KEY, {}).items():
+            time_period, child_list = tuple_
+            for scheduled_item_id in child_list:
+                item_registry.register_callback(
+                    scheduled_item_id,
+                    partial(planned_item._add_planned_child, time_period)
+                )
+
         return planned_item
 
     def to_dict(self):
@@ -254,9 +387,12 @@ class PlannedItem(NestedSerializable):
                 scheduled_item._get_id()
                 for scheduled_item in self.scheduled_items
             ]
-        if self._planned_children:
-            dict_repr[self.PLANNED_CHILDREN_KEY] = [
-                planned_item._get_id()
-                for planned_item in self.planned_children
-            ]
+        planned_children_dict = {}
+        for time_period, child_list in self.planned_children.items():
+            if child_list:
+                planned_children_dict[time_period] = [
+                    item._get_id() for item in child_list
+                ]
+        if planned_children_dict:
+            dict_repr[self.PLANNED_CHILDREN_KEY] = planned_children_dict
         return dict_repr

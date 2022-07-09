@@ -1,0 +1,7 @@
+
+TitledPlannerListView {
+    border: 1px solid grey;
+}
+PlannerListView {
+    border: 1px dashed black;
+}

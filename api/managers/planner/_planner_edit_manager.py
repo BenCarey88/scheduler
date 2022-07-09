@@ -2,6 +2,7 @@
 
 from scheduler.api.edit.planner_edit import (
     AddPlannedItemEdit,
+    AddPlannedItemAsChildEdit,
     ModifyPlannedItemEdit,
     MovePlannedItemEdit,
     RemovePlannedItemEdit,
@@ -29,18 +30,31 @@ class PlannerEditManager(BasePlannerManager):
             archive_calendar,
         )
 
-    def create_planned_item(self, *args, index=None, **kwargs):
+    def create_planned_item(
+            self,
+            *args,
+            index=None,
+            parent=None,
+            **kwargs):
         """Create planner item and add to calendar.
 
         Args:
             *args (list): args to be passed to item init.
             index (int or None): index to create at, if given.
+            parent (PlannedItem or None): parent planned item,
+                if given. 
             **kwargs (dict): kwargs to be passed to item init.
 
         Returns:
             (bool): whether or not edit was successful.
         """
         item = PlannedItem(*args, **kwargs)
+        if parent is not None:
+            return AddPlannedItemAsChildEdit.create_and_run(
+                item,
+                parent,
+                index,
+            )
         return AddPlannedItemEdit.create_and_run(item, index)
 
     @require_class(PlannedItem, True)

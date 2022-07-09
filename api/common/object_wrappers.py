@@ -1,4 +1,4 @@
-"""Simple structs to wrap around objects allowing us to edit them."""
+"""Structs to wrap around objects allowing us to edit them."""
 
 
 class HostError(Exception):

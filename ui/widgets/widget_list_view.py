@@ -537,6 +537,4 @@ class WidgetListDelegate(QtWidgets.QStyledItemDelegate):
             index (QtCore.QModelIndex): the index of the editor.
         """
         editor.setFixedWidth(editor.parent().width() - self.WIDTH_BUFFER)
-        # editor.setFixedHeight(1000)
-        # print ("Updating")
         return super().updateEditorGeometry(editor, option, index)

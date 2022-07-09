@@ -101,13 +101,15 @@ class SchedulerTimetableView(BaseWeekTableView):
             *args
         )
 
-    def set_to_week(self, calendar_week):
+    def set_to_calendar_period(self, calendar_week):
         """Set view to given calendar_week.
 
         Args:
             calendar_week (CalendarWeek): calendar week to set to.
         """
-        super(SchedulerTimetableView, self).set_to_week(calendar_week)
+        super(SchedulerTimetableView, self).set_to_calendar_period(
+            calendar_week
+        )
         self.refresh_scheduled_items_list()
 
     @property

@@ -1055,7 +1055,7 @@ class CalendarYear(BaseCalendarPeriod):
             yield month
 
     def iter_planned_items(self):
-        """Iterate through planned month items.
+        """Iterate through planned year items.
 
         Yields:
             (PlannedItem): next planned item.

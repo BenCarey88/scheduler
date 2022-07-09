@@ -154,14 +154,35 @@ class OrderedEnum():
     Enumerators with an ordering should inherit from this and
     fill in the values list to define the ordering.
     """
-    VALUES_LIST = []
+    VALUES = []
     @classmethod
     def key(cls, value):
         """Get key, used to order values."""
-        for i, val in enumerate(cls.VALUES_LIST):
+        i = 0
+        for i, val in enumerate(cls.VALUES):
             if val == value:
                 return i
         return i + 1
+
+    @classmethod
+    def is_lesser(cls, value_1, value_2):
+        """Check if one value is less than another."""
+        return cls.key(value_1) < cls.key(value_2)
+
+    @classmethod
+    def is_lessser_or_equal(cls, value_1, value_2):
+        """Check if one value is less than or equal to another."""
+        return cls.key(value_1) <= cls.key(value_2)
+
+    @classmethod
+    def is_greater(cls, value_1, value_2):
+        """Check if one value is greater than another"""
+        return cls.key(value_1) > cls.key(value_2)
+
+    @classmethod
+    def is_greater_or_equal(cls, value_1, value_2):
+        """Check if one value is less than or equal to another."""
+        return cls.key(value_1) >= cls.key(value_2)
 
 
 """Id registry to store floating items by temporary ids."""

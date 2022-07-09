@@ -100,7 +100,12 @@ class CompositeEdit(BaseEdit):
         self._reverse_order_for_inverse = reverse_order_for_inverse
         super(CompositeEdit, self).__init__()
         validity_edits = fallback_value(validity_check_edits, self._edits_list)
-        self._is_valid = any([edit._is_valid for edit in validity_edits])
+        # NOTE: this is_valid check is a bit dodgy, can fail since the stating
+        # conditions of later edits in the edit list will be effected by the
+        # earlier edits. Will often need to use custom logic in subclasses.
+        self._is_valid = bool(self._edits_list) and any(
+            [edit._is_valid for edit in validity_edits]
+        )
 
     def _run(self):
         """Run each edit in turn."""
@@ -137,7 +142,7 @@ class AttributeEdit(BaseEdit):
                 )
             self._orig_attr_dict[attr] = attr.value
 
-        self._is_valid = any([
+        self._is_valid = bool(attr_dict) and any([
             self._orig_attr_dict[attr] != self._attr_dict[attr]
             for attr in self._attr_dict
         ])

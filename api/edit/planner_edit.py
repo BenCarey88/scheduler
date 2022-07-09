@@ -4,6 +4,7 @@ Friend classes: [PlannedItem]
 """
 
 from scheduler.api.common.object_wrappers import MutableHostedAttribute
+from scheduler.api.utils import fallback_value
 from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
 from ._core_edits import AttributeEdit, CompositeEdit
 
@@ -26,8 +27,8 @@ class AddPlannedItemEdit(ListEdit):
             ContainerOp.INSERT,
         )
         self._callback_args = self._undo_callback_args = [
-            planned_item.calendar_period,
             planned_item,
+            planned_item.calendar_period,
             index,
         ]
         self._name = "AddPlannedItem ({0})".format(planned_item.name)
@@ -56,8 +57,8 @@ class RemovePlannedItemEdit(ListEdit):
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
         self._callback_args = self._undo_callback_args = [
-            planned_item.calendar_period,
             planned_item,
+            planned_item.calendar_period,
             planned_item.index(),
         ]
         self._name = "RemovePlannedItem ({0})".format(planned_item.name)
@@ -70,39 +71,81 @@ class RemovePlannedItemEdit(ListEdit):
         )
 
 
-class MovePlannedItemEdit(ListEdit):
-    """Move planned item in internal list."""
-    def __init__(self, planned_item, index):
+class MovePlannedItemEdit(CompositeEdit):
+    """Move planned item either to new period or within internal list."""
+    def __init__(self, planned_item, calendar_period=None, index=None):
         """Initialise edit.
 
         Args:
             scheduled_item (PlannedItem): the planned item to move.
-            index (int): index to move to.
+            calendar_period (CalendarPeriod or None): calendar period to
+                move to, if used.
+            index (int): index to move to, if used.
         """
-        super(MovePlannedItemEdit, self).__init__(
-            planned_item.get_item_container(),
-            [(planned_item, index)],
-            ContainerOp.MOVE,
-            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
+        if (type(calendar_period) != type(planned_item.calendar_period)
+                or calendar_period is None and index is None):
+            super(MovePlannedItemEdit, self).__init__([])
+            self._is_valid = False
+            return
+
+        subedits = []
+        container = planned_item.get_item_container(calendar_period)
+        if calendar_period is not None:
+            attr_edit = AttributeEdit.create_unregistered(
+                {planned_item._calendar_period: calendar_period}
+            )
+            remove_edit = RemovePlannedItemEdit.create_unregistered(
+                planned_item
+            )
+            if index is None:
+                insert_edit = ListEdit.create_unregistered(
+                    container,
+                    [planned_item],
+                    ContainerOp.ADD,
+                )
+            else:
+                insert_edit = ListEdit.create_unregistered(
+                    container,
+                    [(planned_item, index)],
+                    ContainerOp.INSERT,
+                )
+            subedits = [attr_edit, remove_edit, insert_edit] 
+        elif index is not None:
+            move_edit = ListEdit.create_unregistered(
+                container,
+                [(planned_item, index)],
+                ContainerOp.MOVE,
+                edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
+            )
+            subedits = [move_edit]
+        super(MovePlannedItemEdit, self).__init__(subedits)
+
+        new_calendar_period = fallback_value(
+            calendar_period,
+            planned_item.calendar_period
         )
         self._callback_args = [
-            planned_item.calendar_period,
             planned_item,
+            planned_item.calendar_period,
             planned_item.index(),
-            index
+            new_calendar_period,
+            index,
         ]
         self._undo_callback_args = [
-            planned_item.calendar_period,
             planned_item,
+            new_calendar_period,
             index,
-            planned_item.index()
+            planned_item.calendar_period,
+            planned_item.index(),
         ]
         self._name = "MovePlannedItem ({0})".format(planned_item.name)
         self._description = (
-            "Move {0} {1} at date {2} to index {3}".format(
+            "Move {0} {1} at ({2}, row {3}) --> ({4}, row {5})".format(
                 planned_item.__class__.__name__,
                 planned_item.name,
                 planned_item.calendar_period.name,
+                planned_item.index(),
+                new_calendar_period.name,
                 str(index),
             )
         )
@@ -119,25 +162,46 @@ class ModifyPlannedItemEdit(CompositeEdit):
         """
         attribute_edit = AttributeEdit.create_unregistered(attr_dict)
         subedits = [attribute_edit]
+        new_calendar_period = None
+        old_index = new_index = planned_item.index()
         if planned_item._calendar_period in attr_dict:
             new_calendar_period = attr_dict[planned_item._calendar_period]
             if new_calendar_period != planned_item.calendar_period:
                 # remove items from old container and add to new one
+                container = planned_item.get_item_container(
+                    new_calendar_period
+                )
+                new_index = len(container) - 1
                 remove_edit = RemovePlannedItemEdit.create_unregistered(
                     planned_item
                 )
                 add_edit = ListEdit.create_unregistered(
-                    planned_item.get_item_container(new_calendar_period),
+                    container,
                     [planned_item],
                     ContainerOp.ADD,
                 )
                 subedits.extend([remove_edit, add_edit])
 
-        super(ModifyPlannedItemEdit, self).__init__(subedits)
-        self._callback_args = self._undo_callback_args = [
+        new_calendar_period = fallback_value(
+            new_calendar_period,
             planned_item.calendar_period,
+        )
+        super(ModifyPlannedItemEdit, self).__init__(subedits)
+        self._callback_args = [
             planned_item,
-            planned_item
+            planned_item.calendar_period,
+            old_index,
+            planned_item,
+            new_index,
+            new_calendar_period,
+        ]
+        self._undo_callback_args = [
+            planned_item,
+            new_index,
+            new_calendar_period,
+            planned_item,
+            planned_item.calendar_period,
+            old_index,
         ]
         self._name = "ModifyPlannedItem ({0})".format(planned_item.name)
         self._description = attribute_edit.get_description(
@@ -238,7 +302,7 @@ class UnschedulePlannedItemEdit(ListEdit):
         )
 
 
-class AddPlannedItemChild(ListEdit):
+class AddPlannedItemChildRelationshipEdit(CompositeEdit):
     """Add an associated planned item child to a planned item."""
     def __init__(self, planned_item, planned_item_child,):
         """Initialise edit.
@@ -247,14 +311,31 @@ class AddPlannedItemChild(ListEdit):
             planned_item (PlannedItem): the planned item to add to.
             planned_item_child (PlannedItem): the planned item child to add.
         """
-        super(AddPlannedItemEdit, self).__init__(
-            planned_item._planned_children,
-            [planned_item_child],
+        parent_list = planned_item_child.get_parent_container(planned_item)
+        child_list = planned_item.get_child_container(planned_item_child)
+        if parent_list is None or child_list is None:
+            super(AddPlannedItemChildRelationshipEdit, self).__init__([])
+            self._is_valid = False
+            return
+
+        child_edit = ListEdit.create_unregistered(
+            child_list,
+            [MutableHostedAttribute(planned_item_child)],
+            ContainerOp.ADD
+        )
+        parent_edit = ListEdit.create_unregistered(
+            parent_list,
+            [MutableHostedAttribute(planned_item)],
             ContainerOp.ADD,
         )
-        self._name = "AddPlannedItemChild to ({0})".format(planned_item.name)
+        super(AddPlannedItemChildRelationshipEdit, self).__init__(
+            [child_edit, parent_edit]
+        )
+        self._name = "AddPlannedItemChildRelationship ({0})".format(
+            planned_item.name
+        )
         self._description = (
-            "Add {0} {1} to {2} {3}".format(
+            "Make {0} {1} a child to {2} {3}".format(
                 planned_item_child.__class__.__name__,
                 planned_item_child.name,
                 planned_item.__class__.__name__,
@@ -263,7 +344,7 @@ class AddPlannedItemChild(ListEdit):
         )
 
 
-class RemovePlannedItemChild(ListEdit):
+class RemovePlannedItemChildRelationshipEdit(CompositeEdit):
     """Remove an associated planned item child from a planned item."""
     def __init__(self, planned_item, planned_item_child,):
         """Initialise edit.
@@ -272,17 +353,77 @@ class RemovePlannedItemChild(ListEdit):
             planned_item (PlannedItem): the planned item to remove from.
             planned_item_child (PlannedItem): the planned item child to remove.
         """
-        super(RemovePlannedItemChild, self).__init__(
-            planned_item._planned_children,
-            [planned_item_child],
-            ContainerOp.ADD,
+        parent_list = planned_item_child.get_parent_container(planned_item)
+        parent_index = planned_item.parent_index(planned_item_child)
+        child_list = planned_item.get_child_container(planned_item_child)
+        child_index = planned_item_child.child_index(planned_item)
+        if (parent_list is None or parent_index is None
+                or child_list is None or child_index is None):
+            super(RemovePlannedItemChildRelationshipEdit, self).__init__([])
+            self._is_valid = False
+            return
+
+        # note that we need to remove by index as the attribute is mutable
+        child_edit = ListEdit.create_unregistered(
+            child_list,
+            child_index,
+            ContainerOp.REMOVE,
         )
-        self._name = "AddPlannedItemChild to ({0})".format(planned_item.name)
+        parent_edit = ListEdit.create_unregistered(
+            parent_list,
+            parent_index,
+            ContainerOp.REMOVE,
+        )
+        super(RemovePlannedItemChildRelationshipEdit, self).__init__(
+            [child_edit, parent_edit]
+        )
+        self._name = "RemovePlannedItemChildRelationship from ({0})".format(
+            planned_item.name
+        )
         self._description = (
-            "Add {0} {1} to {2} {3}".format(
+            "Remove {0} {1} as child of {2} {3}".format(
                 planned_item_child.__class__.__name__,
                 planned_item_child.name,
                 planned_item.__class__.__name__,
                 planned_item.name,
+            )
+        )
+
+
+class AddPlannedItemAsChildEdit(CompositeEdit):
+    """Create planned item and make it a child of the given parent."""
+    def __init__(self, planned_item, planned_item_parent, index=None):
+        """Initialise edit.
+
+        Args:
+            planned_item (PlannedItem): the planned item to add.
+            planned_item_parent (PlannedItem): the planned item to set as
+                its parent.
+        """
+        child_edit = AddPlannedItemChildRelationshipEdit.create_unregistered(
+            planned_item_parent,
+            planned_item,
+        )
+        if not child_edit._is_valid:
+            super(AddPlannedItemAsChildEdit, self).__init__([])
+            self._is_valid = False
+            return
+        add_edit = AddPlannedItemEdit.create_unregistered(
+            planned_item,
+            index=index,
+        )
+        super(AddPlannedItemAsChildEdit, self).__init__([add_edit, child_edit])
+        self._callback_args = self._undo_callback_args = [
+            planned_item,
+            planned_item.calendar_period,
+            fallback_value(index, len(planned_item.get_item_container())),
+        ]
+        self._name = "AddPlannedItemAsChild ({0})".format(planned_item.name)
+        self._description = (
+            "Add {0} {1} and make it a child of {2} {3}".format(
+                planned_item.__class__.__name__,
+                planned_item.name,
+                planned_item_parent.__class__.__name__,
+                planned_item_parent.name,
             )
         )

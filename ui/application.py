@@ -195,6 +195,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """Save scheduler data."""
         if self.saved_edit != edit_log.latest_edit():
             self.project.write()
+            self.saved_edit = edit_log.latest_edit()
         # self.notes_tab.save()
 
     def undo(self):

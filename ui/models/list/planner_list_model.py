@@ -89,6 +89,28 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             return self.columns[column]
         return None
 
+    def get_column_from_name(self, name):
+        """Get column number for given column name.
+
+        Args:
+            name (str): column name.
+
+        Returns:
+            (int or None): column, if found.
+        """
+        for i, column_name in enumerate(self.columns):
+            if name == column_name:
+                return i
+        return None
+
+    def get_name_column(self):
+        """Get name column.
+
+        Returns:
+            (int): name column.
+        """
+        return self.get_column_from_name(self.NAME_COLUMN)
+
     def get_index_for_first_item(self):
         """Get index of first item in model.
 
@@ -327,7 +349,19 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             parent_index (QtCore.QModelIndex): index of parent item we're
                 dropping under.
         """
-        return True
+        if data.hasFormat(constants.OUTLINER_TREE_MIME_DATA_FORMAT):
+            return True
+        elif data.hasFormat(constants.PLANNED_ITEM_MIME_DATA_FORMAT):
+            item = utils.decode_mime_data(
+                data,
+                constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+            )
+            if item is not None:
+                return (
+                    type(self.calendar_period) == type(item.calendar_period)
+                    or item.calendar_period.contains(self.calendar_period)
+                )
+        return False
 
     def dropMimeData(self, data, action, row, column, parent_index):
         """Add mime data at given index.
@@ -397,12 +431,33 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             )
             if planned_item is None:
                 return False
+            calendar_period = planned_item.calendar_period
+            if calendar_period == self.calendar_period:
+                # If it's in same view, just reorder
+                return self.planner_manager.move_planned_item(
+                    planned_item,
+                    row,
+                )
+            elif type(calendar_period) == type(self.calendar_period):
+                # If it's another view of same period type, move the item
+                # TODO: need to be able to modify AND change index
+                # TODO: sync up to callbacks
+                self.planner_manager.modify_planned_item(
+                    planned_item,
+                    self.calendar_period,
+                )
+            elif calendar_period.contains(self.calendar_period):
+                # If it's a view of a lower period type, create a child item
+                # TODO: sync up to callbacks
+                return self.planner_manager.create_planned_item(
+                    self.calendar,
+                    self.calendar_period,
+                    planned_item.tree_item,
+                    index=row,
+                    parent=planned_item,
+                )
 
-            success = self.planner_manager.move_planned_item(
-                planned_item,
-                row,
-            )
-            return bool(success)
+        return False
 
     ### Callbacks ###
     def pre_item_added(self, item, row):

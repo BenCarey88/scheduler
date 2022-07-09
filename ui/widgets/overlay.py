@@ -38,6 +38,11 @@ class OverlayedWidget(QtWidgets.QStackedWidget):
         """
         pass
 
+    def update(self):
+        """Update overlay during update events."""
+        super(OverlayedWidget, self).update()
+        self.overlay.update()
+
 
 class Overlay(QtWidgets.QWidget):
     """Overlay widget for custom drawing."""

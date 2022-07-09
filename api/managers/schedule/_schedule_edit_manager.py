@@ -2,6 +2,7 @@
 
 from scheduler.api.edit.schedule_edit import (
     AddScheduledItemEdit,
+    AddScheduledItemAsChildEdit,
     RemoveScheduledItemEdit,
     ModifyScheduledItemEdit,
     ModifyRepeatScheduledItemEdit,
@@ -37,43 +38,73 @@ class ScheduleEditManager(BaseScheduleManager):
             archive_calendar,
         )
 
-    def _create_scheduled_item(self, item_class, *args, **kwargs):
+    def _create_scheduled_item(
+            self,
+            item_class,
+            *args,
+            planned_item=None,
+            **kwargs):
         """Create scheduled item and add to calendar.
 
         Args:
-            item_class (class): scheduled item to create
+            item_class (class): scheduled item to create.
             *args (list): args to be passed to item init.
+            planned_item (PlannedItem or None): parent planned item,
+                if given.
             **kwargs (dict): kwargs to be passed to item init.
 
         Returns:
             (bool): whether or not edit was successful.
         """
         item = item_class(*args, **kwargs)
+        if planned_item is not None:
+            return AddScheduledItemAsChildEdit.create_and_run(
+                item,
+                planned_item,
+            )
         return AddScheduledItemEdit.create_and_run(item)
 
-    def create_scheduled_item(self, *args, **kwargs):
+    def create_scheduled_item(self, *args, planned_item=None, **kwargs):
         """Create single scheduled item and add to calendar.
 
         Args:
             *args (list): args to be passed to ScheduledItem init.
+            planned_item (PlannedItem or None): parent planned item,
+                if given.
             **kwargs (dict): kwargs to be passed to ScheduledItem init.
 
         Returns:
             (bool): whether or not edit was successful.
         """
-        return self._create_scheduled_item(ScheduledItem, *args, **kwargs)
+        return self._create_scheduled_item(
+            ScheduledItem,
+            *args,
+            planned_item=planned_item,
+            **kwargs,
+        )
 
-    def create_repeat_scheduled_item(self, *args, **kwargs):
+    def create_repeat_scheduled_item(
+            self,
+            *args,
+            planned_item=None,
+            **kwargs):
         """Create repeat scheduled item and add to calendar.
 
         Args:
             *args (list): args to be passed to RepeatScheduledItem init.
+            planned_item (PlannedItem or None): parent planned item,
+                if given.
             **kwargs (dict): kwargs to be passed to RepeatScheduledItem init.
 
         Returns:
             (bool): whether or not edit was successful.
         """
-        return self._create_scheduled_item(RepeatScheduledItem, *args, **kwargs)
+        return self._create_scheduled_item(
+            RepeatScheduledItem,
+            *args,
+            planned_item=planned_item,
+            **kwargs,
+        )
 
     @require_class(BaseScheduledItem, True)
     def remove_scheduled_item(self, scheduled_item):

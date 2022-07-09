@@ -21,15 +21,15 @@ class HistoryTab(BaseCalendarTab):
         main_views_dict = OrderedDict([
             (
                 (DateType.DAY, ViewType.TIMETABLE),
-                HistoryTimeTableView(name, project, num_days=1)
+                HistoryTimeTableView(name, project, num_days=1),
             ),
             (
                 (DateType.THREE_DAYS, ViewType.TIMETABLE),
-                HistoryTimeTableView(name, project, num_days=3)
+                HistoryTimeTableView(name, project, num_days=3),
             ),
             (
                 (DateType.WEEK, ViewType.TIMETABLE),
-                HistoryTimeTableView(name, project, num_days=7)
+                HistoryTimeTableView(name, project, num_days=7),
             ),
         ])
         super(HistoryTab, self).__init__(

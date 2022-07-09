@@ -132,6 +132,17 @@ class SchedulerWeekModel(BaseWeekModel):
                 )
         return QtCore.QVariant()
 
+    def mimeTypes(self):
+        """Get accepted mime data types.
+
+        Returns:
+            (list(str)): list of mime types.
+        """
+        return [
+            constants.OUTLINER_TREE_MIME_DATA_FORMAT,
+            constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+        ]
+
 
 class TrackerWeekModel(BaseWeekModel):
     """Week model used by tracker."""

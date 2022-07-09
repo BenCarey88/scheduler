@@ -14,11 +14,25 @@ from scheduler.ui.tabs.base_calendar_view import (
 from .planner_list_view import TitledPlannerListView
 
 
-class PlannerMultiListWeekView(BaseMultiListWeekView):
-    """Multi list week view for planner."""
+class BasePlannerMultilist(object):
+    """Base functionality for planner multilist views."""
     HOVERED_ITEM_SIGNAL = QtCore.pyqtSignal(PlannedItem)
     HOVERED_ITEM_REMOVED_SIGNAL = QtCore.pyqtSignal()
 
+    def setup(self):
+        """Additional setup after tab init."""
+        super(BasePlannerMultilist, self).setup()
+        for view in self.iter_widgets():
+            view.HOVERED_ITEM_SIGNAL.connect(
+                self.HOVERED_ITEM_SIGNAL.emit
+            )
+            view.HOVERED_ITEM_REMOVED_SIGNAL.connect(
+                self.HOVERED_ITEM_REMOVED_SIGNAL.emit
+            )
+
+
+class PlannerMultiListWeekView(BasePlannerMultilist, BaseMultiListWeekView):
+    """Multi list week view for planner."""
     def __init__(self, name, project, parent=None):
         """Initialise multi-list planner view.
 
@@ -38,23 +52,9 @@ class PlannerMultiListWeekView(BaseMultiListWeekView):
             parent=parent,
         )
 
-    def setup(self):
-        """Additional setup after tab init."""
-        super(PlannerMultiListWeekView, self).setup()
-        for view in self.iter_widgets():
-            view.HOVERED_ITEM_SIGNAL.connect(
-                self.HOVERED_ITEM_SIGNAL.emit
-            )
-            view.HOVERED_ITEM_REMOVED_SIGNAL.connect(
-                self.HOVERED_ITEM_REMOVED_SIGNAL.emit
-            )
 
-
-class PlannerMultiListMonthView(BaseMultiListMonthView):
+class PlannerMultiListMonthView(BasePlannerMultilist, BaseMultiListMonthView):
     """Multi list month view for planner."""
-    HOVERED_ITEM_SIGNAL = QtCore.pyqtSignal(PlannedItem)
-    HOVERED_ITEM_REMOVED_SIGNAL = QtCore.pyqtSignal()
-
     def __init__(self, name, project, parent=None):
         """Initialise multi-list planner view.
 
@@ -74,23 +74,9 @@ class PlannerMultiListMonthView(BaseMultiListMonthView):
             parent=parent,
         )
 
-    def setup(self):
-        """Additional setup after tab init."""
-        super(PlannerMultiListMonthView, self).setup()
-        for view in self.iter_widgets():
-            view.HOVERED_ITEM_SIGNAL.connect(
-                self.HOVERED_ITEM_SIGNAL.emit
-            )
-            view.HOVERED_ITEM_REMOVED_SIGNAL.connect(
-                self.HOVERED_ITEM_REMOVED_SIGNAL.emit
-            )
 
-
-class PlannerMultiListYearView(BaseMultiListYearView):
+class PlannerMultiListYearView(BasePlannerMultilist, BaseMultiListYearView):
     """Multi list year view for planner."""
-    HOVERED_ITEM_SIGNAL = QtCore.pyqtSignal(PlannedItem)
-    HOVERED_ITEM_REMOVED_SIGNAL = QtCore.pyqtSignal()
-
     def __init__(self, name, project, parent=None):
         """Initialise multi-list planner view.
 
@@ -109,14 +95,3 @@ class PlannerMultiListYearView(BaseMultiListYearView):
             list_views,
             parent=parent,
         )
-
-    def setup(self):
-        """Additional setup after tab init."""
-        super(PlannerMultiListYearView, self).setup()
-        for view in self.iter_widgets():
-            view.HOVERED_ITEM_SIGNAL.connect(
-                self.HOVERED_ITEM_SIGNAL.emit
-            )
-            view.HOVERED_ITEM_REMOVED_SIGNAL.connect(
-                self.HOVERED_ITEM_REMOVED_SIGNAL.emit
-            )

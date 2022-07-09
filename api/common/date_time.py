@@ -456,21 +456,13 @@ class TimeDelta(object):
             kwargs[name] = int(value)
         return cls(**kwargs)
 
-    def __repr__(self):
-        """Override string representation of self.
-
-        Return:
-            (str): string representation.
-        """
-        return str(self._timedelta_obj)
-
     def __str__(self):
         """Override string representation of self.
 
         Return:
             (str): string representation.
         """
-        return self.__repr__()
+        return str(self._timedelta_obj)
 
 
 class BaseDateTimeWrapper(object):
@@ -764,14 +756,6 @@ class BaseDateTimeWrapper(object):
             (str): string representation of class instance.
         """
         return str(self._datetime_obj)
-
-    def __repr__(self):
-        """Override string representation of self.
-
-        Return:
-            (str): string representation.
-        """
-        return self.string()
 
     def __str__(self):
         """Override string representation of self.

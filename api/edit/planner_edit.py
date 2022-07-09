@@ -250,23 +250,38 @@ class SortPlannedItemsEdit(ListEdit):
         return isinstance(edit, SortPlannedItemsEdit)
 
 
-class SchedulePlannedItemEdit(ListEdit):
+class AddScheduledItemChildRelationshipEdit(CompositeEdit):
     """Add an associated scheduled item to a planned item."""
-    def __init__(self, planned_item, scheduled_item):
+    def __init__(self, scheduled_item, planned_item):
         """Initialise edit.
 
         Args:
-            planned_item (PlannedItem): the planned item to associate to.
             scheduled_item (ScheduledItem): the scheduled item to associate.
+            planned_item (PlannedItem): the planned item to associate to.
         """
-        super(SchedulePlannedItemEdit, self).__init__(
+        if (scheduled_item in planned_item.scheduled_items
+                or planned_item in scheduled_item.planned_items):
+            super(AddScheduledItemChildRelationshipEdit, self).__init__([])
+            self._is_valid = False
+            return
+        child_edit = ListEdit.create_unregistered(
             planned_item._scheduled_items,
             [MutableHostedAttribute(scheduled_item)],
             ContainerOp.ADD,
         )
-        self._name = "SchedulePlannedItem ({0})".format(planned_item.name)
+        parent_edit = ListEdit.create_unregistered(
+            scheduled_item._planned_items,
+            [MutableHostedAttribute(planned_item)],
+            ContainerOp.ADD,
+        )
+        super(AddScheduledItemChildRelationshipEdit, self).__init__(
+            [child_edit, parent_edit]
+        )
+        self._name = "AddScheduledItemChildRelationshipEdit ({0})".format(
+            scheduled_item.name
+        )
         self._description = (
-            "Schedule {0} {1} for {2} {3}".format(
+            "Associate {0} {1} to {2} {3}".format(
                 scheduled_item.__class__.__name__,
                 scheduled_item.name,
                 planned_item.__class__.__name__,
@@ -275,25 +290,42 @@ class SchedulePlannedItemEdit(ListEdit):
         )
 
 
-class UnschedulePlannedItemEdit(ListEdit):
+class RemoveScheduledItemChildRelationshipEdit(CompositeEdit):
     """Remove an associated scheduled item from a planned item."""
-    def __init__(self, planned_item, scheduled_item):
+    def __init__(self, scheduled_item, planned_item):
         """Initialise edit.
 
         Args:
             planned_item (PlannedItem): the planned item to remove from.
             scheduled_item (ScheduledItem): the scheduled item to remove.
         """
+        if (scheduled_item not in planned_item.scheduled_items
+                or planned_item not in scheduled_item.planned_items):
+            super(RemoveScheduledItemChildRelationshipEdit, self).__init__([])
+            self._is_valid = False
+            return
         # note that we need to remove by index as the attribute is mutable
-        index = planned_item.scheduled_items.index(scheduled_item)
-        super(UnschedulePlannedItemEdit, self).__init__(
+        child_index = planned_item.scheduled_items.index(scheduled_item)
+        parent_index = scheduled_item.planned_items.index(planned_item)
+
+        child_edit = ListEdit.create_unregistered(
             planned_item._scheduled_items,
-            [index],
+            [child_index],
             ContainerOp.REMOVE,
         )
-        self._name = "UnschedulePlannedItem ({0})".format(planned_item.name)
+        parent_edit = ListEdit.create_unregistered(
+            scheduled_item._planned_items,
+            [parent_index],
+            ContainerOp.REMOVE,
+        )
+        super(RemoveScheduledItemChildRelationshipEdit, self).__init__(
+            [child_edit, parent_edit]
+        )
+        self._name = "RemoveScheduledItemChildRelationshipEdit ({0})".format(
+            planned_item.name
+        )
         self._description = (
-            "Unschedule {0} {1} from {2} {3}".format(
+            "Unassociate {0} {1} from {2} {3}".format(
                 scheduled_item.__class__.__name__,
                 scheduled_item.name,
                 planned_item.__class__.__name__,
@@ -304,27 +336,25 @@ class UnschedulePlannedItemEdit(ListEdit):
 
 class AddPlannedItemChildRelationshipEdit(CompositeEdit):
     """Add an associated planned item child to a planned item."""
-    def __init__(self, planned_item, planned_item_child,):
+    def __init__(self, planned_item, planned_item_child):
         """Initialise edit.
 
         Args:
             planned_item (PlannedItem): the planned item to add to.
             planned_item_child (PlannedItem): the planned item child to add.
         """
-        parent_list = planned_item_child.get_parent_container(planned_item)
-        child_list = planned_item.get_child_container(planned_item_child)
-        if parent_list is None or child_list is None:
+        if (planned_item_child >= planned_item
+                or planned_item_child in planned_item.planned_children):
             super(AddPlannedItemChildRelationshipEdit, self).__init__([])
             self._is_valid = False
             return
-
         child_edit = ListEdit.create_unregistered(
-            child_list,
+            planned_item._planned_children,
             [MutableHostedAttribute(planned_item_child)],
             ContainerOp.ADD
         )
         parent_edit = ListEdit.create_unregistered(
-            parent_list,
+            planned_item_child._planned_parents,
             [MutableHostedAttribute(planned_item)],
             ContainerOp.ADD,
         )
@@ -346,31 +376,28 @@ class AddPlannedItemChildRelationshipEdit(CompositeEdit):
 
 class RemovePlannedItemChildRelationshipEdit(CompositeEdit):
     """Remove an associated planned item child from a planned item."""
-    def __init__(self, planned_item, planned_item_child,):
+    def __init__(self, planned_item, planned_item_child):
         """Initialise edit.
 
         Args:
             planned_item (PlannedItem): the planned item to remove from.
             planned_item_child (PlannedItem): the planned item child to remove.
         """
-        parent_list = planned_item_child.get_parent_container(planned_item)
         parent_index = planned_item.parent_index(planned_item_child)
-        child_list = planned_item.get_child_container(planned_item_child)
         child_index = planned_item_child.child_index(planned_item)
-        if (parent_list is None or parent_index is None
-                or child_list is None or child_index is None):
+        if (parent_index is None or child_index is None):
             super(RemovePlannedItemChildRelationshipEdit, self).__init__([])
             self._is_valid = False
             return
 
         # note that we need to remove by index as the attribute is mutable
         child_edit = ListEdit.create_unregistered(
-            child_list,
+            planned_item._planned_children,
             child_index,
             ContainerOp.REMOVE,
         )
         parent_edit = ListEdit.create_unregistered(
-            parent_list,
+            planned_item._planned_parents,
             parent_index,
             ContainerOp.REMOVE,
         )

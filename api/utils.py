@@ -148,7 +148,7 @@ def backup_git_repo(repo_path, commit_message="backup"):
     return None
 
 
-class OrderedEnum():
+class OrderedEnum(object):
     """Base ordered enumerator struct with string values.
 
     Enumerators with an ordering should inherit from this and
@@ -163,26 +163,6 @@ class OrderedEnum():
             if val == value:
                 return i
         return i + 1
-
-    @classmethod
-    def is_lesser(cls, value_1, value_2):
-        """Check if one value is less than another."""
-        return cls.key(value_1) < cls.key(value_2)
-
-    @classmethod
-    def is_lessser_or_equal(cls, value_1, value_2):
-        """Check if one value is less than or equal to another."""
-        return cls.key(value_1) <= cls.key(value_2)
-
-    @classmethod
-    def is_greater(cls, value_1, value_2):
-        """Check if one value is greater than another"""
-        return cls.key(value_1) > cls.key(value_2)
-
-    @classmethod
-    def is_greater_or_equal(cls, value_1, value_2):
-        """Check if one value is less than or equal to another."""
-        return cls.key(value_1) >= cls.key(value_2)
 
 
 """Id registry to store floating items by temporary ids."""

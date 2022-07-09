@@ -2,9 +2,10 @@
 
 from collections import OrderedDict
 
+from scheduler.api.calendar.planned_item import PlannedItemTimePeriod as PITP
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.tabs.planner_tab.planner_hybrid_view import (
-    PlannerHybridDayView
+    OverlayedPlannerHybridView
 )
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
@@ -25,19 +26,19 @@ class SchedulerTab(BaseCalendarTab):
         main_views_dict = OrderedDict([
             (
                 (DateType.DAY, ViewType.TIMETABLE),
-                SchedulerTimetableView(name, project, num_days=1)
+                SchedulerTimetableView(name, project, num_days=1),
             ),
             (
                 (DateType.DAY, ViewType.HYBRID),
-                PlannerHybridDayView(name, project)
+                OverlayedPlannerHybridView(name, project, PITP.DAY),
             ),
             (
                 (DateType.THREE_DAYS, ViewType.TIMETABLE),
-                SchedulerTimetableView(name, project, num_days=3)
+                SchedulerTimetableView(name, project, num_days=3),
             ),
             (
                 (DateType.WEEK, ViewType.TIMETABLE),
-                SchedulerTimetableView(name, project)
+                SchedulerTimetableView(name, project),
             ),
         ])
         super(SchedulerTab, self).__init__(

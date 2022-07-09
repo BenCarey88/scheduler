@@ -10,6 +10,7 @@ from ._core_edits import (
     SelfInverseSimpleEdit, 
     HostedDataEdit,
 )
+from .planner_edit import AddScheduledItemChildRelationshipEdit
 
 
 class AddScheduledItemEdit(ListEdit):
@@ -33,6 +34,43 @@ class AddScheduledItemEdit(ListEdit):
                 scheduled_item.__class__.__name__,
                 scheduled_item.name,
                 scheduled_item.datetime_string(),
+            )
+        )
+
+
+class AddScheduledItemAsChildEdit(CompositeEdit):
+    """Add scheduled item and make it a child of the given planned item."""
+    def __init__(self, scheduled_item, planned_item, index=None):
+        """Initialise edit.
+
+        Args:
+            scheduled_item (BaseScheduledItem): the scheduled item to add.
+            planned_item_parent (PlannedItem): the planned item to set as
+                its parent.
+        """
+        child_edit = AddScheduledItemChildRelationshipEdit.create_unregistered(
+            scheduled_item,
+            planned_item,
+        )
+        if not child_edit._is_valid:
+            super(AddScheduledItemAsChildEdit, self).__init__([])
+            self._is_valid = False
+            return
+        add_edit = AddScheduledItemEdit.create_unregistered(scheduled_item)
+        super(AddScheduledItemAsChildEdit, self).__init__(
+            [add_edit, child_edit]
+        )
+        self._callback_args = self._undo_callback_args = [scheduled_item]
+        self._name = "AddScheduledItemAsChildEdit ({0})".format(
+            planned_item.name
+        )
+        self._description = (
+            "Add {0} {1} at {2} and make it a child of {2} {3}".format(
+                scheduled_item.__class__.__name__,
+                scheduled_item.name,
+                scheduled_item.datetime_string(),
+                planned_item.__class__.__name__,
+                planned_item.name,
             )
         )
 

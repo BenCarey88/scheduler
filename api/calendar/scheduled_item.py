@@ -476,10 +476,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
         if has_planned_items:
-            self._planned_day_items = []
-            self._planned_week_items = []
-            self._planned_month_items = []
-            self._planned_year_items = []
+            self._planned_items = []
         self._id = None
 
     class _Decorators(object):
@@ -567,7 +564,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
                 end datetime of the first repeat.
         """
         if self.date:
-            return DateTime.from_date_and_time(self.date, self.start_time)
+            return DateTime.from_date_and_time(self.date, self.end_time)
         return None
 
     @property
@@ -647,44 +644,14 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         return self._is_background.value
 
     @property
-    def planned_day_items(self):
-        """Get planned day items associated to this one.
+    def planned_items(self):
+        """Get planned items associated to this one.
 
         Usually there would just be the one, but we want to allow multiple,
         eg. you plan writing/planning and writing/first_draft and then
         schedule them both with a single writing scheduled item.
-
-        Returns:
-            (list(PlannedItem)): associated planned items.
         """
-        return [item.value for item in self._planned_day_items]
-
-    @property
-    def planned_week_items(self):
-        """Get planned week items associated to this one.
-
-        Returns:
-            (list(PlannedItem)): associated planned items.
-        """
-        return [item.value for item in self._planned_week_items]
-
-    @property
-    def planned_month_items(self):
-        """Get planned month items associated to this one.
-
-        Returns:
-            (list(PlannedItem)): associated planned items.
-        """
-        return [item.value for item in self._planned_month_items]
-
-    @property
-    def planned_year_items(self):
-        """Get planned year items associated to this one.
-
-        Returns:
-            (list(PlannedItem)): associated planned items.
-        """
-        return [item.value for item in self._planned_year_items]
+        return [item.value for item in self._planned_items]
 
     def datetime_string(self):
         """Get string representing start and end date/time of item.
@@ -709,50 +676,6 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         raise NotImplementedError(
             "get_item_container is implemented in scheduled item subclasses."
         )
-
-    def _add_planned_day_item(self, planned_item):
-        """Add associated planned day item (used during deserialization).
-
-        Args:
-            planned_item (PlannedItem): planned item to associate.
-        """
-        if planned_item not in self._planned_day_items:
-            self._planned_day_items.append(
-                MutableHostedAttribute(planned_item)
-            )
-
-    def _add_planned_week_item(self, planned_item):
-        """Add associated planned week item (used during deserialization).
-
-        Args:
-            planned_item (PlannedItem): planned item to associate.
-        """
-        if planned_item not in self._planned_month_items:
-            self._planned_week_items.append(
-                MutableHostedAttribute(planned_item)
-            )
-
-    def _add_planned_month_item(self, planned_item):
-        """Add associated planned month item (used during deserialization).
-
-        Args:
-            planned_item (PlannedItem): planned item to associate.
-        """
-        if planned_item not in self._planned_day_items:
-            self._planned_month_items.append(
-                MutableHostedAttribute(planned_item)
-            )
-
-    def _add_planned_year_item(self, planned_item):
-        """Add associated planned day item (used during deserialization).
-
-        Args:
-            planned_item (PlannedItem): planned item to associate.
-        """
-        if planned_item not in self._planned_day_items:
-            self._planned_children.append(
-                MutableHostedAttribute(planned_item)
-            )
 
     def _get_id(self):
         """Generate unique id for object.

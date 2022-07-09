@@ -22,15 +22,15 @@ class TrackerTab(BaseCalendarTab):
         main_views_dict = OrderedDict([
             (
                 (DateType.DAY, ViewType.TIMETABLE),
-                TrackerTimetableView(name, project, num_days=1)
+                TrackerTimetableView(name, project, num_days=1),
             ),
             (
                 (DateType.THREE_DAYS, ViewType.TIMETABLE),
-                TrackerTimetableView(name, project, num_days=3)
+                TrackerTimetableView(name, project, num_days=3),
             ),
             (
                 (DateType.WEEK, ViewType.TIMETABLE),
-                TrackerTimetableView(name, project)
+                TrackerTimetableView(name, project),
             ),
         ])
         super(TrackerTab, self).__init__(

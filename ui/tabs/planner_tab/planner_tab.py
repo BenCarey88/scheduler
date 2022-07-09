@@ -14,10 +14,8 @@ from .planner_multi_list_view import (
     PlannerMultiListYearView,
 )
 from .planner_hybrid_view import (
-    PlannerHybridDayView,
-    PlannerHybridWeekView,
-    PlannerHybridMonthView,
-    OverlayedPlannerHybridYearView,
+    PlannerHybridView,
+    OverlayedPlannerHybridView,
 )
 
 
@@ -35,57 +33,57 @@ class PlannerTab(BaseCalendarTab):
             ## DAY ##
             (
                 (DateType.DAY, ViewType.LIST),
-                TitledPlannerListView(name, project, PITP.DAY)
+                TitledPlannerListView(name, project, PITP.DAY),
             ),
             (
                 (DateType.DAY, ViewType.HYBRID),
-                PlannerHybridDayView(name, project)
+                OverlayedPlannerHybridView(name, project, PITP.DAY),
             ),
             ## WEEK ##
             (
                 (DateType.WEEK, ViewType.LIST),
-                TitledPlannerListView(name, project, PITP.WEEK)
+                TitledPlannerListView(name, project, PITP.WEEK),
             ),
             (
                 (DateType.WEEK, ViewType.MULTILIST),
-                PlannerMultiListWeekView(name, project)
+                PlannerMultiListWeekView(name, project),
             ),
             (
                 (DateType.WEEK, ViewType.HYBRID),
-                PlannerHybridWeekView(name, project)
+                OverlayedPlannerHybridView(name, project, PITP.WEEK),
             ),
             ## MONTH ##
             (
                 (DateType.MONTH, ViewType.LIST),
-                TitledPlannerListView(name, project, PITP.MONTH)
+                TitledPlannerListView(name, project, PITP.MONTH),
             ),
             (
                 (DateType.MONTH, ViewType.MULTILIST),
-                PlannerMultiListMonthView(name, project)
+                PlannerMultiListMonthView(name, project),
             ),
             (
                 (DateType.MONTH, ViewType.HYBRID),
-                PlannerHybridMonthView(name, project)
+                OverlayedPlannerHybridView(name, project, PITP.MONTH),
             ),
             ## YEAR ##
             (
                 (DateType.YEAR, ViewType.LIST),
-                TitledPlannerListView(name, project, PITP.YEAR)
+                TitledPlannerListView(name, project, PITP.YEAR),
             ),
             (
                 (DateType.YEAR, ViewType.MULTILIST),
-                PlannerMultiListYearView(name, project)
+                PlannerMultiListYearView(name, project),
             ),
             (
                 (DateType.YEAR, ViewType.HYBRID),
-                OverlayedPlannerHybridYearView(name, project)
+                OverlayedPlannerHybridView(name, project, PITP.YEAR),
             ),
         ])
         super(PlannerTab, self).__init__(
             name,
             project,
             main_views_dict,
-            DateType.YEAR,
+            DateType.DAY,
             ViewType.HYBRID,
             hide_day_change_buttons=True,
             use_full_period_names=True,

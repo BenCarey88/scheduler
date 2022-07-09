@@ -6,6 +6,7 @@ import math
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time, TimeDelta
+from scheduler.api.calendar.scheduled_item import BaseScheduledItem
 from scheduler.api.edit.edit_callbacks import CallbackItemType
 
 from scheduler.ui import constants, utils
@@ -17,12 +18,14 @@ from .scheduler_widgets import SelectionRect, ScheduledItemWidget
 
 class SchedulerTimetableView(BaseWeekTableView):
     """Scheduler view widget for some number of days."""
+    HOVERED_ITEM_SIGNAL = QtCore.pyqtSignal(BaseScheduledItem)
+    HOVERED_ITEM_REMOVED_SIGNAL = QtCore.pyqtSignal()
+
     DAY_START = Time(hour=0)
     DAY_END = Time(hour=23, minute=59, second=59)
     TIME_INTERVAL = TimeDelta(hours=1)
     SELECTION_TIME_STEP = TimeDelta(minutes=15)
     SELECTION_TIME_STEP_SECS = SELECTION_TIME_STEP.total_seconds()
-
     ITEM_BORDER_SIZE = 1
 
     def __init__(
@@ -39,6 +42,10 @@ class SchedulerTimetableView(BaseWeekTableView):
             num_days (int): num_days.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
+        self.scheduled_item_widgets = []
+        self.selection_rect = None
+        self.selected_scheduled_item = None
+        self.hovered_item = None
         super(SchedulerTimetableView, self).__init__(
             name,
             project,
@@ -46,8 +53,6 @@ class SchedulerTimetableView(BaseWeekTableView):
             parent=parent,
         )
         self.schedule_manager = project.get_schedule_manager()
-        self.selection_rect = None
-        self.selected_scheduled_item = None
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
         self.refresh_scheduled_items_list()
@@ -398,7 +403,7 @@ class SchedulerTimetableView(BaseWeekTableView):
         # Create painter
         painter = QtGui.QPainter(self.viewport())
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        pen = QtGui.QPen(QtGui.QColor(0,0,0), self.ITEM_BORDER_SIZE)
+        pen = QtGui.QPen(constants.BLACK, self.ITEM_BORDER_SIZE)
         painter.setPen(pen)
 
         # Scheduled item rects
@@ -425,7 +430,9 @@ class SchedulerTimetableView(BaseWeekTableView):
                     line_thickness
                 )
                 path.addRoundedRect(rect, 3, 3)
-                painter.setBrush(QtGui.QBrush(QtGui.QColor(227, 36, 43)))
+                painter.setBrush(
+                    QtGui.QBrush(constants.SCHEDULER_TIME_LINE_COLOR)
+                )
                 painter.setClipPath(path)
                 painter.fillPath(path, painter.brush())
                 break
@@ -436,6 +443,10 @@ class SchedulerTimetableView(BaseWeekTableView):
         Args:
             event (QtCore.QEvent): the mouse press event.
         """
+        if self.hovered_item is not None:
+            self.hovered_item = None
+            self.HOVERED_ITEM_REMOVED_SIGNAL.emit()
+
         pos = event.pos()
         # item rects drawn last are the ones we should click first
         for item_widget in reversed(self.scheduled_item_widgets):
@@ -500,6 +511,17 @@ class SchedulerTimetableView(BaseWeekTableView):
                 )
                 self.viewport().update()
 
+        else:
+            for scheduled_item_widget in reversed(self.scheduled_item_widgets):
+                if scheduled_item_widget.contains(event.pos()):
+                    self.hovered_item = scheduled_item_widget.scheduled_item
+                    self.HOVERED_ITEM_SIGNAL.emit(self.hovered_item)
+                    break
+            else:
+                if self.hovered_item is not None:
+                    self.hovered_item = None
+                    self.HOVERED_ITEM_REMOVED_SIGNAL.emit()
+
         return super(SchedulerTimetableView, self).mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
@@ -546,12 +568,23 @@ class SchedulerTimetableView(BaseWeekTableView):
         Args:
             event (QtCore.QEvent): the drop event.
         """
-        tree_item = utils.decode_mime_data(
-            event.mimeData(),
-            constants.OUTLINER_TREE_MIME_DATA_FORMAT,
-            drop=True,
-        )
-        if not tree_item:
+        data = event.mimeData()
+        tree_item = None
+        planned_item = None
+        if data.hasFormat(constants.OUTLINER_TREE_MIME_DATA_FORMAT):
+            tree_item = utils.decode_mime_data(
+                data,
+                constants.OUTLINER_TREE_MIME_DATA_FORMAT,
+                drop=True,
+            )
+        elif data.hasFormat(constants.PLANNED_ITEM_MIME_DATA_FORMAT):
+            planned_item = utils.decode_mime_data(
+                data,
+                constants.PLANNED_ITEM_MIME_DATA_FORMAT,
+                drop=True,
+            )
+            tree_item = planned_item.tree_item
+        if tree_item is None:
             return
 
         date_time = self.datetime_from_pos(event.pos())
@@ -571,6 +604,7 @@ class SchedulerTimetableView(BaseWeekTableView):
             start_datetime=start_date_time,
             end_datetime=end_date_time,
             tree_item=tree_item,
+            planned_item=planned_item,
         )
         if self.open_dialog_on_drop_event:
             item_editor.exec()

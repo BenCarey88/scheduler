@@ -57,6 +57,8 @@ class ItemRegistry(object):
             item (variant): item to register at id.
         """
         if id in self._items.keys():
+            # TODO: need better way to handle serialization errors, tool
+            # shouldn't crash if code is saved dogily
             raise ItemRegistryError(
                 "Item with id {0} already exists in registry".format(id)
             )

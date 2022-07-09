@@ -148,6 +148,20 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
         for view in self.iter_widgets():
             view.post_edit_callback(callback_type, *args)
 
+    def get_subview(self, calendar_period):
+        """Get subview for given period.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): calendar period contained
+                in the current one.
+
+        Returns:
+            (BaseCalendarView or None): subview, if found.
+        """
+        raise NotImplementedError(
+            "get_subview must be implemented in subclasses."
+        )
+
 
 class BaseMultiListWeekView(BaseMultiListView):
     """Base view for calendar weeks containing calendar day list views."""
@@ -181,7 +195,7 @@ class BaseMultiListWeekView(BaseMultiListView):
             calendar_week
         )
 
-    def get_day_view(self, calendar_day):
+    def get_subview(self, calendar_day):
         """Get view for given calendar day.
 
         Args:
@@ -242,7 +256,7 @@ class BaseMultiListMonthView(BaseMultiListView):
             calendar_month
         )
 
-    def get_week_view(self, calendar_week):
+    def get_subview(self, calendar_week):
         """Get view for given calendar week.
 
         Args:
@@ -276,7 +290,6 @@ class BaseMultiListYearView(BaseMultiListView):
             list_views,
             parent=parent
         )
-        self.set_to_calendar_year = self.set_to_calendar_period
 
     def set_to_calendar_period(self, calendar_year):
         """Set view to given calendar_year.
@@ -291,7 +304,7 @@ class BaseMultiListYearView(BaseMultiListView):
             calendar_year
         )
 
-    def get_month_view(self, calendar_month):
+    def get_subview(self, calendar_month):
         """Get view for given calendar month.
 
         Args:

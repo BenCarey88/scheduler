@@ -83,14 +83,33 @@ class BaseCalendarPeriod(NestedSerializable):
 
     @property
     def name(self):
-        """Get name of class to use in serialization.
+        """Get name of class instance to use in serialization.
 
         Returns:
-            (str): name of class.
+            (str): name of class instance.
         """
         raise NotImplementedError(
             "name property is implemented in BaseCalendarPeriod subclasses."
         )
+
+    @property
+    def full_name(self):
+        """Get full name of class.
+
+        Returns:
+            (str): full name of class instance. This only differes from
+                the name property in cases where name doesn't give
+                enough information to fully encode the period.
+        """
+        return self.name
+
+    def __str__(self):
+        """Get string representation of class.
+
+        Returns:
+            (str): string representation of class.
+        """
+        return self.full_name
 
     def get_time_period_type(self):
         """Get time period type of item.
@@ -347,7 +366,7 @@ class CalendarDay(BaseCalendarPeriod):
         ]
         calendar_day._planned_items = planned_items
 
-        planned_week_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
+        planned_week_items_list = dict_repr.get(cls.PLANNED_WEEK_ITEMS_KEY, [])
         planned_week_items = [
             PlannedItem.from_dict(
                 planned_item_dict,
@@ -740,6 +759,16 @@ class CalendarMonth(BaseCalendarPeriod):
             (str): month name.
         """
         return Date.month_string_from_int(self._month, short=False)
+
+    @property
+    def full_name(self):
+        """Get full name of class.
+
+        Returns:
+            (str): full name of class instance. This differes from
+                the name property in that it includes the year as well.
+        """
+        return "{0} {1}".format(self.name, self._year)
 
     @property
     def start_day(self):

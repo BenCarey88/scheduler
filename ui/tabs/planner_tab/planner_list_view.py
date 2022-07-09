@@ -12,8 +12,6 @@ from scheduler.ui.tabs.base_calendar_view import (
 )
 
 
-# TODO: maybe create self.signals attr in init, then class setup just has to
-# connect signal for signal in zip(self.signals, subview.signals).
 class TitledPlannerListView(BaseTitledView):
     """Planner list view with title."""
     HOVERED_ITEM_SIGNAL = QtCore.pyqtSignal(PlannedItem)
@@ -225,7 +223,7 @@ class PlannerListView(BaseListView):
         elif callback_type == CallbackType.PLANNER_FULL_UPDATE:
             calendar_period = args[0]
             if calendar_period == self.calendar_period:
-                self.model().on_full_update(*args)
+                self.model().on_full_update()
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

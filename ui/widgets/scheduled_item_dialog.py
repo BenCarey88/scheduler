@@ -28,6 +28,7 @@ class ScheduledItemDialog(ItemDialog):
             start_datetime=None,
             end_datetime=None,
             tree_item=None,
+            planned_item=None,
             parent=None):
         """Initialise dialog.
 
@@ -43,6 +44,8 @@ class ScheduledItemDialog(ItemDialog):
                 with, if we're not passing a scheduled item.
             tree_item (Task or None): tree item to initialize with, if we're
                 not passing a scheduled item.
+            planned_item (PlannedItem or None): planned item parent for this
+                scheduled item, if given.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
         if (scheduled_item is None and 
@@ -59,6 +62,7 @@ class ScheduledItemDialog(ItemDialog):
         )
         self._calendar = schedule_manager.calendar
         self._schedule_manager = schedule_manager
+        self._planned_item = planned_item
 
         if scheduled_item is None:
             # create a temp scheduled item just to get default values
@@ -349,6 +353,7 @@ class ScheduledItemDialog(ItemDialog):
                     event_category=self.category,
                     event_name=self.name,
                     is_background=self.is_background,
+                    planned_item=self._planned_item,
                 )
             else:
                 self._schedule_manager.create_scheduled_item(
@@ -362,6 +367,7 @@ class ScheduledItemDialog(ItemDialog):
                     event_name=self.name,
                     is_background=self.is_background,
                     repeat_pattern=self.repeat_pattern,
+                    planned_item=self._planned_item,
                 )
         super(ScheduledItemDialog, self).accept_and_close()
 

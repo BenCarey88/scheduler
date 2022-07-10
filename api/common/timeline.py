@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 
+from scheduler.api.utils import fallback_value
 from .date_time import Date, DateTime, Time
 
 
@@ -9,6 +10,8 @@ class TimelineError(Exception):
     """Exception class for timeline errors."""
 
 
+# TODO: would it probably be easier to make this a list instead of an
+# ordered dict? I think it probably would.
 class Timeline(object):
     """Timeline container type.
 
@@ -41,6 +44,7 @@ class Timeline(object):
             raise TimelineError(
                 "Timeline type must be Date, Time or DateTime."
             )
+        internal_dict = fallback_value(internal_dict, OrderedDict())
         for key, value in internal_dict.items():
             if not isinstance(key, timeline_type):
                 raise TimelineError(
@@ -55,9 +59,9 @@ class Timeline(object):
             if len(value) != len(set(value)):
                 raise TimelineError(
                     "Timeline class does not allow duplicate items at the "
-                    "same time"
+                    "same time."
                 )
-        self._dict = internal_dict or OrderedDict()
+        self._dict = internal_dict
         self._timeline_type = timeline_type
         self.sort_timeline()
 

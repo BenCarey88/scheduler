@@ -2,7 +2,12 @@
 
 from collections import OrderedDict
 
-from ._core_edits import CompositeEdit, AttributeEdit, HostedDataEdit
+from ._core_edits import (
+    AttributeEdit,
+    CompositeEdit,
+    HostedDataEdit,
+    RemoveFromHostEdit,
+)
 from ._container_edit import DictEdit, ContainerOp
 
 
@@ -37,14 +42,21 @@ class BaseTreeEdit(CompositeEdit):
             edit_list = [name_change_edit, ordered_dict_edit]
 
         elif op_type == ContainerOp.REMOVE:
-            remove_parent_edit = AttributeEdit.create_unregistered(
-                {
-                    tree_item.get_child(name)._parent: None
-                    for name in diff_dict
-                    if tree_item.get_child(name)
-                },
-            )
-            edit_list = [remove_parent_edit, ordered_dict_edit]
+            remove_parent_edit = AttributeEdit.create_unregistered({
+                tree_item.get_child(name)._parent: None
+                for name in diff_dict
+                if tree_item.get_child(name)
+            })
+            # remove_from_host_edit = CompositeEdit.create_unregistered([
+            #     RemoveFromHostEdit.create_unregistered(tree_item.get_child(n))
+            #     for n in diff_dict
+            #     if tree_item.get_child(n)
+            # ])
+            edit_list = [
+                remove_parent_edit,
+                ordered_dict_edit,
+                # remove_from_host_edit,
+            ]
 
         elif op_type == ContainerOp.ADD:
             add_parent_edit = AttributeEdit.create_unregistered(

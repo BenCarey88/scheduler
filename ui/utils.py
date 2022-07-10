@@ -33,11 +33,11 @@ def override_cursor(cursor_type):
     Args:
         cursor_type (QtCore.Qt.CursorShape) Qt cursor to use.
     """
-    QtGui.QApplication.setOverrideCursor(cursor_type)
+    QtGui.QGuiApplication.setOverrideCursor(cursor_type)
     try:
         yield
     finally:
-        QtGui.QApplication.restoreOverrideCursor()
+        QtGui.QGuiApplication.restoreOverrideCursor()
 
 
 def simple_message_dialog(message, informative_text=None, parent=None):

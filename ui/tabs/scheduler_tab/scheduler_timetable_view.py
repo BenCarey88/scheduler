@@ -7,7 +7,10 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import BaseScheduledItem
-from scheduler.api.edit.edit_callbacks import CallbackItemType
+from scheduler.api.edit.edit_callbacks import (
+    CallbackType,
+    CallbackItemType,
+)
 
 from scheduler.ui import constants, utils
 from scheduler.ui.models.table import SchedulerWeekModel
@@ -73,6 +76,7 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.setDropIndicatorShown(True)
         self.viewport().setAcceptDrops(True)
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
+        self.setMouseTracking(True)
 
         self.timer_id = self.startTimer(constants.LONG_TIMER_INTERVAL)
 
@@ -99,7 +103,8 @@ class SchedulerTimetableView(BaseWeekTableView):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        if callback_type[0] == CallbackItemType.SCHEDULER:
+        if (callback_type == CallbackType.TREE_REMOVE
+                or callback_type[0] == CallbackItemType.SCHEDULER):
             self.refresh_scheduled_items_list()
         super(SchedulerTimetableView, self).post_edit_callback(
             callback_type,
@@ -454,6 +459,10 @@ class SchedulerTimetableView(BaseWeekTableView):
                 time = self.time_from_y_pos(pos.y())
                 item_widget.set_mouse_pos_start_time(time)
                 self.selected_scheduled_item = item_widget
+                if item_widget.at_top(event.pos()):
+                    item_widget.is_being_resized_top = True
+                elif item_widget.at_bottom(event.pos()):
+                    item_widget.is_being_resized_bottom = True
                 return
 
         mouse_col = self.column_from_mouse_pos(pos)
@@ -485,34 +494,24 @@ class SchedulerTimetableView(BaseWeekTableView):
                 date = self.date_from_column(mouse_col)
             else:
                 date = self.selected_scheduled_item.date
-
             y_pos = self.round_height_to_time_step(event.pos().y())
             orig_y_pos = self.y_pos_from_time(
                 self.selected_scheduled_item.mouse_pos_start_time
             )
             y_pos_change = self.round_height_to_time_step(y_pos - orig_y_pos)
-
-            time_change = self.time_range_from_height(y_pos_change)
-            orig_start = self.selected_scheduled_item.orig_start_time
-            orig_end = self.selected_scheduled_item.orig_end_time
-            if (self.DAY_END - orig_end <= time_change):
-                time_change = self.DAY_END - orig_end
-            elif (time_change <= self.DAY_START - orig_start):
-                time_change = self.DAY_START - orig_start
-            new_start_time = orig_start + time_change
-            new_end_time = orig_end + time_change
-
-            if (new_start_time != self.selected_scheduled_item.start_time
-                    or date != self.selected_scheduled_item.date):
-                self.selected_scheduled_item.is_moving = True
-                self.selected_scheduled_item.change_time(
-                    DateTime.from_date_and_time(date, new_start_time),
-                    DateTime.from_date_and_time(date, new_end_time),
-                )
+            timedelta = self.time_range_from_height(y_pos_change)
+            if self.selected_scheduled_item.apply_time_change(timedelta, date):
                 self.viewport().update()
 
         else:
             for scheduled_item_widget in reversed(self.scheduled_item_widgets):
+                if (scheduled_item_widget.at_top(event.pos())
+                        or scheduled_item_widget.at_bottom(event.pos())):
+                    QtGui.QGuiApplication.setOverrideCursor(
+                        QtCore.Qt.CursorShape.SizeVerCursor
+                    )
+                else:
+                    QtGui.QGuiApplication.restoreOverrideCursor()
                 if scheduled_item_widget.contains(event.pos()):
                     self.hovered_item = scheduled_item_widget.scheduled_item
                     self.HOVERED_ITEM_SIGNAL.emit(self.hovered_item)
@@ -543,8 +542,10 @@ class SchedulerTimetableView(BaseWeekTableView):
             self.selection_rect = None
 
         elif self.selected_scheduled_item:
-            if self.selected_scheduled_item.is_being_moved:
-                # if being moved, deselect the item to trigger edit
+            if (self.selected_scheduled_item.is_being_moved
+                    or self.selected_scheduled_item.is_being_resized_top
+                    or self.selected_scheduled_item.is_being_resized_bottom):
+                # if being moved or resized, deselect the item to trigger edit
                 self.selected_scheduled_item.deselect()
             else:
                 # otherwise, we want to open the editor

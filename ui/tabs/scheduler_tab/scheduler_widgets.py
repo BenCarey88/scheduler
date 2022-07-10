@@ -9,6 +9,8 @@ from scheduler.ui import constants
 
 class ScheduledItemWidget(object):
     """Class representing a scheduled item widget."""
+    BOUNDARY_BUFFER = 5
+
     def __init__(
             self,
             timetable_view,
@@ -29,6 +31,8 @@ class ScheduledItemWidget(object):
         self._schedule_manager = schedule_manager
         self._scheduled_item = scheduled_item
         self.is_being_moved = False
+        self.is_being_resized_top = False
+        self.is_being_resized_bottom = False
         self.mouse_pos_start_time = None
         self._edited_date = None
         self._edited_start_time = None
@@ -110,6 +114,36 @@ class ScheduledItemWidget(object):
         """
         return self.rect.contains(pos)
 
+    def at_top(self, pos):
+        """Check if mouse pos is at top of widget.
+
+        Args:
+            pos (QtCore.QPos): position to check.
+
+        Returns:
+            (bool): whether or not mouse pos is at top of widget.
+        """
+        rect = self.rect
+        return (
+            abs(rect.top() - pos.y()) < self.BOUNDARY_BUFFER
+            and rect.left() <= pos.x() <= rect.right()
+        )
+
+    def at_bottom(self, pos):
+        """Check if mouse pos is at bottom of widget.
+
+        Args:
+            pos (QtCore.QPos): position to check.
+
+        Returns:
+            (bool): whether or not mouse pos is at bottom of widget.
+        """
+        rect = self.rect
+        return (
+            abs(rect.bottom() - pos.y()) < self.BOUNDARY_BUFFER
+            and rect.left() <= pos.x() <= rect.right()
+        )
+
     def set_mouse_pos_start_time(self, start_time):
         """When moving the item, set the start time based on the mouse pos.
 
@@ -118,32 +152,75 @@ class ScheduledItemWidget(object):
         """
         self.mouse_pos_start_time = start_time
 
-    def change_time(self, new_start_datetime, new_end_datetime):
-        """Change the time of the scheduled item.
+    def apply_time_change(self, time_change, date=None):
+        """Apply time change from user to widget.
 
         Args:
-            new_start_time (DateTime): new start time for item.
-            new_end_date_time (DateTime): new end time for item.
+            time_change (TimeDelta): time change to apply, calculated from
+                mouse movement in the view.
+            date (Date): date to change to, if needed.
+
+        Returns:
+            (bool): true if any change was actually applied.
         """
-        if not self.is_being_moved:
-            self.is_being_moved = True
-        self._edited_date = new_start_datetime.date()
-        self._edited_start_time = new_start_datetime.time()
-        self._edited_end_time = new_end_datetime.time()
+        self.is_being_moved = (
+            not self.is_being_resized_bottom
+            and not self.is_being_resized_top
+        )
+        orig_start = self.orig_start_time
+        orig_end = self.orig_end_time
+
+        if self.is_being_moved:
+            if (time_change <= self._timetable_view.DAY_START - orig_start):
+                time_change = self._timetable_view.DAY_START - orig_start
+            if (self._timetable_view.DAY_END - orig_end <= time_change):
+                time_change = self._timetable_view.DAY_END - orig_end
+            new_start_time = orig_start + time_change
+            new_end_time = orig_end + time_change
+            new_date = date or self.orig_date
+
+        elif self.is_being_resized_top:
+            if (time_change <= self._timetable_view.DAY_START - orig_start):
+                time_change = self._timetable_view.DAY_START - orig_start
+            if (self._timetable_view.DAY_END - orig_start <= time_change):
+                time_change = self._timetable_view.DAY_END - orig_start
+            new_start_time = min(orig_start + time_change, orig_end)
+            new_end_time = max(orig_start + time_change, orig_end)
+            new_date = self.orig_date
+
+        elif self.is_being_resized_bottom:
+            if (self._timetable_view.DAY_END - orig_end <= time_change):
+                time_change = self._timetable_view.DAY_END - orig_end
+            if (time_change <= self._timetable_view.DAY_START - orig_end):
+                time_change = self._timetable_view.DAY_START - orig_end
+            new_start_time = min(orig_end + time_change, orig_start)
+            new_end_time = max(orig_end + time_change, orig_start)
+            new_date = self.orig_date
+
+        if (new_start_time != self.start_time
+                or new_end_time != self.end_time
+                or date != self.date):
+            self._edited_start_time = new_start_time
+            self._edited_end_time = new_end_time
+            self._edited_date = new_date
+            return True
+        return False
 
     def deselect(self):
         """Call when we've finished using this item."""
         self._schedule_manager.move_scheduled_item(
             self._scheduled_item,
-            self._edited_date,
-            self._edited_start_time,
-            self._edited_end_time,
+            date=self._edited_date,
+            start_time=self._edited_start_time,
+            end_time=self._edited_end_time,
         )
         self._edited_date = None
         self._edited_start_time = None
         self._edited_end_time = None
         self.mouse_pos_start_time = None
         self.is_being_moved = False
+        self.is_being_resized_top = False
+        self.is_being_resized_bottom = False
         self.update_orig_datetime_attrs()
 
     def get_item_to_modify(self):

@@ -9,33 +9,36 @@ Planner
 * Day
     (/) List
     - Tree
-    - Hybrid
+    (/) Hybrid
     - Hybrid tree
         - ideally we could just use the tree view whenever ordering
             by path? Or have some other toggle to switch into tree,
             so we don't need different tree and list views.
 * Week
     (/) List
-    - Multi-list
+    (/) Multi-list
     - Tree
     - Multi-list tree
+    (/) Hybrid
+    - Hybrid tree
 * Month
     (/) List
-    - Multi-list
+    (/) Multi-list
     - Multi-list tree
-    - Hybrid
+    (/) Hybrid
     - Hybrid tree
 * Year
     (/) List
-    - Multi-list
+    (/) Multi-list
     - Multi-list tree
-    - Hybrid
+    (/) Hybrid
     - Hybrid tree
 
 Scheduler
 =========
 * Day
     (/) Timetable
+    (/) Hybrid
 * 3 Days
     (/) Timetable
 * Week

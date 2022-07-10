@@ -7,11 +7,13 @@ upcoming release:
 
 next release:
 =============
-* make outliner/task tab/item dialog tree views inherit from same base
-    - key events
-    - right click actions
+(/) make outliner/task tab/item dialog tree views inherit from same base
+    (/) key events
+    (/) right click actions
     (- hover text?)
-* do remaining views for each tab?
+(/) do most remaining views for each tab?
+(/) planned item / scheduled item connections
+* new task fields
 * archive tree and calendar
 * basic filters for the 4 main tabs
 

@@ -84,12 +84,20 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         self.left_view = self.hybrid_view.left_view
         self.right_view = self.hybrid_view.right_view
         self.list_view = self.left_view.planner_list_view
+        self.mouse_track_defaults = {
+            self.list_view: self.list_view.hasMouseTracking()
+        }
         self.multilist_view = None
         self.timetable_view = None
         if time_period == PITP.DAY:
             self.timetable_view = self.right_view
+            self.mouse_track_defaults[self.timetable_view] = (
+                self.timetable_view.hasMouseTracking()
+            )
         else:
             self.multilist_view = self.right_view
+            for subview in self.multilist_view.iter_widgets():
+                self.mouse_track_defaults[subview] = subview.hasMouseTracking()
 
         self.hovered_parent_item = None
         self.hovered_child_item = None
@@ -115,12 +123,17 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
             value (bool): whether to enable or disable.
         """
         self.display_connections_on_hover = value
-        self.list_view.setMouseTracking(value)
+        def get_value(widget):
+            return value or self.mouse_track_defaults.get(widget, False)
+
+        self.list_view.setMouseTracking(get_value(self.list_view))
         if self.multilist_view is not None:
             for subview in self.multilist_view.iter_widgets():
-                subview.planner_list_view.setMouseTracking(value)
+                subview.planner_list_view.setMouseTracking(get_value(subview))
         elif self.timetable_view is not None:
-            self.timetable_view.setMouseTracking(value)
+            self.timetable_view.setMouseTracking(
+                get_value(self.timetable_view)
+            )
 
     def set_hovered_parent_item(self, planned_item=None):
         """Set hovered parent item to given value.

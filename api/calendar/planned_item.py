@@ -118,7 +118,9 @@ class PlannedItem(Hosted, NestedSerializable):
         Returns:
             (str): name of item.
         """
-        return self.tree_item.name
+        if self.tree_item:
+            return self.tree_item.name
+        return ""
 
     @property
     def tree_path(self):
@@ -127,7 +129,9 @@ class PlannedItem(Hosted, NestedSerializable):
         Returns:
             (str): path of tree item.
         """
-        return self.tree_item.path
+        if self.tree_item:
+            return self.tree_item.path
+        return ""
 
     @property
     def scheduled_items(self):
@@ -380,9 +384,10 @@ class PlannedItem(Hosted, NestedSerializable):
         """
         dict_repr = {
             self.TIME_PERIOD_KEY: self.time_period,
-            self.TREE_ITEM_KEY: self.tree_item.path,
             self.ID_KEY: self._get_id(),
         }
+        if self.tree_item:
+            dict_repr[self.TREE_ITEM_KEY] = self.tree_item.path
         if self._scheduled_items:
             dict_repr[self.SCHEDULED_ITEMS_KEY] = [
                 scheduled_item._get_id()

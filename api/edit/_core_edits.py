@@ -227,10 +227,25 @@ class HostedDataEdit(SimpleEdit):
         if (not isinstance(old_data, Hosted)
                 or not isinstance(new_data, Hosted)):
             raise EditError(
-                "args passed to HostedDataEdit must be Hosted class objects."
+                "args passed to HostedDataEdit must be Hosted objects."
             )
         super(HostedDataEdit, self).__init__(
             run_func=partial(new_data._switch_host, old_data.host),
             inverse_run_func=partial(old_data._switch_host, new_data.host),
         )
         self._is_valid = (old_data != new_data)
+
+
+class RemoveFromHostEdit(AttributeEdit):
+    """Edit to remove data from a host."""
+    def __init__(self, hosted_data):
+        """Initiailize edit.
+
+        Args:
+            hosted_data (Hosted): hosted data to remove.
+        """
+        if not isinstance(hosted_data, Hosted):
+            raise EditError(
+                "args passed to RemoveFromHostEdit must be Hosted objects."
+            )
+        super(RemoveFromHostEdit, self).__init__({hosted_data.host: None})

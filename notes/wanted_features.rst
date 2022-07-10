@@ -15,5 +15,5 @@ larger
 ------
 -   Allow categories in task widget
 -   Drop down for outliner with preset + saved filters
--   Right click menus
+(/) Right click menus
 -   Archive functionality (with right click)

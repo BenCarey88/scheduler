@@ -421,8 +421,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             event_category=None,
             event_name=None,
             is_background=None,
-            template_item=None,
-            has_planned_items=False):
+            template_item=None):
         """Initialise item.
 
         Args:
@@ -446,8 +445,6 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             template_item (BaseScheduledItem or None): template item to inherit
                 properties from, if they're not overridden. This is used by
                 RepeatScheduledItemInstances.
-            has_planned_items (bool): if True, this scheduled item has
-                associated planned items.
         """
         super(BaseScheduledItem, self).__init__()
         self._calendar = calendar
@@ -475,8 +472,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         )
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
-        if has_planned_items:
-            self._planned_items = []
+        self._planned_items = []
         self._id = None
 
     class _Decorators(object):
@@ -808,7 +804,6 @@ class ScheduledItem(BaseScheduledItem):
             event_category=event_category,
             event_name=event_name,
             is_background=is_background,
-            has_planned_items=True,
         )
 
     def datetime_string(self):
@@ -1150,7 +1145,6 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             end_time=end_time,
             date=date,
             template_item=repeat_scheduled_item,
-            has_planned_items=True,
         )
         self._scheduled_date = scheduled_date
 
@@ -1198,6 +1192,8 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         Returns:
             (DateTime or None): start datetime override.
         """
+        if self.override_start_time is None:
+            return None
         return DateTime.from_date_and_time(self.date, self.override_start_time)
 
     @property
@@ -1207,6 +1203,8 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         Returns:
             (DateTime or None): end datetime override.
         """
+        if self.override_end_time is None:
+            return None
         return DateTime.from_date_and_time(self.date, self.override_end_time)
 
     @property

@@ -3,6 +3,7 @@
 Friend classes: [Calendar, CalendarPeriod, ScheduledItem]
 """
 
+from scheduler.api.common.object_wrappers import MutableHostedAttribute
 from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
 from ._core_edits import (
     AttributeEdit,
@@ -13,7 +14,7 @@ from ._core_edits import (
 from .planner_edit import AddScheduledItemChildRelationshipEdit
 
 
-class AddScheduledItemEdit(ListEdit):
+class AddScheduledItemEdit(CompositeEdit):
     """Add scheduled item to calendar."""
     def __init__(self, scheduled_item):
         """Initialise edit.
@@ -22,11 +23,21 @@ class AddScheduledItemEdit(ListEdit):
             scheduled_item (BaseScheduledItem): the scheduled item to add. Can
                 be a single scheduled item instance or a repeating item.
         """
-        super(AddScheduledItemEdit, self).__init__(
+        add_edit = ListEdit.create_unregistered(
             scheduled_item.get_item_container(),
             [scheduled_item],
             ContainerOp.ADD,
         )
+        subedits = [add_edit]
+        tree_item_container = scheduled_item.get_tree_item_container()
+        if tree_item_container is not None:
+            tree_attr_edit = ListEdit.create_unregistered(
+                tree_item_container,
+                [MutableHostedAttribute(scheduled_item)],
+                ContainerOp.ADD,
+            )
+            subedits.append(tree_attr_edit)
+        super(AddScheduledItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [scheduled_item]
         self._name = "AddScheduledItem ({0})".format(scheduled_item.name)
         self._description = (

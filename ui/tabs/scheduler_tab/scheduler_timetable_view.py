@@ -79,6 +79,7 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.setMouseTracking(True)
 
         self.timer_id = self.startTimer(constants.LONG_TIMER_INTERVAL)
+        self.installEventFilter(self)
 
     def refresh_scheduled_items_list(self, *args):
         """Refresh list of scheduled items.
@@ -110,6 +111,11 @@ class SchedulerTimetableView(BaseWeekTableView):
             callback_type,
             *args
         )
+
+    def update(self):
+        """Update widget."""
+        self.refresh_scheduled_items_list()
+        super(SchedulerTimetableView, self).update()
 
     def set_to_calendar_period(self, calendar_week):
         """Set view to given calendar_week.
@@ -559,6 +565,19 @@ class SchedulerTimetableView(BaseWeekTableView):
             self.selected_scheduled_item = None
 
         return super(SchedulerTimetableView, self).mouseReleaseEvent(event)
+
+    def eventFilter(self, obj, event):
+        """Event filter for when object is clicked.
+
+        Args:
+            obj (QtCore.QObject): QObject that event is happening on.
+            event (QtCore.QEvent): event that is happening.
+        """
+        if obj == self and event.type() == QtCore.QEvent.Leave:
+            if self.hovered_item is not None:
+                self.hovered_item = None
+                self.HOVERED_ITEM_REMOVED_SIGNAL.emit()
+        return False
 
     def dropEvent(self, event):
         """Override drop event for dropping task items.

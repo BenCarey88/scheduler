@@ -10,7 +10,7 @@ from ._base_tree_item import BaseTreeItem
 
 class BaseTaskItem(BaseTreeItem):
     """Base item for tasks and task categories."""
-    ARCHIVE_ROOT_NAME = "_ARCHIVE_"
+    ARCHIVE_ROOT_NAME = "ARCHIVE"
 
     def __init__(self, name, parent=None, color=None):
         """Initialise task item class.
@@ -28,6 +28,7 @@ class BaseTaskItem(BaseTreeItem):
         self._planned_week_items = []
         self._planned_day_items = []
         self._scheduled_items = []
+        self._repeat_scheduled_items = []
 
     @property
     def is_archived(self):
@@ -62,5 +63,51 @@ class BaseTaskItem(BaseTreeItem):
         """Get scheduled items for given task.
 
         Returns:
-            (list(BaseScheduledItem)): list of scheduled items.
+            (list(ScheduledItem)): list of scheduled items.
         """
+        return [s.value for s in self._scheduled_items]
+
+    @property
+    def repeat_scheduled_items(self):
+        """Get repeat scheduled items for given task.
+
+        Returns:
+            (list(RepeatScheduledItem)): list of repeat scheduled items.
+        """
+        return [s.value for s in self._repeat_scheduled_items]
+
+    @property
+    def planned_day_items(self):
+        """Get planned day items for given task.
+
+        Returns:
+            (list(PlannedItems)): list of planned items.
+        """
+        return [p.value for p in self._planned_day_items]
+
+    @property
+    def planned_week_items(self):
+        """Get planned week items for given task.
+
+        Returns:
+            (list(PlannedItems)): list of planned items.
+        """
+        return [p.value for p in self._planned_week_items]
+
+    @property
+    def planned_month_items(self):
+        """Get planned month items for given task.
+
+        Returns:
+            (list(PlannedItems)): list of planned items.
+        """
+        return [p.value for p in self._planned_month_items]
+
+    @property
+    def planned_year_items(self):
+        """Get planned year items for given task.
+
+        Returns:
+            (list(PlannedItems)): list of planned items.
+        """
+        return [p.value for p in self._planned_year_items]

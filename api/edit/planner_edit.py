@@ -9,7 +9,7 @@ from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
 from ._core_edits import AttributeEdit, CompositeEdit
 
 
-class AddPlannedItemEdit(ListEdit):
+class AddPlannedItemEdit(CompositeEdit):
     """Add planned item to calendar."""
     def __init__(self, planned_item, index=None):
         """Initialise edit.
@@ -21,11 +21,23 @@ class AddPlannedItemEdit(ListEdit):
         item_container = planned_item.get_item_container()
         if index is None:
             index = len(item_container)
-        super(AddPlannedItemEdit, self).__init__(
+        
+        add_edit = ListEdit.create_unregistered(
             item_container,
             [(index, planned_item)],
             ContainerOp.INSERT,
         )
+        subedits = [add_edit]
+        tree_item_container = planned_item.get_tree_item_container()
+        if tree_item_container is not None:
+            tree_attr_edit = ListEdit.create_unregistered(
+                tree_item_container,
+                [MutableHostedAttribute(planned_item)],
+                ContainerOp.ADD,
+            )
+            subedits.append(tree_attr_edit)
+        super(AddPlannedItemEdit, self).__init__(subedits)
+
         self._callback_args = self._undo_callback_args = [
             planned_item,
             planned_item.calendar_period,

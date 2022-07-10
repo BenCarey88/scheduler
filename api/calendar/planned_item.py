@@ -240,6 +240,22 @@ class PlannedItem(Hosted, NestedSerializable):
         )
         return calendar_period.get_planned_items_container()
 
+    def get_tree_item_container(self):
+        """Get the tree item attr that this item should be contained in.
+
+        Returns:
+            (list or None): list that this planned item should be contained in
+                within its tree item, if found.
+        """
+        if self.tree_item is None:
+            return None
+        return {
+            self.PITP.DAY: self.tree_item._planned_day_items,
+            self.PITP.WEEK: self.tree_item._planned_week_items,
+            self.PITP.MONTH: self.tree_item._planned_month_items,
+            self.PITP.YEAR: self.tree_item._planned_year_items,
+        }.get(self.time_period)
+
     def index(self):
         """Get index of item in its container.
 
@@ -359,6 +375,9 @@ class PlannedItem(Hosted, NestedSerializable):
             calendar_period,
             tree_item,
         )
+        planned_item_list = planned_item.get_tree_item_container()
+        if planned_item_list is not None:            
+            planned_item_list.append(MutableAttribute(planned_item))
 
         for scheduled_item_id in dict_repr.get(cls.SCHEDULED_ITEMS_KEY, []):
             item_registry.register_callback(

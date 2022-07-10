@@ -1,5 +1,7 @@
 """Structs to wrap around objects allowing us to edit them."""
 
+from collections.abc import MutableSequence
+
 
 class HostError(Exception):
     """Generic exception for host class related errors."""
@@ -135,6 +137,19 @@ class Hosted(object):
         """
         return self._host
 
+    @property
+    def defunct(self):
+        """Check if object hosted data is still valid.
+
+        This is here for convenience so that subclasses can reimplement it,
+        specifically for cases where they're referencing currently defunct
+        hosts.
+
+        Returns:
+            (bool): whether or not hosted data is defunct.
+        """
+        return False
+
     def _switch_host(self, new_host):
         """Switch out host to a different host.
 
@@ -240,3 +255,154 @@ class MutableHostedAttribute(BaseObjectWrapper):
                 "unhosted class {0}".format(value.__class__.__name__)
             )
         return True
+
+
+class HostedDataList(MutableSequence):
+    """List class for storing hosted data by _HostObjects."""
+    def __init__(self, *args):
+        """Initialize."""
+        self._list = list()
+        self.extend(list(args))
+
+    def _get_hosted_value(self, value):
+        """Get value to add to list.
+
+        Args:
+            value (Hosted, _HostObject or None): value to set.
+        """
+        if isinstance(value, Hosted):
+            value = value.host
+        if isinstance(value, _HostObject):
+            value = value
+        elif value is None:
+            value = _HostObject(None)
+        else:
+            raise HostError(
+                "Cannot add unhosted class {0} to HostedDataList".format(
+                    value.__class__.__name__
+                )
+            )
+
+    def _iter_filtered(self, reverse=False):
+        """Iterate through filtered list.
+
+        Args:
+            reverse (bool): if True, iterate in reverse.
+
+        Yields:
+            (_HostObject): the valid host objects in the list that
+                contain valid data.
+        """
+        iterable = self._list
+        if reverse:
+            iterable = reverse(self._list)
+        for host in iterable:
+            if not host.defunct and not host.data.defunct:
+                yield host
+
+    def _iter_filtered_with_old_index(self, reverse=False):
+        """Iterate through filtered list.
+
+        Args:
+            reverse (bool): if True, iterate in reverse.
+
+        Yields:
+            (int): old index. If in reverse, this gives a negative
+                index.
+            (_HostObject): the valid host objects in the list that
+                contain valid data.
+        """
+        iterable = self._list
+        if reverse:
+            iterable = reverse(self._list)
+        for i, host in enumerate(iterable):
+            if not host.defunct and not host.data.defunct:
+                if reverse:
+                    yield -1 - i, host
+                else:
+                    yield i, host
+
+    def __len__(self):
+        """Get length of filtered list.
+
+        Returns:
+            (int): length of filtered list.
+        """
+        return len(self._get_filtered())
+
+    def __getitem__(self, index):
+        """Get item at index in filtered list.
+
+        Args:
+            index (int): index to query.
+        """
+        for i, host in enumerate(self._iter_filtered(reverse=(index < 0))):
+            if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
+                return host.data
+        raise IndexError(
+            "Index {0} is outside range of HostedDataList".format(index)
+        )
+
+    def __delitem__(self, index):
+        """Delete item at index of filtered list.
+
+        Args:
+            index (int): index to delete.
+        """
+        iterable = enumerate(
+            self._iter_filtered_with_old_index(reverse=(index < 0))
+        )
+        for i, (old_index, _) in iterable:
+            if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
+                del self._list[old_index]
+                return
+        raise IndexError(
+            "Index {0} is outside range of HostedDataList".format(index)
+        )
+
+    def __setitem__(self, index, value):
+        """Set item at index to value.
+
+        Args:
+            index (int): index to set.
+            value (Hosted, _HostObject or None): value to set.
+        """
+        value = self._get_hosted_value(value)
+        iterable = enumerate(
+            self._iter_filtered_with_old_index(reverse=(index < 0))
+        )
+        for i, (old_index, _) in iterable:
+            if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
+                self._list[old_index] = value
+                return
+        raise IndexError(
+            "Index {0} is outside range of HostedDataList".format(index)
+        )
+
+    def insert(self, index, value):
+        """Insert given value at given index into list.
+
+        Args:
+            index (int):
+            value (Hosted, _HostObject or None): value to set):
+        """
+        value = self._get_hosted_value(value)
+        iterable = enumerate(
+            self._iter_filtered_with_old_index(reverse=(index < 0))
+        )
+        for i, (old_index, _) in iterable:
+            if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
+                self._list.insert(old_index, value)
+                return
+        if i > 0:
+            self._list.append(value)
+        else:
+            self._list.insert(0, value)
+
+    def __str__(self):
+        """Get string representation of list.
+
+        Returns:
+            (str): string repr.
+        """
+        return str(self.list)

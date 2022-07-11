@@ -129,11 +129,6 @@ class PlannerListView(BaseListView):
         model.dataChanged.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.modelReset.connect(self.VIEW_UPDATED_SIGNAL.emit)
 
-    # TODO: this is dependent on each planner edit callback starting with
-    # a calendar period arg that determines which period it applies to.
-    # when we create edits to change the period of an item, we'll need
-    # two args (old_period, new_period), which will need to be handled
-    # separately.
     def pre_edit_callback(self, callback_type, *args):
         """Callback for before an edit of any type is run.
 
@@ -142,6 +137,8 @@ class PlannerListView(BaseListView):
             *args: additional args dependent on type of edit.
         """
         super(PlannerListView, self).pre_edit_callback(callback_type, *args)
+        if callback_type == CallbackType.TREE_REMOVE:
+            self.model().pre_full_update
         if callback_type[0] != CallbackItemType.PLANNER:
             return
 
@@ -186,6 +183,8 @@ class PlannerListView(BaseListView):
             *args: additional args dependent on type of edit.
         """
         super(PlannerListView, self).post_edit_callback(callback_type, *args)
+        if callback_type == CallbackType.TREE_REMOVE:
+            self.model().on_full_update
         if callback_type[0] != CallbackItemType.PLANNER:
             return
 

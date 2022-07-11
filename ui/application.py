@@ -55,6 +55,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tabs_widget = QtWidgets.QTabWidget(self)
         self.splitter.addWidget(self.outliner_stack)
         self.splitter.addWidget(self.tabs_widget)
+        self.current_active_tab = 0
 
         self.splitter.splitterMoved.connect(self.on_splitter_moved)
         self.splitter.setSizes(
@@ -71,6 +72,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.tabs_widget.setCurrentIndex(
             user_prefs.get_app_user_pref(self.CURRENT_TAB_PREF, 0)
         )
+        self.tabs_widget.currentWidget().set_active(True)
 
     def create_tab_and_outliner(self, tab_class, *args, **kwargs):
         """Create tab and outliner combo for given tab_type.
@@ -126,10 +128,11 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        self.tabs_widget.currentWidget().pre_edit_callback(
-            callback_type,
-            *args
-        )
+        for tab_num in range(self.tabs_widget.count()):
+            self.tabs_widget.widget(tab_num).pre_edit_callback(
+                callback_type,
+                *args
+            )
 
     def post_edit_callback(self, callback_type, *args):
         """Callback for after an edit of any type is run.
@@ -138,10 +141,11 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        self.tabs_widget.currentWidget().post_edit_callback(
-            callback_type,
-            *args
-        )
+        for tab_num in range(self.tabs_widget.count()):
+            self.tabs_widget.widget(tab_num).post_edit_callback(
+                callback_type,
+                *args
+            )
 
     def on_tab_changed(self, index):
         """Called when changing to different tab.
@@ -150,6 +154,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             index (int): index of new tab.
         """
         user_prefs.set_app_user_pref(self.CURRENT_TAB_PREF, index)
+        self.tabs_widget.widget(self.current_active_tab).set_active(False)
+        self.tabs_widget.currentWidget().set_active(True)
+        self.current_active_tab = index
         self.outliner_stack.setCurrentIndex(index)
         self.outliner_stack.currentWidget().update()
         self.tabs_widget.currentWidget().update()

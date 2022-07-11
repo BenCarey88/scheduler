@@ -31,10 +31,19 @@ class BaseCalendarView(object):
         self.tree_root = self.tree_manager.tree_root
         self.calendar = project.calendar
         self.calendar_period = None
+        self._is_active = False
 
     def setup(self):
         """Any setup that needs to be done after tab init is done here."""
         pass
+
+    def set_active(self, value):
+        """Set view as active/inactive when we switch to/from it.
+
+        Args:
+            value (bool): whether to set as active or inactive.
+        """
+        self._is_active = value
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.

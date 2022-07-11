@@ -1,6 +1,6 @@
 """Structs to wrap around objects allowing us to edit them."""
 
-from collections.abc import MutableSequence
+from collections.abc import MutableMapping, MutableSequence
 
 
 class HostError(Exception):
@@ -264,24 +264,26 @@ class HostedDataList(MutableSequence):
         self._list = list()
         self.extend(list(args))
 
-    def _get_hosted_value(self, value):
-        """Get value to add to list.
+    def _get_hosted(self, value):
+        """Get host to add to list.
 
         Args:
-            value (Hosted, _HostObject or None): value to set.
+            value (Hosted, _HostObject or None): value to find host object for.
+
+        Returns:
+            (_HostObject): corresponding host object.
         """
         if isinstance(value, Hosted):
-            value = value.host
+            return value.host
         if isinstance(value, _HostObject):
-            value = value
+            return value
         elif value is None:
-            value = _HostObject(None)
-        else:
-            raise HostError(
-                "Cannot add unhosted class {0} to HostedDataList".format(
-                    value.__class__.__name__
-                )
+            return _HostObject(None)
+        raise HostError(
+            "Cannot add unhosted class {0} to HostedDataList".format(
+                value.__class__.__name__
             )
+        )
 
     def _iter_filtered(self, reverse=False):
         """Iterate through filtered list.
@@ -328,7 +330,7 @@ class HostedDataList(MutableSequence):
         Returns:
             (int): length of filtered list.
         """
-        return len(self._get_filtered())
+        return len(list(self._iter_filtered()))
 
     def __getitem__(self, index):
         """Get item at index in filtered list.
@@ -367,7 +369,7 @@ class HostedDataList(MutableSequence):
             index (int): index to set.
             value (Hosted, _HostObject or None): value to set.
         """
-        value = self._get_hosted_value(value)
+        value = self._get_hosted(value)
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
         )
@@ -383,10 +385,10 @@ class HostedDataList(MutableSequence):
         """Insert given value at given index into list.
 
         Args:
-            index (int):
+            index (int): value to insert at.
             value (Hosted, _HostObject or None): value to set):
         """
-        value = self._get_hosted_value(value)
+        value = self._get_hosted(value)
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
         )
@@ -394,7 +396,7 @@ class HostedDataList(MutableSequence):
             if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
                 self._list.insert(old_index, value)
                 return
-        if i > 0:
+        if index > 0:
             self._list.append(value)
         else:
             self._list.insert(0, value)
@@ -405,4 +407,190 @@ class HostedDataList(MutableSequence):
         Returns:
             (str): string repr.
         """
-        return str(self.list)
+        return str(self._list)
+
+
+class HostedDataDict(MutableMapping):
+    """Dict class for keying data by _HostObjects."""
+    def __init__(self, host_values=False):
+        """Initialize.
+
+        Args:
+            host_values (bool): if True, values are hosted. Otherwise,
+                keys are hosted.
+        """
+        self._values_are_hosted = host_values
+        self._key_list = []
+        self._value_list = []
+
+    def _get_hosted(self, value):
+        """Get host to add to dict (either as a key or a value).
+
+        Args:
+            value (Hosted, _HostObject or None): value to find host object for.
+
+        Returns:
+            (_HostObject): corresponding host object.
+        """
+        if isinstance(value, Hosted):
+            return value.host
+        if isinstance(value, _HostObject):
+            return value
+        elif value is None:
+            return _HostObject(None)
+        raise HostError(
+            "Cannot add unhosted class {0} to HostedDataList".format(
+                value.__class__.__name__
+            )
+        )
+
+    def _iter_filtered(self):
+        """Iterate through filtered dict.
+
+        Yields:
+            (variant or _HostObject): the valid keys.
+            (variant or _HostObject): the valid values.
+        """
+        for key, value in zip(self._key_list, self._value_list):
+            if self._values_are_hosted:
+                if not value.defunct and not value.data.defunct:
+                    yield key, value
+            else:
+                if not key.defunct and not key.data.defunct:
+                    yield key, value
+
+    def _iter_filtered_with_old_index(self):
+        """Iterate through filtered dict.
+
+        Yields:
+            (int): index of key, value in _key_list and _value_list.
+            (variant or _HostObject): the valid keys.
+            (variant or _HostObject): the valid values.
+        """
+        for i, (k, v) in enumerate(zip(self._key_list, self._value_list)):
+            if self._values_are_hosted:
+                if not v.defunct and not v.data.defunct:
+                    yield i, k, v
+            elif not k.defunct and not k.data.defunct:
+                yield i, k, v
+
+    def __iter__(self):
+        """Iterate through filtered keys.
+
+        Yields:
+            (variant or Hosted): the valid keys.
+        """
+        for k, _ in self._iter_filtered():
+            yield k
+
+    def __len__(self):
+        """Get length of filtered dict.
+
+        Returns:
+            (int): length of filtered dict.
+        """
+        return len(list(self._iter_filtered()))
+
+    def __getitem__(self, key):
+        """Get item at key in filtered dict.
+
+        Args:
+            key (variant or _Hosted): key to query.
+
+        Returns:
+            (variant or _Hosted): value at key.
+        """
+        for k, v in self._iter_filtered():
+            if self._values_are_hosted:
+                if k == key:
+                    return v.data
+            elif k.data == key:
+                return v
+        raise KeyError(
+            "No valid item at key {0} in HostedDataDict".format(key)
+        )
+
+    def __delitem__(self, key):
+        """Delete item at key of filtered list.
+
+        Args:
+            key (variant or _Hosted): key to delete.
+        """
+        for i, k, _ in self._iter_filtered_with_old_index():
+            if self._values_are_hosted:
+                if k == key:
+                    del self._key_list[i]
+                    del self._value_list[i]
+                    return
+            elif k.data == key:
+                del self._key_list[i]
+                del self._value_list[i]
+                return
+        raise KeyError(
+            "No valid item at key {0} in HostedDataDict".format(key)
+        )
+
+    def __setitem__(self, key, value):
+        """Set item at key to value.
+
+        Args:
+            key (variant or _Hosted): key to set.
+            value (Hosted, _HostObject or None): value to set.
+        """
+        for i, k, _ in self._iter_filtered_with_old_index():
+            if self._values_are_hosted:
+                if k == key:
+                    self._value_list[i] = self._get_hosted(value)
+                    return
+            elif k.data == key:
+                self._value_list[i] = value
+                return
+        # if key not in list, add new one
+        if self._values_are_hosted:
+            value = self._get_hosted(value)
+        else:
+            key = self._get_hosted(key)
+            if key.defunct or key.data.defunct:
+                raise HostError(
+                    "Cannot set defunct hosted data {0} as key in "
+                    "HostedDataDict".format(key)
+                )
+        self._key_list.append(key)
+        self._value_list.append(value)
+
+    def move_to_end(self, key, last=True):
+        """Move key, value to one end of dict.
+
+        Args:
+            key (variant or Hosted): key to move.
+            last (bool): if true, move to last element of dict, otherwise
+                move to start of dict.
+        """
+        for i, k, _ in self._iter_filtered_with_old_index():
+            if self._values_are_hosted:
+                if k == key:
+                    break
+            elif k.data == key:
+                break
+        else:
+            raise KeyError(
+                "No valid item at key {0} in HostedDataDict".format(key)
+            )
+        if last:
+            self._key_list.append(self._key_list.pop(i))
+            self._value_list.append(self._value_list.pop(i))
+        else:
+            self._key_list.insert(0, self._key_list.pop(i))
+            self._value_list.insert(0, self._value_list.pop(i))
+
+    def __str__(self):
+        """Get string representation of list.
+
+        Returns:
+            (str): string repr.
+        """
+        string = ", ".join([
+            "{0}:{1}".format(key, value)
+            for key, value in zip(self._key_list, self._value_list)
+        ])
+        return "{" + string + "}"

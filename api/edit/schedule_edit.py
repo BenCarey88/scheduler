@@ -3,13 +3,15 @@
 Friend classes: [Calendar, CalendarPeriod, ScheduledItem]
 """
 
-from scheduler.api.common.object_wrappers import MutableHostedAttribute
+# TODO: delete the commented out MutableHostedAttributes
+# from scheduler.api.common.object_wrappers import MutableHostedAttribute
 from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
 from ._core_edits import (
     AttributeEdit,
     CompositeEdit,
     SelfInverseSimpleEdit, 
     HostedDataEdit,
+    RemoveFromHostEdit,
 )
 from .planner_edit import AddScheduledItemChildRelationshipEdit
 
@@ -33,7 +35,8 @@ class AddScheduledItemEdit(CompositeEdit):
         if tree_item_container is not None:
             tree_attr_edit = ListEdit.create_unregistered(
                 tree_item_container,
-                [MutableHostedAttribute(scheduled_item)],
+                [scheduled_item],
+                #  [MutableHostedAttribute(scheduled_item)],
                 ContainerOp.ADD,
             )
             subedits.append(tree_attr_edit)
@@ -86,21 +89,29 @@ class AddScheduledItemAsChildEdit(CompositeEdit):
         )
 
 
-class RemoveScheduledItemEdit(ListEdit):
+class RemoveScheduledItemEdit(CompositeEdit):
     """Remove scheduled item from calendar."""
-    def __init__(self, scheduled_item):
+    def __init__(self, scheduled_item, remove_host=False):
         """Initialise edit.
 
         Args:
             scheduled_item (BaseScheduledItem): scheduled item to remove. Can be
                 a single item or a repeat template.
+            remove_host (bool): if True, we remove host as part of edit.
         """
-        super(RemoveScheduledItemEdit, self).__init__(
+        remove_edit = ListEdit.create_unregistered(
             scheduled_item.get_item_container(),
             [scheduled_item],
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
+        subedits = [remove_edit]
+        if remove_host:
+            remove_from_host_edit = RemoveFromHostEdit.create_unregistered(
+                scheduled_item,
+            )
+            subedits.append(remove_from_host_edit)
+        super(RemoveScheduledItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [scheduled_item]
         self._name = "RemoveScheduledItem ({0})".format(scheduled_item.name)
         self._description = (
@@ -334,6 +345,7 @@ class ReplaceScheduledItemEdit(CompositeEdit):
         """
         remove_edit = RemoveScheduledItemEdit.create_unregistered(
             old_scheduled_item,
+            remove_host=False,
         )
         add_edit = AddScheduledItemEdit.create_unregistered(
             new_scheduled_item,

@@ -574,6 +574,7 @@ class SchedulerTimetableView(BaseWeekTableView):
             event (QtCore.QEvent): event that is happening.
         """
         if obj == self and event.type() == QtCore.QEvent.Leave:
+            QtGui.QGuiApplication.restoreOverrideCursor()
             if self.hovered_item is not None:
                 self.hovered_item = None
                 self.HOVERED_ITEM_REMOVED_SIGNAL.emit()

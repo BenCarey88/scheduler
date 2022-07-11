@@ -70,17 +70,27 @@ class PlannerEditManager(BasePlannerManager):
         return RemovePlannedItemEdit.create_and_run(planned_item)
 
     @require_class(PlannedItem, True)
-    def move_planned_item(self, planned_item, index):
+    def move_planned_item(
+            self,
+            planned_item,
+            calendar_period=None,
+            index=None):
         """Move planned item to different index in list.
 
         Args:
             planned_item (PlannedItem): planned item to remove.
-            index (int): index to move to.
+            calendar_period (BaseCalendarPeriod or None): calendar period
+                to move to.
+            index (int or None): index to move to.
 
         Returns:
             (bool): whether or not edit was successful.
         """
-        return MovePlannedItemEdit.create_and_run(planned_item, index)
+        return MovePlannedItemEdit.create_and_run(
+            planned_item,
+            calendar_period=calendar_period,
+            index=index,
+        )
 
     @require_class(PlannedItem, True)
     def modify_planned_item(

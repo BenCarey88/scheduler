@@ -3,10 +3,11 @@
 Friend classes: [PlannedItem]
 """
 
-from scheduler.api.common.object_wrappers import MutableHostedAttribute
+# TODO: delete the commented out MutableHostedAttributes
+# from scheduler.api.common.object_wrappers import MutableHostedAttribute
 from scheduler.api.utils import fallback_value
 from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
-from ._core_edits import AttributeEdit, CompositeEdit
+from ._core_edits import AttributeEdit, CompositeEdit, RemoveFromHostEdit
 
 
 class AddPlannedItemEdit(CompositeEdit):
@@ -21,7 +22,6 @@ class AddPlannedItemEdit(CompositeEdit):
         item_container = planned_item.get_item_container()
         if index is None:
             index = len(item_container)
-        
         add_edit = ListEdit.create_unregistered(
             item_container,
             [(index, planned_item)],
@@ -32,7 +32,8 @@ class AddPlannedItemEdit(CompositeEdit):
         if tree_item_container is not None:
             tree_attr_edit = ListEdit.create_unregistered(
                 tree_item_container,
-                [MutableHostedAttribute(planned_item)],
+                [planned_item],
+                # [MutableHostedAttribute(planned_item)],
                 ContainerOp.ADD,
             )
             subedits.append(tree_attr_edit)
@@ -54,20 +55,28 @@ class AddPlannedItemEdit(CompositeEdit):
         )
 
 
-class RemovePlannedItemEdit(ListEdit):
+class RemovePlannedItemEdit(CompositeEdit):
     """Remove planned item from calendar."""
-    def __init__(self, planned_item):
+    def __init__(self, planned_item, remove_host=True):
         """Initialise edit.
 
         Args:
             planned_item (PlannedItem): planned item to remove.
+            remove_host (bool): if True, we remove host as part of edit
         """
-        super(RemovePlannedItemEdit, self).__init__(
+        remove_edit = ListEdit.create_unregistered(
             planned_item.get_item_container(),
             [planned_item],
             ContainerOp.REMOVE,
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
+        subedits = [remove_edit]
+        if remove_host:
+            remove_from_host_edit = RemoveFromHostEdit.create_unregistered(
+                planned_item,
+            )
+            subedits.append(remove_from_host_edit)
+        super(RemovePlannedItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [
             planned_item,
             planned_item.calendar_period,
@@ -94,10 +103,10 @@ class MovePlannedItemEdit(CompositeEdit):
                 move to, if used.
             index (int): index to move to, if used.
         """
-        if (type(calendar_period) != type(planned_item.calendar_period)
-                or calendar_period is None and index is None):
+        calendar_period_type = type(planned_item.calendar_period)
+        if (not isinstance(calendar_period, (type(None), calendar_period_type))
+                or (calendar_period is None and index is None)):
             super(MovePlannedItemEdit, self).__init__([])
-            self._is_valid = False
             return
 
         subedits = []
@@ -107,22 +116,18 @@ class MovePlannedItemEdit(CompositeEdit):
                 {planned_item._calendar_period: calendar_period}
             )
             remove_edit = RemovePlannedItemEdit.create_unregistered(
-                planned_item
+                planned_item,
+                remove_host=False,
             )
             if index is None:
-                insert_edit = ListEdit.create_unregistered(
-                    container,
-                    [planned_item],
-                    ContainerOp.ADD,
-                )
-            else:
-                insert_edit = ListEdit.create_unregistered(
-                    container,
-                    [(planned_item, index)],
-                    ContainerOp.INSERT,
-                )
-            subedits = [attr_edit, remove_edit, insert_edit] 
-        elif index is not None:
+                index = len(container)
+            insert_edit = ListEdit.create_unregistered(
+                container,
+                [(index, planned_item)],
+                ContainerOp.INSERT,
+            )
+            subedits = [attr_edit, remove_edit, insert_edit]
+        else:
             move_edit = ListEdit.create_unregistered(
                 container,
                 [(planned_item, index)],
@@ -176,36 +181,57 @@ class ModifyPlannedItemEdit(CompositeEdit):
         subedits = [attribute_edit]
         new_calendar_period = None
         old_index = new_index = planned_item.index()
-        if planned_item._calendar_period in attr_dict:
-            new_calendar_period = attr_dict[planned_item._calendar_period]
-            if new_calendar_period != planned_item.calendar_period:
-                # remove items from old container and add to new one
-                container = planned_item.get_item_container(
-                    new_calendar_period
-                )
-                new_index = len(container) - 1
-                remove_edit = RemovePlannedItemEdit.create_unregistered(
-                    planned_item
-                )
-                add_edit = ListEdit.create_unregistered(
-                    container,
-                    [planned_item],
-                    ContainerOp.ADD,
-                )
-                subedits.extend([remove_edit, add_edit])
 
-        new_calendar_period = fallback_value(
-            new_calendar_period,
+        new_calendar_period = attr_dict.get(
+            planned_item._calendar_period,
             planned_item.calendar_period,
         )
+        if new_calendar_period != planned_item.calendar_period:
+            # remove items from old container and add to new one
+            container = planned_item.get_item_container(
+                new_calendar_period
+            )
+            new_index = len(container) - 1
+            remove_edit = RemovePlannedItemEdit.create_unregistered(
+                planned_item,
+                remove_host=False,
+            )
+            add_edit = ListEdit.create_unregistered(
+                container,
+                [planned_item],
+                ContainerOp.ADD,
+            )
+            subedits.extend([remove_edit, add_edit])
+
+        new_tree_item = attr_dict.get(
+            planned_item._tree_item,
+            planned_item.tree_item
+        )
+        if new_tree_item != planned_item.tree_item:
+            # change old and new tree item's planned_item args
+            old_container = planned_item.get_tree_item_container()
+            new_container = planned_item.get_tree_item_container(new_tree_item)
+            tree_remove_edit = ListEdit.create_unregistered(
+                old_container,
+                [planned_item],
+                # [MutableHostedAttribute(planned_item)],
+                ContainerOp.REMOVE,
+            )
+            tree_add_edit = ListEdit.create_unregistered(
+                new_container,
+                [],
+                ContainerOp.ADD,
+            )
+            subedits.extend([tree_remove_edit, tree_add_edit])
+
         super(ModifyPlannedItemEdit, self).__init__(subedits)
         self._callback_args = [
             planned_item,
             planned_item.calendar_period,
             old_index,
             planned_item,
-            new_index,
             new_calendar_period,
+            new_index,
         ]
         self._undo_callback_args = [
             planned_item,
@@ -278,12 +304,14 @@ class AddScheduledItemChildRelationshipEdit(CompositeEdit):
             return
         child_edit = ListEdit.create_unregistered(
             planned_item._scheduled_items,
-            [MutableHostedAttribute(scheduled_item)],
+            [scheduled_item],
+            # [MutableHostedAttribute(scheduled_item)],
             ContainerOp.ADD,
         )
         parent_edit = ListEdit.create_unregistered(
             scheduled_item._planned_items,
-            [MutableHostedAttribute(planned_item)],
+            [planned_item],
+            # [MutableHostedAttribute(planned_item)],
             ContainerOp.ADD,
         )
         super(AddScheduledItemChildRelationshipEdit, self).__init__(
@@ -362,12 +390,14 @@ class AddPlannedItemChildRelationshipEdit(CompositeEdit):
             return
         child_edit = ListEdit.create_unregistered(
             planned_item._planned_children,
-            [MutableHostedAttribute(planned_item_child)],
+            [planned_item_child],
+            # [MutableHostedAttribute(planned_item_child)],
             ContainerOp.ADD
         )
         parent_edit = ListEdit.create_unregistered(
             planned_item_child._planned_parents,
-            [MutableHostedAttribute(planned_item)],
+            [planned_item],
+            # [MutableHostedAttribute(planned_item)],
             ContainerOp.ADD,
         )
         super(AddPlannedItemChildRelationshipEdit, self).__init__(

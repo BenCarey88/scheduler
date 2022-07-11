@@ -4,7 +4,10 @@ from collections import OrderedDict
 
 from scheduler.api.constants import TASK_COLORS
 
-from scheduler.api.common.object_wrappers import MutableAttribute
+from scheduler.api.common.object_wrappers import (
+    HostedDataList,
+    MutableAttribute,
+)
 from ._base_tree_item import BaseTreeItem
 
 
@@ -23,12 +26,12 @@ class BaseTaskItem(BaseTreeItem):
         super(BaseTaskItem, self).__init__(name, parent)
         self._color = MutableAttribute(color)
         # TODO: make all of these lists into Timelines?
-        self._planned_year_items = []
-        self._planned_month_items = []
-        self._planned_week_items = []
-        self._planned_day_items = []
-        self._scheduled_items = []
-        self._repeat_scheduled_items = []
+        self._planned_year_items = HostedDataList()
+        self._planned_month_items = HostedDataList()
+        self._planned_week_items = HostedDataList()
+        self._planned_day_items = HostedDataList()
+        self._scheduled_items = HostedDataList()
+        self._repeat_scheduled_items = HostedDataList()
 
     @property
     def is_archived(self):
@@ -65,7 +68,8 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(ScheduledItem)): list of scheduled items.
         """
-        return [s.value for s in self._scheduled_items]
+        return self._scheduled_items
+        # return [s.value for s in self._scheduled_items]
 
     @property
     def repeat_scheduled_items(self):
@@ -74,7 +78,8 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(RepeatScheduledItem)): list of repeat scheduled items.
         """
-        return [s.value for s in self._repeat_scheduled_items]
+        return self._repeat_scheduled_items
+        # return [s.value for s in self._repeat_scheduled_items]
 
     @property
     def planned_day_items(self):
@@ -83,7 +88,8 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return [p.value for p in self._planned_day_items]
+        return self._planned_day_items
+        # return [p.value for p in self._planned_day_items]
 
     @property
     def planned_week_items(self):
@@ -92,7 +98,8 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return [p.value for p in self._planned_week_items]
+        return self._planned_week_items
+        # return [p.value for p in self._planned_week_items]
 
     @property
     def planned_month_items(self):
@@ -101,7 +108,8 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return [p.value for p in self._planned_month_items]
+        return self._planned_month_items
+        # return [p.value for p in self._planned_month_items]
 
     @property
     def planned_year_items(self):
@@ -110,4 +118,5 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return [p.value for p in self._planned_year_items]
+        return self._planned_year_items
+        # return [p.value for p in self._planned_year_items]

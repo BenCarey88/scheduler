@@ -14,7 +14,7 @@ from ._container_edit import DictEdit, ContainerOp
 class BaseTreeEdit(CompositeEdit):
     """Edit that can be called on a tree item."""
 
-    def __init__(self, tree_item, diff_dict, op_type):
+    def __init__(self, tree_item, diff_dict, op_type, remove_host=True):
         """Initialise base tree edit.
 
         Args:
@@ -23,6 +23,8 @@ class BaseTreeEdit(CompositeEdit):
                 to the tree item's child dict. How to interpret this dictionary
                 depends on the operation type.
             operation_type (ContainerOp): The type of edit operation to do.
+            remove_host (bool): if True, add remove host edits as part of remove
+                edit.
         """
         ordered_dict_edit = DictEdit.create_unregistered(
             tree_item._children,
@@ -47,15 +49,19 @@ class BaseTreeEdit(CompositeEdit):
                 for name in diff_dict
                 if tree_item.get_child(name)
             })
-            # remove_from_host_edit = CompositeEdit.create_unregistered([
-            #     RemoveFromHostEdit.create_unregistered(tree_item.get_child(n))
-            #     for n in diff_dict
-            #     if tree_item.get_child(n)
-            # ])
+            remove_from_host_subedits = []
+            if remove_host:
+                for name in diff_dict:
+                    child = tree_item.get_child(name)
+                    if child is not None:
+                        for desc in child.iter_descendants(strict=False):
+                            remove_from_host_subedits.append(
+                                RemoveFromHostEdit.create_unregistered(desc)
+                            )
             edit_list = [
                 remove_parent_edit,
                 ordered_dict_edit,
-                # remove_from_host_edit,
+                *remove_from_host_subedits,
             ]
 
         elif op_type == ContainerOp.ADD:
@@ -161,13 +167,14 @@ class InsertChildrenEdit(BaseTreeEdit):
 
 class RemoveChildrenEdit(BaseTreeEdit):
     """Tree edit for removing children."""
-    def __init__(self, tree_item, children_to_remove):
+    def __init__(self, tree_item, children_to_remove, remove_host=True):
         """Initialise edit item.
 
         Args:
             tree_item (BaseTreeItem): the tree item this edit is being run on.
             children_to_remove (list(str)): list of names of children to
                 remove.
+            remove_host (bool): if True, remove host as part of edit.
         """
         super(RemoveChildrenEdit, self).__init__(
             tree_item=tree_item,
@@ -175,6 +182,7 @@ class RemoveChildrenEdit(BaseTreeEdit):
                 [(name, None) for name in children_to_remove]
             ),
             op_type=ContainerOp.REMOVE,
+            remove_host=remove_host,
         )
 
         self._callback_args = [
@@ -344,6 +352,7 @@ class MoveTreeItemEdit(CompositeEdit):
             remove_child_edit = RemoveChildrenEdit.create_unregistered(
                 tree_item.parent,
                 [tree_item.name],
+                remove_host=False,
             )
             super(MoveTreeItemEdit, self).__init__(
                 [remove_child_edit, insert_child_edit],
@@ -400,6 +409,7 @@ class ReplaceTreeItemEdit(CompositeEdit):
         remove_edit = RemoveChildrenEdit.create_unregistered(
             old_tree_item.parent,
             [old_tree_item.name],
+            remove_host=False,
         )
         add_edit = MoveTreeItemEdit.create_unregistered(
             new_tree_item,

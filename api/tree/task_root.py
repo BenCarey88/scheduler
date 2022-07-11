@@ -145,7 +145,7 @@ class HistoryData(object):
         """Initialize structure."""
         self._dict = {}
 
-    def add_data(self, date, task, history_dict):
+    def _add_data(self, date, task, history_dict):
         """Add history for given tree item at given date.
 
         Args:

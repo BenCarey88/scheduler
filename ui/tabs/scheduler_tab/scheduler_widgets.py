@@ -275,8 +275,8 @@ class ScheduledItemWidget(object):
         category_text = str(self._scheduled_item.category)
         name_text = str(self._scheduled_item.name)
         time_text = "{0} - {1}".format(
-            self._scheduled_item.start_time.string(),
-            self._scheduled_item.end_time.string()
+            self.start_time.string(),
+            self.end_time.string(),
         )
 
         text_range = rect.height() - 2 * text_margin

@@ -11,6 +11,7 @@ from scheduler.api.common.date_time import (
 )
 from scheduler.api.common.object_wrappers import (
     Hosted,
+    HostedDataList,
     MutableAttribute,
     MutableHostedAttribute,
 )
@@ -472,7 +473,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         )
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
-        self._planned_items = []
+        self._planned_items = HostedDataList()
         self._id = None
 
     class _Decorators(object):
@@ -640,14 +641,30 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         return self._is_background.value
 
     @property
+    def defunct(self):
+        """Override defunct property.
+
+        Returns:
+            (bool): whether or not item should be considered deleted.
+        """
+        return (
+            self.type == ScheduledItemType.TASK
+            and self.tree_item is None
+        )
+
+    @property
     def planned_items(self):
         """Get planned items associated to this one.
 
         Usually there would just be the one, but we want to allow multiple,
         eg. you plan writing/planning and writing/first_draft and then
         schedule them both with a single writing scheduled item.
+
+        Returns:
+            (list(PlannedItem)): list of planned items.
         """
-        return [item.value for item in self._planned_items]
+        return self._planned_items
+        # return [item.value for item in self._planned_items]
 
     def get_tree_item_container(self):
         """Get attribute in corresponding tree item this item should be in.
@@ -892,9 +909,7 @@ class ScheduledItem(BaseScheduledItem):
         )
         if (scheduled_item.type == ScheduledItemType.TASK
                 and scheduled_item.tree_item is not None):
-            scheduled_item.tree_item._scheduled_items.append(
-                MutableAttribute(scheduled_item)
-            )
+            scheduled_item.tree_item._scheduled_items.append(scheduled_item)
         return scheduled_item
 
 
@@ -1135,9 +1150,7 @@ class RepeatScheduledItem(BaseScheduledItem):
             )
         if (repeat_item.type == ScheduledItemType.TASK
                 and repeat_item.tree_item is not None):
-            repeat_item.tree_item._repeat_scheduled_items.append(
-                MutableAttribute(repeat_item)
-            )
+            repeat_item.tree_item._repeat_scheduled_items.append(repeat_item)
         return repeat_item
 
 

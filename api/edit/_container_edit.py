@@ -1,11 +1,21 @@
 """Ordered dict edits to be registered in the edit log."""
 
 from collections import OrderedDict
-from re import I
 
+from scheduler.api.common.object_wrappers import (
+    HostedDataDict,
+    HostedDataList,
+)
 from scheduler.api import utils
 from ._base_edit import BaseEdit, EditError
 from ._core_edits import CompositeEdit
+
+
+LIST_TYPES = (list, HostedDataList)
+DICT_TYPES = (dict, HostedDataDict)
+ORDERED_DICT_TYPES = (OrderedDict, HostedDataDict)
+HOSTED_CONTAINER_TYPES = (HostedDataDict, HostedDataList)
+CONTAINER_TYPES = (*LIST_TYPES, *DICT_TYPES)
 
 
 class ContainerOp(object):
@@ -119,9 +129,14 @@ class BaseContainerEdit(BaseEdit):
         recursive diff_list:
             Not really tested yet, be cautious with this.
         """
+        if isinstance(diff_container, HOSTED_CONTAINER_TYPES):
+            raise EditError(
+                "For hosted data container edits, diff container should "
+                "still be unhosted."
+            )
         self._container = container
-        self._container_type = type(container)
         self._diff_container = diff_container
+        self._diff_container_type = type(diff_container)
         self._operation_type = op_type
         self._edit_flags = edit_flags or []
         self._recursive = recursive
@@ -136,7 +151,7 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not edit is valid.
         """
-        if isinstance(self._container, list):
+        if isinstance(self._container, LIST_TYPES):
             if self._operation_type == ContainerOp.ADD:
                 return True
 
@@ -181,7 +196,7 @@ class BaseContainerEdit(BaseEdit):
                     for (key, reverse) in self._diff_container
                 ])
 
-        elif isinstance(self._container, dict):
+        elif isinstance(self._container, DICT_TYPES):
             if self._operation_type == ContainerOp.ADD:
                 return any([
                     key not in self._container for key in self._diff_container
@@ -209,7 +224,7 @@ class BaseContainerEdit(BaseEdit):
                     [ContainerOp.ADD_OR_MODIFY, ContainerOp.REMOVE_OR_MODIFY]):
                 return True
 
-            elif isinstance(self._container, OrderedDict):
+            elif isinstance(self._container, ORDERED_DICT_TYPES):
                 if self._operation_type == ContainerOp.MOVE:
                     return any([
                         key in self._container 
@@ -232,7 +247,7 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (function): method required for this operation type.
         """
-        if isinstance(container, list):
+        if isinstance(container, LIST_TYPES):
             if operation_type == ContainerOp.ADD:
                 return self._list_add
             if operation_type == ContainerOp.INSERT:
@@ -246,7 +261,7 @@ class BaseContainerEdit(BaseEdit):
             if operation_type == ContainerOp.SORT:
                 return self._list_sort
 
-        elif isinstance(container, dict):
+        elif isinstance(container, DICT_TYPES):
             if operation_type == ContainerOp.ADD:
                 return self._dict_add
             if operation_type == ContainerOp.INSERT:
@@ -262,7 +277,7 @@ class BaseContainerEdit(BaseEdit):
             if operation_type == ContainerOp.REMOVE_OR_MODIFY:
                 return self._dict_remove_or_modify
 
-            if isinstance(container, OrderedDict):
+            if isinstance(container, DICT_TYPES):
                 if operation_type == ContainerOp.MOVE:
                     return self._ordered_dict_move
 
@@ -279,7 +294,7 @@ class BaseContainerEdit(BaseEdit):
         will also determine whether or not the edit is in fact valid.
         """
         if self._inverse_diff_container is None:
-            self._inverse_diff_container = self._container_type()
+            self._inverse_diff_container = self._diff_container_type()
             self._run_operation(
                 self._container,
                 self._diff_container,
@@ -330,21 +345,21 @@ class BaseContainerEdit(BaseEdit):
         if not self._recursive:
             return False
 
-        if isinstance(container, dict):
+        if isinstance(container, DICT_TYPES):
             subcontainer = diff_container.get(key_or_index)
-            if not isinstance(subcontainer, (dict, list)):
+            if not isinstance(subcontainer, CONTAINER_TYPES):
                 return False
             if not isinstance(container.get(key_or_index), type(subcontainer)):
                 return False
 
-        elif isinstance(container, list):
+        elif isinstance(container, LIST_TYPES):
             if len(diff_container) != len(container):
                 return False
             if (len(container) < key_or_index
                     or len(diff_container) < key_or_index):
                 return False
             subcontainer = diff_container[key_or_index]
-            if not isinstance(subcontainer, (dict, list)):
+            if not isinstance(subcontainer, CONTAINER_TYPES):
                 return False
             if not isinstance(container[key_or_index], type(subcontainer)):
                 return False
@@ -362,10 +377,10 @@ class BaseContainerEdit(BaseEdit):
             (int or variant): key of dict item or index of list item.
             (variant): dict value or list item.
         """
-        if isinstance(container, dict):
+        if isinstance(container, DICT_TYPES):
             for key, value in container.items():
                 yield key, value
-        elif isinstance(container, list):
+        elif isinstance(container, LIST_TYPES):
             for index, item in enumerate(container):
                 yield index, item
 
@@ -381,7 +396,7 @@ class BaseContainerEdit(BaseEdit):
             key (variant): key to add to dict.
             value (variant): value to add at key.
         """
-        if isinstance(inverse_diff_dict, OrderedDict):
+        if isinstance(inverse_diff_dict, ORDERED_DICT_TYPES):
             utils.add_key_at_start(inverse_diff_dict, key, value)
         else:
             inverse_diff_dict[key] = value
@@ -420,12 +435,12 @@ class BaseContainerEdit(BaseEdit):
                 if inverse_diff_container is not None:
                     # in ordered containers, add inverse diff items at start
                     inverse_diff_subcontainer = type(value)()
-                    if isinstance(value, list):
+                    if isinstance(value, LIST_TYPES):
                         inverse_diff_container.insert(
                             0,
                             inverse_diff_subcontainer
                         )
-                    elif isinstance(value, dict):
+                    elif isinstance(value, DICT_TYPES):
                         self._add_inverse_diff_dict_key(
                             inverse_diff_container,
                             key,
@@ -444,14 +459,14 @@ class BaseContainerEdit(BaseEdit):
                     container,
                     operation_type
                 )
-                if isinstance(container, dict):
+                if isinstance(container, DICT_TYPES):
                     is_valid = operation_method(
                         key,
                         value,
                         container,
                         inverse_diff_container
                     ) or is_valid
-                elif isinstance(container, list):
+                elif isinstance(container, LIST_TYPES):
                     is_valid = operation_method(
                         value,
                         container,
@@ -504,7 +519,7 @@ class BaseContainerEdit(BaseEdit):
         """
         if not isinstance(value_tuple, tuple) or len(value_tuple) != 2:
             raise EditError("diff_dict for INSERT op needs 2-tuple values")
-        if not isinstance(dict_, OrderedDict):
+        if not isinstance(dict_, ORDERED_DICT_TYPES):
             return self._dict_add(
                 key,
                 value_tuple[1],
@@ -570,7 +585,7 @@ class BaseContainerEdit(BaseEdit):
             (bool): whether or not container is modified.
         """
         if key in dict_:
-            if isinstance(dict_, OrderedDict):
+            if isinstance(dict_, ORDERED_DICT_TYPES):
                 for i in range(len(dict_)):
                     k, v = dict_.popitem(last=False)
                     if k == key:
@@ -918,10 +933,11 @@ class DictEdit(BaseContainerEdit):
 
             All these cases are covered by the _recursion_required method.
         """
-        if not isinstance(dict_, dict):
+        if not isinstance(dict_, DICT_TYPES):
             raise EditError("dict_ argument must be a dict")
-        if type(dict_) != type(diff_dict):
-            raise EditError("diff_dict and dict_ must have the same type")
+        if (isinstance(dict_, ORDERED_DICT_TYPES) 
+                != isinstance(diff_dict, ORDERED_DICT_TYPES)):
+            raise EditError("diff_dict must both be ordered or unordered")
         super(DictEdit, self).__init__(
             dict_,
             diff_dict,
@@ -965,7 +981,8 @@ class ListEdit(BaseContainerEdit):
         recursive diff_list:
             Not really tested yet, be cautious with this.
         """
-        if not isinstance(list_, list) or not isinstance(diff_list, list):
+        if (not isinstance(list_, LIST_TYPES)
+                or not isinstance(diff_list, LIST_TYPES)):
             raise EditError("list and diff_list arguments must be lists")
         super(ListEdit, self).__init__(
             list_,

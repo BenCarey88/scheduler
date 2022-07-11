@@ -25,6 +25,7 @@ class Outliner(BaseTreeView):
         self._allow_key_events = True
         self._is_full_tree = True
         self._is_outliner = True
+        self._is_active = False
         # TODO: get this from user prefs:
         self._hide_filtered_items = False
 

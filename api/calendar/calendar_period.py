@@ -1,11 +1,13 @@
 """Classes representing a time period of calendar data."""
 
 from collections import OrderedDict
+
 from scheduler.api.common.date_time import (
     Date,
     DateTimeError,
     TimeDelta
 )
+from scheduler.api.common.object_wrappers import HostedDataList
 from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
@@ -170,9 +172,9 @@ class CalendarDay(BaseCalendarPeriod):
             date.year,
             date.month
         )
-        self._scheduled_items = []
-        self._planned_items = []
-        self._planned_week_items = []
+        self._scheduled_items = HostedDataList()
+        self._planned_items = HostedDataList()
+        self._planned_week_items = HostedDataList()
         self._history = calendar.task_root.get_history_for_date(date)
 
     @property
@@ -357,14 +359,14 @@ class CalendarDay(BaseCalendarPeriod):
             ScheduledItem.from_dict(scheduled_item_dict, calendar)
             for scheduled_item_dict in scheduled_items_list
         ]
-        calendar_day._scheduled_items = scheduled_items
+        calendar_day._scheduled_items.extend(scheduled_items)
 
         planned_items_list = dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
         planned_items = [
             PlannedItem.from_dict(planned_item_dict, calendar, calendar_day)
             for planned_item_dict in planned_items_list
         ]
-        calendar_day._planned_items = planned_items
+        calendar_day._planned_items.extend(planned_items)
 
         planned_week_items_list = dict_repr.get(cls.PLANNED_WEEK_ITEMS_KEY, [])
         planned_week_items = [
@@ -375,7 +377,7 @@ class CalendarDay(BaseCalendarPeriod):
             )
             for planned_item_dict in planned_week_items_list
         ]
-        calendar_day._planned_week_items = planned_week_items
+        calendar_day._planned_week_items.extend(planned_week_items)
 
         return calendar_day
 
@@ -734,7 +736,7 @@ class CalendarMonth(BaseCalendarPeriod):
             self._year
         )
         self.__calendar_days = None
-        self._planned_items = []
+        self._planned_items = HostedDataList()
 
     @property
     def _calendar_days(self):
@@ -977,12 +979,12 @@ class CalendarMonth(BaseCalendarPeriod):
                 week_dict,
                 calendar,
                 calendar_month,
-                week_name
+                week_name,
             )
-        calendar_month._planned_items = [
+        calendar_month._planned_items.extend([
             PlannedItem.from_dict(dict_, calendar, calendar_month)
             for dict_ in dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
-        ]
+        ])
         return calendar_month
 
 
@@ -1014,7 +1016,7 @@ class CalendarYear(BaseCalendarPeriod):
         self._year = year
         self._length = 12
         self.__calendar_months = None
-        self._planned_items = []
+        self._planned_items = HostedDataList()
 
     @property
     def _calendar_months(self):
@@ -1180,8 +1182,8 @@ class CalendarYear(BaseCalendarPeriod):
             )
             if calendar_month:
                 calendar._add_month(calendar_month)
-        calendar_year._planned_items = [
+        calendar_year._planned_items.extend([
             PlannedItem.from_dict(dict_, calendar, calendar_year)
             for dict_ in dict_repr.get(cls.PLANNED_ITEMS_KEY, [])
-        ]
+        ])
         return calendar_year

@@ -172,12 +172,17 @@ class BaseTreeItem(Hosted, NestedSerializable):
             descendants.extend(child.get_all_descendants())
         return descendants
 
-    def iter_descendants(self):
+    def iter_descendants(self, strict=True):
         """Iterate through all descendants of item.
+
+        Args:
+            strict (bool): if True, don't include this item in the iteration.
 
         Yields:
             (BaseTreeItem): descendants.
         """
+        if not strict:
+            yield self
         for child in self.get_all_children():
             yield child
             for descendant in child.iter_descendants():

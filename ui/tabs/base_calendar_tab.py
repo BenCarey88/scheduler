@@ -129,7 +129,9 @@ class BaseCalendarTab(BaseTab):
         """
         self.date_type = date_type
         self.view_type = view_type
+        self.main_view.set_active(False)
         self.main_view = self.main_views_dict.get((date_type, view_type))
+        self.main_view.set_active(True)
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
 
@@ -141,7 +143,9 @@ class BaseCalendarTab(BaseTab):
             calendar_period (BaseCalendarPeriod): calendar period to set.
         """
         self.view_type = view_type
+        self.main_view.set_active(False)
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
+        self.main_view.set_active(True)
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
 
@@ -153,7 +157,8 @@ class BaseCalendarTab(BaseTab):
             *args: additional args dependent on type of edit.
         """
         super(BaseCalendarTab, self).pre_edit_callback(callback_type, *args)
-        self.main_view.pre_edit_callback(callback_type, *args)
+        for view in self.main_views_dict.values():
+            view.pre_edit_callback(callback_type, *args)
 
     def post_edit_callback(self, callback_type, *args):
         """Callback for after an edit of any type is run.
@@ -163,4 +168,5 @@ class BaseCalendarTab(BaseTab):
             *args: additional args dependent on type of edit.
         """
         super(BaseCalendarTab, self).post_edit_callback(callback_type, *args)
-        self.main_view.post_edit_callback(callback_type, *args)
+        for view in self.main_views_dict.values():
+            view.post_edit_callback(callback_type, *args)

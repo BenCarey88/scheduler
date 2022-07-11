@@ -4,6 +4,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
+from scheduler.api.common.object_wrappers import HostedDataList
 from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
@@ -48,7 +49,7 @@ class Calendar(NestedSerializable):
         self._years = {}
         self._months = {}
         self._days = {}
-        self._repeat_items = []
+        self._repeat_items = HostedDataList()
 
     @property
     def task_root(self):

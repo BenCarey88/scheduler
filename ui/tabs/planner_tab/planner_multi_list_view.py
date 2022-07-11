@@ -6,6 +6,7 @@ from scheduler.api.calendar.planned_item import (
     PlannedItem,
     PlannedItemTimePeriod as PITP,
 )
+from scheduler.api.edit.edit_callbacks import CallbackType
 from scheduler.ui.tabs.base_calendar_view import (
     BaseMultiListWeekView,
     BaseMultiListMonthView,
@@ -29,6 +30,20 @@ class BasePlannerMultilist(object):
             view.HOVERED_ITEM_REMOVED_SIGNAL.connect(
                 self.HOVERED_ITEM_REMOVED_SIGNAL.emit
             )
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        super(BasePlannerMultilist, self).post_edit_callback(
+            callback_type,
+            *args
+        )
+        if callback_type == CallbackType.TREE_REMOVE:
+            self.update_view()
 
 
 class PlannerMultiListWeekView(BasePlannerMultilist, BaseMultiListWeekView):

@@ -376,7 +376,7 @@ class Task(BaseTaskItem):
         )
         if history_data:
             for date, subdict in task._history.iter_date_dicts():
-                history_data.add_data(date, task, subdict)
+                history_data._add_data(date, task, subdict)
 
         subtasks = json_dict.get(cls.TASKS_KEY, {})
         for subtask_name, subtask_dict in subtasks.items():

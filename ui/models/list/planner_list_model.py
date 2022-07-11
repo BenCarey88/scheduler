@@ -436,15 +436,16 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 # If it's in same view, just reorder
                 return self.planner_manager.move_planned_item(
                     planned_item,
-                    row,
+                    index=row,
                 )
             elif type(calendar_period) == type(self.calendar_period):
                 # If it's another view of same period type, move the item
                 # TODO: need to be able to modify AND change index
                 # TODO: sync up to callbacks
-                self.planner_manager.modify_planned_item(
+                self.planner_manager.move_planned_item(
                     planned_item,
-                    self.calendar_period,
+                    calendar_period=self.calendar_period,
+                    index=row,
                 )
             elif calendar_period.contains(self.calendar_period):
                 # If it's a view of a lower period type, create a child item

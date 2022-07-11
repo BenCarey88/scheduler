@@ -21,6 +21,7 @@ class BaseTab(QtWidgets.QWidget):
         self.name = name
         self.tree_manager = project.get_tree_manager(name)
         self.outliner = Outliner(self, self.tree_manager, parent=self)
+        self._is_active = False
 
         self.outer_layout = QtWidgets.QVBoxLayout()
         self.setLayout(self.outer_layout)
@@ -56,3 +57,12 @@ class BaseTab(QtWidgets.QWidget):
         """
         if callback_type[0] == CallbackItemType.TREE:
             self.outliner.post_edit_callback(callback_type, *args)
+
+    def set_active(self, value):
+        """Mark tab as active/inactive when the user changes tab.
+
+        Args:
+            value (bool): whether to set as inactive.
+        """
+        self._is_active = value
+        self.outliner._is_active = value

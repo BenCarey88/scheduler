@@ -481,7 +481,10 @@ class HostedDataDict(MutableMapping):
             (variant or Hosted): the valid keys.
         """
         for k, _ in self._iter_filtered():
-            yield k
+            if self._values_are_hosted:
+                yield k
+            else:
+                yield k.data
 
     def __len__(self):
         """Get length of filtered dict.

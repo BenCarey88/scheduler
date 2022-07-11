@@ -4,8 +4,7 @@ At any one time the scheduler ui should have one TaskRoot item that is
 used across all its tabs and widgets, and one archive TaskRoot.
 """
 
-from collections import OrderedDict
-
+from scheduler.api.common.object_wrappers import HostedDataDict
 from scheduler.api.serialization.serializable import (
     SaveType,
     SerializableFileTypes,
@@ -153,7 +152,7 @@ class HistoryData(object):
             task (Task): tree item to add history for.
             history_dict (dict): dict representing history for item.
         """
-        self._dict.setdefault(date, OrderedDict())[task] = history_dict
+        self._dict.setdefault(date, HostedDataDict())[task] = history_dict
 
     def get_history_for_date(self, date):
         """Get history at given date.
@@ -168,7 +167,7 @@ class HistoryData(object):
         Returns:
             (dict): history dict for given day.
         """
-        return self._dict.setdefault(date, OrderedDict())
+        return self._dict.setdefault(date, HostedDataDict())
 
     def _update_for_task(self, date, task):
         """Update dict to get history for task at given date.
@@ -179,4 +178,4 @@ class HistoryData(object):
         """
         history_dict = task.history.get_dict_at_date(date)
         if history_dict != self._dict.get(date, {}).get(task):
-            self._dict.setdefault(date, OrderedDict())[task] = history_dict
+            self._dict.setdefault(date, HostedDataDict())[task] = history_dict

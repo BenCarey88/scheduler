@@ -129,6 +129,11 @@ class PlannerListView(BaseListView):
         model.dataChanged.connect(self.VIEW_UPDATED_SIGNAL.emit)
         model.modelReset.connect(self.VIEW_UPDATED_SIGNAL.emit)
 
+    def on_view_changed(self):
+        """Callback for when this view is loaded."""
+        self.model().beginResetModel()
+        self.model().endResetModel()
+
     def pre_edit_callback(self, callback_type, *args):
         """Callback for before an edit of any type is run.
 
@@ -137,8 +142,10 @@ class PlannerListView(BaseListView):
             *args: additional args dependent on type of edit.
         """
         super(PlannerListView, self).pre_edit_callback(callback_type, *args)
-        if callback_type == CallbackType.TREE_REMOVE:
-            self.model().pre_full_update
+        if not self._is_active:
+            return
+        if callback_type in [CallbackType.TREE_REMOVE, CallbackType.TREE_ADD]:
+            self.model().pre_full_update()
         if callback_type[0] != CallbackItemType.PLANNER:
             return
 
@@ -183,8 +190,10 @@ class PlannerListView(BaseListView):
             *args: additional args dependent on type of edit.
         """
         super(PlannerListView, self).post_edit_callback(callback_type, *args)
-        if callback_type == CallbackType.TREE_REMOVE:
-            self.model().on_full_update
+        if not self._is_active:
+            return
+        if callback_type in [CallbackType.TREE_REMOVE, CallbackType.TREE_ADD]:
+            self.model().on_full_update()
         if callback_type[0] != CallbackItemType.PLANNER:
             return
 

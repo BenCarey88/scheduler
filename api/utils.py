@@ -60,6 +60,22 @@ def fallback_value(value, fallback):
     return (value if value is not None else fallback)
 
 
+def clamp(value, min_, max_):
+    """Clamp value between min and max.
+
+    Args:
+        value (int or float): value to clamp.
+        min_ (int or float): minimum value.
+        max_ (int or float): maximum value.
+
+    Returns:
+        (int or float): clamped value
+    """
+    if min_ > max_:
+        raise ValueError("min {0} is greater than max {1}".format(min_, max_))
+    return min(max_, max(min_, value))
+
+
 def add_key_at_start(ordered_dict, key, value):
     """Add key to the start of an ordered dict.
 

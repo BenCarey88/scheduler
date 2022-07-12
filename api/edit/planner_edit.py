@@ -38,6 +38,10 @@ class AddPlannedItemEdit(CompositeEdit):
             )
             subedits.append(tree_attr_edit)
         super(AddPlannedItemEdit, self).__init__(subedits)
+        for item in item_container:
+            if item.tree_item == planned_item.tree_item:
+                self._is_valid = False
+                return
 
         self._callback_args = self._undo_callback_args = [
             planned_item,

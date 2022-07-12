@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtWidgets
 
-from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
+from scheduler.api.edit.edit_callbacks import CallbackType as CT
 
 from scheduler.ui.models.list import HistoryListModel
 from scheduler.ui.models.table import HistoryWeekModel
@@ -39,6 +39,13 @@ class HistoryTimeTableView(BaseWeekTableView):
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.open_editors()
 
+    def on_view_changed(self):
+        """Callback for when this view is loaded."""
+        super(HistoryTimeTableView, self).on_view_changed()
+        self.model().beginResetModel()
+        self.model().endResetModel()
+        self.update()
+
     def pre_edit_callback(self, callback_type, *args):
         """Callback for before an edit of any type is run.
 
@@ -48,11 +55,10 @@ class HistoryTimeTableView(BaseWeekTableView):
         """
         super(HistoryTimeTableView, self).pre_edit_callback(
             callback_type,
-            *args
+            *args,
         )
-        if callback_type[0] != CallbackItemType.TREE:
-            return
-        if callback_type == CallbackType.TREE_MODIFY:
+        if (self._is_active
+                and callback_type in [CT.TREE_MODIFY, CT.TREE_REMOVE]):
             self.model().beginResetModel()
 
     def post_edit_callback(self, callback_type, *args):
@@ -64,11 +70,10 @@ class HistoryTimeTableView(BaseWeekTableView):
         """
         super(HistoryTimeTableView, self).post_edit_callback(
             callback_type,
-            *args
+            *args,
         )
-        if callback_type[0] != CallbackItemType.TREE:
-            return
-        if callback_type == CallbackType.TREE_MODIFY:
+        if (self._is_active
+                and callback_type in [CT.TREE_MODIFY, CT.TREE_REMOVE]):
             self.model().endResetModel()
             self.update()
 

@@ -33,9 +33,19 @@ class BaseCalendarView(object):
         self.calendar_period = None
         self._is_active = False
 
+    def get_subviews(self):
+        """Get any subviews of current view.
+
+        Returns:
+            (list(BaseCalendarView)): list of subviews.
+        """
+        return []
+
     def setup(self):
         """Any setup that needs to be done after tab init is done here."""
-        pass
+        for subview in self.get_subviews():
+            subview.setup()
+            subview.VIEW_UPDATED_SIGNAL.connect(self.VIEW_UPDATED_SIGNAL.emit)
 
     def set_active(self, value):
         """Set view as active/inactive when we switch to/from it.
@@ -44,9 +54,14 @@ class BaseCalendarView(object):
             value (bool): whether to set as active or inactive.
         """
         self._is_active = value
+        for subview in self.get_subviews():
+            subview.set_active(value)
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.
+
+        Note that we don't apply this automatically to subviews because
+        some subviews (eg. multi-lists) use different calendar periods.
 
         Args:
             calendar_period (BaseCalendarPeriod): calendar period to set to.
@@ -60,7 +75,8 @@ class BaseCalendarView(object):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        pass
+        for subview in self.get_subviews():
+            subview.pre_edit_callback(callback_type, *args)
 
     def post_edit_callback(self, callback_type, *args):
         """Callback for after an edit of any type is run.
@@ -69,7 +85,13 @@ class BaseCalendarView(object):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        pass
+        for subview in self.get_subviews():
+            subview.post_edit_callback(callback_type, *args)
+
+    def on_view_changed(self):
+        """Callback for when this view is loaded."""
+        for subview in self.get_subviews():
+            subview.on_view_changed()
 
 
 ### LIST ###
@@ -130,22 +152,19 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
             parent=parent,
         )
 
+    def get_subviews(self):
+        """Get subviews of current view.
+
+        Returns:
+            (list(BaseCalendarView)): list of subviews.
+        """
+        return [view for view in self.iter_widgets()]
+
     def setup(self):
         """Any setup that needs to be done after tab initialization."""
+        super(BaseMultiListView, self).setup()
         for view in self.iter_widgets():
-            view.setup()
             view.VIEW_UPDATED_SIGNAL.connect(self.update_view)
-            view.VIEW_UPDATED_SIGNAL.connect(self.VIEW_UPDATED_SIGNAL.emit)
-
-    def pre_edit_callback(self, callback_type, *args):
-        """Callback for before an edit of any type is run.
-
-        Args:
-            callback_type (CallbackType): edit callback type.
-            *args: additional args dependent on type of edit.
-        """
-        for view in self.iter_widgets():
-            view.pre_edit_callback(callback_type, *args)
 
     def post_edit_callback(self, callback_type, *args):
         """Callback for after an edit of any type is run.
@@ -154,8 +173,8 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        for view in self.iter_widgets():
-            view.post_edit_callback(callback_type, *args)
+        super(BaseMultiListView, self).post_edit_callback(callback_type, *args)
+        self.update_view()
 
     def get_subview(self, calendar_period):
         """Get subview for given period.
@@ -456,6 +475,14 @@ class BaseHybridView(BaseCalendarView, QtWidgets.QSplitter):
         self.addWidget(right_view)
         self.setChildrenCollapsible(False)
 
+    def get_subviews(self):
+        """Get subviews of current view.
+
+        Returns:
+            (list(BaseCalendarView)): list of subviews.
+        """
+        return [self.left_view, self.right_view]
+
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.
 
@@ -465,32 +492,6 @@ class BaseHybridView(BaseCalendarView, QtWidgets.QSplitter):
         self.left_view.set_to_calendar_period(calendar_period)
         self.right_view.set_to_calendar_period(calendar_period)
         super(BaseHybridView, self).set_to_calendar_period(calendar_period)
-
-    def setup(self):
-        """Any setup that needs to be done after tab initialization."""
-        for view in (self.left_view, self.right_view):
-            view.setup()
-            view.VIEW_UPDATED_SIGNAL.connect(self.VIEW_UPDATED_SIGNAL.emit)
-
-    def pre_edit_callback(self, callback_type, *args):
-        """Callback for before an edit of any type is run.
-
-        Args:
-            callback_type (CallbackType): edit callback type.
-            *args: additional args dependent on type of edit.
-        """
-        for view in (self.left_view, self.right_view):
-            view.pre_edit_callback(callback_type, *args)
-
-    def post_edit_callback(self, callback_type, *args):
-        """Callback for after an edit of any type is run.
-
-        Args:
-            callback_type (CallbackType): edit callback type.
-            *args: additional args dependent on type of edit.
-        """
-        for view in (self.left_view, self.right_view):
-            view.post_edit_callback(callback_type, *args)
 
 
 ### TITLED ###
@@ -521,8 +522,13 @@ class BaseTitledView(BaseCalendarView, QtWidgets.QFrame):
         main_layout.addWidget(self.sub_view)
         self.setFrameShape(self.Shape.Box)
 
-        self.pre_edit_callback = sub_view.pre_edit_callback
-        self.post_edit_callback = sub_view.post_edit_callback
+    def get_subviews(self):
+        """Get subviews of current view.
+
+        Returns:
+            (list(BaseCalendarView)): list of subviews.
+        """
+        return [self.sub_view]
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.
@@ -533,13 +539,6 @@ class BaseTitledView(BaseCalendarView, QtWidgets.QFrame):
         self.title.setText(self.get_title(calendar_period))
         self.planner_list_view.set_to_calendar_period(calendar_period)
         super(BaseTitledView, self).set_to_calendar_period(calendar_period)
-
-    def setup(self):
-        """Any setup that needs to be done after tab initialization."""
-        self.sub_view.setup()
-        self.sub_view.VIEW_UPDATED_SIGNAL.connect(
-            self.VIEW_UPDATED_SIGNAL.emit
-        )
 
     @staticmethod
     def get_title(calendar_period):
@@ -588,16 +587,14 @@ class BaseOverlayedView(BaseCalendarView, OverlayedWidget):
             sub_view,
             parent=parent
         )
-        self.sub_view = self.sub_widget
-        self.pre_edit_callback = sub_view.pre_edit_callback
-        self.post_edit_callback = sub_view.post_edit_callback
 
-    def setup(self):
-        """Any setup that needs to be done after tab initialization."""
-        self.sub_view.setup()
-        self.sub_view.VIEW_UPDATED_SIGNAL.connect(
-            self.VIEW_UPDATED_SIGNAL.emit
-        )
+    def get_subviews(self):
+        """Get subviews of current view.
+
+        Returns:
+            (list(BaseCalendarView)): list of subviews.
+        """
+        return [self.sub_widget]
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.

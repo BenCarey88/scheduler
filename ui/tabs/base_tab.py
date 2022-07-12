@@ -45,7 +45,7 @@ class BaseTab(QtWidgets.QWidget):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        if callback_type[0] == CallbackItemType.TREE:
+        if callback_type[0] == CallbackItemType.TREE and self._is_active:
             self.outliner.pre_edit_callback(callback_type, *args)
 
     def post_edit_callback(self, callback_type, *args):
@@ -55,8 +55,9 @@ class BaseTab(QtWidgets.QWidget):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        if callback_type[0] == CallbackItemType.TREE:
+        if callback_type[0] == CallbackItemType.TREE and self._is_active:
             self.outliner.post_edit_callback(callback_type, *args)
+        self.update()
 
     def set_active(self, value):
         """Mark tab as active/inactive when the user changes tab.
@@ -66,3 +67,14 @@ class BaseTab(QtWidgets.QWidget):
         """
         self._is_active = value
         self.outliner._is_active = value
+
+    def on_tab_changed(self):
+        """Callback for when we change to this tab.
+
+        For speed purposes, some updates are done to all tabs (even inactive
+        tabs) when editing, and some are only picked up when changing to
+        that tab. This should be monitored and may need to change if we
+        start to see lags either during edits or when changing tab.
+        """
+        self.outliner.on_tab_changed()
+        self.update()

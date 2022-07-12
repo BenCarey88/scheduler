@@ -765,6 +765,14 @@ class BaseDateTimeWrapper(object):
         """
         return self.string()
 
+    def __repr__(self):
+        """Override string representation of self.
+
+        Return:
+            (str): string representation.
+        """
+        return self.string()
+
 
 class Date(BaseDateTimeWrapper):
     """Wrapper around datetime date class for easy string conversions etc."""

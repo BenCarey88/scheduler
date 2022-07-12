@@ -52,6 +52,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             new_value (variant or None): value to set for task at given time.
             comment (str or None): comment to add to task history, if given.
         """
+        self.task_item = task_item
         history = task_item.history
         date = date_time.date()
         date_dict = OrderedDict()
@@ -71,7 +72,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             recursive=True,
         )
         update_task_edit = SelfInverseSimpleEdit.create_unregistered(
-            history._update_task_status
+            history._update_task_status,
         )
         subedits = [history_edit, update_task_edit]
         if not history.get_dict_at_date(date):
@@ -80,12 +81,18 @@ class UpdateTaskHistoryEdit(CompositeEdit):
                 partial(
                     task_item.root._history_data._update_for_task,
                     date,
-                    task_item
+                    task_item,
                 )
             )
             subedits.append(global_history_edit)
 
-        super(UpdateTaskHistoryEdit, self).__init__(subedits)
+        # We need to not reverse order for inverse because update_task and
+        # global_history edits both rely on the history edit being done/undone
+        # first.
+        super(UpdateTaskHistoryEdit, self).__init__(
+            subedits,
+            reverse_order_for_inverse=False,
+        )
         # TODO: use validity_check_edits __init__ arg instead
         # of setting is_valid explicitly - just need to make sure
         # the ContainerEdit is_valid logic works for recursive edits

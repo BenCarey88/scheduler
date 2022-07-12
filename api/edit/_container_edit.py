@@ -432,6 +432,7 @@ class BaseContainerEdit(BaseEdit):
         for key, value in self.iter_container(diff_container):
             # call recursively if needed
             if self._recursion_required(key, container, diff_container):
+                inverse_diff_subcontainer = None
                 if inverse_diff_container is not None:
                     # in ordered containers, add inverse diff items at start
                     inverse_diff_subcontainer = type(value)()
@@ -446,12 +447,12 @@ class BaseContainerEdit(BaseEdit):
                             key,
                             inverse_diff_subcontainer
                         )
-                    is_valid = self._run_operation(
-                        container[key],
-                        value,
-                        operation_type,
-                        inverse_diff_subcontainer,
-                    ) or is_valid
+                is_valid = self._run_operation(
+                    container[key],
+                    value,
+                    operation_type,
+                    inverse_diff_subcontainer,
+                ) or is_valid
 
             # otherwise call specific operarion method
             else:
@@ -464,13 +465,13 @@ class BaseContainerEdit(BaseEdit):
                         key,
                         value,
                         container,
-                        inverse_diff_container
+                        inverse_diff_container,
                     ) or is_valid
                 elif isinstance(container, LIST_TYPES):
                     is_valid = operation_method(
                         value,
                         container,
-                        inverse_diff_container
+                        inverse_diff_container,
                     ) or is_valid
 
         return is_valid
@@ -875,14 +876,32 @@ class BaseContainerEdit(BaseEdit):
         if not isinstance(sort_func_tuple, tuple) or len(sort_func_tuple) != 2:
             raise EditError("diff list for MOVE op needs 2-tuple values")
         key, reverse = sort_func_tuple
-        if inverse_diff_list is not None:
+        # Hack for sorting with HostedDataLists:
+        HOSTED_DATA_INVERSE = "hosted_data_inverse"
+        inverse_sort = False
+        if reverse == HOSTED_DATA_INVERSE:
+            reverse = False
+            inverse_sort = True
+
+        if (not isinstance(list_, HostedDataList)
+                and inverse_diff_list is not None):
             inverse_key_dict = {item: i for i, item in enumerate(list_)}
+            def reverse_key(value):
+                return inverse_key_dict.get(value)
+            inverse_diff_list.insert(0, (reverse_key, False))
+
+        orig_list = list_[:]
+        if isinstance(list_, HostedDataList) and inverse_sort:
+            list_.sort(key=key, reverse=reverse, key_by_host=True)
+        else:
+            list_.sort(key=key, reverse=reverse)
+
+        if isinstance(list_, HostedDataList) and inverse_diff_list is not None:
+            # this must be done after sorting, to create the inverse key
             inverse_diff_list.insert(
                 0,
-                (lambda x: inverse_key_dict.get(x), False)
+                (list_.get_reverse_key(), HOSTED_DATA_INVERSE)
             )
-        orig_list = list_[:]
-        list_.sort(key=key, reverse=reverse)
         return (orig_list != list_)
 
 

@@ -8,10 +8,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.common.date_time import DateTime, Time, TimeDelta
 from scheduler.api.calendar.scheduled_item import BaseScheduledItem
 from scheduler.api.edit.edit_callbacks import (
-    CallbackType,
+    CallbackType as CT,
     CallbackItemType,
 )
-
 from scheduler.ui import constants, utils
 from scheduler.ui.models.table import SchedulerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
@@ -104,8 +103,9 @@ class SchedulerTimetableView(BaseWeekTableView):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        if (callback_type == CallbackType.TREE_REMOVE
-                or callback_type[0] == CallbackItemType.SCHEDULER):
+        if (self._is_active and
+                (callback_type in [CT.TREE_REMOVE, CT.TREE_ADD]
+                or callback_type[0] == CallbackItemType.SCHEDULER)):
             self.refresh_scheduled_items_list()
         super(SchedulerTimetableView, self).post_edit_callback(
             callback_type,

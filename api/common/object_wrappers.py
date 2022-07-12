@@ -1,6 +1,8 @@
 """Structs to wrap around objects allowing us to edit them."""
 
-from collections.abc import MutableMapping, MutableSequence
+from collections.abc import Iterable, MutableMapping, MutableSequence
+
+from scheduler.api.utils import fallback_value
 
 
 class HostError(Exception):
@@ -118,7 +120,7 @@ class _HostObject(BaseObjectWrapper):
         Returns:
             (bool): whether or not this host is no longer valid.
         """
-        return (self._value is None)
+        return (self._value is None or self._value.defunct)
 
 
 class Hosted(object):
@@ -262,6 +264,7 @@ class HostedDataList(MutableSequence):
     def __init__(self, *args):
         """Initialize."""
         self._list = list()
+        self._reverse_sort_key = lambda value: 0
         self.extend(list(args))
 
     def _get_hosted(self, value):
@@ -299,7 +302,7 @@ class HostedDataList(MutableSequence):
         if reverse:
             iterable = reverse(self._list)
         for host in iterable:
-            if not host.defunct and not host.data.defunct:
+            if not host.defunct:
                 yield host
 
     def _iter_filtered_with_old_index(self, reverse=False):
@@ -318,7 +321,7 @@ class HostedDataList(MutableSequence):
         if reverse:
             iterable = reverse(self._list)
         for i, host in enumerate(iterable):
-            if not host.defunct and not host.data.defunct:
+            if not host.defunct:
                 if reverse:
                     yield -1 - i, host
                 else:
@@ -336,8 +339,11 @@ class HostedDataList(MutableSequence):
         """Get item at index in filtered list.
 
         Args:
-            index (int): index to query.
+            index (int or slice): index or slice to query.
         """
+        if isinstance(index, slice):
+            return [v.data for v in list(self._iter_filtered())[index]]
+
         for i, host in enumerate(self._iter_filtered(reverse=(index < 0))):
             if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
                 return host.data
@@ -349,8 +355,14 @@ class HostedDataList(MutableSequence):
         """Delete item at index of filtered list.
 
         Args:
-            index (int): index to delete.
+            index (int or slice): index or slice to delete.
         """
+        if isinstance(index, slice):
+            indexes_and_values = list(self._iter_filtered_with_old_index())
+            for old_index, _ in indexes_and_values[index]:
+                del self._list[old_index]
+            return
+
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
         )
@@ -366,9 +378,41 @@ class HostedDataList(MutableSequence):
         """Set item at index to value.
 
         Args:
-            index (int): index to set.
-            value (Hosted, _HostObject or None): value to set.
+            index (int or slice): index or slice to set.
+            value (Hosted, _HostObject, None or list): value to set, or list
+                of values if index is a slice.
         """
+        if isinstance(index, slice):
+            if not isinstance(value, Iterable):
+                raise TypeError("Can only assign an iterable with a slice")
+            old_indexes = [
+                old_index for old_index, _
+                in list(self._iter_filtered_with_old_index())[index]
+            ]
+            length = len(old_indexes)
+            if len(value) == length:
+                for i, v in zip(old_indexes, v):
+                    self._list[i] = self._get_hosted(v)
+                return
+            if fallback_value(index.step, 1) != 1:
+                raise ValueError(
+                    "Attempting to assign sequence of size {0} to extended "
+                    "slice of size {1}".format(len(value), length)
+                )
+            # If splice has step 1, just replace from starting index
+            start = fallback_value(index.start, 0)
+            for i in old_indexes:
+                del self._list[i]
+            if -length < start < length:
+                index_to_add_at = old_indexes[start]
+            elif start < 0:
+                index_to_add_at = 0
+            else:
+                index_to_add_at = len(self._list)
+            for v in reversed(value):
+                self._list.insert(index_to_add_at, self._get_hosted(v))
+            return
+
         value = self._get_hosted(value)
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
@@ -380,6 +424,14 @@ class HostedDataList(MutableSequence):
         raise IndexError(
             "Index {0} is outside range of HostedDataList".format(index)
         )
+
+    def __str__(self):
+        """Get string representation of list.
+
+        Returns:
+            (str): string repr.
+        """
+        return str(self._list)
 
     def insert(self, index, value):
         """Insert given value at given index into list.
@@ -401,13 +453,45 @@ class HostedDataList(MutableSequence):
         else:
             self._list.insert(0, value)
 
-    def __str__(self):
-        """Get string representation of list.
+    def sort(self, key=None, reverse=False, key_by_host=False):
+        """Sort list by given key.
+
+        Args:
+            key (function or None): function to sort by.
+            reverse (bool): if True, sort in reverse.
+            key_by_host (bool): if True, the key function applies to the
+                host objects rather than the data. This is needed for reverse
+                sorting functionality so we can correctly sort defunct hosts.
+        """
+        default_value = -1
+        for host in self._iter_filtered():
+            default_value = key(host.data)
+            break
+        new_key = key
+        if not key_by_host:
+            def new_key(host):
+                if host.defunct:
+                    return default_value
+                return key(host.data)
+
+        reverse_key_list = [(i, v) for i, v in enumerate(self._list)]
+        def reverse_sort_key(host):
+            for i, v in reverse_key_list:
+                if v == host:
+                    return i
+            return -1
+        self._reverse_sort_key = reverse_sort_key
+
+        self._list.sort(key=new_key, reverse=reverse)
+
+    def get_reverse_key(self):
+        """Get reverse key, used for undoing the most recent sort.
 
         Returns:
-            (str): string repr.
+            (function): key to undo the previous sort. This key must be
+                applied to host objects rather than to the data.
         """
-        return str(self._list)
+        return self._reverse_sort_key
 
 
 class HostedDataDict(MutableMapping):
@@ -453,10 +537,10 @@ class HostedDataDict(MutableMapping):
         """
         for key, value in zip(self._key_list, self._value_list):
             if self._values_are_hosted:
-                if not value.defunct and not value.data.defunct:
+                if not value.defunct:
                     yield key, value
             else:
-                if not key.defunct and not key.data.defunct:
+                if not key.defunct:
                     yield key, value
 
     def _iter_filtered_with_old_index(self):
@@ -469,9 +553,9 @@ class HostedDataDict(MutableMapping):
         """
         for i, (k, v) in enumerate(zip(self._key_list, self._value_list)):
             if self._values_are_hosted:
-                if not v.defunct and not v.data.defunct:
+                if not v.defunct:
                     yield i, k, v
-            elif not k.defunct and not k.data.defunct:
+            elif not k.defunct:
                 yield i, k, v
 
     def __iter__(self):
@@ -553,13 +637,25 @@ class HostedDataDict(MutableMapping):
             value = self._get_hosted(value)
         else:
             key = self._get_hosted(key)
-            if key.defunct or key.data.defunct:
+            if key.defunct:
                 raise HostError(
                     "Cannot set defunct hosted data {0} as key in "
                     "HostedDataDict".format(key)
                 )
         self._key_list.append(key)
         self._value_list.append(value)
+
+    def __str__(self):
+        """Get string representation of list.
+
+        Returns:
+            (str): string repr.
+        """
+        string = ", ".join([
+            "{0}:{1}".format(key, value)
+            for key, value in zip(self._key_list, self._value_list)
+        ])
+        return "{" + string + "}"
 
     def move_to_end(self, key, last=True):
         """Move key, value to one end of dict.
@@ -585,15 +681,3 @@ class HostedDataDict(MutableMapping):
         else:
             self._key_list.insert(0, self._key_list.pop(i))
             self._value_list.insert(0, self._value_list.pop(i))
-
-    def __str__(self):
-        """Get string representation of list.
-
-        Returns:
-            (str): string repr.
-        """
-        string = ", ".join([
-            "{0}:{1}".format(key, value)
-            for key, value in zip(self._key_list, self._value_list)
-        ])
-        return "{" + string + "}"

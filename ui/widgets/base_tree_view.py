@@ -101,9 +101,49 @@ class BaseTreeView(QtWidgets.QTreeView):
         if not items:
             return False
         if not force:
+            # TODO: fix this message (after sorting archiving)
+            messages = []
+            dependencies = {}
+            for item in items:
+                item_dependencies = {
+                    "planned": [
+                        *(item.planned_year_items),
+                        *(item.planned_month_items),
+                        *(item.planned_day_items),
+                        *(item.planned_week_items),
+                    ],
+                    "scheduled": [
+                        *(item.scheduled_items),
+                        *(item.repeat_scheduled_items),
+                    ]
+                }
+                item_dependencies = {
+                    k:v for k,v in item_dependencies.items() if v
+                }
+                if item_dependencies:
+                    dependencies[item] = item_dependencies
+            for item, deps in dependencies.items():
+                messages.append(
+                    "WARNING: {0} is planned for the following time periods:\n\t"
+                    "{1}\nand scheduled for the following datetimes:\n\t{2}"
+                    "".format(
+                        item.name,
+                        "\n\t".join([
+                            planned_item.calendar_period.full_name
+                            for planned_item in deps.get("planned", [])
+                        ]),
+                        "\n\t".join([
+                            scheduled_item.date.string()
+                            for scheduled_item in deps.get("scheduled", [])
+                        ]),
+                    )
+                )
             continue_deletion = utils.simple_message_dialog(
                 "Delete the following items?",
-                "\n".join([item.name for item in items]),
+                (
+                    "\n".join([item.name for item in items])
+                    + "\n\n" + "\n".join(messages)
+                ),
                 parent=self
             )
             if not continue_deletion:

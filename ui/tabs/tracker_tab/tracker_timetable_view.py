@@ -5,7 +5,7 @@ from functools import partial
 from PyQt5 import QtCore, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time
-from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
+from scheduler.api.edit.edit_callbacks import CallbackType as CT
 from scheduler.api.tree.task import TaskValueType
 
 from scheduler.ui.models.table import TrackerWeekModel
@@ -47,6 +47,13 @@ class TrackerTimetableView(BaseWeekTableView):
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.open_editors()
 
+    def on_view_changed(self):
+        """Callback for when this view is loaded."""
+        super(TrackerTimetableView, self).on_view_changed()
+        self.model().beginResetModel()
+        self.model().endResetModel()
+        self.update()
+
     # TODO: need to add logic for if item is deleted too (atm it crashes
     # if item is deleted and we still try to edit it).
     def pre_edit_callback(self, callback_type, *args):
@@ -58,11 +65,10 @@ class TrackerTimetableView(BaseWeekTableView):
         """
         super(TrackerTimetableView, self).pre_edit_callback(
             callback_type,
-            *args
+            *args,
         )
-        if callback_type[0] != CallbackItemType.TREE:
-            return
-        if callback_type == CallbackType.TREE_MODIFY:
+        if (self._is_active
+                and callback_type in [CT.TREE_MODIFY, CT.TREE_REMOVE]):
             self.model().beginResetModel()
 
     def post_edit_callback(self, callback_type, *args):
@@ -74,11 +80,10 @@ class TrackerTimetableView(BaseWeekTableView):
         """
         super(TrackerTimetableView, self).post_edit_callback(
             callback_type,
-            *args
+            *args,
         )
-        if callback_type[0] != CallbackItemType.TREE:
-            return
-        if callback_type == CallbackType.TREE_MODIFY:
+        if (self._is_active
+                and callback_type in [CT.TREE_MODIFY, CT.TREE_REMOVE]):
             self.model().endResetModel()
             self.update()
 

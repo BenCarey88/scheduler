@@ -1,11 +1,11 @@
 """History list model."""
 
-from scheduler.api.common.date_time import DateTime, Time
+from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.common.date_time import DateTime, Time
 from scheduler.api.tree import TaskType, TaskStatus, TaskHistory
-
 from scheduler.ui import constants, utils
 
 
@@ -31,8 +31,22 @@ class HistoryListModel(QtCore.QAbstractItemModel):
         self.tree_manager = tree_manager
         self.calendar_day = calendar_day
         self.date = calendar_day.date
-        self.history_dict = self.calendar_day.get_history_dict()
+        self._history_dict = self.calendar_day.get_history_dict()
         self.use_long_names = use_long_names
+
+    @property
+    def history_dict(self):
+        """Get filtered history dict.
+
+        This filters through the dict and removes any items with no history
+        for this date.
+
+        Returns:
+            (OrderedDict(BaseTreeItem, dict)): history dict.
+        """
+        return OrderedDict(
+            [(k, v) for k, v in self._history_dict.items() if v]
+        )
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.

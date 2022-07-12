@@ -55,6 +55,16 @@ class Outliner(BaseTreeView):
         self.expanded.connect(partial(self.mark_item_expanded, value=True))
         self.collapsed.connect(partial(self.mark_item_expanded, value=False))
 
+    def on_tab_changed(self):
+        """Callback for when tab is changed.
+
+        We run a full update here, as the alternative is running callbacks
+        for every outliner for every tree edit, which gets a bit heavy.
+        """
+        self.model().beginResetModel()
+        self.model().endResetModel()
+        self.expand_items_from_tree_manager()
+
     def _expand_item_from_tree_manager(self, index):
         """Recursively expand item at given index.
 

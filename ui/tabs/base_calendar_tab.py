@@ -92,6 +92,7 @@ class BaseCalendarTab(BaseTab):
             self.main_views_stack.addWidget(view)
             view.setup()
         self.main_views_stack.setCurrentWidget(self.main_view)
+        self.main_view.set_active(True)
 
         self.outer_layout.addWidget(self.navigation_panel)
         self.outer_layout.addWidget(self.main_views_stack)
@@ -132,6 +133,7 @@ class BaseCalendarTab(BaseTab):
         self.main_view.set_active(False)
         self.main_view = self.main_views_dict.get((date_type, view_type))
         self.main_view.set_active(True)
+        self.main_view.on_view_changed()
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
 
@@ -146,6 +148,7 @@ class BaseCalendarTab(BaseTab):
         self.main_view.set_active(False)
         self.main_view = self.main_views_dict.get((self.date_type, view_type))
         self.main_view.set_active(True)
+        self.main_view.on_view_changed()
         self.main_views_stack.setCurrentWidget(self.main_view)
         self.set_to_calendar_period(calendar_period)
 
@@ -170,3 +173,8 @@ class BaseCalendarTab(BaseTab):
         super(BaseCalendarTab, self).post_edit_callback(callback_type, *args)
         for view in self.main_views_dict.values():
             view.post_edit_callback(callback_type, *args)
+
+    def on_tab_changed(self):
+        """Callback for when we change to this tab."""
+        super(BaseCalendarTab, self).on_tab_changed()
+        self.main_view.on_view_changed()

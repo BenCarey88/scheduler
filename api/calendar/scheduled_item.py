@@ -1,6 +1,7 @@
 """Scheduled item class."""
 
 from collections import OrderedDict
+from sqlite3 import connect
 
 from scheduler.api.common.date_time import (
     Date,
@@ -22,6 +23,7 @@ from scheduler.api.serialization.serializable import (
 )
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
+from scheduler.api import constants
 
 
 #TODO standardize exceptions
@@ -466,14 +468,24 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             "repeat_pattern",
         )
         self._type = MutableAttribute(item_type, "type")
-        self._tree_item = MutableHostedAttribute(tree_item, "tree_item")
+        self._tree_item = MutableHostedAttribute(
+            tree_item,
+            "tree_item",
+            pairing_id=self._get_tree_item_pairing_id(),
+            parent=self,
+            driver=True,
+        )
         self._event_category = MutableAttribute(
             event_category,
             "event_category",
         )
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
-        self._planned_items = HostedDataList()
+        self._planned_items = HostedDataList(
+            pairing_id=constants.PLANNER_SCHEDULER_PAIRING,
+            parent=self,
+            driven=True,
+        )
         self._id = None
 
     class _Decorators(object):
@@ -647,7 +659,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         Returns:
             (bool): whether or not item should be considered deleted.
         """
-        return (
+        return super(BaseScheduledItem, self).defunct or (
             self.type == ScheduledItemType.TASK
             and self.tree_item is None
         )
@@ -664,13 +676,28 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             (list(PlannedItem)): list of planned items.
         """
         return self._planned_items
-        # return [item.value for item in self._planned_items]
 
-    def get_tree_item_container(self):
-        """Get attribute in corresponding tree item this item should be in.
+    def is_task(self):
+        """Check if this item has task type.
 
         Returns:
-            (list or None): container, if found.
+            (bool): whether or not item has task type.
+        """
+        return (self.type == ScheduledItemType.TASK)
+
+    def is_repeat(self):
+        """Check if this item is repeating.
+
+        Returns:
+            (bool): whether or not this is a repeat item.
+        """
+        return False
+
+    def _get_tree_item_pairing_id(self):
+        """Get pairing id for tree item attribute.
+
+        Returns:
+            (str or None): pairing id, if found.
         """
         return None
 
@@ -858,14 +885,13 @@ class ScheduledItem(BaseScheduledItem):
         calendar_day = self._calendar.get_day(date)
         return calendar_day._scheduled_items
 
-    def get_tree_item_container(self):
-        """Get attribute in corresponding tree item this item should be in.
+    def _get_tree_item_pairing_id(self):
+        """Get pairing id for tree item attribute.
 
         Returns:
-            (list or None): container, if found.
+            (str or None): pairing id, if found.
         """
-        if self.type == ScheduledItemType.TASK and self.tree_item is not None:
-            return self.tree_item._scheduled_items
+        return constants.SCHEDULER_TREE_PAIRING
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -891,15 +917,8 @@ class ScheduledItem(BaseScheduledItem):
         """
         start = dict_repr.get(cls.START_DATETIME_KEY)
         end = dict_repr.get(cls.END_DATETIME_KEY)
-        try:
-            start_datetime = DateTime.from_string(start)
-            end_datetime = DateTime.from_string(end)
-        except DateTimeError as e:
-            # TODO: either remove this try except, or return None and manage
-            # that case in CalendarDay class from_dict method
-            # TODO: ^ lol what was going on here? I assume I can just delete
-            # this exception now
-            raise e
+        start_datetime = DateTime.from_string(start)
+        end_datetime = DateTime.from_string(end)
         scheduled_item = super(ScheduledItem, cls).from_dict(
             dict_repr,
             calendar,
@@ -907,9 +926,7 @@ class ScheduledItem(BaseScheduledItem):
             end_datetime.time(),
             start_datetime.date(),
         )
-        if (scheduled_item.type == ScheduledItemType.TASK
-                and scheduled_item.tree_item is not None):
-            scheduled_item.tree_item._scheduled_items.append(scheduled_item)
+        scheduled_item._activate()
         return scheduled_item
 
 
@@ -1010,6 +1027,14 @@ class RepeatScheduledItem(BaseScheduledItem):
             self.repeat_pattern.summary_string(),
         )
 
+    def is_repeat(self):
+        """Check if this item is repeating.
+
+        Returns:
+            (bool): whether or not this is a repeat item.
+        """
+        return False
+
     def get_item_container(self, date=None):
         """Get the list that this item should be contained in.
 
@@ -1022,14 +1047,13 @@ class RepeatScheduledItem(BaseScheduledItem):
         """
         return self._calendar._repeat_items
 
-    def get_tree_item_container(self):
-        """Get attribute in corresponding tree item this item should be in.
+    def _get_tree_item_pairing_id(self):
+        """Get pairing id for tree item attribute.
 
         Returns:
-            (list or None): container, if found.
+            (str or None): pairing id, if found.
         """
-        if self.type == ScheduledItemType.TASK and self.tree_item is not None:
-            return self.tree_item._repeat_scheduled_items
+        return constants.SCHEDULER_TREE_PAIRING
 
     def instances_at_date(self, date):
         """Get instances at given date, if some exist.
@@ -1148,9 +1172,7 @@ class RepeatScheduledItem(BaseScheduledItem):
                     date
                 )
             )
-        if (repeat_item.type == ScheduledItemType.TASK
-                and repeat_item.tree_item is not None):
-            repeat_item.tree_item._repeat_scheduled_items.append(repeat_item)
+        repeat_item._activate()
         return repeat_item
 
 
@@ -1422,10 +1444,12 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         # TODO: these from_dict excepts need loggers to explain what's happened
         except DateTimeError:
             return None
-        return cls(
+        repeat_scheduled_item_instance = cls(
             calendar,
             repeat_scheduled_item,
             scheduled_date,
             override_start_datetime,
-            override_end_datetime
+            override_end_datetime,
         )
+        repeat_scheduled_item_instance._activate()
+        return repeat_scheduled_item_instance

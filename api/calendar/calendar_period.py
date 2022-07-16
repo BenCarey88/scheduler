@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 
+from scheduler.api.constants import TimePeriod
 from scheduler.api.common.date_time import (
     Date,
     DateTimeError,
@@ -14,7 +15,7 @@ from scheduler.api.serialization.serializable import (
     SerializableFileTypes
 )
 from .scheduled_item import ScheduledItem
-from .planned_item import PlannedItem, PlannedItemTimePeriod
+from .planned_item import PlannedItem
 
 
 class BaseCalendarPeriod(NestedSerializable):
@@ -120,13 +121,13 @@ class BaseCalendarPeriod(NestedSerializable):
         with the planned_item class.
 
         Returns:
-            (PlannedItemTimePeriod): the time period.
+            (TimePeriod): the time period.
         """
         return {
-            CalendarDay: PlannedItemTimePeriod.DAY,
-            CalendarWeek: PlannedItemTimePeriod.WEEK,
-            CalendarMonth: PlannedItemTimePeriod.MONTH,
-            CalendarYear: PlannedItemTimePeriod.YEAR,
+            CalendarDay: TimePeriod.DAY,
+            CalendarWeek: TimePeriod.WEEK,
+            CalendarMonth: TimePeriod.MONTH,
+            CalendarYear: TimePeriod.YEAR,
         }.get(type(self))
 
     def get_planned_items_container(self):

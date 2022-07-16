@@ -3,6 +3,7 @@
 from collections import OrderedDict
 from contextlib import contextmanager
 
+from scheduler.api.constants import TimePeriod
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.common.object_wrappers import HostedDataList
 from scheduler.api.serialization.serializable import (
@@ -17,7 +18,6 @@ from .calendar_period import (
     CalendarYear
 )
 from .scheduled_item import RepeatScheduledItem
-from .planned_item import PlannedItemTimePeriod
 
 
 class CalendarError(Exception):
@@ -232,9 +232,8 @@ class Calendar(NestedSerializable):
         """Get current calendar period of given type.
 
         Args:
-            period_type (class or PlannedItemTimePeirod): calendar period to
-                check for. For convenience, we can also use planned item
-                time period types.
+            period_type (class or constants.TimePeriod): calendar period to
+                check for. For convenience, can also use the TimePeriod enum.
             weekday_start (int or str): integer or string representing starting
                 day for weeks. By default we start weeks on monday.
             length (int): length of week.
@@ -245,10 +244,10 @@ class Calendar(NestedSerializable):
         """
         date = Date.now()
         period_type = {
-            PlannedItemTimePeriod.DAY: CalendarDay,
-            PlannedItemTimePeriod.WEEK: CalendarWeek,
-            PlannedItemTimePeriod.MONTH: CalendarMonth,
-            PlannedItemTimePeriod.YEAR: CalendarYear,
+            TimePeriod.DAY: CalendarDay,
+            TimePeriod.WEEK: CalendarWeek,
+            TimePeriod.MONTH: CalendarMonth,
+            TimePeriod.YEAR: CalendarYear,
         }.get(period_type, period_type)
         if period_type == CalendarDay:
             return self.get_day(date)

@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from scheduler.api.calendar.planned_item import PlannedItemTimePeriod as PITP
+from scheduler.api.constants import TimePeriod
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.tabs.planner_tab.planner_hybrid_view import (
     OverlayedPlannerHybridView
@@ -30,7 +30,7 @@ class SchedulerTab(BaseCalendarTab):
             ),
             (
                 (DateType.DAY, ViewType.HYBRID),
-                OverlayedPlannerHybridView(name, project, PITP.DAY),
+                OverlayedPlannerHybridView(name, project, TimePeriod.DAY),
             ),
             (
                 (DateType.THREE_DAYS, ViewType.TIMETABLE),

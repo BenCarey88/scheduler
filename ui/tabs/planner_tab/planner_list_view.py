@@ -28,7 +28,7 @@ class TitledPlannerListView(BaseTitledView):
         Args:
             name (str): name of tab.
             project (Project): the project we're working on.
-            time_period (PlannedItemTimePeriod): type of time period to
+            time_period (TimePeriod): type of time period to
                 view over.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
@@ -83,8 +83,7 @@ class PlannerListView(BaseListView):
         Args:
             name (str): name of tab.
             project (Project): the project we're working on.
-            time_period (PlannedItemTimePeriod): type of time period to view
-                over.
+            time_period (TimePeriod): type of time period to view over.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.open_dialog_on_drop_event = False

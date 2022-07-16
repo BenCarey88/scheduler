@@ -2,10 +2,8 @@
 
 from PyQt5 import QtCore
 
-from scheduler.api.calendar.planned_item import (
-    PlannedItem,
-    PlannedItemTimePeriod as PITP,
-)
+from scheduler.api.constants import TimePeriod
+from scheduler.api.calendar.planned_item import PlannedItem
 from scheduler.api.edit.edit_callbacks import CallbackType
 from scheduler.ui.tabs.base_calendar_view import (
     BaseMultiListWeekView,
@@ -57,7 +55,7 @@ class PlannerMultiListWeekView(BasePlannerMultilist, BaseMultiListWeekView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         list_views = [
-            TitledPlannerListView(name, project, PITP.DAY)
+            TitledPlannerListView(name, project, TimePeriod.DAY)
             for _ in range(7)
         ]
         super(PlannerMultiListWeekView, self).__init__(
@@ -79,7 +77,7 @@ class PlannerMultiListMonthView(BasePlannerMultilist, BaseMultiListMonthView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         list_views = [
-            TitledPlannerListView(name, project, PITP.WEEK)
+            TitledPlannerListView(name, project, TimePeriod.WEEK)
             for _ in range(5)
         ]
         super(PlannerMultiListMonthView, self).__init__(
@@ -101,7 +99,7 @@ class PlannerMultiListYearView(BasePlannerMultilist, BaseMultiListYearView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         list_views = [
-            TitledPlannerListView(name, project, PITP.MONTH)
+            TitledPlannerListView(name, project, TimePeriod.MONTH)
             for _ in range(12)
         ]
         super(PlannerMultiListYearView, self).__init__(

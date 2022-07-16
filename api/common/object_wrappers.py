@@ -1,6 +1,7 @@
 """Structs to wrap around objects allowing us to edit them."""
 
 from collections.abc import Iterable, MutableMapping, MutableSequence
+from contextlib import contextmanager
 
 from scheduler.api.utils import fallback_value
 
@@ -93,6 +94,23 @@ class _HostObject(BaseObjectWrapper):
     is switched out in the host, so that the referencing class now holds a
     reference to the new data.
     """
+    def __init__(self, *args, **kwargs):
+        """Initialize host object."""
+        super(_HostObject, self).__init__(*args, **kwargs)
+        self._redirected_host = None
+        self.set_data = self.set_value
+
+    @property
+    def value(self):
+        """Value property.
+
+        Returns:
+            (variant): underlying data.
+        """
+        if self._redirected_host is not None:
+            return self._redirected_host.value
+        return super(_HostObject, self).value
+
     @property
     def data(self):
         """New name for value.
@@ -102,7 +120,7 @@ class _HostObject(BaseObjectWrapper):
         """
         return self.value
 
-    def set_data(self, value):
+    def set_value(self, value):
         """Set underlying data.
 
         Args:
@@ -111,7 +129,9 @@ class _HostObject(BaseObjectWrapper):
         Returns:
             (bool): True if value was changed, else False.
         """
-        return self.set_value(value)
+        if self._redirected_host is not None:
+            raise HostError("Cannot set value on a redirect host")
+        return super(_HostObject, self).set_value(value)
 
     @property
     def defunct(self):
@@ -126,9 +146,29 @@ class _HostObject(BaseObjectWrapper):
 class Hosted(object):
     """Base for classes that have a host attribute."""
     def __init__(self, *args, **kwargs):
-        """Initialize class."""
+        """Initialize class.
+
+        Attributes:
+            _host (_HostObject or None): host object that hosts this class
+                instance as data.
+            _paired_data_containers (dict(str,BaseHostedDataContainer)):
+                dictionary of attributes of this class that are containers
+                of other hosted data, keyed by their 'pairing' id. This is
+                used for the 'pairing' framework which ensures that hosted
+                data which mutually reference eachother stay up to date with
+                each other's edits.
+            _driver_paried_data_containers (dict(str,BaseHostedDataContainer)):
+                dictionary of paired data containers that must drive their
+                pair.
+            _driven_paried_data_containers (dict(str,BaseHostedDataContainer)):
+                dictionary of paired data containers that must be driven by
+                their pair. 
+        """
         super(Hosted, self).__init__(*args, **kwargs)
-        self._host = _HostObject(self)
+        self._host = None
+        self._paired_data_containers = {}
+        self._driver_paired_data_containers = {}
+        self._driven_paired_data_containers = {}
 
     @property
     def host(self):
@@ -141,7 +181,7 @@ class Hosted(object):
 
     @property
     def defunct(self):
-        """Check if object hosted data is still valid.
+        """Check if hosted data object is no longer/not yet valid.
 
         This is here for convenience so that subclasses can reimplement it,
         specifically for cases where they're referencing currently defunct
@@ -150,28 +190,297 @@ class Hosted(object):
         Returns:
             (bool): whether or not hosted data is defunct.
         """
-        return False
+        return (self._host is None)
 
-    def _switch_host(self, new_host):
-        """Switch out host to a different host.
+    def _iter_paired_data_containers(self):
+        """Iterate through all paired data containers in this class.
 
-        This should only be used by edit classes that are replacing some
-        class instance with an instance of another class. We then need to
-        ensure that the class instance whose host we're stealing is not
-        accessed again as it should be considered deleted once its host is
-        gone. Similarly, this item's old host should never be accessed
-        again, as conceptually hosts should be in one-to-one correspondence
-        with their data.
+        Yields:
+            (_BaseHostedDataContainer): paired data containers in class.
+        """
+        for container in self._paired_data_containers.values():
+            yield container
+        for driver_container in self._driver_paired_data_containers.values():
+            yield driver_container
+        for driven_container in self._driven_paired_data_containers.values():
+            yield driven_container
+
+    def _activate(self, host=None):
+        """Activate hosted object.
+
+        This needs to be done before the hosted data can be accessed by
+        other classes.
 
         Args:
-            new_host (_HostObject): new host to use.
+            host (_HostObject or None): host to activate with. This is
+                used when stealing the host of another hosted data
+                object, in order to replace it. If not given, we create
+                a new host.
         """
+        if not self.defunct:
+            raise HostError("Cannot activate already active object.")
+        if host is not None:
+            if host.data is not None:
+                host.data._deactivate()
+            host.set_data(self)
+            self._host = host
+        else:
+            self._host = _HostObject(self)
+        for container in self._iter_paired_data_containers():
+            container._apply_pairing()
+
+    def _deactivate(self):
+        """Deactivate hosted object.
+
+        This makes the hosted data defunct so it can no longer be accessed by
+        other classes.
+        """
+        if self.defunct:
+            raise HostError("Cannot deactivate already inactive object.")
         self._host.set_data(None)
-        self._host = new_host
-        new_host.set_data(self)
+        self._host = None
+        for container in self._iter_paired_data_containers():
+            container._unapply_pairing()
+
+    def _redirect_host(self, other_host):
+        """Redirected this data's host to another host.
+
+        This means the host now points at the data of the new host - it is used
+        in edits that merge two Hosted objects together, and it is assumed that
+        after this function is run, this hosted object has been removed and
+        its relevant data has been merged into the data of the new host.
+
+        Args:
+            other_host (_HostObject or None): other host to merge this one into.
+                If None, we remove the redirection instead.
+        """
+        if other_host._redirected_host is not None:
+            # To avoid potential recursion, enforce max one level of redirects
+            raise HostError("Cannot redirect host to another redirected host")
+        self.host._redirected_host = other_host
+        if other_host is None:
+            self.host.set_data(self)
+        else:
+            self.host.set_data(None)
 
 
-class MutableHostedAttribute(BaseObjectWrapper):
+class _BaseHostedContainer():
+    """Base class for classes that hold a hosted object.
+
+    These are for mutable attributes, or list or dict attributes in a Hosted
+    class that reference instances of other Hosted classes.
+
+    This base class provides the base implementation for the pairing
+    framework. The key concept behind this framework is that some classes
+    will contain mutual references to eachother (eg. each planned item
+    contains an attribute defining the tree item it applies to and each
+    tree item contains attribtues listing the items planned for it). To
+    avoid constantly needing to define double-updates in the edit classes,
+    a hosted container can instead define a connection to another hosted
+    container so that updates to one will automatically update the other
+    (so eg. changing the tree item attr of a planned item automatically
+    removes that planned item from the planned_item list of its old tree
+    attribute, and adds it to the list of its new tree attribute).
+    """
+    def __init__(
+            self,
+            pairing_id=None,
+            parent=None,
+            driver=False,
+            driven=False,
+            *args,
+            **kwargs):
+        """Initialize.
+
+        Args:
+            pairing_id (str or None): if given, this is the id that defines the
+                pairing of this container with a container in another hosted
+                class. This same id must be passed to the init of that other
+                container too.
+            parent (Hosted or None): the class this container is an attribute
+                of. This is only required for paired containers.
+            driver (bool): if True, this class drives its pair (ie. its pair
+                cannot mutate itself and can only be updated through updates
+                to this container). This requires that the pair is initialized
+                with driven=True.
+            driven (bool): if True, this class is driven by its pair (see
+                above). This requires that its pair is initialized with
+                driver=True.
+        """
+        if pairing_id is not None and parent is None:
+            raise HostError(
+                "Must pass a parent arg with a pairing_id arg."
+            )
+        if driven and driver:
+            raise HostError(
+                "A hosted data container cannot be both driven and a driver."
+            )
+        super(_BaseHostedContainer, self).__init__(*args, **kwargs)
+
+        self._pairing_id = pairing_id
+        self._parent = parent
+        self._driver = driver
+        self._driven = driven
+        self._locked = driven
+        if pairing_id is not None:
+            parent_dict = self._get_parent_paired_container_dict()
+            if pairing_id in parent_dict:
+                raise HostError(
+                    "Two paired containers with the same parent "
+                    "must specify a driver and a driven."
+                )
+            parent_dict[pairing_id] = self
+
+    @contextmanager
+    def _unlock_and_disconnect(self):
+        """Temporarily unlock container and disconnect any paired containers."""
+        locked = self._locked
+        pairing_id = self._pairing_id
+        self._locked = False
+        self._pairing_id = None
+        yield
+        self._locked = locked
+        self._pairing_id = pairing_id
+
+    @property
+    def is_paired(self):
+        """Check if this container is paired to another.
+
+        Returns:
+            (bool): whether or not container is paired.
+        """
+        return self._pairing_id is not None
+
+    def _get_parent_paired_container_dict(self):
+        """Get dictionary of paired containers that this should be in.
+
+        Returns:
+            (dict): the dictionary this should live in.
+        """
+        if self._driver:
+            return self._parent._driver_paired_data_containers
+        elif self._driven:
+            return self._parent._driven_paired_data_containers
+        else:
+            return self._parent._paired_data_containers
+
+    def _get_paired_container(self, host):
+        """Get the paired container for this item in the given host.
+
+        Args:
+            host (_HostObject): host of data that holds the paired
+                container.
+
+        Returns:
+            (_BaseDataContainer): the paired container.
+        """
+        if self._driver:
+            container_dict = host.data._driven_paired_data_containers
+        elif self._driven:
+            container_dict = host.data._driver_paired_data_containers
+        else:
+            container_dict = host.data._paired_data_containers
+        container = container_dict.get(self._pairing_id)
+        if not isinstance(container, _BaseHostedContainer):
+            raise HostError("No valid paired data container found.")
+        return container
+
+    def _check_not_locked(self):
+        """Check if container is locked, and raise an error if so."""
+        if self._locked:
+            raise HostError("Cannot mutate locked data container.")
+
+    def _get_host_object(self, value):
+        """Get host object for given value.
+
+        Args:
+            value (Hosted, _HostObject or None): value to find host object for.
+
+        Returns:
+            (_HostObject): corresponding host object.
+        """
+        if isinstance(value, Hosted):
+            if value.host is None:
+                raise HostError("Inactive hosted data cannot be accessed.")
+            return value.host
+        if isinstance(value, _HostObject):
+            return value
+        elif value is None:
+            return _HostObject(None)
+        raise HostError(
+            "Cannot add unhosted class {0} to HostedDataList".format(
+                value.__class__.__name__
+            )
+        )
+
+    def _add_to_paired_container(self, host):
+        """Add this class instance to paired container.
+
+        Args:
+            host (_HostObject): host of data whose container we should update.
+        """
+        container = self._get_paired_container(host)
+        with container._unlock_and_disconnect():
+            container._add_paired_object(self._parent)
+
+    def _remove_from_paired_container(self, host):
+        """Remove this class instance from paired container.
+
+        Args:
+            host (_HostObject): host of data whose container we should update.
+        """
+        container = self._get_paired_container(host)
+        with container._unlock_and_disconnect():
+            container._remove_paired_object(self._parent)
+
+    def _apply_pairing(self):
+        """Remove this container's class instance from its paired containers.
+
+        This only should be applied during deactivation of the class instance.
+        """
+        for host in self._iter_hosts():
+            self._add_to_paired_container(host)
+
+    def _unapply_pairing(self):
+        """Remove this container's class instance from its paired containers.
+
+        This only should be applied during deactivation of the class instance.
+        """
+        for host in self._iter_hosts():
+            self._remove_from_paired_container(host)
+
+    def _iter_hosts(self):
+        """Iterate through all hosts in this container.
+
+        Yields:
+            (_HostObject): the contained hosts.
+        """
+        raise NotImplementedError(
+            "_iter_hosts must be implemented in subclasses."
+        )
+
+    def _add_paired_object(self, hosted_data):
+        """Add the paired value to this container.
+
+        Args:
+            hosted_data (Hosted): hosted data to add.
+        """
+        raise NotImplementedError(
+            "_add_paired_object must be implemented in subclasses."
+        )
+
+    def _remove_paired_object(self, hosted_data):
+        """Remove the paired value from this container.
+
+        Args:
+            hosted_data (Hosted): hosted data to remove.
+        """
+        raise NotImplementedError(
+            "_remove_paired_object must be implemented in subclasses."
+        )
+
+
+class MutableHostedAttribute(_BaseHostedContainer, BaseObjectWrapper):
     """Wrapper around a _HostObject that allows us to treat it as mutable.
 
     This is just a mutable attribute around a host object. It is for class
@@ -180,7 +489,14 @@ class MutableHostedAttribute(BaseObjectWrapper):
     should use this class (even if the class doesn't need to mutate the data
     itself).
     """
-    def __init__(self, value, name=None):
+    def __init__(
+            self,
+            value,
+            name=None,
+            pairing_id=None,
+            parent=None,
+            driver=False,
+            driven=False):
         """Initialise attribute.
 
         Args:
@@ -189,22 +505,21 @@ class MutableHostedAttribute(BaseObjectWrapper):
                 instance that the host object holds (which must be a hosted
                 class). For convenience, None values are also allowed.
             name (str or None): name of attribute, if given.
+            pairing_id (str or None): if given, this id defines the pairing
+                of this container to another container with the same id.
+            parent (Hosted or None): the class this is an attribute of. This
+                is only required for paired containers.
+            driver (bool): whether or not this container drives its pair.
+            driven (bool): whether or not this container is driven by its pair.
         """
-        if isinstance(value, Hosted):
-            value = value.host
-        elif value is None:
-            # special unhosted case, allowed for convenience
-            value = _HostObject(None)
-        elif isinstance(value, _HostObject):
-            value = value
-        else:
-            raise HostError(
-                "Cannot create MutableHostedAttribute for instance of "
-                "unhosted class {0}".format(value.__class__.__name__)
-            )
+        value = self._get_host_object(value)
         super(MutableHostedAttribute, self).__init__(
-            value,
-            name
+            pairing_id=pairing_id,
+            parent=parent,
+            driver=driver,
+            driven=driven,
+            value=value,
+            name=name,
         )
 
     @property
@@ -238,55 +553,80 @@ class MutableHostedAttribute(BaseObjectWrapper):
         Returns:
             (bool): True if value was changed, else False.
         """
-        if isinstance(value, Hosted):
-            if self.value == value:
-                return False
-            self._value = value.host
-        elif value is None:
-            # special unhosted case allowed for convenience
-            if self.value is None:
-                return False
-            self._value = _HostObject(None)
-        elif isinstance(value, _HostObject):
-            if self.host == value:
-                return False
+        self._check_not_locked()
+        value = self._get_host_object(value)
+        if self._value != value:
+            if self.is_paired:
+                self._remove_from_paired_container(self._value)
+                self._add_to_paired_container(value)
             self._value = value
-        else:
-            raise HostError(
-                "Cannot set MutableHostedAttribute value as instance of "
-                "unhosted class {0}".format(value.__class__.__name__)
-            )
-        return True
+            return True
+        return False
 
+    def _iter_hosts(self):
+        """Iterate through all hosts in this container.
 
-class HostedDataList(MutableSequence):
-    """List class for storing hosted data by _HostObjects."""
-    def __init__(self, *args):
-        """Initialize."""
-        self._list = list()
-        self._reverse_sort_key = lambda value: 0
-        self.extend(list(args))
+        Yields:
+            (_HostObject): the contained hosts.
+        """
+        if not self.host.defunct:
+            yield self.host
 
-    def _get_hosted(self, value):
-        """Get host to add to list.
+    def _add_paired_object(self, hosted_data):
+        """Add the paired value to this container.
 
         Args:
-            value (Hosted, _HostObject or None): value to find host object for.
-
-        Returns:
-            (_HostObject): corresponding host object.
+            hosted_data (Hosted): hosted data to add.
         """
-        if isinstance(value, Hosted):
-            return value.host
-        if isinstance(value, _HostObject):
-            return value
-        elif value is None:
-            return _HostObject(None)
-        raise HostError(
-            "Cannot add unhosted class {0} to HostedDataList".format(
-                value.__class__.__name__
-            )
+        if self.value is None:
+            self.set_value(hosted_data)
+
+    def _remove_paired_object(self, hosted_data):
+        """Remove the paired value from this container.
+
+        Args:
+            hosted_data (Hosted): hosted data to remove.
+        """
+        if self.value == hosted_data:
+            self.set_value(None)
+
+
+class HostedDataList(_BaseHostedContainer, MutableSequence):
+    """List class for storing hosted data by _HostObjects.
+
+    Any class that need to store a list of hosted data objects should do
+    so in this container, so it keeps up to date with any changes to the
+    hosted data.
+    """
+    def __init__(
+            self,
+            pairing_id=None,
+            parent=None,
+            filter=None,
+            driver=False,
+            driven=False):
+        """Initialize.
+
+        Args:
+            parent (Hosted or None): the class this is an attribute
+                of. This is only required for paired containers.
+            pairing_id (str or None): if given, this id defines the pairing
+                of this container to another container with the same id.
+            filter (function): additional filter applied to list to ignore
+                data in specific cases.
+            driver (bool): whether or not this container drives its pair.
+            driven (bool): whether or not this container is driven by its pair.
+        """
+        super(HostedDataList, self).__init__(
+            pairing_id=pairing_id,
+            parent=parent,
+            driver=driver,
+            driven=driven,
         )
+        self._list = list()
+        self._reverse_sort_key = (lambda _: 0)
+        self._filter = filter or (lambda _: True)
+        self._iter_hosts = self._iter_filtered
 
     def _iter_filtered(self, reverse=False):
         """Iterate through filtered list.
@@ -302,7 +642,7 @@ class HostedDataList(MutableSequence):
         if reverse:
             iterable = reverse(self._list)
         for host in iterable:
-            if not host.defunct:
+            if not host.defunct and self._filter(host.data):
                 yield host
 
     def _iter_filtered_with_old_index(self, reverse=False):
@@ -321,7 +661,7 @@ class HostedDataList(MutableSequence):
         if reverse:
             iterable = reverse(self._list)
         for i, host in enumerate(iterable):
-            if not host.defunct:
+            if not host.defunct and self._filter(host.data):
                 if reverse:
                     yield -1 - i, host
                 else:
@@ -357,18 +697,23 @@ class HostedDataList(MutableSequence):
         Args:
             index (int or slice): index or slice to delete.
         """
+        self._check_not_locked()
         if isinstance(index, slice):
             indexes_and_values = list(self._iter_filtered_with_old_index())
-            for old_index, _ in indexes_and_values[index]:
+            for old_index, value in indexes_and_values[index]:
                 del self._list[old_index]
+                if self.is_paired:
+                    self._remove_from_paired_container(value)
             return
 
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
         )
-        for i, (old_index, _) in iterable:
+        for i, (old_index, value) in iterable:
             if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
                 del self._list[old_index]
+                if self.is_paired:
+                    self._remove_from_paired_container(value)
                 return
         raise IndexError(
             "Index {0} is outside range of HostedDataList".format(index)
@@ -382,17 +727,21 @@ class HostedDataList(MutableSequence):
             value (Hosted, _HostObject, None or list): value to set, or list
                 of values if index is a slice.
         """
+        self._check_not_locked()
         if isinstance(index, slice):
             if not isinstance(value, Iterable):
                 raise TypeError("Can only assign an iterable with a slice")
-            old_indexes = [
-                old_index for old_index, _
-                in list(self._iter_filtered_with_old_index())[index]
-            ]
-            length = len(old_indexes)
+            old_indexes_and_values = list(
+                self._iter_filtered_with_old_index()
+            )[index]
+            length = len(old_indexes_and_values)
             if len(value) == length:
-                for i, v in zip(old_indexes, v):
-                    self._list[i] = self._get_hosted(v)
+                for (i, old_v), v in zip(old_indexes_and_values, value):
+                    v = self._get_host_object(v)
+                    self._list[i] = v
+                    if self.is_paired:
+                        self._remove_from_paired_container(old_v)
+                        self._add_to_paired_container(v)
                 return
             if fallback_value(index.step, 1) != 1:
                 raise ValueError(
@@ -401,25 +750,32 @@ class HostedDataList(MutableSequence):
                 )
             # If splice has step 1, just replace from starting index
             start = fallback_value(index.start, 0)
-            for i in old_indexes:
+            for i, old_v in old_indexes_and_values:
                 del self._list[i]
+                if self.is_paired:
+                    self._remove_from_paired_container(old_v)
             if -length < start < length:
-                index_to_add_at = old_indexes[start]
+                index_to_add_at, _ = old_indexes_and_values[start]
             elif start < 0:
                 index_to_add_at = 0
             else:
                 index_to_add_at = len(self._list)
             for v in reversed(value):
-                self._list.insert(index_to_add_at, self._get_hosted(v))
+                self._list.insert(index_to_add_at, self._get_host_object(v))
+                if self.is_paired:
+                    self._add_to_paired_container(v)
             return
 
-        value = self._get_hosted(value)
+        value = self._get_host_object(value)
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
         )
-        for i, (old_index, _) in iterable:
+        for i, (old_index, old_value) in iterable:
             if (index >= 0 and index == i) or (index < 0 and index == -1 - i):
                 self._list[old_index] = value
+                if self.is_paired:
+                    self._remove_from_paired_container(old_value)
+                    self._add_to_paired_container(value)
                 return
         raise IndexError(
             "Index {0} is outside range of HostedDataList".format(index)
@@ -440,7 +796,8 @@ class HostedDataList(MutableSequence):
             index (int): value to insert at.
             value (Hosted, _HostObject or None): value to set):
         """
-        value = self._get_hosted(value)
+        self._check_not_locked()
+        value = self._get_host_object(value)
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
         )
@@ -452,6 +809,8 @@ class HostedDataList(MutableSequence):
             self._list.append(value)
         else:
             self._list.insert(0, value)
+        if self.is_paired:
+            self._add_to_paired_container(value)
 
     def sort(self, key=None, reverse=False, key_by_host=False):
         """Sort list by given key.
@@ -493,40 +852,75 @@ class HostedDataList(MutableSequence):
         """
         return self._reverse_sort_key
 
+    def _add_paired_object(self, hosted_data):
+        """Add the paired value to this container.
 
-class HostedDataDict(MutableMapping):
-    """Dict class for keying data by _HostObjects."""
-    def __init__(self, host_values=False):
+        Args:
+            hosted_data (Hosted): hosted data to add.
+        """
+        if hosted_data not in self:
+            self.append(hosted_data)
+
+    def _remove_paired_object(self, hosted_data):
+        """Remove the paired value from this container.
+
+        Args:
+            hosted_data (Hosted): hosted data to remove.
+        """
+        if hosted_data in self:
+            self.remove(hosted_data)
+
+
+class HostedDataDict(_BaseHostedContainer, MutableMapping):
+    """Dict class for keying data by _HostObjects.
+
+    Any class that needs to store a dict (or ordered dict) of hosted data
+    objects should do so in this container, so it keeps up to date with
+    any changes to the hosted data.
+    """
+    def __init__(
+            self,
+            host_keys=True,
+            host_values=False,
+            pairing_id=None,
+            parent=None,
+            key_value_func=None,
+            filter=None,
+            driver=False,
+            driven=False):
         """Initialize.
 
         Args:
-            host_values (bool): if True, values are hosted. Otherwise,
-                keys are hosted.
+            host_keys (bool): if True, keys are hosted.
+            host_values (bool): if True, values are hosted.
+            pairing_id (str or None): if given, this id defines the pairing
+                of this container to another container with the same id.
+            parent (Hosted or None): the class this is an attribute
+                of. This is only required for paired containers.
+            key_value_func (function or None): function to get key and value of
+                a hosted data object that's being added to this class, needed
+                for pairing functionality.
+            filter (function or None): additional filter for data. Must accept
+                key and value as args and return True or False.
+            driver (bool): whether or not this container drives its pair.
+            driven (bool): whether or not this container is driven by its pair.
         """
+        if not host_keys and not host_values:
+            raise HostError(
+                "HostedDataDict must use hosted data for keys or values"
+            )
+        super(HostedDataDict, self).__init__(
+            pairing_id=pairing_id,
+            parent=parent,
+            driver=driver,
+            driven=driven,
+        )
+        self._keys_are_hosted = host_keys
         self._values_are_hosted = host_values
         self._key_list = []
         self._value_list = []
-
-    def _get_hosted(self, value):
-        """Get host to add to dict (either as a key or a value).
-
-        Args:
-            value (Hosted, _HostObject or None): value to find host object for.
-
-        Returns:
-            (_HostObject): corresponding host object.
-        """
-        if isinstance(value, Hosted):
-            return value.host
-        if isinstance(value, _HostObject):
-            return value
-        elif value is None:
-            return _HostObject(None)
-        raise HostError(
-            "Cannot add unhosted class {0} to HostedDataList".format(
-                value.__class__.__name__
-            )
-        )
+        self._key_value_func = key_value_func
+        self._filter = filter or (lambda _,__: True)
 
     def _iter_filtered(self):
         """Iterate through filtered dict.
@@ -536,12 +930,14 @@ class HostedDataDict(MutableMapping):
             (variant or _HostObject): the valid values.
         """
         for key, value in zip(self._key_list, self._value_list):
-            if self._values_are_hosted:
-                if not value.defunct:
-                    yield key, value
-            else:
-                if not key.defunct:
-                    yield key, value
+            if ((self._values_are_hosted and value.defunct)
+                    or (self._keys_are_hosted and key.defunct)):
+                continue
+            key_data = key.data if self._keys_are_hosted else key
+            value_data = value.data if self._values_are_hosted else value
+            if not self._filter(key_data, value_data):
+                continue
+            yield key, value
 
     def _iter_filtered_with_old_index(self):
         """Iterate through filtered dict.
@@ -552,23 +948,27 @@ class HostedDataDict(MutableMapping):
             (variant or _HostObject): the valid values.
         """
         for i, (k, v) in enumerate(zip(self._key_list, self._value_list)):
-            if self._values_are_hosted:
-                if not v.defunct:
-                    yield i, k, v
-            elif not k.defunct:
-                yield i, k, v
+            if ((self._values_are_hosted and v.defunct)
+                    or (self._keys_are_hosted and k.defunct)):
+                continue
+            key_data = k.data if self._keys_are_hosted else k
+            value_data = v.data if self._values_are_hosted else v
+            if not self._filter(key_data, value_data):
+                continue
+            yield i, k, v
 
     def __iter__(self):
         """Iterate through filtered keys.
 
         Yields:
-            (variant or Hosted): the valid keys.
+            (variant or Hosted): the valid keys (as data rather than host
+                objects, since this method is accessed externally).
         """
         for k, _ in self._iter_filtered():
-            if self._values_are_hosted:
-                yield k
-            else:
+            if self._keys_are_hosted:
                 yield k.data
+            else:
+                yield k
 
     def __len__(self):
         """Get length of filtered dict.
@@ -588,11 +988,9 @@ class HostedDataDict(MutableMapping):
             (variant or _Hosted): value at key.
         """
         for k, v in self._iter_filtered():
-            if self._values_are_hosted:
-                if k == key:
-                    return v.data
-            elif k.data == key:
-                return v
+            if ((self._keys_are_hosted and k.data == key)
+                    or (not self._keys_Are_hosted and k == key)):
+                return v.data if self._values_are_hosted else v
         raise KeyError(
             "No valid item at key {0} in HostedDataDict".format(key)
         )
@@ -603,15 +1001,17 @@ class HostedDataDict(MutableMapping):
         Args:
             key (variant or _Hosted): key to delete.
         """
-        for i, k, _ in self._iter_filtered_with_old_index():
-            if self._values_are_hosted:
-                if k == key:
-                    del self._key_list[i]
-                    del self._value_list[i]
-                    return
-            elif k.data == key:
+        self._check_not_locked()
+        for i, k, v in self._iter_filtered_with_old_index():
+            if ((self._keys_are_hosted and k.data == key)
+                    or (not self._keys_are_hosted and k == key)):
                 del self._key_list[i]
                 del self._value_list[i]
+                if self.is_paired:
+                    if self._keys_are_hosted:
+                        self._remove_from_paired_container(k)
+                    if self._values_are_hosted:
+                        self._remove_from_paired_container(v)
                 return
         raise KeyError(
             "No valid item at key {0} in HostedDataDict".format(key)
@@ -624,19 +1024,19 @@ class HostedDataDict(MutableMapping):
             key (variant or _Hosted): key to set.
             value (Hosted, _HostObject or None): value to set.
         """
-        for i, k, _ in self._iter_filtered_with_old_index():
-            if self._values_are_hosted:
-                if k == key:
-                    self._value_list[i] = self._get_hosted(value)
-                    return
-            elif k.data == key:
-                self._value_list[i] = value
-                return
-        # if key not in list, add new one
+        self._check_not_locked()
         if self._values_are_hosted:
-            value = self._get_hosted(value)
-        else:
-            key = self._get_hosted(key)
+            value = self._get_host_object(value)
+        for i, k, v in self._iter_filtered_with_old_index():
+            if ((self._keys_are_hosted and k.data == key)
+                    or (not self._keys_are_hosted and k == key)):
+                self._value_list[i] = value
+                if self.is_paired and self._values_are_hosted:
+                    self._remove_from_paired_container(v)
+                    self._add_to_paired_container(value)
+        # if key not in list, add new one
+        if self._keys_are_hosted:
+            key = self._get_host_object(key)
             if key.defunct:
                 raise HostError(
                     "Cannot set defunct hosted data {0} as key in "
@@ -644,6 +1044,11 @@ class HostedDataDict(MutableMapping):
                 )
         self._key_list.append(key)
         self._value_list.append(value)
+        if self.is_paired:
+            if self._keys_are_hosted:
+                self._add_to_paired_container(key)
+            if self._values_are_hosted:
+                self._add_to_paired_container(value)
 
     def __str__(self):
         """Get string representation of list.
@@ -657,6 +1062,38 @@ class HostedDataDict(MutableMapping):
         ])
         return "{" + string + "}"
 
+    def _iter_hosts(self):
+        """Iterate through all hosts in this container.
+
+        Yields:
+            (_HostObject): the contained hosts.
+        """
+        for key, value in self._iter_filtered():
+            if self._keys_are_hosted:
+                yield key
+            if self._values_are_hosted:
+                yield value
+
+    def _add_paired_object(self, hosted_data):
+        """Add the paired value to this container.
+
+        Args:
+            hosted_data (Hosted): hosted data to add.
+        """
+        key, value = self._key_value_func(hosted_data)
+        if key not in self:
+            self[key] = value
+
+    def _remove_paired_object(self, hosted_data):
+        """Remove the paired value from this container.
+
+        Args:
+            hosted_data (Hosted): hosted data to remove.
+        """
+        key, _ = self._key_value_func(hosted_data)
+        if key in self:
+            del self[key]
+
     def move_to_end(self, key, last=True):
         """Move key, value to one end of dict.
 
@@ -665,11 +1102,10 @@ class HostedDataDict(MutableMapping):
             last (bool): if true, move to last element of dict, otherwise
                 move to start of dict.
         """
+        self._check_not_locked()
         for i, k, _ in self._iter_filtered_with_old_index():
-            if self._values_are_hosted:
-                if k == key:
-                    break
-            elif k.data == key:
+            if ((self._keys_are_hosted and k.data == key)
+                    or (not self._keys_are_hosted and k == key)):
                 break
         else:
             raise KeyError(

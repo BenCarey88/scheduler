@@ -2,7 +2,10 @@
 
 import os
 
+from .utils import OrderedEnum
 
+
+# System and File
 DEV_MODE = (os.getenv("DEV_MODE") == "on")
 SCHEDULER_PKG_DIR = os.path.normpath(
     "/users/benca/OneDrive/Documents/pkg-data/Scheduler"
@@ -12,6 +15,23 @@ if DEV_MODE:
         "/users/benca/OneDrive/Documents/pkg-data/Scheduler_dev"
     )
 USER_PREFS_FILE = os.path.join(SCHEDULER_PKG_DIR, "user_prefs.json")
+
+
+# Calendar Periods
+class TimePeriod(OrderedEnum):
+    """Struct to store different time periods."""
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    YEAR = "year"
+    VALUES = [DAY, WEEK, MONTH, YEAR]
+
+
+# Hosted Data Container Pairing
+PLANNER_TREE_PAIRING = "Planner_Tree_Pairing"
+SCHEDULER_TREE_PAIRING = "Scheduler_Tree_Pairing"
+PLANNER_SCHEDULER_PAIRING = "Planner_Scheduler_Pairing"
+PLANNER_PARENT_CHILD_PAIRING = "Planner_Parent_Child_Pairing"
 
 
 # TODO: this should DEFINITELY be set by user, as task attribute, hardcoding for now

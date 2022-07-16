@@ -2,15 +2,17 @@
 
 from contextlib import contextmanager
 import sys
+import datetime
 
 
 @contextmanager
-def indent_print(bookend=None, indent=1):
+def indent_print(bookend=None, indent=1, time_it=False):
     """Context manager to indent all prints, used for debugging.
 
     Args:
         indent (int): number of tabs to indent by.
         bookend (str or None): string to print on either side.
+        time_it (bool): if True, time it.
     """
     if bookend is not None:
         print ("[START]:", bookend)
@@ -18,11 +20,18 @@ def indent_print(bookend=None, indent=1):
     def new_print(*strings):
         old_print("\t" * indent, *strings)
     __builtins__["print"] = new_print
+    start_time = datetime.datetime.now()
     yield
+    end_time = datetime.datetime.now()
+    duration = (end_time - start_time).total_seconds()
     __builtins__["print"] = old_print
     if bookend is not None:
-        print ("[END]:", bookend)
-
+        if time_it:
+            print ("[END]:", bookend, duration)
+        else:
+            print ("[END]:", bookend)
+    elif time_it:
+        print ("[TIME]:", duration)
 
 def catch_exceptions(exceptions=None):
     """Decorator factory to make a function safe from the given exceptions.

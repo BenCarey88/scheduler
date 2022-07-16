@@ -2,7 +2,8 @@
 
 from collections import OrderedDict
 
-from scheduler.api.constants import TASK_COLORS
+from scheduler.api import constants
+from scheduler.api.constants import TimePeriod
 
 from scheduler.api.common.object_wrappers import (
     HostedDataList,
@@ -25,13 +26,18 @@ class BaseTaskItem(BaseTreeItem):
         """
         super(BaseTaskItem, self).__init__(name, parent)
         self._color = MutableAttribute(color)
-        # TODO: make all of these lists into Timelines?
-        self._planned_year_items = HostedDataList()
-        self._planned_month_items = HostedDataList()
-        self._planned_week_items = HostedDataList()
-        self._planned_day_items = HostedDataList()
-        self._scheduled_items = HostedDataList()
-        self._repeat_scheduled_items = HostedDataList()
+        # TODO: make all of these lists into HostedDataTimelines?
+        self._planned_items = HostedDataList(
+            pairing_id=constants.PLANNER_TREE_PAIRING,
+            parent=self,
+            driven=True,
+        )
+        self._scheduled_items = HostedDataList(
+            pairing_id=constants.SCHEDULER_TREE_PAIRING,
+            parent=self,
+            filter=(lambda item: item.is_task()),
+            driven=True,
+        )
 
     @property
     def is_archived(self):
@@ -55,8 +61,8 @@ class BaseTaskItem(BaseTreeItem):
         """
         if self._color:
             return self._color.value
-        if self.name in TASK_COLORS:
-            return TASK_COLORS.get(self.name)
+        if self.name in constants.TASK_COLORS:
+            return constants.TASK_COLORS.get(self.name)
         if self.parent:
             return self.parent.color
         return None
@@ -68,8 +74,7 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(ScheduledItem)): list of scheduled items.
         """
-        return self._scheduled_items
-        # return [s.value for s in self._scheduled_items]
+        return [item for item in self._scheduled_items if not item.is_repeat()]
 
     @property
     def repeat_scheduled_items(self):
@@ -78,8 +83,7 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(RepeatScheduledItem)): list of repeat scheduled items.
         """
-        return self._repeat_scheduled_items
-        # return [s.value for s in self._repeat_scheduled_items]
+        return [item for item in self._scheduled_items if item.is_repeat()]
 
     @property
     def planned_day_items(self):
@@ -88,8 +92,10 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return self._planned_day_items
-        # return [p.value for p in self._planned_day_items]
+        return [
+            item for item in self._planned_items
+            if item.time_period == TimePeriod.DAY
+        ]
 
     @property
     def planned_week_items(self):
@@ -98,8 +104,10 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return self._planned_week_items
-        # return [p.value for p in self._planned_week_items]
+        return [
+            item for item in self._planned_items
+            if item.time_period == TimePeriod.WEEK
+        ]
 
     @property
     def planned_month_items(self):
@@ -108,8 +116,10 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return self._planned_month_items
-        # return [p.value for p in self._planned_month_items]
+        return [
+            item for item in self._planned_items
+            if item.time_period == TimePeriod.MONTH
+        ]
 
     @property
     def planned_year_items(self):
@@ -118,5 +128,7 @@ class BaseTaskItem(BaseTreeItem):
         Returns:
             (list(PlannedItems)): list of planned items.
         """
-        return self._planned_year_items
-        # return [p.value for p in self._planned_year_items]
+        return [
+            item for item in self._planned_items
+            if item.time_period == TimePeriod.YEAR
+        ]

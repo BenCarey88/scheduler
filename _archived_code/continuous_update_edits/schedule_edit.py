@@ -8,7 +8,7 @@ from ._core_edits import (
     AttributeEdit,
     CompositeEdit,
     SelfInverseSimpleEdit, 
-    HostedDataEdit,
+    SwitchHostedDataEdit,
 )
 
 
@@ -418,7 +418,7 @@ class ReplaceScheduledItemEdit(CompositeEdit):
         add_edit = AddScheduledItemEdit.create_unregistered(
             new_scheduled_item,
         )
-        switch_host_edit = HostedDataEdit.create_unregistered(
+        switch_host_edit = SwitchHostedDataEdit.create_unregistered(
             old_scheduled_item,
             new_scheduled_item,
         )

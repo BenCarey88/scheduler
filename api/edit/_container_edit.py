@@ -65,8 +65,11 @@ class ContainerEditFlag(object):
             apply the edit to the first instance of that value they find
             in the list (so if there are any repeats of a value in the list,
             the edit will only be applied once to that value).
+        IGNORE_DUPLICATES: only add items to a container if they're not
+            already there.
     """
     LIST_FIND_BY_VALUE = "List_Find_By_Value"
+    IGNORE_DUPLICATES = "List_Ignore_Duplicates"
 
 
 class BaseContainerEdit(BaseEdit):
@@ -109,6 +112,7 @@ class BaseContainerEdit(BaseEdit):
 
         diff_list formats:
             ADD:    [new_item]               - append new item
+            ADD_NEW: [new_item]              - append item if not in list
             INSERT: [(index, new_item)]      - insert new item at index
             REMOVE: [item/index]             - remove item/item at given index
             MODIFY: [(item/index, new_item)] - change item to new_item
@@ -143,98 +147,11 @@ class BaseContainerEdit(BaseEdit):
         self._inverse_diff_container = None
         self._inverse_operation_type = ContainerOp.get_inverse_op(op_type)
         super(BaseContainerEdit, self).__init__()
-        self._is_valid = self._check_validity()
-
-    def _check_validity(self):
-        """Check if edit is valid.
-
-        Returns:
-            (bool): whether or not edit is valid.
-        """
-        if isinstance(self._container, LIST_TYPES):
-            if self._operation_type == ContainerOp.ADD:
-                return True
-
-            elif self._operation_type == ContainerOp.INSERT:
-                return any([
-                    0 <= index <= len(self._container)
-                    for (index, _) in self._diff_container
-                ])
-
-            elif self._operation_type == ContainerOp.REMOVE:
-                if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
-                    return any ([
-                        value in self._container
-                        for value in self._diff_container
-                    ])
-                else:
-                    return any(
-                        0 <= index < len(self._container)
-                        for index in self._diff_container
-                    )
-
-            elif (self._operation_type
-                    in [ContainerOp.MODIFY, ContainerOp.MOVE]):
-                if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
-                    return any ([
-                        value in self._container
-                        for (value, _) in self._diff_container
-                    ])
-                else:
-                    return any(
-                        0 <= index < len(self._container)
-                        for (index, _) in self._diff_container
-                    )
-
-            elif self._operation_type == ContainerOp.SORT:
-                return any([
-                    sorted(
-                        self._container,
-                        key=key,
-                        reverse=reverse,
-                    ) != self._container
-                    for (key, reverse) in self._diff_container
-                ])
-
-        elif isinstance(self._container, DICT_TYPES):
-            if self._operation_type == ContainerOp.ADD:
-                return any([
-                    key not in self._container for key in self._diff_container
-                ])
-
-            elif self._operation_type == ContainerOp.INSERT:
-                return any([
-                    key not in self._container
-                    and 0 <= index <= len(self._container)
-                    for key, (index, _) in self._diff_container.items()
-                ])
-
-            elif self._operation_type in [ContainerOp.REMOVE, ContainerOp.MODIFY]:
-                return any([
-                    key in self._container for key in self._diff_container
-                ])
-
-            elif self._operation_type == ContainerOp.RENAME:
-                return any([
-                    key in self._container and new_key not in self._container
-                    for key, new_key in self._diff_container.items()
-                ])
-
-            elif self._operation_type in (
-                    [ContainerOp.ADD_OR_MODIFY, ContainerOp.REMOVE_OR_MODIFY]):
-                return True
-
-            elif isinstance(self._container, ORDERED_DICT_TYPES):
-                if self._operation_type == ContainerOp.MOVE:
-                    return any([
-                        key in self._container 
-                        and 0 <= index < len(self._container)
-                        for key, index in self._diff_container.items()
-                    ])
-
-        raise EditError(
-            "Invalid container edit of type {0} with container of type {1}"
-            "".format(self._operation_type, type(self._container).__name__)
+        self._is_valid = self._run_operation(
+            self._container,
+            self._diff_container,
+            self._operation_type,
+            as_validity_check=True,
         )
 
     def _get_operation_method(self, container, operation_type):
@@ -406,7 +323,8 @@ class BaseContainerEdit(BaseEdit):
             container,
             diff_container,
             operation_type,
-            inverse_diff_container=None):
+            inverse_diff_container=None,
+            as_validity_check=False):
         """Run operation on a container.
 
         Loop through the container and check if there are nested diff
@@ -419,13 +337,13 @@ class BaseContainerEdit(BaseEdit):
             op_type (ContainerOp): type of operation to run.
             inverse_diff_container (dict, list or None): if given, use this to
                 build up the inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not edit is valid ie. whether or not edit
-                actually modifies container. Note that this return value is
-                currently not used for anything, since we now calculate
-                is_valid during edit init. Leaving it here for now in case
-                it becomes useful.
+                actually modifies container. This is used to determine
+                whether operation is valid when we run as a validity check.
         """
         is_valid = False
         # note that in the case of lists, key is an index here
@@ -452,6 +370,7 @@ class BaseContainerEdit(BaseEdit):
                     value,
                     operation_type,
                     inverse_diff_subcontainer,
+                    as_validity_check=as_validity_check,
                 ) or is_valid
 
             # otherwise call specific operarion method
@@ -466,18 +385,26 @@ class BaseContainerEdit(BaseEdit):
                         value,
                         container,
                         inverse_diff_container,
+                        as_validity_check=as_validity_check,
                     ) or is_valid
                 elif isinstance(container, LIST_TYPES):
                     is_valid = operation_method(
                         value,
                         container,
                         inverse_diff_container,
+                        as_validity_check=as_validity_check,
                     ) or is_valid
 
         return is_valid
 
     ### Dict Operation Methods ###
-    def _dict_add(self, key, value, dict_, inverse_diff_dict=None):
+    def _dict_add(
+            self,
+            key,
+            value,
+            dict_,
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Add given key, value to dict.
 
         Args:
@@ -486,14 +413,20 @@ class BaseContainerEdit(BaseEdit):
             dict_ (dict): dict to add key to.
             inverse_diff_dict (dict or None): if given, add to this to
                 define inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
         """
+        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+                and value in dict_.values()):
+            return False
         if key not in dict_:
             if inverse_diff_dict is not None:
                 self._add_inverse_diff_dict_key(inverse_diff_dict, key, None)
-            dict_[key] = value
+            if not as_validity_check:
+                dict_[key] = value
             return True
         return False
 
@@ -502,7 +435,8 @@ class BaseContainerEdit(BaseEdit):
             key,
             value_tuple,
             dict_,
-            inverse_diff_dict=None):
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Insert given key, value to dict.
 
         Args:
@@ -514,6 +448,8 @@ class BaseContainerEdit(BaseEdit):
                 ignore the index and treat this as an ADD edit.
             inverse_diff_dict (dict or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -528,25 +464,34 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_dict
             )
 
+        index, new_value = value_tuple
+        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+                and new_value in dict_.values()):
+            return False
         if key not in dict_:
-            index = value_tuple[0]
             if index < 0 or index > len(dict_):
                 return False
-            new_value = value_tuple[1]
-            if index == len(dict_):
-                dict_[key] = new_value
-            else:
-                for i in range(len(dict_)):
-                    k, v = dict_.popitem(last=False)
-                    if index == i:
-                        dict_[key] = new_value
-                    dict_[k] = v
+            if not as_validity_check:
+                if index == len(dict_):
+                    dict_[key] = new_value
+                else:
+                    for i in range(len(dict_)):
+                        k, v = dict_.popitem(last=False)
+                        if index == i:
+                            dict_[key] = new_value
+                        dict_[k] = v
             if inverse_diff_dict is not None:
                 self._add_inverse_diff_dict_key(inverse_diff_dict, key, None)
             return True
         return False
 
-    def _dict_remove(self, key, _, dict_, inverse_diff_dict=None):
+    def _dict_remove(
+            self,
+            key,
+            _,
+            dict_,
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Remove given key from dict.
 
         Args:
@@ -556,6 +501,8 @@ class BaseContainerEdit(BaseEdit):
             dict_ (dict): ordered dict to remove key from.
             inverse_diff_dict (dict or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -568,11 +515,18 @@ class BaseContainerEdit(BaseEdit):
                     key,
                     (index, dict_[key])
                 )
-            del dict_[key]
+            if not as_validity_check:
+                del dict_[key]
             return True
         return False
 
-    def _dict_rename(self, key, new_key, dict_, inverse_diff_dict=None):
+    def _dict_rename(
+            self,
+            key,
+            new_key,
+            dict_,
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Rename given key in dict.
 
         Args:
@@ -581,21 +535,24 @@ class BaseContainerEdit(BaseEdit):
             dict_ (dict): dict whose key we're renaming.
             inverse_diff_dict (dict or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
         """
         if key in dict_:
-            if isinstance(dict_, ORDERED_DICT_TYPES):
-                for i in range(len(dict_)):
-                    k, v = dict_.popitem(last=False)
-                    if k == key:
-                        dict_[new_key] = v
-                    else:
-                        dict_[k] = v
-            else:
-                dict_[new_key] = dict_[key]
-                del dict_[key]
+            if not as_validity_check:
+                if isinstance(dict_, ORDERED_DICT_TYPES):
+                    for i in range(len(dict_)):
+                        k, v = dict_.popitem(last=False)
+                        if k == key:
+                            dict_[new_key] = v
+                        else:
+                            dict_[k] = v
+                else:
+                    dict_[new_key] = dict_[key]
+                    del dict_[key]
             if inverse_diff_dict is not None:
                 self._add_inverse_diff_dict_key(
                     inverse_diff_dict,
@@ -605,7 +562,13 @@ class BaseContainerEdit(BaseEdit):
             return True
         return False
 
-    def _dict_modify(self, key, new_value, dict_, inverse_diff_dict=None):
+    def _dict_modify(
+            self,
+            key,
+            new_value,
+            dict_,
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Modify given key to new value in dict.
 
         Args:
@@ -614,6 +577,8 @@ class BaseContainerEdit(BaseEdit):
             dict_ (dict): dict whose key we're modifying.
             inverse_diff_dict (dict or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -625,14 +590,21 @@ class BaseContainerEdit(BaseEdit):
                     key,
                     dict_[key]
                 )
-            dict_[key] = new_value
+            if not as_validity_check:
+                dict_[key] = new_value
             return True
         return False
 
     # TODO: add some tests for these composite ones, haven't considered all
     # cases so I don't know if could hit some issues with the inverses for
     # certain recursive scenarios - but seems to work for task history :)
-    def _dict_add_or_modify(self, key, value, dict_, inverse_diff_dict=None):
+    def _dict_add_or_modify(
+            self,
+            key,
+            value,
+            dict_,
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Add given key to dict if doesn't exist or modify existing key.
 
         Args:
@@ -641,21 +613,36 @@ class BaseContainerEdit(BaseEdit):
             dict_ (dict): dict we're editing.
             inverse_diff_dict (dict or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
         """
         if key in dict_:
-            return self._dict_modify(key, value, dict_, inverse_diff_dict)
+            return self._dict_modify(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
         else:
-            return self._dict_add(key, value, dict_, inverse_diff_dict)
+            return self._dict_add(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
 
     def _dict_remove_or_modify(
             self,
             key,
             value,
             dict_,
-            inverse_diff_dict=None):
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Remove existing key from dict if value is None, else modify key.
 
         Args:
@@ -664,14 +651,28 @@ class BaseContainerEdit(BaseEdit):
             dict_ (dict): ordered dict we're editing.
             inverse_diff_dict (dict or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
         """
         if value is None:
-            return self._dict_remove(key, value, dict_, inverse_diff_dict)
+            return self._dict_remove(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
         else:
-            return self._dict_modify(key, value, dict_, inverse_diff_dict)
+            return self._dict_modify(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
 
     ### OrderedDict Operation Methods ###
     def _ordered_dict_move(
@@ -679,7 +680,8 @@ class BaseContainerEdit(BaseEdit):
             key,
             index,
             ordered_dict,
-            inverse_diff_dict=None):
+            inverse_diff_dict=None,
+            as_validity_check=False):
         """Move given key to new index in ordered dict.
 
         Args:
@@ -689,6 +691,8 @@ class BaseContainerEdit(BaseEdit):
             dict (OrderedDict): ordered dict whose key we're moving.
             inverse_diff_dict (OrderedDict or None): if given, add to this to
                 define inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -702,23 +706,29 @@ class BaseContainerEdit(BaseEdit):
                     key,
                     old_index
                 )
-            # first remove item from dict
-            del ordered_dict[key]
-            # now insert item into dict in new position
-            # note that ordered_dict length has now decreased by 1
-            if index == len(ordered_dict):
-                ordered_dict[key] = value
-            else:
-                for i in range(len(ordered_dict)):
-                    k, v = ordered_dict.popitem(last=False)
-                    if i == index:
-                        ordered_dict[key] = value
-                    ordered_dict[k] = v
+            if not as_validity_check:
+                # first remove item from dict
+                del ordered_dict[key]
+                # now insert item into dict in new position
+                # note that ordered_dict length has now decreased by 1
+                if index == len(ordered_dict):
+                    ordered_dict[key] = value
+                else:
+                    for i in range(len(ordered_dict)):
+                        k, v = ordered_dict.popitem(last=False)
+                        if i == index:
+                            ordered_dict[key] = value
+                        ordered_dict[k] = v
             return True
         return False
 
     ### List Operation Methods ###
-    def _list_add(self, value, list_, inverse_diff_list=None):
+    def _list_add(
+            self,
+            value,
+            list_,
+            inverse_diff_list=None,
+            as_validity_check=False):
         """Add given value to list.
 
         Args:
@@ -726,19 +736,30 @@ class BaseContainerEdit(BaseEdit):
             list_ (list): list to add to.
             inverse_diff_list (list or None): if given, add to this to
                 define inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
         """
+        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+                and value in list_):
+            return False
         if inverse_diff_list is not None:
             if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
                 inverse_diff_list.insert(0, value)
             else:
                 inverse_diff_list.insert(0, len(list_))
-        list_.append(value)
+        if not as_validity_check:
+            list_.append(value)
         return True
 
-    def _list_insert(self, value_tuple, list_, inverse_diff_list=None):
+    def _list_insert(
+            self,
+            value_tuple,
+            list_,
+            inverse_diff_list=None,
+            as_validity_check=False):
         """Insert given value to list.
 
         Args:
@@ -748,6 +769,8 @@ class BaseContainerEdit(BaseEdit):
             list_ (list): list to insert into.
             inverse_diff_list (list or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -755,9 +778,13 @@ class BaseContainerEdit(BaseEdit):
         if not isinstance(value_tuple, tuple) or len(value_tuple) != 2:
             raise EditError("diff list for INSERT op needs 2-tuple values")
         index, new_value = value_tuple
+        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+                and new_value in list_):
+            return False
         if index < 0 or index > len(list_):
             return False
-        list_.insert(index, new_value)
+        if not as_validity_check:
+            list_.insert(index, new_value)
         if inverse_diff_list is not None:
             if ContainerEditFlag.LIST_FIND_BY_VALUE in self._edit_flags:
                 inverse_diff_list.insert(0, new_value)
@@ -765,7 +792,12 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_list.insert(0, index)
         return True
 
-    def _list_remove(self, index_or_value, list_, inverse_diff_list=None):
+    def _list_remove(
+            self,
+            index_or_value,
+            list_,
+            inverse_diff_list=None,
+            as_validity_check=False):
         """Remove item from list.
 
         Args:
@@ -775,6 +807,8 @@ class BaseContainerEdit(BaseEdit):
             list_ (list): list to remove from.
             inverse_diff_list (list or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -785,7 +819,8 @@ class BaseContainerEdit(BaseEdit):
             if not value in list_:
                 return False
             index = list_.index(value)
-            list_.pop(index)
+            if not as_validity_check:
+                list_.pop(index)
         else:
             # Remove by index
             index = index_or_value
@@ -797,13 +832,19 @@ class BaseContainerEdit(BaseEdit):
                 )
             if index < 0 or index >= len(list_):
                 return False
-            value = list_.pop(index)
+            if not as_validity_check:
+                value = list_.pop(index)
 
         if inverse_diff_list is not None:
             inverse_diff_list.insert(0, (index, value))
         return True
 
-    def _list_modify(self, value_tuple, list_, inverse_diff_list=None):
+    def _list_modify(
+            self,
+            value_tuple,
+            list_,
+            inverse_diff_list=None,
+            as_validity_check=False):
         """Modify list item at given index to new value.
 
         Args:
@@ -813,6 +854,8 @@ class BaseContainerEdit(BaseEdit):
             dict_ (dict): dict whose key we're modifying.
             inverse_diff_dict (dict or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -824,10 +867,16 @@ class BaseContainerEdit(BaseEdit):
             return False
         if inverse_diff_list is not None:
             inverse_diff_list.insert(0, (index, list_[index]))
-        list_[index] = new_value
+        if not as_validity_check:
+            list_[index] = new_value
         return True
 
-    def _list_move(self, index_tuple, list_, inverse_diff_list=None):
+    def _list_move(
+            self,
+            index_tuple,
+            list_,
+            inverse_diff_list=None,
+            as_validity_check=False):
         """Move given index to new index in ordered dict.
 
         Args:
@@ -836,6 +885,8 @@ class BaseContainerEdit(BaseEdit):
             list_ (list): list whose items we're moving.
             inverse_diff_list (list or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -857,10 +908,16 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_list.insert(0, (list_[old_index], old_index))
             else:
                 inverse_diff_list.insert(0, (new_index, old_index))
-        list_.insert(new_index, list_.pop(old_index))
+        if not as_validity_check:
+            list_.insert(new_index, list_.pop(old_index))
         return True
 
-    def _list_sort(self, sort_func_tuple, list_, inverse_diff_list=None):
+    def _list_sort(
+            self,
+            sort_func_tuple,
+            list_,
+            inverse_diff_list=None,
+            as_validity_check=False):
         """Sort list according to given tuple.
 
         Args:
@@ -869,6 +926,8 @@ class BaseContainerEdit(BaseEdit):
             list_ (list): list whose items we're moving.
             inverse_diff_list (list or None): if given, add to this to define
                 inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
 
         Returns:
             (bool): whether or not container is modified.
@@ -891,18 +950,32 @@ class BaseContainerEdit(BaseEdit):
             inverse_diff_list.insert(0, (reverse_key, False))
 
         orig_list = list_[:]
-        if isinstance(list_, HostedDataList) and inverse_sort:
-            list_.sort(key=key, reverse=reverse, key_by_host=True)
+        if not as_validity_check:
+            if isinstance(list_, HostedDataList) and inverse_sort:
+                list_.sort(key=key, reverse=reverse, key_by_host=True)
+            else:
+                list_.sort(key=key, reverse=reverse)
+            new_list = list_
         else:
-            list_.sort(key=key, reverse=reverse)
+            if isinstance(list_, HostedDataList) and inverse_sort:
+                new_list = sorted(
+                    list_, key=key, reverse=reverse, key_by_host=True
+                )
+            else:
+                new_list = sorted(list_, key=key, reverse=reverse)
 
         if isinstance(list_, HostedDataList) and inverse_diff_list is not None:
             # this must be done after sorting, to create the inverse key
+            if as_validity_check:
+                raise EditError(
+                    "List sort edits on HostedDataLists cannot build their "
+                    "inverse list without running the edit first."
+                )
             inverse_diff_list.insert(
                 0,
                 (list_.get_reverse_key(), HOSTED_DATA_INVERSE)
             )
-        return (orig_list != list_)
+        return (new_list != orig_list)
 
 
 class DictEdit(BaseContainerEdit):

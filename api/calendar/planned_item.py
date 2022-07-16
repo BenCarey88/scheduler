@@ -13,20 +13,13 @@ from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
 )
+from scheduler.api import constants
+from scheduler.api.constants import TimePeriod as TP
 from scheduler.api.utils import fallback_value, OrderedEnum
 
 
 class PlannedItemError(Exception):
     """Generic exception for planned item errors."""
-
-
-class PlannedItemTimePeriod(OrderedEnum):
-    """Struct to store potential time periods to plan over."""
-    DAY = "day"
-    WEEK = "week"
-    MONTH = "month"
-    YEAR = "year"
-    VALUES = [DAY, WEEK, MONTH, YEAR]
 
 
 class PlannedItem(Hosted, NestedSerializable):
@@ -38,7 +31,6 @@ class PlannedItem(Hosted, NestedSerializable):
     SCHEDULED_ITEMS_KEY = "scheduled_items"
     PLANNED_CHILDREN_KEY = "planned_children"
     ID_KEY = "id"
-    PITP = PlannedItemTimePeriod
 
     def __init__(
             self,
@@ -68,12 +60,30 @@ class PlannedItem(Hosted, NestedSerializable):
         self._calendar = calendar
         self._calendar_period = MutableAttribute(
             calendar_period,
-            "calendar_period"
+            "calendar_period",
         )
-        self._tree_item = MutableHostedAttribute(tree_item, "tree_item")
-        self._planned_children = HostedDataList()
-        self._planned_parents = HostedDataList()
-        self._scheduled_items = HostedDataList()
+        self._tree_item = MutableHostedAttribute(
+            tree_item,
+            "tree_item",
+            pairing_id=constants.PLANNER_TREE_PAIRING,
+            parent=self,
+            driver=True,
+        )
+        self._planned_children = HostedDataList(
+            pairing_id=constants.PLANNER_PARENT_CHILD_PAIRING,
+            parent=self,
+            driver=True,
+        )
+        self._planned_parents = HostedDataList(
+            pairing_id=constants.PLANNER_PARENT_CHILD_PAIRING,
+            parent=self,
+            driven=True,
+        )
+        self._scheduled_items = HostedDataList(
+            pairing_id=constants.PLANNER_SCHEDULER_PAIRING,
+            parent=self,
+            driver=True,
+        )
         self._id = None
 
     @property
@@ -99,7 +109,7 @@ class PlannedItem(Hosted, NestedSerializable):
         """Get time period type that item is planned for.
 
         Returns:
-            (PlannedItemTimePeriod): period type item is planned for.
+            (TimePeriod): period type item is planned for.
         """
         return self.calendar_period.get_time_period_type()
 
@@ -142,7 +152,6 @@ class PlannedItem(Hosted, NestedSerializable):
             (list(BaseScheduledItem)): associated scheduled items.
         """
         return self._scheduled_items
-        # return [item.value for item in self._scheduled_items]
 
     @property
     def planned_children(self):
@@ -152,7 +161,6 @@ class PlannedItem(Hosted, NestedSerializable):
             (list(PlannedItem))): associated child items.
         """
         return self._planned_children
-        # return [child.value for child in self._planned_children]
 
     @property
     def planned_parents(self):
@@ -162,7 +170,6 @@ class PlannedItem(Hosted, NestedSerializable):
             (list(PlannedItem))): associated parent items.
         """
         return self._planned_parents
-        # return [parent.value for parent in self._planned_parents]
 
     @property
     def defunct(self):
@@ -171,7 +178,7 @@ class PlannedItem(Hosted, NestedSerializable):
         Returns:
             (bool): whether or not item should be considered deleted.
         """
-        return (self.tree_item is None)
+        return super(PlannedItem, self).defunct or (self.tree_item is None)
 
     def __lt__(self, item):
         """Check if self is over a smaller period than other item.
@@ -186,7 +193,7 @@ class PlannedItem(Hosted, NestedSerializable):
                 )
             )
         return (
-            self.PITP.key(self.time_period) < self.PITP.key(item.time_period)
+            TP.key(self.time_period) < TP.key(item.time_period)
         )
 
     def __le__(self, item):
@@ -202,7 +209,7 @@ class PlannedItem(Hosted, NestedSerializable):
                 )
             )
         return (
-            self.PITP.key(self.time_period) <= self.PITP.key(item.time_period)
+            TP.key(self.time_period) <= TP.key(item.time_period)
         )
 
     def __gt__(self, item):
@@ -218,7 +225,7 @@ class PlannedItem(Hosted, NestedSerializable):
                 )
             )
         return (
-            self.PITP.key(self.time_period) > self.PITP.key(item.time_period)
+            TP.key(self.time_period) > TP.key(item.time_period)
         )
 
     def __ge__(self, item):
@@ -234,7 +241,7 @@ class PlannedItem(Hosted, NestedSerializable):
                 )
             )
         return (
-            self.PITP.key(self.time_period) >= self.PITP.key(item.time_period)
+            TP.key(self.time_period) >= TP.key(item.time_period)
         )
 
     def get_item_container(self, calendar_period=None):
@@ -268,10 +275,10 @@ class PlannedItem(Hosted, NestedSerializable):
         if tree_item is None:
             return None
         return {
-            self.PITP.DAY: tree_item._planned_day_items,
-            self.PITP.WEEK: tree_item._planned_week_items,
-            self.PITP.MONTH: tree_item._planned_month_items,
-            self.PITP.YEAR: tree_item._planned_year_items,
+            TP.DAY: tree_item._planned_day_items,
+            TP.WEEK: tree_item._planned_week_items,
+            TP.MONTH: tree_item._planned_month_items,
+            TP.YEAR: tree_item._planned_year_items,
         }.get(self.time_period)
 
     def index(self):
@@ -333,11 +340,6 @@ class PlannedItem(Hosted, NestedSerializable):
         """
         if scheduled_item not in self.scheduled_items:
             self._scheduled_items.append(scheduled_item)
-            #     MutableHostedAttribute(scheduled_item)
-            # )
-            scheduled_item._planned_items.append(scheduled_item)
-            #     MutableHostedAttribute(self)
-            # )
 
     def _add_planned_child(self, planned_item):
         """Add planned item child (to be used during deserialization).
@@ -348,11 +350,6 @@ class PlannedItem(Hosted, NestedSerializable):
         """
         if planned_item not in self._planned_children:
             self._planned_children.append(planned_item)
-            #     MutableHostedAttribute(planned_item)
-            # )
-            planned_item._planned_parents.append(self)
-            #     MutableAttribute(self)
-            # )
 
     def _get_id(self):
         """Generate unique id for object.
@@ -393,9 +390,7 @@ class PlannedItem(Hosted, NestedSerializable):
             calendar_period,
             tree_item,
         )
-        planned_item_list = planned_item.get_tree_item_container()
-        if planned_item_list is not None:            
-            planned_item_list.append(planned_item)
+        planned_item._activate()
 
         for scheduled_item_id in dict_repr.get(cls.SCHEDULED_ITEMS_KEY, []):
             item_registry.register_callback(
@@ -410,7 +405,6 @@ class PlannedItem(Hosted, NestedSerializable):
         id = dict_repr.get(cls.ID_KEY, None)
         if id is not None:
             item_registry.register_item(id, planned_item)
-
         return planned_item
 
     def to_dict(self):

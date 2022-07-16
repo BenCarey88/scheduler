@@ -27,8 +27,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             planner_manager (PlannerManager): the planner manager object.
             calendar_period (BaseCalendarPeriod or None): the calendar
                 period this is modelling.
-            time_period (PlannedItemTimePeriod): the time period type this
-                is modelling, if calendar_period not given.
+            time_period (TimePeriod): the time period type this is modelling,
+                if calendar_period not given.
             open_dialog_on_drop_event (bool): if True, use PlannedItemDialog
                 to add dropped items, otherwise add directly.
             parent (QtWidgets.QWidget or None): QWidget that this models.

@@ -149,6 +149,7 @@ class TaskCategory(BaseTaskItem):
             (TaskCategory): category class for given dict.
         """
         category = cls(name, parent)
+        category._activate()
         subcategories = json_dict.get(cls.CATEGORIES_KEY, {})
         for subcategory_name, subcategory_dict in subcategories.items():
             subcategory = TaskCategory.from_dict(

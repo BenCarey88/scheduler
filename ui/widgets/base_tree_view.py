@@ -102,6 +102,8 @@ class BaseTreeView(QtWidgets.QTreeView):
             return False
         if not force:
             # TODO: fix this message (after sorting archiving)
+            # - should be in separate function
+            # - deal with planned/scheduled children
             messages = []
             dependencies = {}
             for item in items:

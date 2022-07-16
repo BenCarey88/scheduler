@@ -201,7 +201,7 @@ class TaskTab(BaseTab):
             )
             if task_header_view:
                 task_header_view.remove_header_widget(row, item)
-        self.update_task_header_views_for_item(item)
+        self.update_task_header_views_for_item(parent)
 
     def pre_item_moved(self, item, old_parent, old_row, new_parent, new_row):
         """Callback for before an item is moved.

@@ -287,7 +287,7 @@ class AttributeEdit(BaseEdit):
         )
 
 
-class HostedDataEdit(SimpleEdit):
+class SwitchHostedDataEdit(SimpleEdit):
     """Edit to switch the data of a host from one object to another."""
     def __init__(self, old_data, new_data):
         """Initiailize edit.
@@ -299,9 +299,9 @@ class HostedDataEdit(SimpleEdit):
         if (not isinstance(old_data, Hosted)
                 or not isinstance(new_data, Hosted)):
             raise EditError(
-                "args passed to HostedDataEdit must be Hosted class objects."
+                "args passed to SwitchHostedDataEdit must be Hosted class objects."
             )
-        super(HostedDataEdit, self).__init__(
+        super(SwitchHostedDataEdit, self).__init__(
             run_func=partial(new_data._switch_host, old_data.host),
             inverse_run_func=partial(old_data._switch_host, new_data.host),
         )

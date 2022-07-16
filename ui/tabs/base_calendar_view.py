@@ -602,5 +602,5 @@ class BaseOverlayedView(BaseCalendarView, OverlayedWidget):
         Args:
             calendar_period (BaseCalendarPeriod): calendar period to set to.
         """
-        self.sub_view.set_to_calendar_period(calendar_period)
+        self.sub_widget.set_to_calendar_period(calendar_period)
         super(BaseOverlayedView, self).set_to_calendar_period(calendar_period)

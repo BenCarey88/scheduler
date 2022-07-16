@@ -3,7 +3,7 @@
 from operator import contains
 from PyQt5 import QtWidgets, QtCore, QtGui
 
-from scheduler.api.calendar.planned_item import PlannedItemTimePeriod as PITP
+from scheduler.api.constants import TimePeriod
 from scheduler.ui import constants
 from scheduler.ui.tabs.base_calendar_view import (
     BaseHybridView,
@@ -28,18 +28,18 @@ class PlannerHybridView(BaseHybridView):
         Args:
             name (str): name of tab.
             project (Project): the project we're working on.
-            time_period (PlannedItemTimePeriod): time period type of view.
+            time_period (TimePeriod): time period type of view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.time_period = time_period
-        left_view = TitledPlannerListView(name, project, PITP.DAY)
-        if time_period == PITP.DAY:
+        left_view = TitledPlannerListView(name, project, TimePeriod.DAY)
+        if time_period == TimePeriod.DAY:
             right_view = SchedulerTimetableView(name, project, num_days=1)
-        elif time_period == PITP.WEEK:
+        elif time_period == TimePeriod.WEEK:
             right_view = PlannerMultiListWeekView(name, project)
-        elif time_period == PITP.MONTH:
+        elif time_period == TimePeriod.MONTH:
             right_view = PlannerMultiListMonthView(name, project)
-        elif time_period == PITP.YEAR:
+        elif time_period == TimePeriod.YEAR:
             right_view = PlannerMultiListYearView(name, project)
         else:
             raise NotImplementedError(
@@ -68,7 +68,7 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         Args:
             name (str): name of tab.
             project (Project): the project we're working on.
-            time_period (PlannedItemTimePeriod): time period type of view.
+            time_period (TimePeriod): time period type of view.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.hybrid_view = PlannerHybridView(name, project, time_period)
@@ -89,7 +89,7 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         }
         self.multilist_view = None
         self.timetable_view = None
-        if time_period == PITP.DAY:
+        if time_period == TimePeriod.DAY:
             self.timetable_view = self.right_view
             self.mouse_track_defaults[self.timetable_view] = (
                 self.timetable_view.hasMouseTracking()
@@ -229,7 +229,7 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         parent_rect = self.get_parent_rect(planned_item)
         if parent_rect is None:
             return
-        if self.time_period == PITP.DAY:
+        if self.time_period == TimePeriod.DAY:
             child_list = planned_item.scheduled_items
         else:
             child_list = planned_item.planned_children
@@ -266,7 +266,7 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         child_rect = self.get_child_rect(item)
         if child_rect is None:
             return
-        if self.time_period == PITP.DAY:
+        if self.time_period == TimePeriod.DAY:
             parent_list = item.planned_items
         else:
             parent_list = item.planned_parents

@@ -15,8 +15,5 @@ from .scheduled_item import (
     RepeatScheduledItemInstance,
     ScheduledItemType,
 )
-from .planned_item import (
-    PlannedItem,
-    PlannedItemTimePeriod,
-)
+from .planned_item import PlannedItem
 from .tracker import Tracker

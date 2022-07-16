@@ -215,37 +215,82 @@ class AttributeEdit(BaseEdit):
         )
 
 
-class HostedDataEdit(SimpleEdit):
-    """Edit to switch the data of a host from one object to another."""
-    def __init__(self, old_data, new_data):
-        """Initiailize edit.
-
-        Args:
-            old_data (Hosted): old data of host.
-            new_data (Hosted): new data of host.
-        """
-        if (not isinstance(old_data, Hosted)
-                or not isinstance(new_data, Hosted)):
-            raise EditError(
-                "args passed to HostedDataEdit must be Hosted objects."
-            )
-        super(HostedDataEdit, self).__init__(
-            run_func=partial(new_data._switch_host, old_data.host),
-            inverse_run_func=partial(old_data._switch_host, new_data.host),
-        )
-        self._is_valid = (old_data != new_data)
-
-
-class RemoveFromHostEdit(AttributeEdit):
-    """Edit to remove data from a host."""
+class ActivateHostedDataEdit(SimpleEdit):
+    """Edit to activate hosted data."""
     def __init__(self, hosted_data):
         """Initiailize edit.
 
         Args:
-            hosted_data (Hosted): hosted data to remove.
+            hosted_data (Hosted): data to activate.
         """
         if not isinstance(hosted_data, Hosted):
             raise EditError(
-                "args passed to RemoveFromHostEdit must be Hosted objects."
+                "args passed to ActivateHostedDataEdit must "
+                "be Hosted objects."
             )
-        super(RemoveFromHostEdit, self).__init__({hosted_data.host: None})
+        super(ActivateHostedDataEdit, self).__init__(
+            run_func=hosted_data._activate,
+            inverse_run_func=hosted_data._deactivate,
+        )
+        self._is_valid = hosted_data.defunct
+
+
+class DeactivateHostedDataEdit(SimpleEdit):
+    """Edit to deactivate hosted data."""
+    def __init__(self, hosted_data):
+        """Initiailize edit.
+
+        Args:
+            hosted_data (Hosted): data to deactivate.
+        """
+        if not isinstance(hosted_data, Hosted):
+            raise EditError(
+                "args for DeactivateHostedDataEdit must be Hosted objects."
+            )
+        super(DeactivateHostedDataEdit, self).__init__(
+            run_func=hosted_data._deactivate,
+            inverse_run_func=hosted_data._activate,
+        )
+        self._is_valid = (not hosted_data.defunct)
+
+
+class ReplaceHostedDataEdit(SimpleEdit):
+    """Edit to replace one hosted data object with another."""
+    def __init__(self, old_data, new_data):
+        """Initiailize edit.
+
+        Args:
+            old_data (Hosted): old hosted data.
+            new_data (Hosted): new data to replace it with.
+        """
+        if (not isinstance(old_data, Hosted)
+                or not isinstance(new_data, Hosted)):
+            raise EditError(
+                "args passed to ReplaceHostedDataEdit must be Hosted objects."
+            )
+        super(ReplaceHostedDataEdit, self).__init__(
+            run_func=partial(new_data._activate, old_data.host),
+            inverse_run_func=partial(old_data._activate, new_data.host),
+        )
+        self._is_valid = (old_data != new_data)
+
+
+class RedirectHostEdit(SimpleEdit):
+    """Redirect one data's host to another data's host."""
+    def __init__(self, old_data, new_data):
+        """Initialize.
+
+        Args:
+            old_data (Hosted): data whose host we should redirect.
+            new_data (Hosted): data whose host we should redirect to.
+        """
+        if (not isinstance(old_data, Hosted)
+                or not isinstance(new_data, Hosted)):
+            raise EditError(
+                "args passed to RedirectHostEdit must be Hosted objects."
+            )
+        super(RedirectHostEdit, self).__init__(
+            run_func=partial(old_data._redirect_host, new_data.host),
+            inverse_run_func=partial(old_data._redirect_host, None),
+        )
+        self._is_valid = (old_data != new_data)

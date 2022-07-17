@@ -344,3 +344,11 @@ class BaseTreeItem(Hosted, NestedSerializable):
         if include_children:
             for child in self.get_all_children():
                 child.print(True, depth + 1)
+
+    def clone(self):
+        """Create skeletal clone of item, missing parent and all children.
+
+        Returns:
+            (BaseTreeItem): cloned item.
+        """
+        raise NotImplementedError("clone must be implemented in subclasses.")

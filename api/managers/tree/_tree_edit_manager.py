@@ -2,6 +2,7 @@
 
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.edit.tree_edit import (
+    ArchiveTreeItemEdit,
     InsertChildrenEdit,
     MoveChildrenEdit,
     MoveTreeItemEdit,
@@ -421,3 +422,39 @@ class TreeEditManager(BaseTreeManager):
         if new_type == task_item.type:
             return False
         return ChangeTaskTypeEdit.create_and_run(task_item, new_type)
+
+    @require_class(BaseTaskItem, raise_error=False)
+    def archive_item(
+            self,
+            tree_item,
+            rename="",
+            merge=True,
+            override=True,
+            recursive=True):
+        """Archive tree item.
+
+        tree_item (BaseTreeItem): item to archive.
+            archive_root (BaseTreeItem): root of archive tree.
+            rename (str): if given, rename the item to this if it already
+                exists in the archive. This cannot be given if merge is True.
+            merge (bool): if True, and item already exists in archive tree,
+                merge this one into it. Otherwise, we rename the item we're
+                archiving. This cannot be True if rename arg is given.
+            override (bool): if True, keep attributes of the source item when
+                merging, otherwise keep those of the dest item. If renaming,
+                override=True tells us that the original archived item should
+                be renamed rather than the newly archived item.
+            recursive (bool): if True, run any merges recursively for children
+                of the item that already exist in the archive tree.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        return ArchiveTreeItemEdit.create_and_run(
+            tree_item,
+            self.archive_tree_root,
+            rename="",
+            merge=True,
+            override=True,
+            recursive=True,
+        )

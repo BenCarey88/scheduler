@@ -232,6 +232,16 @@ class BaseTreeView(QtWidgets.QTreeView):
             return False
         return self.tree_manager.change_task_type(item)
 
+    def archive_item(self, item, *args):
+        """Archive given item.
+
+        Args:
+            item (BaseTreeItem or None): item to archive.
+        """
+        if item is None:
+            return False
+        return self.tree_manager.archive_item(item)
+
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
 
@@ -360,6 +370,12 @@ class BaseTreeView(QtWidgets.QTreeView):
                         action,
                         partial(self.toggle_task_type, item=item)
                     )
+
+            action = right_click_menu.addAction("Archive")
+            self._connect_action_to_func(
+                action,
+                partial(self.archive_item, item=item),
+            )
 
             action = right_click_menu.addAction("Delete")
             self._connect_action_to_func(

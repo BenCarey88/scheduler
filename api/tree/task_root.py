@@ -25,6 +25,7 @@ class TaskRoot(TaskCategory):
 
     CATEGORIES_KEY = _SUBDIR_KEY
     ROOT_NAME = ""
+    ARCHIVE_ROOT_NAME = "ARCHIVE"
 
     def __init__(self, directory_path=None, name=None, *args, **kwargs):
         """Initialise TaskRoot item.
@@ -53,11 +54,13 @@ class TaskRoot(TaskCategory):
         """
         return self._children
 
-    def get_item_at_path(self, path):
+    def get_item_at_path(self, path, strict=False):
         """Get item at given path.
 
         Args:
             path (list(str) or str): path to item as a list or a string.
+            strict (bool): if True, require that root names of path match
+                as well.
 
         Returns:
             (BaseTaskItem or None): tree item at given path, if one exists.
@@ -70,7 +73,7 @@ class TaskRoot(TaskCategory):
             return None
         if len(path_list) == 0:
             return None
-        if path_list[0] != self.name:
+        if strict and path_list[0] != self.name:
             return None
         tree_item = self
         for name in path_list[1:]:
@@ -78,6 +81,47 @@ class TaskRoot(TaskCategory):
             if not tree_item:
                 break
         return tree_item
+
+    def get_shared_ancestor(self, tree_item):
+        """Get the closest ancestor to given item that exists in this tree.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to check against.
+
+        Returns:
+            (BaseTreeItem): shared ancestor.
+        """
+        ancestor = self
+        while tree_item is not None:
+            ancestor = self.get_item_at_path(tree_item.path)
+            if ancestor is not None:
+                return ancestor
+            tree_item = tree_item.parent
+        return ancestor
+
+    def create_missing_ancestors(self, tree_item):
+        """Create ancestors that are missing to get to given item.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to check against.
+
+        Returns:
+            (list(BaseTreeItem)): newly created skeletal ancestors. The
+                created ancestors will each contain the next one down
+                as a child but no other children. The created items are
+                not activated, and will not contain this item in their
+                child list.
+        """
+        missing_ancestors = []
+        shared_ancestor = self.get_shared_ancestor(tree_item)
+        while tree_item.path_list[1:] != shared_ancestor.path_list[1:]:
+            tree_item = tree_item.parent
+            new_ancestor = tree_item.clone()
+            if missing_ancestors:
+                child = missing_ancestors[0]
+                new_ancestor._children[child.name] = child
+            missing_ancestors.insert(0, new_ancestor)
+        return missing_ancestors
 
     def get_history_for_date(self, date):
         """Get task history dict at given date.

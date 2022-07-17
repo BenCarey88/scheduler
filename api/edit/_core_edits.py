@@ -100,7 +100,7 @@ class CompositeEdit(BaseEdit):
         self._reverse_order_for_inverse = reverse_order_for_inverse
         super(CompositeEdit, self).__init__()
         validity_edits = fallback_value(validity_check_edits, self._edits_list)
-        # NOTE: this is_valid check is a bit dodgy, can fail since the stating
+        # NOTE: this is_valid check is a bit dodgy, can fail since the starting
         # conditions of later edits in the edit list will be effected by the
         # earlier edits. Will often need to use custom logic in subclasses.
         self._is_valid = bool(self._edits_list) and any(

@@ -14,8 +14,6 @@ from ._base_tree_item import BaseTreeItem
 
 class BaseTaskItem(BaseTreeItem):
     """Base item for tasks and task categories."""
-    ARCHIVE_ROOT_NAME = "ARCHIVE"
-
     def __init__(self, name, parent=None, color=None):
         """Initialise task item class.
 
@@ -38,19 +36,6 @@ class BaseTaskItem(BaseTreeItem):
             filter=(lambda item: item.is_task()),
             driven=True,
         )
-
-    @property
-    def is_archived(self):
-        """Check if item is archived.
-
-        Currently this finds the root each time this is called. I'm sure we
-        can work an _is_archived attribute into the edits instead to avoid
-        the unnecessary calculation.
-
-        Returns:
-            (bool): whether or not item is archived.
-        """
-        return (self.root.name == self.ARCHIVE_ROOT_NAME)
 
     @property
     def color(self):

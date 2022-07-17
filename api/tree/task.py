@@ -95,40 +95,6 @@ class Task(BaseTaskItem):
         self.value_type = value_type or TaskValueType.NONE
         self._allowed_child_types = [Task]
 
-        # new attribute and method names for convenience
-        # TODO: it's a faff to keep adding these redefinitions
-        # remove all the ones that aren't necessary.
-        # self.create_subtask = partial(
-        #     self.create_child,
-        #     task_type=self.type
-        # )
-        # self.create_new_subtask = partial(
-        #     self.create_new_child,
-        #     default_name="subtask",
-        #     task_type=self.type,
-        # )
-        # # TODO: task type stuff getting messy - if this attribute remains a
-        # # thing, we should ensure that any child added through add_child has
-        # # the same type.
-        # self.add_subtask = self.add_child
-        # self.create_sibling_task = partial(
-        #     self.create_sibling,
-        #     task_type=self.type,
-        # )
-        # self.create_new_sibling_task = partial(
-        #     self.create_new_sibling,
-        #     default_name = "task",
-        #     task_type=self.type,
-        # )
-        # self.add_sibling_task = self.add_sibling
-        # self.remove_subtask = self.remove_child
-        # self.remove_subtasks = self.remove_children
-        # self.get_subtask = self.get_child
-        # self.get_subtask_at_index = self.get_child_at_index
-        # self.get_all_subtasks = self.get_all_children
-        # self.num_subtasks = self.num_children
-        # self.num_subtask_descendants = self.num_descendants
-
     @property
     def _subtasks(self):
         """Get subtasks dict.
@@ -170,20 +136,6 @@ class Task(BaseTaskItem):
                 self._status.set_value(TaskStatus.UNSTARTED)
         return self._status.value
 
-    # TODO: do we need this? Currently status seter is used by edit class,
-    # but that's a friend so is free to use _status, and other classes
-    # shouldn't be setting this directly anyway.
-    # does allow to set recursively though which we probably want down
-    # the line.
-    # @status.setter
-    # def status(self, value):
-    #     """Set task status.
-
-    #     Args:
-    #         (TaskStatus): new status value.
-    #     """
-    #     self._status = value
-
     @property
     def type(self):
         """Get task type.
@@ -192,24 +144,6 @@ class Task(BaseTaskItem):
             (TaskType): current status.
         """
         return self._type.value
-
-    # @type.setter
-    # def type(self, value):
-    #     """Set task type.
-
-    #     Also update type for all parents and children.
-
-    #     Args:
-    #         (TaskType): new type value.
-    #     """
-    #     self._type = value
-    #     parent = self.parent
-    #     while isinstance(parent, Task) and parent.type != value:
-    #         parent._type = value
-    #         parent = parent.parent
-    #     for subtask in self._children.values():
-    #         if subtask.type != value:
-    #             subtask.type = value
 
     @property
     def history(self):
@@ -265,50 +199,20 @@ class Task(BaseTaskItem):
         """
         return self.history.get_value_at_date(date)
 
-    # def update_task(self, status=None, date_time=None, comment=None):
-    #     """Update task history and status.
+    def clone(self):
+        """Create skeletal clone of item, missing parent and children.
 
-    #     Args:
-    #         status (TaskStatus or None): status to update task with. If None
-    #             given, we calculate the next one.
-    #         date (DateTime or None): datetime object to update task history
-    #             with.
-    #         comment (str): comment to add to history if needed.
-    #     """
-    #     if status is None:
-    #         current_status = self.status
-    #         if current_status == TaskStatus.UNSTARTED:
-    #             if self.type == TaskType.ROUTINE:
-    #                 status = TaskStatus.COMPLETE
-    #             else:
-    #                 status = TaskStatus.IN_PROGRESS
-    #         elif current_status == TaskStatus.IN_PROGRESS:
-    #             status = TaskStatus.COMPLETE
-    #         elif current_status == TaskStatus.COMPLETE:
-    #             status = TaskStatus.UNSTARTED
-
-    #     if date_time is None:
-    #         date_time = DateTime.now()
-    #     UpdateTaskHistoryEdit.create_and_run(
-    #         self,
-    #         date_time,
-    #         status,
-    #         comment=comment,
-    #         register_edit=self._register_edits,
-    #     )
-
-    # def change_task_type(self, new_type):
-    #     """Change task type to new type.
-
-    #     Args:
-    #         new_type (TaskType): new type to change to.
-    #     """
-    #     if new_type != self.type:
-    #         ChangeTaskTypeEdit.create_and_run(
-    #             self,
-    #             new_type,
-    #             self._register_edits
-    #         )
+        Returns:
+            (Task): cloned item.
+        """
+        return Task(
+            self.name,
+            parent=None,
+            task_type=self.type,
+            status=self.status,
+            history_dict=self.history.to_dict(),
+            value_type=self.value_type,
+        )
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.

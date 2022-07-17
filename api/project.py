@@ -200,9 +200,15 @@ class Project(CustomSerializable):
             self._project_tree.project_user_prefs_file,
             self._task_root,
         )
-        # TODO: set up archive stuff
-        self._archive_task_root = None
-        self._archive_calendar = None
+        # Archive
+        # TODO: calendar and tracker need to init with task archive too
+        self._archive_task_root = TaskRoot.safe_read(
+            self._archive_tree.tasks_directory,
+        )
+        self._archive_calendar = Calendar.safe_read(
+            self._archive_tree.calendar_directory,
+            self._task_root,
+        )
 
     @property
     def root_directory(self):

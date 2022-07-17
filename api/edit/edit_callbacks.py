@@ -4,12 +4,15 @@ from functools import partial
 
 from . import edit_log
 from .tree_edit import (
+    AddChildrenEdit,
+    ArchiveTreeItemEdit,
     InsertChildrenEdit,
     MoveChildrenEdit,
     MoveTreeItemEdit,
     RemoveChildrenEdit,
     RenameChildrenEdit,
     ReplaceTreeItemEdit,
+    UnarchiveTreeItemEdit,
 )
 from .task_edit import (
     ChangeTaskTypeEdit,
@@ -76,10 +79,14 @@ class CallbackType(object):
     Tree:
         TREE_ADD:
             Args:   (tree_item, parent, row)
-            Edits:  [InsertChildrenEdit]
+            Edits:  [
+                AddChildrenEdit,
+                InsertChildrenEdit,
+                UnarchiveTreeItemEdit
+            ]
         TREE_REMOVE:
             Args:   (tree_item, parent, row)
-            Edits:  [RemoveChildrenEdit]
+            Edits:  [RemoveChildrenEdit, ArchiveTreeItem]
         TREE_MODIFY:
             Args:   (old_tree_item, new_tree_item),
             Edits:  [
@@ -141,8 +148,8 @@ class CallbackType(object):
     )
 
     EDIT_CLASS_MAPPING = {
-        TREE_ADD: [InsertChildrenEdit],
-        TREE_REMOVE: [RemoveChildrenEdit],
+        TREE_ADD: [AddChildrenEdit, InsertChildrenEdit, UnarchiveTreeItemEdit],
+        TREE_REMOVE: [RemoveChildrenEdit, ArchiveTreeItemEdit],
         TREE_MODIFY: [
             RenameChildrenEdit,
             ReplaceTreeItemEdit,

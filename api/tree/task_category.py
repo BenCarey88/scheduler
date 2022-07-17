@@ -95,6 +95,14 @@ class TaskCategory(BaseTaskItem):
             top_level_task_category = top_level_task_category.parent
         return top_level_task_category
 
+    def clone(self):
+        """Create skeletal clone of item, missing parent and children.
+
+        Returns:
+            (TaskCategory): cloned item.
+        """
+        return TaskCategory(self.name)
+
     def to_dict(self):
         """Get json compatible dictionary representation of class.
 

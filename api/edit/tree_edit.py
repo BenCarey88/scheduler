@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 
+from ._base_edit import EditError
 from ._core_edits import (
     ActivateHostedDataEdit,
     AttributeEdit,
@@ -533,3 +534,160 @@ class MergeTreeItemsEdit(CompositeEdit):
         )
         subedits.extend([*transfer_children_edits, redirect_host_edit])
         super(MergeTreeItemsEdit, self).__init__(subedits)
+
+
+class ArchiveTreeItemEdit(CompositeEdit):
+    """Archive a tree item."""
+    def __init__(
+            self,
+            tree_item,
+            archive_root,
+            rename="",
+            merge=True,
+            override=True,
+            recursive=True):
+        """Initialize edit.
+
+        Args:
+            tree_item (BaseTreeItem): item to archive.
+            archive_root (BaseTreeItem): root of archive tree.
+            rename (str): if given, rename the item to this if it already
+                exists in the archive. This cannot be given if merge is True.
+            merge (bool): if True, and item already exists in archive tree,
+                merge this one into it. Otherwise, we rename the item we're
+                archiving. This cannot be True if rename arg is given.
+            override (bool): if True, keep attributes of the source item when
+                merging, otherwise keep those of the dest item. If renaming,
+                override=True tells us that the original archived item should
+                be renamed rather than the newly archived item.
+            recursive (bool): if True, run any merges recursively for children
+                of the item that already exist in the archive tree.
+        """
+        if rename and merge:
+            raise EditError(
+                "ArchiveTreeItemEdit cannot accept both rename and merge args."
+            )
+        subedits = []
+        archived_item = archive_root.get_item_at_path(tree_item.path)
+        if tree_item.parent is None:
+            pass
+
+        elif archived_item is None:
+            # If item not in archive, add it and any missing ancestors
+            remove_edit = RemoveChildrenEdit.create_unregistered(
+                tree_item.parent,
+                [tree_item.name],
+                deactivate=False,
+            )
+            subedits = [remove_edit]
+            closest_ancestor = archive_root.get_shared_ancestor(tree_item)
+            if closest_ancestor.path != tree_item.parent.path:
+                new_ancestors = archive_root.create_missing_ancestors(
+                    tree_item,
+                )
+                add_ancestors_edit = AddChildrenEdit.create_unregistered(
+                    closest_ancestor,
+                    {new_ancestors[0].name: new_ancestors[0]},
+                    activate=True,
+                )
+                add_edit = AddChildrenEdit.create_unregistered(
+                    new_ancestors[-1],
+                    {tree_item.name: tree_item},
+                    activate=False,
+                )
+                subedits.extend([add_ancestors_edit, add_edit])
+            else:
+                add_edit = AddChildrenEdit.create_unregistered(
+                    closest_ancestor,
+                    {tree_item.name: tree_item},
+                    activate=False,
+                )
+                subedits.append(add_edit)
+
+        # If item in archive, merge it in or rename it and then add it
+        elif merge:
+            merge_edit = MergeTreeItemsEdit.create_unregistered(
+                tree_item,
+                archived_item,
+                override=override,
+                recursive=recursive,
+            )
+            # Ignore the remove edit in this case as merge edit covers it
+            subedits = [merge_edit]
+
+        elif rename:
+            if archived_item.parent.get_child(rename):
+                # Can't rename to another name that's also in archive
+                super(ArchiveTreeItemEdit, self).__init__([])
+                self._is_valid = False
+                return
+            item_to_rename = tree_item
+            tree_item_name = rename
+            if override:
+                item_to_rename = archived_item
+                tree_item_name = tree_item.name
+
+            rename_edit = RenameChildrenEdit.create_unregistered(
+                item_to_rename.parent,
+                {tree_item.name: rename},
+            )
+            remove_edit = RemoveChildrenEdit.create_unregistered(
+                tree_item.parent,
+                [tree_item_name],
+                deactivate=False,
+            )
+            add_edit = AddChildrenEdit(
+                archived_item.parent,
+                {tree_item_name: tree_item},
+                activate=False,
+            )
+            subedits = [rename_edit, remove_edit, add_edit]
+
+        super(ArchiveTreeItemEdit, self).__init__(subedits)
+        self._callback_args = self._undo_callback_args = [
+            (tree_item, tree_item.parent, tree_item.index())
+        ]
+        self._name = "ArchiveTreeItem ({0})".format(tree_item.name)
+        self._description = "Archive tree item {0}".format(tree_item.name)
+
+
+class UnarchiveTreeItemEdit(ArchiveTreeItemEdit):
+    """Unarchive a tree item."""
+    def __init__(
+            self,
+            archived_item,
+            tree_root,
+            rename="",
+            merge=True,
+            override=True,
+            recursive=True):
+        """Initialize edit.
+
+        Args:
+            archived_item (BaseTreeItem): item to unarchive.
+            tree_root (BaseTreeItem): root of main tree.
+            rename (str): if given, rename the item to this if it already
+                exists in the tree. This cannot be given if merge is True.
+            merge (bool): if True, and item already exists in main tree,
+                merge this one into it. Otherwise, we rename the item we're
+                archiving. This cannot be True if rename arg is given.
+            override (bool): if True, keep attributes of the source item when
+                merging, otherwise keep those of the dest item. If renaming,
+                override=True tells us that the original archived item should
+                be renamed rather than the newly archived item.
+            recursive (bool): if True, run any merges recursively for children
+                of the item that already exist in the archive tree.
+        """
+        super(UnarchiveTreeItemEdit, self).__init__(
+            self,
+            archived_item,
+            tree_root,
+            rename=rename,
+            merge=merge,
+            override=override,
+            recursive=recursive,
+        )
+        self._name = "UnarchiveTreeItemEdit ({0})".format(archived_item.name)
+        self._description = "Unarchive tree item {0}".format(
+            archived_item.name
+        )

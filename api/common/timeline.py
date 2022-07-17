@@ -12,6 +12,8 @@ class TimelineError(Exception):
 
 # TODO: would it probably be easier to make this a list instead of an
 # ordered dict? I think it probably would.
+# Either way, we probably would want it to inherit from MutableSequence
+# or MutableMapping
 class Timeline(object):
     """Timeline container type.
 

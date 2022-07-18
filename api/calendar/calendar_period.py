@@ -1,6 +1,7 @@
 """Classes representing a time period of calendar data."""
 
 from collections import OrderedDict
+from contextlib import contextmanager
 
 from scheduler.api.constants import TimePeriod
 from scheduler.api.common.date_time import (
@@ -234,19 +235,24 @@ class CalendarDay(BaseCalendarPeriod):
         """
         return CalendarWeek(self.calendar, self.date, length=1)
 
-    def iter_scheduled_items(self):
+    def iter_scheduled_items(self, filter=None):
         """Iterate through scheduled scheduled items.
 
         This includes repeat instances as well.
 
+        Args:
+            filter (function, BaseFilter or None): filter to apply, if given.
+
         Yields:
             (ScheduledItem): next scheduled item.
         """
-        for repeat_item in self.calendar._repeat_items:
-            for item_instance in repeat_item.instances_at_date(self.date):
-                yield item_instance
-        for item in self._scheduled_items:
-            yield item
+        with self.calendar._repeat_items.apply_filter(filter):
+            for repeat_item in self.calendar._repeat_items:
+                for item_instance in repeat_item.instances_at_date(self.date):
+                    yield item_instance
+        with self._scheduled_items.apply_filter(filter):
+            for item in self._scheduled_items:
+                yield item
 
     def iter_planned_items(self):
         """Iterate through planned day items.

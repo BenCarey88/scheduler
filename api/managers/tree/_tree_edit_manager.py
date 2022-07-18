@@ -25,20 +25,18 @@ from ._base_tree_manager import BaseTreeManager
 
 class TreeEditManager(BaseTreeManager):
     """Tree edit manager to apply edits to tree items."""
-    def __init__(self, name, user_prefs, tree_root, archive_tree_root):
+    def __init__(self, name, user_prefs, tree_root):
         """Initialise class.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
-            archive_tree_root (TaskRoot): root archive task object.
         """
         super(TreeEditManager, self).__init__(
             name,
             user_prefs,
             tree_root,
-            archive_tree_root,
         )
 
     @require_class(BaseTaskItem, raise_error=True)
@@ -453,8 +451,8 @@ class TreeEditManager(BaseTreeManager):
         return ArchiveTreeItemEdit.create_and_run(
             tree_item,
             self.archive_tree_root,
-            rename="",
-            merge=True,
-            override=True,
-            recursive=True,
+            rename=rename,
+            merge=merge,
+            override=override,
+            recursive=recursive,
         )

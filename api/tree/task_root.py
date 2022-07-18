@@ -27,12 +27,10 @@ class TaskRoot(TaskCategory):
     ROOT_NAME = ""
     ARCHIVE_ROOT_NAME = "ARCHIVE"
 
-    def __init__(self, directory_path=None, name=None, *args, **kwargs):
+    def __init__(self, name=None, *args, **kwargs):
         """Initialise TaskRoot item.
 
         Args:
-            directory_path (str or None): path to directory this should be
-                saved to, or None if not set yet.
             name (str or None): name. If None, use ROOT_NAME.
             args (tuple): additional args to allow super class classmethod
                 to use this init.
@@ -41,9 +39,9 @@ class TaskRoot(TaskCategory):
         """
         name = name or self.ROOT_NAME
         super(TaskRoot, self).__init__(name=name, parent=None)
-        self._directory_path = directory_path
         self._allowed_child_types = [TaskCategory]
         self._history_data = None
+        self._archive_root = None
 
     @property
     def _categories(self):
@@ -54,13 +52,31 @@ class TaskRoot(TaskCategory):
         """
         return self._children
 
-    def get_item_at_path(self, path, strict=False):
+    @property
+    def archive_root(self):
+        """Get corresponding archive tree root for this tree.
+
+        Returns:
+            (TaskRoot): archive root.
+        """
+        return self._archive_root
+
+    def set_archive_root(self, archive_root):
+        """Set corresponding archive tree root for this tree.
+
+        Args:
+            (TaskRoot): archive root.
+        """
+        self._archive_root = archive_root
+
+    def get_item_at_path(self, path, strict=False, search_archive=False):
         """Get item at given path.
 
         Args:
             path (list(str) or str): path to item as a list or a string.
             strict (bool): if True, require that root names of path match
                 as well.
+            search_archive (bool): if True, search archive root as well.
 
         Returns:
             (BaseTaskItem or None): tree item at given path, if one exists.
@@ -73,9 +89,14 @@ class TaskRoot(TaskCategory):
             return None
         if len(path_list) == 0:
             return None
-        if strict and path_list[0] != self.name:
-            return None
         tree_item = self
+        if path_list[0] != self.name:
+            if (search_archive 
+                    and self.archive_root is not None
+                    and path_list[0] == self.ARCHIVE_ROOT_NAME):
+                tree_item = self.archive_root
+            elif strict:
+                return None
         for name in path_list[1:]:
             tree_item = tree_item.get_child(name)
             if not tree_item:
@@ -114,13 +135,16 @@ class TaskRoot(TaskCategory):
         """
         missing_ancestors = []
         shared_ancestor = self.get_shared_ancestor(tree_item)
+        tree_item = tree_item.parent
+        if tree_item is None:
+            return []
         while tree_item.path_list[1:] != shared_ancestor.path_list[1:]:
-            tree_item = tree_item.parent
             new_ancestor = tree_item.clone()
             if missing_ancestors:
                 child = missing_ancestors[0]
                 new_ancestor._children[child.name] = child
             missing_ancestors.insert(0, new_ancestor)
+            tree_item = tree_item.parent
         return missing_ancestors
 
     def get_history_for_date(self, date):

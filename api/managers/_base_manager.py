@@ -45,8 +45,8 @@ class BaseManager(object):
         """Initialize class.
 
         Args:
-            name (str): name of manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
+            name (str): name of manager.
             suffix (str): string to append to name.
         """
         if suffix and name:
@@ -60,17 +60,17 @@ class BaseManager(object):
 
 class BaseCalendarManager(BaseManager):
     """Base manager for all calendar classes."""
-    def __init__(self, user_prefs, calendar, archive_calendar, name=""):
+    def __init__(self, user_prefs, calendar, tree_manager, name=""):
         """Initialize class.
 
         Args:
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
-            archive_calendar (Calendar): archive calendar object.
+            tree_manager (TreeManager): tree manager used by this tab.
             name (str): manager name.
         """
+        self._tree_manager = tree_manager
         self._calendar = calendar
-        self._archive_calendar = archive_calendar
         super(BaseCalendarManager, self).__init__(
             user_prefs,
             name=name,
@@ -84,15 +84,6 @@ class BaseCalendarManager(BaseManager):
             (Calendar): calendar object.
         """
         return self._calendar
-
-    @property
-    def archive_calendar(self):
-        """Get archived calendar object.
-
-        Returns:
-            (Calendar): archived calendar object.
-        """
-        return self._archive_calendar
 
     @property
     def tree_root(self):

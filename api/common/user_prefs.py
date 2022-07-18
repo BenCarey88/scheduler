@@ -155,7 +155,7 @@ class BaseUserPrefs(BaseSerializable):
         """
         return serialize_dict(
             self._user_prefs_dict,
-            delete_empty_containers=True
+            delete_empty_containers=True,
         )
 
 
@@ -190,7 +190,7 @@ class ProjectUserPrefs(BaseUserPrefs):
         user_prefs = cls(tree_root)
         user_prefs._user_prefs_dict = deserialize_dict(
             dictionary,
-            tree_root=tree_root
+            tree_root=tree_root,
         )
         return user_prefs
 

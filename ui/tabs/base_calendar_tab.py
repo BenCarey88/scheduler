@@ -178,3 +178,8 @@ class BaseCalendarTab(BaseTab):
         """Callback for when we change to this tab."""
         super(BaseCalendarTab, self).on_tab_changed()
         self.main_view.on_view_changed()
+
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        super(BaseCalendarTab, self).on_outliner_filter_changed(*args)
+        self.main_view.on_outliner_filter_changed()

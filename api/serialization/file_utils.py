@@ -21,7 +21,7 @@ def is_serialize_directory(directory_path, marker_file_name):
     if os.path.isdir(directory_path):
         marker_file = os.path.join(
             directory_path,
-            marker_file_name
+            marker_file_name,
         )
         if os.path.isfile(marker_file):
             return True

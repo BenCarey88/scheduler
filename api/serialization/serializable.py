@@ -309,7 +309,7 @@ class BaseSerializable(ABC):
         except SerializationError as e:
             print (
                 "Could not read class instance at path {0}"
-                " - hit error {1}".format(path, e.message)
+                " - hit error '{1}'".format(path, str(e))
             )
             instance = cls(*args, **kwargs)
             if cls._STORE_SAVE_PATH:
@@ -651,6 +651,9 @@ class NestedSerializable(BaseSerializable):
 
         # files
         for file_item_key, file_item_dict in file_items.items():
+            if not file_item_key:
+                # can't save empty name
+                continue
             file_name = "{0}.json".format(file_item_key)
             file_path = os.path.join(directory_path, file_name)
             with open(file_path, "w+") as file_:
@@ -658,10 +661,13 @@ class NestedSerializable(BaseSerializable):
 
         # subdirs
         for subdir_item_key, subdir_item_dict in subdir_items.items():
+            if not subdir_item_key:
+                # can't save empty name
+                continue
             subdir_path = os.path.join(directory_path, subdir_item_key)
             cls._subdir_class()._dict_to_directory(
                 subdir_path,
-                subdir_item_dict
+                subdir_item_dict,
             )
 
         # remove backup
@@ -692,7 +698,7 @@ class CustomSerializable(NestedSerializable):
 
     @classmethod
     def from_dict(cls):
-        """Override to_dict method so it doesn't need to be defined."""
+        """Override from_dict method so it doesn't need to be defined."""
         raise NotImplementedError(
             "from_dict method not implemented for {0}".format(cls.__name__)
         )

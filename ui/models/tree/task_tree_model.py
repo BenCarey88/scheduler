@@ -32,18 +32,18 @@ class TaskTreeModel(BaseTreeModel):
         self.columns = [self.NAME_COLUMN, self.STATUS_COLUMN]
 
     @property
-    def child_filters(self):
-        """Get child filters.
+    def child_filter(self):
+        """Get child filter.
 
         Returns:
-            (list(BaseFilter)): list of all filters, combining the initial
-                filters passed during construction, and the id filter from
-                the tree manager.
+            (BaseTreeFilter): child filter, combining the initial filter
+                passed during construction, and the item filter from the
+                tree manager.
         """
         item_filter = self.tree_manager.child_filter
         if item_filter:
-            return self._base_filters + [item_filter]
-        return self._base_filters
+            return (self._base_filter & item_filter)
+        return self._base_filter
 
     def data(self, index, role):
         """Get data for given item item and role.

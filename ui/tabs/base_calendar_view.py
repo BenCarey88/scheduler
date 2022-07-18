@@ -93,6 +93,11 @@ class BaseCalendarView(object):
         for subview in self.get_subviews():
             subview.on_view_changed()
 
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        for subview in self.get_subviews():
+            subview.on_outliner_filter_changed()
+
 
 ### LIST ###
 class BaseListView(BaseCalendarView, QtWidgets.QTreeView):

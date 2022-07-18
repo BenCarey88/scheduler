@@ -383,7 +383,8 @@ class PlannedItem(Hosted, NestedSerializable):
             (PlannedItem): planned item.
         """
         tree_item = calendar.task_root.get_item_at_path(
-            dict_repr.get(cls.TREE_ITEM_KEY)
+            dict_repr.get(cls.TREE_ITEM_KEY),
+            search_archive=True,
         )
         planned_item = cls(
             calendar,

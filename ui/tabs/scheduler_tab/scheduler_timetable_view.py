@@ -54,7 +54,7 @@ class SchedulerTimetableView(BaseWeekTableView):
             SchedulerWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
-        self.schedule_manager = project.get_schedule_manager()
+        self.schedule_manager = project.get_schedule_manager(name)
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
         self.refresh_scheduled_items_list()
@@ -88,13 +88,18 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.scheduled_item_widgets = [
             ScheduledItemWidget(self, self.schedule_manager, item)
             for calendar_day in self.calendar_week.iter_days()
-            for item in calendar_day.iter_scheduled_items()
+            for item in self.schedule_manager.iter_filtered_items(calendar_day)
         ]
         # Put background items below foreground ones
         self.scheduled_item_widgets.sort(
             key=(lambda w : 1 - int(w.scheduled_item.is_background))
         )
         self.viewport().update()
+
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        super(BaseWeekTableView, self).on_outliner_filter_changed(*args)
+        self.refresh_scheduled_items_list()
 
     def post_edit_callback(self, callback_type, *args):
         """Callback for after an edit of any type is run.

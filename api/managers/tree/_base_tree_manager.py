@@ -9,17 +9,16 @@ from .._base_manager import BaseManager, require_class
 
 class BaseTreeManager(BaseManager):
     """Base tree manager class to build tree manager classes from."""
-    def __init__(self, name, user_prefs, tree_root, archive_tree_root):
+    def __init__(self, name, user_prefs, tree_root):
         """Initialize class.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
-            archive_tree_root (TaskRoot): root archive task object.
         """
         self._tree_root = tree_root
-        self._archive_tree_root = archive_tree_root
+        self._archive_tree_root = tree_root.archive_root
         super(BaseTreeManager, self).__init__(
             user_prefs,
             name=name,

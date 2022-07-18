@@ -13,18 +13,18 @@ from .._base_manager import BaseCalendarManager, require_class
 
 class BaseScheduleManager(BaseCalendarManager):
     """Base calendar manager class to build calendar managers from."""
-    def __init__(self, user_prefs, calendar, archive_calendar):
+    def __init__(self, user_prefs, calendar, tree_manager):
         """Initialize class.
 
         Args:
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
-            archive_calendar (Calendar): archive calendar object.
+            tree_manager (TreeManager): tree manager used by this tab.
         """
         super(BaseScheduleManager, self).__init__(
             user_prefs,
             calendar,
-            archive_calendar,
+            tree_manager,
             name="schedule_manager",
         )
 

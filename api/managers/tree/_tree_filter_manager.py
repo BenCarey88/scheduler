@@ -7,7 +7,7 @@ is being filtered for in the current tab.
 """
 
 from scheduler.api.tree.base_task_item import BaseTaskItem
-from scheduler.api.tree.filters import NoFilter, FilterByItem
+from scheduler.api.filter.tree_filters import NoFilter, FilterByItem
 from scheduler.api.utils import fallback_value
 
 from ._base_tree_manager import BaseTreeManager
@@ -44,14 +44,13 @@ class TreeFilterManager(BaseTreeManager):
     ]
     FILTERED_TASKS_PREF = "task_filters"
 
-    def __init__(self, name, user_prefs, tree_root, archive_tree_root):
+    def __init__(self, name, user_prefs, tree_root):
         """Initialise tree filter manager.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
-            archive_tree_root (TaskRoot): root archive task object.
 
         Attributes:
             _tree_data (dict(str, dict)): additional tree data for each item.
@@ -61,7 +60,6 @@ class TreeFilterManager(BaseTreeManager):
             name,
             user_prefs,
             tree_root,
-            archive_tree_root
         )
         self._tree_data = {}
         self._filtered_items = set()
@@ -345,7 +343,7 @@ class TreeFilterManager(BaseTreeManager):
         Returns:
             (list(BaseTaskItem)): children with filter applied.
         """
-        with tree_item.filter_children([self.child_filter]):
+        with tree_item.filter_children(self.child_filter):
             return tree_item.get_all_children()
 
     def set_current_item(self, item):

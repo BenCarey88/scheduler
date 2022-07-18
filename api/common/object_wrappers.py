@@ -3,6 +3,7 @@
 from collections.abc import Iterable, MutableMapping, MutableSequence
 from contextlib import contextmanager
 
+from scheduler.api.filter import BaseFilter, CustomFilter
 from scheduler.api.utils import fallback_value
 
 
@@ -254,14 +255,15 @@ class Hosted(object):
             other_host (_HostObject or None): other host to merge this one into.
                 If None, we remove the redirection instead.
         """
-        if other_host._redirected_host is not None:
+        if other_host is not None and other_host._redirected_host is not None:
             # To avoid potential recursion, enforce max one level of redirects
             raise HostError("Cannot redirect host to another redirected host")
-        self.host._redirected_host = other_host
         if other_host is None:
+            self.host._redirected_host = None
             self.host.set_data(self)
         else:
             self.host.set_data(None)
+            self.host._redirected_host = other_host
 
 
 class _BaseHostedContainer():
@@ -625,8 +627,56 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         )
         self._list = list()
         self._reverse_sort_key = (lambda _: 0)
-        self._filter = filter or (lambda _: True)
+        self._filter = filter
+        if not isinstance(filter, BaseFilter):
+            self._filter = CustomFilter(filter)
         self._iter_hosts = self._iter_filtered
+
+    @contextmanager
+    def apply_filter(self, filter=None):
+        """Temporarily apply filter.
+
+        Args:
+            filter (function, BaseFilter or None): filter to apply.
+        """
+        if not isinstance(filter, BaseFilter):
+            self._filter = CustomFilter(filter)
+        old_filter = self._filter
+        self._filter &= filter
+        try:
+            yield
+        finally:
+            self._filter = old_filter
+
+    def get_filter(self):
+        """Get filter to apply to this class from list of filters.
+
+        Returns:
+            (BaseFilter): filter class, which take in a single arg
+                return True or False to determine whether it should be
+                considered part of the list or filtered out.
+        """
+        return self._filter
+
+    def set_filter(self, filter):
+        """Set filter as current filter.
+
+        Args:
+            filter (function or BaseFilter): filter to set.
+        """
+        if not isinstance(filter, BaseFilter):
+            filter = CustomFilter(filter)
+        self._filter = filter
+
+    def add_filter(self, filter):
+        """Add filters to current filtering functions.
+
+        Args:
+            filter (function or BaseFilter): filter to add.
+        """
+        if not isinstance(filter, BaseFilter):
+            filter = CustomFilter(filter)
+        self._filter &= filter
 
     def _iter_filtered(self, reverse=False):
         """Iterate through filtered list.
@@ -920,7 +970,55 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         self._key_list = []
         self._value_list = []
         self._key_value_func = key_value_func
-        self._filter = filter or (lambda _,__: True)
+        self._filter = filter
+        if not isinstance(filter, BaseFilter):
+            self._filter = CustomFilter(filter)
+
+    @contextmanager
+    def apply_filter(self, filter=None):
+        """Temporarily apply filter.
+
+        Args:
+            filter (function, BaseFilter or None): filter to apply.
+        """
+        if not isinstance(filter, BaseFilter):
+            self._filter = CustomFilter(filter)
+        old_filter = self._filter
+        self._filter &= filter
+        try:
+            yield
+        finally:
+            self._filter = old_filter
+
+    def get_filter(self):
+        """Get filter to apply to this class from list of filters.
+
+        Returns:
+            (BaseFilter): filter class, which take in a single arg
+                return True or False to determine whether it should be
+                considered part of the list or filtered out.
+        """
+        return self._filter
+
+    def set_filter(self, filter):
+        """Set filter as current filter.
+
+        Args:
+            filter (function or BaseFilter): filter to set.
+        """
+        if not isinstance(filter, BaseFilter):
+            filter = CustomFilter(filter)
+        self._filter = filter
+
+    def add_filter(self, filter):
+        """Add filters to current filtering functions.
+
+        Args:
+            filter (function or BaseFilter): filter to add.
+        """
+        if not isinstance(filter, BaseFilter):
+            filter = CustomFilter(filter)
+        self._filter &= filter
 
     def _iter_filtered(self):
         """Iterate through filtered dict.

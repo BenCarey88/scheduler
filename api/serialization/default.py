@@ -39,7 +39,7 @@ class SerializableValue(object):
             value,
             as_key,
             *args,
-            **kwargs
+            **kwargs,
         )
         self._as_key = as_key
 

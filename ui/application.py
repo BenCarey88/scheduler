@@ -199,6 +199,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def save(self):
         """Save scheduler data."""
+        self.project.autosave()
         if self.saved_edit != edit_log.latest_edit():
             self.project.write()
             self.saved_edit = edit_log.latest_edit()

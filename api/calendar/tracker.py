@@ -37,7 +37,7 @@ class Tracker(BaseSerializable):
         tracker = cls(task_root)
         task_paths = dictionary.get(cls.TRACKED_TASKS_KEY, [])
         for task_path in task_paths:
-            task = task_root.get_item_at_path(task_path)
+            task = task_root.get_item_at_path(task_path, search_archive=True)
             if task:
                 tracker._tracked_tasks.append(task)
         return tracker

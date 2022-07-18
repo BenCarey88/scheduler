@@ -109,21 +109,19 @@ class BaseTreeItem(Hosted, NestedSerializable):
         return self.path
 
     @contextmanager
-    def filter_children(self, filters):
+    def filter_children(self, child_filter):
         """Contextmanager to filter _children dict temporarily.
 
         This uses the child filters defined in the filters module.
 
         Args:
-            filters (list(BaseFilter)): types of filtering required.
+            filter_ (BaseTreeFilter): type of filtering required.
         """
         _children = self._children
         try:
-            for child_filter in filters:
-                self._children = child_filter.filter_function(
-                    self._children,
-                    self
-                )
+            self._children = child_filter.get_filtered_dict(
+                self._children,
+            )
             yield
         finally:
             self._children = _children
@@ -160,13 +158,16 @@ class BaseTreeItem(Hosted, NestedSerializable):
         """
         return list(self._children.values())
 
-    def get_filtered_children(self, filters):
+    def get_filtered_children(self, child_filter):
         """Get children of this item, using given filters.
+
+        Args:
+            child_filter (BaseTreeFilter): filter to use.
 
         Returns:
             (list(BaseTreeItem)): list of filtered children.
         """
-        with self.filter_children(filters):
+        with self.filter_children(child_filter):
             return self.get_all_children()
 
     def get_all_siblings(self):

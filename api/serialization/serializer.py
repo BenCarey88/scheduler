@@ -127,6 +127,8 @@ class DateTimeSerializer(BaseSerializer):
         )
 
 
+# TODO: give tree root its archive tree root as an attribute so we don't
+# need to keep passing both.
 class TreeSerializer(BaseSerializer):
     """Serialize a tree object using its path.
 
@@ -143,12 +145,13 @@ class TreeSerializer(BaseSerializer):
         """
         super(TreeSerializer, self).__init__(*args, **kwargs)
         self._tree_root = tree_root
+        self._achive_tree_root = tree_root.archive_root
 
     def serialize(self, obj):
         return obj.path
 
     def deserialize(self, obj):
-        return self._tree_root.get_item_at_path(obj)
+        return self._tree_root.get_item_at_path(obj, search_archive=True)
 
 
 # TODO: should we make these strings smaller, eg. just letters with an ! or etc

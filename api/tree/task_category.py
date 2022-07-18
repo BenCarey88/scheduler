@@ -7,21 +7,8 @@ from scheduler.api.serialization.serializable import (
     SerializableFileTypes,
 )
 from .exceptions import DuplicateChildNameError
-from ._base_filters import KeepChildrenOfType
 from .base_task_item import BaseTaskItem
 from .task import Task
-
-
-class TaskFilter(KeepChildrenOfType):
-    """Filter for tasks in child dict."""
-    def __init__(self):
-        super(TaskFilter, self).__init__(Task)
-
-
-class TaskCategoryFilter(KeepChildrenOfType):
-    """Filter for task categories in child dict."""
-    def __init__(self):
-        super(TaskCategoryFilter, self).__init__(TaskCategory)
 
 
 class TaskCategory(BaseTaskItem):
@@ -63,8 +50,11 @@ class TaskCategory(BaseTaskItem):
             (OrderedDict): subdict of self._children consisting of all children
                 that are categories.
         """
-        with self.filter_children([TaskCategoryFilter()]):
-            return self._children
+        return OrderedDict([
+            (category.name, category)
+            for category in self._children.items()
+            if isinstance(category, TaskCategory)
+        ])
 
     @property
     def _tasks(self):
@@ -74,8 +64,11 @@ class TaskCategory(BaseTaskItem):
             (OrderedDict): subdict of self._children consisting of all children
                 that are tasks.
         """
-        with self.filter_children([TaskFilter()]):
-            return self._children
+        return OrderedDict([
+            (task.name, task)
+            for task in self._children.items()
+            if isinstance(task, Task)
+        ])
 
     # TODO: see comment over identical function in task class. This is just
     # here as a quick hack to help with scheduled_item / scheduled_item_dialog
@@ -120,7 +113,7 @@ class TaskCategory(BaseTaskItem):
             }
         }
         Note that this does not contain a name field, as the name is expected
-        to be added as a key to this dictionary in the tasks json files.
+        to be added as a key to this dictionary.
 
         Returns:
             (OrderedDict): dictionary representation.

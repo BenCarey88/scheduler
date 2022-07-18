@@ -2,6 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.filter.tree_filters import NoFilter
 from scheduler.ui import constants, utils
 
 
@@ -13,7 +14,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             self,
             tree_manager,
             tree_root=None,
-            filters=None,
+            filter=None,
             mime_data_format=None,
             parent=None):
         """Initialise base tree model.
@@ -26,9 +27,9 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
                 treat the given root's children as the roots of this model,
                 but we pass in the parent of those children for easier
                 calculations.
-            filters (list(scheduler.api.tree.filters.BaseFilter)): filters
-                for reducing number of children in model. These may be added
-                to the filter from the tree_manager.
+            filter (scheduler.api.filter.BaseTreeFilter)): filter for reducing
+                number of children in model. This may be added to the filter
+                from the tree_manager.
             mime_data_format (str or None): data format of any mime data
                 created - if None, mimedata can't be created.
             parent (QtWidgets.QWidget or None): QWidget that this models.
@@ -36,7 +37,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         super(BaseTreeModel, self).__init__(parent)
         self.tree_manager = tree_manager
         self.root = tree_manager.tree_root if tree_root is None else tree_root
-        self._base_filters = filters or []
+        self._base_filter = filter or NoFilter()
         self.columns = [self.NAME_COLUMN]
         self.mime_data_format = (
             mime_data_format or
@@ -44,14 +45,14 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         )
 
     @property
-    def child_filters(self):
+    def child_filter(self):
         """Get child filters.
 
         Returns:
-            (list(BaseFilter)): list of all filters - in base class this is
-                the ones passed during initialization.
+            (BaseTreeFilter): filter for children - in base class this is
+                just the one passed during initialization.
         """
-        return self._base_filters
+        return self._base_filter
 
     def get_column_name(self, index):
         """Get name of column at index.
@@ -112,7 +113,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
         if not self.hasIndex(row, column, parent_index):
             return QtCore.QModelIndex()
         if not parent_index.isValid():
-            tree_roots = self.root.get_filtered_children(self.child_filters)
+            tree_roots = self.root.get_filtered_children(self.child_filter)
             if 0 <= row < len(tree_roots):
                 child_item = tree_roots[row]
             else:
@@ -121,7 +122,7 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             parent_item = parent_index.internalPointer()
             if parent_item is None:
                 return QtCore.QModelIndex()
-            with parent_item.filter_children(self.child_filters):
+            with parent_item.filter_children(self.child_filter):
                 child_item = parent_item.get_child_at_index(row)
         if child_item:
             return self.createIndex(row, column, child_item)
@@ -159,11 +160,11 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
             (int): number of children.
         """
         if not parent_index.isValid():
-            return len(self.root.get_filtered_children(self.child_filters))
+            return len(self.root.get_filtered_children(self.child_filter))
         if self.get_column_name(parent_index) != self.NAME_COLUMN:
             return 0
         parent_item = parent_index.internalPointer()
-        with parent_item.filter_children(self.child_filters):
+        with parent_item.filter_children(self.child_filter):
             return parent_item.num_children()
 
     def columnCount(self, index=None):
@@ -382,17 +383,17 @@ class BaseTreeModel(QtCore.QAbstractItemModel):
 
         return self.tree_manager.move_item(item, parent, row)
 
-    def set_filters(self, new_filters, *args):
+    def set_filter(self, new_filter, *args):
         """Set filters for model.
 
         Args:
-            new_filters (list(BaseFilter)): filters to set.
+            new_filter (BaseTreeFilter or None): filter to set.
 
         Returns:
             (bool): whether or not action was successful.
         """
         self.beginResetModel()
-        self._base_filters = new_filters
+        self._base_filter = new_filter or NoFilter()
         self.endResetModel()
         return True
 

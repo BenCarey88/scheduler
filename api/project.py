@@ -165,8 +165,8 @@ class Project(CustomSerializable):
         self.set_project_path(project_root_path)
         self._load_project_data()
         self._tree_managers = {}
-        self._schedule_manager = None
-        self._planner_manager = None
+        self._schedule_managers = {}
+        self._planner_managers = {}
 
     def set_project_path(self, project_root_path):
         """Set project path to given directory.
@@ -188,25 +188,28 @@ class Project(CustomSerializable):
         self._task_root = TaskRoot.safe_read(
             self._project_tree.tasks_directory,
         )
+        self._archive_task_root = TaskRoot.safe_read(
+            self._archive_tree.tasks_directory,
+            name=TaskRoot.ARCHIVE_ROOT_NAME,
+        )
+        self._task_root.set_archive_root(self._archive_task_root)
+
+        # TODO: calendar and tracker need to init with task archive too
         self._calendar = Calendar.safe_read(
             self._project_tree.calendar_directory,
             self._task_root,
         )
+        self._archive_calendar = Calendar.safe_read(
+            self._archive_tree.calendar_directory,
+            self._task_root,
+        )
+
         self._tracker = Tracker.safe_read(
             self._project_tree.tracker_file,
             self._task_root,
         )
         self._user_prefs = ProjectUserPrefs.safe_read(
             self._project_tree.project_user_prefs_file,
-            self._task_root,
-        )
-        # Archive
-        # TODO: calendar and tracker need to init with task archive too
-        self._archive_task_root = TaskRoot.safe_read(
-            self._archive_tree.tasks_directory,
-        )
-        self._archive_calendar = Calendar.safe_read(
-            self._archive_tree.calendar_directory,
             self._task_root,
         )
 
@@ -288,39 +291,44 @@ class Project(CustomSerializable):
                 name,
                 self.user_prefs,
                 self.task_root,
-                self.archive_task_root,
             )
         return self._tree_managers.get(name)
 
-    def get_schedule_manager(self):
+    def get_schedule_manager(self, name):
         """Get calendar manager for this project.
+
+        Args:
+            name (str): name of manager object.
 
         Returns:
             (ScheduleManager): calendar manager for managing calendar edits
                 and filtering.
         """
-        if self._schedule_manager is None:
-            self._schedule_manager = ScheduleManager(
+        if self._schedule_managers.get(name) is None:
+            self._schedule_managers[name] = ScheduleManager(
                 self.user_prefs,
                 self.calendar,
-                self.archive_calendar,
+                self.get_tree_manager(name),
             )
-        return self._schedule_manager
+        return self._schedule_managers.get(name)
 
-    def get_planner_manager(self):
+    def get_planner_manager(self, name):
         """Get calendar manager for this project.
+
+        Args:
+            name (str): name of manager object.
 
         Returns:
             (PlannerManager): planner manager for managing planner edits
                 and filtering.
         """
-        if self._planner_manager is None:
-            self._planner_manager = PlannerManager(
+        if self._planner_managers.get(name) is None:
+            self._planner_managers[name] = PlannerManager(
                 self.user_prefs,
                 self.calendar,
-                self.archive_calendar,
+                self.get_tree_manager(name),
             )
-        return self._planner_manager
+        return self._planner_managers.get(name)
 
     # TODO: find a way to avoid writing entire tree, should be able to just
     # save edited components
@@ -328,11 +336,17 @@ class Project(CustomSerializable):
         """Write all components to the given project tree.
 
         Args:
-            project_tree (str): project tree to write to.
+            project_tree (ProjectTree): project tree to write to.
         """
         self._task_root.write(project_tree.tasks_directory)
         self._calendar.write(project_tree.calendar_directory)
         self._tracker.write(project_tree.tracker_file)
+        self._archive_task_root.write(
+            project_tree.archive_tree.tasks_directory
+        )
+        self._archive_calendar.write(
+            project_tree.archive_tree.calendar_directory
+        )
 
     @classmethod
     def from_directory(cls, project_root_path):
@@ -362,10 +376,11 @@ class Project(CustomSerializable):
         Args:
             directory_path (str): path to directory to write to.
         """
-        file_utils.check_directory_can_be_written_to(
-            directory_path,
-            self._MARKER_FILE
-        )
+        # file_utils.check_directory_can_be_written_to(
+        #     directory_path,
+        #     self._MARKER_FILE
+        # )
+        self.set_project_path(directory_path)
         if not os.path.exists(directory_path):
             os.mkdir(directory_path)
             with open(os.path.join(directory_path, self._MARKER_FILE), "w+"):

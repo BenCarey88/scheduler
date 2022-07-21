@@ -117,7 +117,10 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (QtCore.QModelIndex or None): index, if found.
         """
-        item_list = self.calendar_period.get_planned_items_container()
+        item_list = self.planner_manager.get_filtered_items(
+            self.calendar_period,
+        )
+        # item_list = self.calendar_period.get_planned_items_container()
         if not item_list:
             return None
         item = item_list[0]
@@ -176,7 +179,10 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             (QtCore.QModelIndex): child QModelIndex.
         """
         if self.hasIndex(row, column, parent_index):
-            item_list = self.calendar_period.get_planned_items_container()
+            item_list = self.planner_manager.get_filtered_items(
+                self.calendar_period,
+            )
+            # item_list = self.calendar_period.get_planned_items_container()
             if 0 <= row < len(item_list):
                 return self.createIndex(row, column, item_list[row])
         return QtCore.QModelIndex()
@@ -201,7 +207,10 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Returns:
             (int): number of children.
         """
-        return len(self.calendar_period.get_planned_items_container())
+        # return len(self.calendar_period.get_planned_items_container())
+        return len(
+            self.planner_manager.get_filtered_items(self.calendar_period)
+        )
 
     def columnCount(self, parent_index=None):
         """Get number of columns of given item.

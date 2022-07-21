@@ -254,14 +254,18 @@ class CalendarDay(BaseCalendarPeriod):
             for item in self._scheduled_items:
                 yield item
 
-    def iter_planned_items(self):
+    def iter_planned_items(self, filter=None):
         """Iterate through planned day items.
+
+        Args:
+            filter (function, BaseFilter or None): filter to apply, if given.
 
         Yields:
             (PlannedItem): next planned item.
         """
-        for item in self._planned_items:
-            yield item
+        with self._planned_items.apply_filter(filter):
+            for item in self._planned_items:
+                yield item
 
     def get_history_dict(self):
         """Get history dict for this date.
@@ -557,14 +561,18 @@ class CalendarWeek(BaseCalendarPeriod):
         """
         return list(self.iter_days())[index]
 
-    def iter_planned_items(self):
+    def iter_planned_items(self, filter=None):
         """Iterate through planned week items.
+
+        Args:
+            filter (function, BaseFilter or None): filter to apply, if given.
 
         Yields:
             (PlannedItem): next planned item.
         """
-        for item in self.start_day._planned_week_items:
-            yield item
+        with self.start_day._planned_week_items.apply_filter(filter):
+            for item in self.start_day._planned_week_items:
+                yield item
 
     def next(self):
         """Get calendar week starting immediately after this one.
@@ -882,14 +890,18 @@ class CalendarMonth(BaseCalendarPeriod):
         for week in self.get_calendar_weeks(starting_day):
             yield week
 
-    def iter_planned_items(self):
+    def iter_planned_items(self, filter=None):
         """Iterate through planned month items.
+
+        Args:
+            filter (function, BaseFilter or None): filter to apply, if given.
 
         Yields:
             (PlannedItem): next planned item.
         """
-        for item in self._planned_items:
-            yield item
+        with self._planned_items.apply_filter(filter):
+            for item in self._planned_items:
+                yield item
 
     def next(self):
         """Get calendar month immediately after this one.
@@ -1092,14 +1104,18 @@ class CalendarYear(BaseCalendarPeriod):
         for month in self._calendar_months.values():
             yield month
 
-    def iter_planned_items(self):
+    def iter_planned_items(self, filter=None):
         """Iterate through planned year items.
+
+        Args:
+            filter (function, BaseFilter or None): filter to apply, if given.
 
         Yields:
             (PlannedItem): next planned item.
         """
-        for item in self._planned_items:
-            yield item
+        with self._planned_items.apply_filter(filter):
+            for item in self._planned_items:
+                yield item
 
     def next(self):
         """Get calendar year immediately after this one.

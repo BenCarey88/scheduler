@@ -1,11 +1,10 @@
-"""Planner manager class."""
+"""History manager class."""
 
-from ._planner_edit_manager import PlannerEditManager
-from ._planner_filter_manager import PlannerFilterManager
+from ._history_filter_manager import HistoryFilterManager
 
 
-class PlannerManager(PlannerEditManager, PlannerFilterManager):
-    """Planner manager to manage planned items."""
+class HistoryManager(HistoryFilterManager):
+    """History manager to manage history."""
     def __init__(self, name, user_prefs, calendar, tree_manager):
         """Initialize class.
 
@@ -15,7 +14,7 @@ class PlannerManager(PlannerEditManager, PlannerFilterManager):
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
         """
-        super(PlannerManager, self).__init__(
+        super(HistoryManager, self).__init__(
             name,
             user_prefs,
             calendar,

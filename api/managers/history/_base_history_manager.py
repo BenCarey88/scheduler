@@ -1,23 +1,22 @@
-"""Planner manager class."""
+"""Base history manager class."""
 
-from ._planner_edit_manager import PlannerEditManager
-from ._planner_filter_manager import PlannerFilterManager
+from .._base_manager import BaseCalendarManager
 
 
-class PlannerManager(PlannerEditManager, PlannerFilterManager):
-    """Planner manager to manage planned items."""
+class BaseHistoryManager(BaseCalendarManager):
+    """Base history manager class to build history managers from."""
     def __init__(self, name, user_prefs, calendar, tree_manager):
         """Initialize class.
 
         Args:
-            name (str): name of this manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
         """
-        super(PlannerManager, self).__init__(
-            name,
+        super(BaseHistoryManager, self).__init__(
             user_prefs,
             calendar,
             tree_manager,
+            name=name,
+            suffix="history_manager",
         )

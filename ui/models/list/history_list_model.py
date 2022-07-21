@@ -15,6 +15,7 @@ class HistoryListModel(QtCore.QAbstractItemModel):
     def __init__(
             self,
             tree_manager,
+            history_manager,
             calendar_day,
             use_long_names=False,
             parent=None):
@@ -22,6 +23,7 @@ class HistoryListModel(QtCore.QAbstractItemModel):
 
         Args:
             tree_manager (TreeManager): the tree manager object.
+            history_manager (HistoryManager): history manager object.
             calendar_day (CalendarDay): the calendar day this is modelling.
             use_long_names (bool): if True, use full path names for history
                 items. Otherwise, we just use their task names.
@@ -29,24 +31,10 @@ class HistoryListModel(QtCore.QAbstractItemModel):
         """
         super(HistoryListModel, self).__init__(parent)
         self.tree_manager = tree_manager
+        self.history_manager = history_manager
         self.calendar_day = calendar_day
         self.date = calendar_day.date
-        self._history_dict = self.calendar_day.get_history_dict()
         self.use_long_names = use_long_names
-
-    @property
-    def history_dict(self):
-        """Get filtered history dict.
-
-        This filters through the dict and removes any items with no history
-        for this date.
-
-        Returns:
-            (OrderedDict(BaseTreeItem, dict)): history dict.
-        """
-        return OrderedDict(
-            [(k, v) for k, v in self._history_dict.items() if v]
-        )
 
     def index(self, row, column, parent_index):
         """Get index of child item of given parent at given row and column.
@@ -60,7 +48,9 @@ class HistoryListModel(QtCore.QAbstractItemModel):
             (QtCore.QModelIndex): child QModelIndex.
         """
         if self.hasIndex(row, column, parent_index):
-            task_list = list(self.history_dict.keys())
+            task_list = self.history_manager.get_filtered_tasks(
+                self.calendar_day,
+            )
             if 0 <= row < len(task_list):
                 return self.createIndex(row, column, task_list[row])
         return QtCore.QModelIndex()
@@ -85,7 +75,7 @@ class HistoryListModel(QtCore.QAbstractItemModel):
         Returns:
             (int): number of children.
         """
-        return len(self.history_dict.keys())
+        return len(self.history_manager.get_filtered_tasks(self.calendar_day))
 
     def columnCount(self, parent_index=None):
         """Get number of columns of given item.

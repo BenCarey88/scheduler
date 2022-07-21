@@ -33,9 +33,10 @@ class TrackerTimetableView(BaseWeekTableView):
             TrackerWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
+        self.tracker_manager = project.get_tracker_manager(name)
         utils.set_style(self, "tracker_view.qss")
         self.setItemDelegate(
-            TrackerDelegate(self, project.tracker, self.tree_manager)
+            TrackerDelegate(self, self.tracker_manager, self.tree_manager)
         )
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
@@ -50,6 +51,13 @@ class TrackerTimetableView(BaseWeekTableView):
     def on_view_changed(self):
         """Callback for when this view is loaded."""
         super(TrackerTimetableView, self).on_view_changed()
+        self.model().beginResetModel()
+        self.model().endResetModel()
+        self.update()
+
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        super(TrackerTimetableView, self).on_outliner_filter_changed(*args)
         self.model().beginResetModel()
         self.model().endResetModel()
         self.update()
@@ -138,18 +146,19 @@ class TrackerTimetableView(BaseWeekTableView):
 
 class TrackerDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for tracker."""
-    def __init__(self, table, tracker, tree_manager, parent=None):
+    def __init__(self, table, tracker_manager, tree_manager, parent=None):
         """Initialise task delegate item.
         
         Args:
             table (QtWidgets.QTableView): table widget this is delegate of.
-            tracker (Tracker): tracker object.
+            tracker_manager (TrackerManager): tracker manager object.
             tree_manager (TreeManager): tree manager object.
             parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(TrackerDelegate, self).__init__(parent)
         self.table = table
-        self.tracker = tracker
+        self.tracker_manager = tracker_manager
+        self.tracker = tracker_manager.tracker
         self.tree_manager = tree_manager
 
     @property
@@ -326,7 +335,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         editor_widget.setFixedSize(self.get_fixed_size())
 
         calendar_day = self.calendar_week.get_day_at_index(index.column())
-        for task in self.tracker.get_tracked_tasks():
+        for task in self.tracker_manager.iter_filtered_tracked_tasks():
             task_layout = self.get_layout_from_task(task, calendar_day.date)
             layout.addLayout(task_layout)
             layout.addStretch()

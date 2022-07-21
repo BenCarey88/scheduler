@@ -1,7 +1,6 @@
 """Calendar filter manager class to manage filtering scheduled items."""
 
 from scheduler.api.filter.schedule_filters import NoFilter, TaskTreeFilter
-from scheduler.api.calendar.scheduled_item import BaseScheduledItem
 
 from .._base_manager import require_class
 from ._base_schedule_manager import BaseScheduleManager
@@ -9,15 +8,17 @@ from ._base_schedule_manager import BaseScheduleManager
 
 class ScheduleFilterManager(BaseScheduleManager):
     """Calendar filter manager to maintain filter attrs for scheduled items."""
-    def __init__(self, user_prefs, calendar, tree_manager):
+    def __init__(self, name, user_prefs, calendar, tree_manager):
         """Initialize class.
 
         Args:
+            name (str): name of this manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
         """
         super(ScheduleFilterManager, self).__init__(
+            name,
             user_prefs,
             calendar,
             tree_manager,

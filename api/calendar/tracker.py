@@ -1,6 +1,7 @@
 """Tracker file reader."""
 # TODO: should this module live in another location?
 
+from scheduler.api.common.object_wrappers import HostedDataList
 from scheduler.api.serialization.serializable import BaseSerializable
 
 
@@ -16,15 +17,20 @@ class Tracker(BaseSerializable):
         """
         super(Tracker, self).__init__()
         self.task_root = task_root
-        self._tracked_tasks = []
+        self._tracked_tasks = HostedDataList()
 
-    def get_tracked_tasks(self):
+    def iter_tracked_tasks(self, filter=None):
         """Get tasks selected for tracking.
 
-        Returns:
-            (list(Task)): list of tracked tasks.
+        Args:
+            filter (function, BaseFilter or None): filter to apply, if given.
+
+        Yields:
+            (Task): tracked tasks.
         """
-        return self._tracked_tasks
+        with self._tracked_tasks.apply_filter(filter):
+            for task in self._tracked_tasks:
+                yield task
 
     @classmethod
     def from_dict(cls, dictionary, task_root):

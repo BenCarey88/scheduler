@@ -28,6 +28,7 @@ class HistoryTimeTableView(BaseWeekTableView):
             HistoryWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
+        self.history_manager = project.get_history_manager(name)
         self.setItemDelegate(HistoryDelegate(self))
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
@@ -42,6 +43,13 @@ class HistoryTimeTableView(BaseWeekTableView):
     def on_view_changed(self):
         """Callback for when this view is loaded."""
         super(HistoryTimeTableView, self).on_view_changed()
+        self.model().beginResetModel()
+        self.model().endResetModel()
+        self.update()
+
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        super(HistoryTimeTableView, self).on_outliner_filter_changed(*args)
         self.model().beginResetModel()
         self.model().endResetModel()
         self.update()
@@ -138,6 +146,7 @@ class HistoryDelegate(QtWidgets.QStyledItemDelegate):
         super(HistoryDelegate, self).__init__(parent)
         self.table = table
         self.tree_manager = table.tree_manager
+        self.history_manager = table.history_manager
 
     @property
     def calendar_week(self):
@@ -191,7 +200,11 @@ class HistoryDelegate(QtWidgets.QStyledItemDelegate):
         editor_widget = QtWidgets.QTreeView(parent=parent)
         editor_widget.setFixedSize(self.get_fixed_size())
         editor_widget.setModel(
-            HistoryListModel(self.tree_manager, calendar_day)
+            HistoryListModel(
+                self.tree_manager,
+                self.history_manager,
+                calendar_day,
+            )
         )
         editor_widget.setHeaderHidden(True)
         editor_widget.setItemsExpandable(False)

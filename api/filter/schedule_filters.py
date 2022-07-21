@@ -21,14 +21,14 @@ class NoTaskItems(BaseSchedulerFilter):
         return scheduled_item.type != ScheduledItemType.TASK
 
 
-class OnlyTaskEvents(BaseSchedulerFilter):
-    """Filter to only include task events."""
+class OnlyTaskItems(BaseSchedulerFilter):
+    """Filter to only include task items."""
     def filter_function(self, scheduled_item):
         return scheduled_item.type == ScheduledItemType.TASK
 
 
 class TaskTreeFilter(BaseSchedulerFilter):
-    """Apply task tree filter to calendar task events."""
+    """Apply task tree filter to scheduled task items."""
     def __init__(self, tree_filter):
         """Initialise filter.
 

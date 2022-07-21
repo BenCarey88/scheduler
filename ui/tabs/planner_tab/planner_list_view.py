@@ -130,6 +130,13 @@ class PlannerListView(BaseListView):
 
     def on_view_changed(self):
         """Callback for when this view is loaded."""
+        super(PlannerListView, self).on_view_changed()
+        self.model().beginResetModel()
+        self.model().endResetModel()
+
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        super(PlannerListView, self).on_outliner_filter_changed(*args)
         self.model().beginResetModel()
         self.model().endResetModel()
 

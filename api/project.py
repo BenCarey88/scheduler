@@ -3,7 +3,13 @@
 import os
 
 from .common.user_prefs import ProjectUserPrefs
-from .managers import ScheduleManager, PlannerManager, TreeManager
+from .managers import (
+    HistoryManager,
+    PlannerManager,
+    ScheduleManager,
+    TrackerManager,
+    TreeManager,
+)
 from .serialization.serializable import (
     CustomSerializable,
     SaveType,
@@ -167,6 +173,8 @@ class Project(CustomSerializable):
         self._tree_managers = {}
         self._schedule_managers = {}
         self._planner_managers = {}
+        self._history_managers = {}
+        self._tracker_managers = {}
 
     def set_project_path(self, project_root_path):
         """Set project path to given directory.
@@ -294,24 +302,6 @@ class Project(CustomSerializable):
             )
         return self._tree_managers.get(name)
 
-    def get_schedule_manager(self, name):
-        """Get calendar manager for this project.
-
-        Args:
-            name (str): name of manager object.
-
-        Returns:
-            (ScheduleManager): calendar manager for managing calendar edits
-                and filtering.
-        """
-        if self._schedule_managers.get(name) is None:
-            self._schedule_managers[name] = ScheduleManager(
-                self.user_prefs,
-                self.calendar,
-                self.get_tree_manager(name),
-            )
-        return self._schedule_managers.get(name)
-
     def get_planner_manager(self, name):
         """Get calendar manager for this project.
 
@@ -324,11 +314,69 @@ class Project(CustomSerializable):
         """
         if self._planner_managers.get(name) is None:
             self._planner_managers[name] = PlannerManager(
+                name,
                 self.user_prefs,
                 self.calendar,
                 self.get_tree_manager(name),
             )
         return self._planner_managers.get(name)
+
+    def get_schedule_manager(self, name):
+        """Get scheduler manager for this project.
+
+        Args:
+            name (str): name of manager object.
+
+        Returns:
+            (ScheduleManager): schedule manager for schedule calendar edits
+                and filtering.
+        """
+        if self._schedule_managers.get(name) is None:
+            self._schedule_managers[name] = ScheduleManager(
+                name,
+                self.user_prefs,
+                self.calendar,
+                self.get_tree_manager(name),
+            )
+        return self._schedule_managers.get(name)
+
+    def get_tracker_manager(self, name):
+        """Get tracker manager for this project.
+
+        Args:
+            name (str): name of manager object.
+
+        Returns:
+            (TrackerManager): tracker manager for managing tracker filtering
+                and edits.
+        """
+        if self._tracker_managers.get(name) is None:
+            self._tracker_managers[name] = TrackerManager(
+                name,
+                self.user_prefs,
+                self.calendar,
+                self.get_tree_manager(name),
+                self.tracker,
+            )
+        return self._tracker_managers.get(name)
+
+    def get_history_manager(self, name):
+        """Get history manager for this project.
+
+        Args:
+            name (str): name of manager object.
+
+        Returns:
+            (HistoryManager): history manager for managing history filtering.
+        """
+        if self._history_managers.get(name) is None:
+            self._history_managers[name] = HistoryManager(
+                name,
+                self.user_prefs,
+                self.calendar,
+                self.get_tree_manager(name),
+            )
+        return self._history_managers.get(name)
 
     # TODO: find a way to avoid writing entire tree, should be able to just
     # save edited components
@@ -376,10 +424,6 @@ class Project(CustomSerializable):
         Args:
             directory_path (str): path to directory to write to.
         """
-        # file_utils.check_directory_can_be_written_to(
-        #     directory_path,
-        #     self._MARKER_FILE
-        # )
         self.set_project_path(directory_path)
         if not os.path.exists(directory_path):
             os.mkdir(directory_path)

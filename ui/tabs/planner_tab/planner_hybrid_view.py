@@ -81,6 +81,7 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
             self.hybrid_view,
             parent=parent,
         )
+        self.planner_manager = project.get_planner_manager(name)
         self.left_view = self.hybrid_view.left_view
         self.right_view = self.hybrid_view.right_view
         self.list_view = self.left_view.planner_list_view
@@ -302,7 +303,11 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         painter.setPen(pen)
         painter.setBrush(brush)
         if self.display_all_connections:
-            for planned_item in self.calendar_period.iter_planned_items():
+            planned_items_iterator = self.planner_manager.iter_filtered_items(
+                self.calendar_period,
+            )
+            for planned_item in planned_items_iterator:
+            # for planned_item in self.calendar_period.iter_planned_items():
                 self.paint_child_connections(
                     painter,
                     planned_item,

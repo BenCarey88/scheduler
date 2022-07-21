@@ -181,6 +181,11 @@ class BaseMultiListView(BaseCalendarView, WidgetListView):
         super(BaseMultiListView, self).post_edit_callback(callback_type, *args)
         self.update_view()
 
+    def on_outliner_filter_changed(self, *args):
+        """Callback for what to do when filter is changed in outliner."""
+        super(BaseMultiListView, self).on_outliner_filter_changed(*args)
+        self.update_view()
+
     def get_subview(self, calendar_period):
         """Get subview for given period.
 

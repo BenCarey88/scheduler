@@ -1087,7 +1087,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         """
         for k, v in self._iter_filtered():
             if ((self._keys_are_hosted and k.data == key)
-                    or (not self._keys_Are_hosted and k == key)):
+                    or (not self._keys_are_hosted and k == key)):
                 return v.data if self._values_are_hosted else v
         raise KeyError(
             "No valid item at key {0} in HostedDataDict".format(key)

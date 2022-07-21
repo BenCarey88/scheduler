@@ -60,7 +60,13 @@ class BaseManager(object):
 
 class BaseCalendarManager(BaseManager):
     """Base manager for all calendar classes."""
-    def __init__(self, user_prefs, calendar, tree_manager, name=""):
+    def __init__(
+            self,
+            user_prefs,
+            calendar,
+            tree_manager,
+            name="",
+            suffix="manager"):
         """Initialize class.
 
         Args:
@@ -68,12 +74,14 @@ class BaseCalendarManager(BaseManager):
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
             name (str): manager name.
+            suffix (str): string to append to name.
         """
         self._tree_manager = tree_manager
         self._calendar = calendar
         super(BaseCalendarManager, self).__init__(
             user_prefs,
             name=name,
+            suffix=suffix,
         )
 
     @property

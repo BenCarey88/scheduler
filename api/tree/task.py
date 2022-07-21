@@ -205,7 +205,7 @@ class Task(BaseTaskItem):
         Returns:
             (Task): cloned item.
         """
-        return Task(
+        task = Task(
             self.name,
             parent=None,
             task_type=self.type,
@@ -213,6 +213,8 @@ class Task(BaseTaskItem):
             history_dict=self.history.to_dict(),
             value_type=self.value_type,
         )
+        task._color = self._color
+        return task
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.

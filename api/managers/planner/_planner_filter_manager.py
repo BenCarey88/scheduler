@@ -47,7 +47,7 @@ class PlannerFilterManager(BasePlannerManager):
 
     def get_filtered_items(self, calendar_period):
         """Get list of filtered planned items for calendar period.
-        
+
         Args:
             calendar_period (BaseCalendarPeriod): period to check.
 

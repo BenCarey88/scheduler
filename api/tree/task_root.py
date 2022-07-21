@@ -9,6 +9,7 @@ from scheduler.api.serialization.serializable import (
     SaveType,
     SerializableFileTypes,
 )
+from scheduler.api.utils import fallback_value
 
 from .task_category import TaskCategory
 
@@ -120,11 +121,13 @@ class TaskRoot(TaskCategory):
             tree_item = tree_item.parent
         return ancestor
 
-    def create_missing_ancestors(self, tree_item):
+    def create_missing_ancestors(self, tree_item, shared_ancestor=None):
         """Create ancestors that are missing to get to given item.
 
         Args:
             tree_item (BaseTreeItem): tree item to check against.
+            shared_ancestor (BaseTreeItem or None): pre-calculated shared
+                ancestor; if not given, we work it out here.
 
         Returns:
             (list(BaseTreeItem)): newly created skeletal ancestors. The
@@ -134,7 +137,10 @@ class TaskRoot(TaskCategory):
                 child list.
         """
         missing_ancestors = []
-        shared_ancestor = self.get_shared_ancestor(tree_item)
+        shared_ancestor = fallback_value(
+            shared_ancestor,
+            self.get_shared_ancestor(tree_item),
+        )
         tree_item = tree_item.parent
         if tree_item is None:
             return []

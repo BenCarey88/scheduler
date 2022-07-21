@@ -186,12 +186,13 @@ class Hosted(object):
 
         This is here for convenience so that subclasses can reimplement it,
         specifically for cases where they're referencing currently defunct
-        hosts.
+        hosts, eg. we can specify a planned item is defunct if the tree
+        item it references is defunct.
 
         Returns:
             (bool): whether or not hosted data is defunct.
         """
-        return (self._host is None)
+        return (self._host is None or self._host.data is None)
 
     def _iter_paired_data_containers(self):
         """Iterate through all paired data containers in this class.
@@ -220,13 +221,23 @@ class Hosted(object):
         """
         if not self.defunct:
             raise HostError("Cannot activate already active object.")
+
         if host is not None:
+            # if host is given, we steal that host
             if host.data is not None:
                 host.data._deactivate()
             host.set_data(self)
             self._host = host
+        elif self._host is not None:
+            # if host already exists, reactivate it
+            if self._host.data is not None:
+                self._host.data._deactivate()
+            self._host.set_data(self)
         else:
+            # if no host is given and none exists, make a new one
             self._host = _HostObject(self)
+
+        # apply pairing
         for container in self._iter_paired_data_containers():
             container._apply_pairing()
 
@@ -239,7 +250,6 @@ class Hosted(object):
         if self.defunct:
             raise HostError("Cannot deactivate already inactive object.")
         self._host.set_data(None)
-        self._host = None
         for container in self._iter_paired_data_containers():
             container._unapply_pairing()
 
@@ -634,13 +644,13 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
 
     @contextmanager
     def apply_filter(self, filter=None):
-        """Temporarily apply filter.
+        """Temporarily apply filter (on top of any current filters).
 
         Args:
             filter (function, BaseFilter or None): filter to apply.
         """
         if not isinstance(filter, BaseFilter):
-            self._filter = CustomFilter(filter)
+            filter = CustomFilter(filter)
         old_filter = self._filter
         self._filter &= filter
         try:
@@ -976,13 +986,13 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
 
     @contextmanager
     def apply_filter(self, filter=None):
-        """Temporarily apply filter.
+        """Temporarily apply filter (on top of any current filters).
 
         Args:
             filter (function, BaseFilter or None): filter to apply.
         """
         if not isinstance(filter, BaseFilter):
-            self._filter = CustomFilter(filter)
+            filter = CustomFilter(filter)
         old_filter = self._filter
         self._filter &= filter
         try:

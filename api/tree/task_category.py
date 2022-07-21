@@ -94,7 +94,9 @@ class TaskCategory(BaseTaskItem):
         Returns:
             (TaskCategory): cloned item.
         """
-        return TaskCategory(self.name)
+        category = TaskCategory(self.name)
+        category._color = self._color
+        return category
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.

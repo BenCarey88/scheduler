@@ -26,13 +26,17 @@ class BaseTreeItem(Hosted, NestedSerializable):
         # base class must be overridden, has no allowed child types.
         self._allowed_child_types = []
 
-    def _activate(self):
+    def _activate(self, host=None):
         """Activate hosted object.
 
         This needs to be done before the hosted data can be accessed by
         other classes.
+
+        Args:
+            host (_HostObject or None): host to activate with. If not given,
+                we create a new host.
         """
-        super(BaseTreeItem, self)._activate()
+        super(BaseTreeItem, self)._activate(host=host)
         for child in self.get_all_children():
             if child.defunct:
                 child._activate()

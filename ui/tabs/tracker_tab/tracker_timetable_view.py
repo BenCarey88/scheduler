@@ -5,7 +5,10 @@ from functools import partial
 from PyQt5 import QtCore, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time
-from scheduler.api.edit.edit_callbacks import CallbackType as CT
+from scheduler.api.edit.edit_callbacks import (
+    CallbackEditType as CET,
+    CallbackItemType as CIT,
+)
 from scheduler.api.tree.task import TaskValueType
 
 from scheduler.ui.models.table import TrackerWeekModel
@@ -76,7 +79,8 @@ class TrackerTimetableView(BaseWeekTableView):
             *args,
         )
         if (self._is_active
-                and callback_type in [CT.TREE_MODIFY, CT.TREE_REMOVE]):
+                and callback_type[0] == CIT.TREE
+                and callback_type[1] in [CET.MODIFY, CET.ADD, CET.REMOVE]):
             self.model().beginResetModel()
 
     def post_edit_callback(self, callback_type, *args):
@@ -91,7 +95,8 @@ class TrackerTimetableView(BaseWeekTableView):
             *args,
         )
         if (self._is_active
-                and callback_type in [CT.TREE_MODIFY, CT.TREE_REMOVE]):
+                and callback_type[0] == CIT.TREE
+                and callback_type[1] in [CET.MODIFY, CET.ADD, CET.REMOVE]):
             self.model().endResetModel()
             self.update()
 
@@ -335,7 +340,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         editor_widget.setFixedSize(self.get_fixed_size())
 
         calendar_day = self.calendar_week.get_day_at_index(index.column())
-        for task in self.tracker_manager.iter_filtered_tracked_tasks():
+        for task in self.tracker_manager.iter_filtered_items():
             task_layout = self.get_layout_from_task(task, calendar_day.date)
             layout.addLayout(task_layout)
             layout.addStretch()

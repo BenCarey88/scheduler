@@ -35,7 +35,7 @@ class TrackerFilterManager(BaseTrackerManager):
             return TaskTreeFilter(self._tree_manager.child_filter)
         return NoFilter()
 
-    def iter_filtered_tracked_tasks(self):
+    def iter_filtered_items(self):
         """Get filtered tasks selected for tracking.
 
         Yields:

@@ -581,22 +581,25 @@ class ArchiveTreeItemEdit(CompositeEdit):
             )
             subedits = [remove_edit]
             closest_ancestor = archive_root.get_shared_ancestor(tree_item)
-            if closest_ancestor.path != tree_item.parent.path:
-                new_ancestors = archive_root.create_missing_ancestors(
-                    tree_item,
-                )
+            missing_ancestors = archive_root.create_missing_ancestors(
+                tree_item,
+                shared_ancestor=closest_ancestor,
+            )
+            if missing_ancestors:
+                # if there are missing ancestors, add them too
                 add_ancestors_edit = AddChildrenEdit.create_unregistered(
                     closest_ancestor,
-                    {new_ancestors[0].name: new_ancestors[0]},
+                    {missing_ancestors[0].name: missing_ancestors[0]},
                     activate=True,
                 )
                 add_edit = AddChildrenEdit.create_unregistered(
-                    new_ancestors[-1],
+                    missing_ancestors[-1],
                     {tree_item.name: tree_item},
                     activate=False,
                 )
                 subedits.extend([add_ancestors_edit, add_edit])
             else:
+                # otherwise, add item directly
                 add_edit = AddChildrenEdit.create_unregistered(
                     closest_ancestor,
                     {tree_item.name: tree_item},

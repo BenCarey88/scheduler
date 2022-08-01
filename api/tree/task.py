@@ -14,7 +14,7 @@ class TaskType(OrderedEnum):
     """Enumeration for task types."""
     ROUTINE = "Routine"
     GENERAL = "General"
-    VALUES_LIST = [ROUTINE, GENERAL]
+    VALUES = [ROUTINE, GENERAL]
 
 
 class TaskStatus(OrderedEnum):
@@ -22,10 +22,10 @@ class TaskStatus(OrderedEnum):
     UNSTARTED = "Unstarted"
     IN_PROGRESS = "In Progress"
     COMPLETE = "Complete"
-    VALUES_LIST = [UNSTARTED, IN_PROGRESS, COMPLETE]
+    VALUES = [UNSTARTED, IN_PROGRESS, COMPLETE]
 
 
-class TaskValueType():
+class TaskValueType(OrderedEnum):
     """Enumeration for task value types."""
     NONE = None
     TIME = "Time"
@@ -33,6 +33,7 @@ class TaskValueType():
     INT = "Int"
     FLOAT = "Float"
     MULTI = "Multi"
+    VALUES = [NONE, TIME, STRING, INT, FLOAT, MULTI]
 
 
 class TaskSize(OrderedEnum):

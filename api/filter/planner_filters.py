@@ -1,6 +1,11 @@
 """Filters for planner."""
 
-from ._base_filter import BaseFilter, FilterFactory
+from ._base_filter import (
+    BaseFilter,
+    CompositeFilter,
+    NoFilter,
+    register_serializable_filter,
+)
 
 
 class BasePlannerFilter(BaseFilter):
@@ -8,10 +13,17 @@ class BasePlannerFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BasePlannerFilter, self).__init__()
-        self._filter_builder = FilterFactory(BasePlannerFilter)
+        self._composite_filter_class = CompositePlannerFilter
 
 
-NoFilter = FilterFactory(BasePlannerFilter, no_filter=True)
+@register_serializable_filter("CompositePlannerFilter")
+class CompositePlannerFilter(CompositeFilter, BasePlannerFilter):
+    """Composite planner filter class."""
+
+
+@register_serializable_filter("EmptyPlannerFilter")
+class NoFilter(NoFilter, BasePlannerFilter):
+    """Empty planner filter."""
 
 
 class TaskTreeFilter(BasePlannerFilter):

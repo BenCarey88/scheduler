@@ -1,7 +1,12 @@
 """Filters for scheduler."""
 
 from scheduler.api.calendar.scheduled_item import ScheduledItemType
-from ._base_filter import BaseFilter, FilterFactory
+from ._base_filter import (
+    BaseFilter,
+    CompositeFilter,
+    NoFilter,
+    register_serializable_filter,
+)
 
 
 class BaseSchedulerFilter(BaseFilter):
@@ -9,22 +14,17 @@ class BaseSchedulerFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BaseSchedulerFilter, self).__init__()
-        self._filter_builder = FilterFactory(BaseSchedulerFilter)
+        self._composite_filter_class = CompositeSchedulerFilter
 
 
-NoFilter = FilterFactory(BaseSchedulerFilter, no_filter=True)
+@register_serializable_filter("CompositeSchedulerFilter")
+class CompositeSchedulerFilter(CompositeFilter, BaseSchedulerFilter):
+    """Composite scheduler filter class."""
 
 
-class NoTaskItems(BaseSchedulerFilter):
-    """Filter to only include non-task items."""
-    def filter_function(self, scheduled_item):
-        return scheduled_item.type != ScheduledItemType.TASK
-
-
-class OnlyTaskItems(BaseSchedulerFilter):
-    """Filter to only include task items."""
-    def filter_function(self, scheduled_item):
-        return scheduled_item.type == ScheduledItemType.TASK
+@register_serializable_filter("EmptySchedulerFilter")
+class NoFilter(NoFilter, BaseSchedulerFilter):
+    """Empty scheduler filter."""
 
 
 class TaskTreeFilter(BaseSchedulerFilter):

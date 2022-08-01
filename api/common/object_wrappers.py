@@ -448,7 +448,7 @@ class _BaseHostedContainer():
     def _apply_pairing(self):
         """Remove this container's class instance from its paired containers.
 
-        This only should be applied during deactivation of the class instance.
+        This only should be run during activation of the class instance.
         """
         for host in self._iter_hosts():
             self._add_to_paired_container(host)
@@ -456,7 +456,7 @@ class _BaseHostedContainer():
     def _unapply_pairing(self):
         """Remove this container's class instance from its paired containers.
 
-        This only should be applied during deactivation of the class instance.
+        This only should be run during deactivation of the class instance.
         """
         for host in self._iter_hosts():
             self._remove_from_paired_container(host)

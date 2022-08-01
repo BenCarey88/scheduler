@@ -45,6 +45,12 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             self.post_edit_callback,
         )
 
+        from .widgets.filter_dialog import FilterDialog
+        FilterDialog(
+            self.tabs_widget.currentWidget(),
+            self.tabs_widget.currentWidget().tree_manager,
+        ).exec()
+
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
         self.splitter = QtWidgets.QSplitter(self)

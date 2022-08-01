@@ -1,6 +1,11 @@
 """Filters for history dict."""
 
-from ._base_filter import BaseFilter, FilterFactory
+from ._base_filter import (
+    BaseFilter,
+    CompositeFilter,
+    NoFilter,
+    register_serializable_filter,
+)
 
 
 class BaseHistoryFilter(BaseFilter):
@@ -8,10 +13,17 @@ class BaseHistoryFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BaseHistoryFilter, self).__init__()
-        self._filter_builder = FilterFactory(BaseHistoryFilter)
+        self._composite_filter_class = CompositeHistoryFilter
 
 
-NoFilter = FilterFactory(BaseHistoryFilter, no_filter=True)
+@register_serializable_filter("CompositeHistoryFilter")
+class CompositeHistoryFilter(CompositeFilter, BaseHistoryFilter):
+    """Composite history filter class."""
+
+
+@register_serializable_filter("EmptyHistoryFilter")
+class NoFilter(NoFilter, BaseHistoryFilter):
+    """Empty history filter."""
 
 
 class TaskTreeFilter(BaseHistoryFilter):

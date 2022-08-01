@@ -1,6 +1,11 @@
 """Filters for tracked tasks."""
 
-from ._base_filter import BaseFilter, FilterFactory
+from ._base_filter import (
+    BaseFilter,
+    CompositeFilter,
+    NoFilter,
+    register_serializable_filter,
+)
 
 
 class BaseTrackerFilter(BaseFilter):
@@ -8,10 +13,17 @@ class BaseTrackerFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BaseTrackerFilter, self).__init__()
-        self._filter_builder = FilterFactory(BaseTrackerFilter)
+        self._composite_filter_class = CompositeTrackerFilter
 
 
-NoFilter = FilterFactory(BaseTrackerFilter, no_filter=True)
+@register_serializable_filter("CompositeTrackerFilter")
+class CompositeTrackerFilter(CompositeFilter, BaseTrackerFilter):
+    """Composite tracker filter class."""
+
+
+@register_serializable_filter("EmptyTrackerFilter")
+class NoFilter(NoFilter, BaseTrackerFilter):
+    """Empty tracker filter."""
 
 
 class TaskTreeFilter(BaseTrackerFilter):

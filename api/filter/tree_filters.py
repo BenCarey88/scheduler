@@ -2,9 +2,13 @@
 
 from collections import OrderedDict
 
-from scheduler.api.tree.task import Task
-from scheduler.api.tree.task_category import TaskCategory
-from ._base_filter import BaseFilter, FilterFactory
+from ._base_filter import (
+    BaseFilter,
+    CompositeFilter,
+    NoFilter,
+    register_serializable_filter,
+)
+from ._field_filters import FieldFilter
 
 
 class BaseTreeFilter(BaseFilter):
@@ -12,13 +16,13 @@ class BaseTreeFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BaseTreeFilter, self).__init__()
-        self._filter_builder = FilterFactory(BaseTreeFilter)
+        self._composite_filter_class = CompositeTreeFilter
 
     def recursive_filter(self, child_item):
         """Check if an item or any of its ancestors are filtered.
 
         Args:
-            child_item (BaseTreeItem):
+            child_item (BaseTreeItem): item to check.
 
         Returns:
             (bool): True if item and all ancestors shouldn't be filtered.
@@ -44,86 +48,55 @@ class BaseTreeFilter(BaseFilter):
         ])
 
 
-NoFilter = FilterFactory(BaseTreeFilter, no_filter=True)
-
-
-class FullPrune(BaseTreeFilter):
-    """Filter to remove all children."""
-    def filter_function(self, child_item):
-        return False
-
-
-class KeepChildrenOfType(BaseTreeFilter):
-    """Filter to keep only the items of the given type."""
-    def __init__(self, class_type):
-        super(KeepChildrenOfType, self).__init__()
-        self.class_type = class_type
-
-    def filter_function(self, child_item):
-        return isinstance(child_item, self.class_type)
-
-
-class RemoveChildrenOfType(BaseTreeFilter):
-    """Filter to remove all items of the given type."""
-    def __init__(self, class_type):
-        super(RemoveChildrenOfType, self).__init__()
-        self.class_type = class_type
-
-    def filter_function(self, child_item):
-        return not isinstance(child_item, self.class_type)
-
-
-class RemoveSubChildrenOfType(BaseTreeFilter):
-    """Filter to remove all children of items with the given type."""
-    def __init__(self, class_type):
-        super(RemoveSubChildrenOfType, self).__init__()
-        self.class_type = class_type
-
-    def filter_function(self, child_item):
-        return not isinstance(child_item.parent, self.class_type)
-
-
-class RemoveGivenChildren(BaseTreeFilter):
-    """Filter to remove the given children."""
-    def __init__(self, specified_parent, children_to_remove):
-        """Initialise filter.
+class BaseTreeFieldFilter(FieldFilter, BaseTreeFilter):
+    """Tree field filter."""
+    def __init__(
+            self,
+            field_getter,
+            field_operator,
+            field_value,
+            include_matching_descendants=True):
+        """Initialize.
 
         Args:
-            specified_parent (BaseTreeItem): parent to restrict children of.
-            children_to_keep (list(str)): names of children to keep for given
-                parent.
+            field_getter (function): function to get a field value from
+                the item we're filtering.
+            field_operator (FilterOperator): operator to apply to field.
+            field_value (variant): value to use with operator.
+            include_matching_descendants (bool): if True, keep an item in
+                if any of its descendants are unfiltered.
         """
-        super(RemoveGivenChildren, self).__init__()
-        self.specified_parent = specified_parent
-        self.children_to_remove = children_to_remove
+        super(BaseTreeFieldFilter, self).__init__(
+            field_getter,
+            field_operator,
+            field_value,
+        )
+        self._include_matching_descendants = include_matching_descendants
 
-    def filter_function(self, child_item):
-        if (child_item.parent == self.specified_parent
-                and child_item.name in self.children_to_remove):
-            return False
-        return True
-
-
-class RestrictToGivenChildren(BaseTreeFilter):
-    """Filter to remove all but the given children for specified parent."""
-
-    def __init__(self, specified_parent, children_to_keep):
-        """Initialise filter.
+    def filter_function(self, item):
+        """Check if tree item is filtered.
 
         Args:
-            specified_parent (BaseTreeItem): parent to restrict children of.
-            children_to_keep (list(str)): names of children to keep for given
-                parent.
+            item (bool): the item to filter.
         """
-        super(RestrictToGivenChildren, self).__init__()
-        self.specified_parent = specified_parent
-        self.children_to_keep = children_to_keep
+        filter_func = super(BaseTreeFieldFilter, self).filter_function
+        if self._include_matching_descendants:
+            return any([
+                filter_func(child)
+                for child in item.iter_descendants(strict=False)
+            ])
+        else:
+            return filter_func(item)
 
-    def filter_function(self, child_item):
-        if (child_item.parent == self.specified_parent
-                and child_item.name not in self.children_to_keep):
-            return False
-        return True
+
+@register_serializable_filter("CompositeTreeFilter")
+class CompositeTreeFilter(CompositeFilter, BaseTreeFilter):
+    """Composite tree filter class."""
+
+
+@register_serializable_filter("EmptyTreeFilter")
+class NoFilter(NoFilter, BaseTreeFilter):
+    """Empty tree filter."""
 
 
 class FilterByItem(BaseTreeFilter):
@@ -143,26 +116,52 @@ class FilterByItem(BaseTreeFilter):
         return True
 
 
-class TaskFilter(KeepChildrenOfType):
-    """Filter for tasks in child dict."""
-    def __init__(self):
-        super(TaskFilter, self).__init__(Task)
+@register_serializable_filter("TaskStatusFilter")
+class TaskStatusFilter(BaseTreeFieldFilter):
+    """Filter for given task statuses."""
+    def __init__(self, filter_operator, filter_value):
+        """Initialize filter.
+
+        Args:
+            field_operator (FilterOperator): operator to apply to field.
+            field_value (variant): value to use with operator.
+        """
+        super(TaskStatusFilter, self).__init__(
+            lambda task: task.status,
+            filter_operator,
+            filter_value,
+        )
 
 
-class TaskCategoryFilter(KeepChildrenOfType):
-    """Filter for task categories in child dict."""
-    def __init__(self):
-        super(TaskCategoryFilter, self).__init__(TaskCategory)
+@register_serializable_filter("TaskTypeFilter")
+class TaskTypeFilter(BaseTreeFieldFilter):
+    """Filter for given task types."""
+    def __init__(self, filter_operator, filter_value):
+        """Initialize filter.
+
+        Args:
+            field_operator (FilterOperator): operator to apply to field.
+            field_value (variant): value to use with operator.
+        """
+        super(TaskTypeFilter, self).__init__(
+            lambda task: task.type,
+            filter_operator,
+            filter_value,
+        )
 
 
-class NoTasks(RemoveChildrenOfType):
-    """Filter to remove all tasks from child dicts."""
-    def __init__(self):
-        super(NoTasks, self).__init__(Task)
+@register_serializable_filter("TaskPathFilter")
+class TaskPathFilter(BaseTreeFieldFilter):
+    """Filter for given task path strings."""
+    def __init__(self, filter_operator, filter_value):
+        """Initialize filter.
 
-
-class NoSubtasks(RemoveSubChildrenOfType):
-    """Filter to remove all subtasks from child dicts."""
-    def __init__(self):
-        super(NoSubtasks, self).__init__(Task)
-
+        Args:
+            field_operator (FilterOperator): operator to apply to field.
+            field_value (variant): value to use with operator.
+        """
+        super(TaskPathFilter, self).__init__(
+            lambda task: task.path,
+            filter_operator,
+            filter_value,
+        )

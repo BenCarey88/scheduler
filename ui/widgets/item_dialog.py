@@ -108,7 +108,7 @@ class ItemDialog(QtWidgets.QDialog):
         return None
 
     def accept_and_close(self):
-        """Run add or modify scheduled item edit.
+        """Create or modify item and close dialog.
 
         This should be reimplemented in subclasses to deal with edits.
 
@@ -118,7 +118,7 @@ class ItemDialog(QtWidgets.QDialog):
         self.close()
 
     def delete_item_and_close(self):
-        """Run remove scheduled item edit.
+        """Delete item and close dialog.
 
         This should be reimplemented in subclasses to deal with edits.
 

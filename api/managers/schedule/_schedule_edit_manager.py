@@ -24,7 +24,7 @@ from ._base_schedule_manager import BaseScheduleManager
 
 class ScheduleEditManager(BaseScheduleManager):
     """Calendar edit manager to apply edits to scheduled items."""
-    def __init__(self, name, user_prefs, calendar, tree_manager):
+    def __init__(self, name, user_prefs, calendar, tree_manager, filterer):
         """Initialize class.
 
         Args:
@@ -32,12 +32,14 @@ class ScheduleEditManager(BaseScheduleManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
+            filterer (Filterer): filterer class for storing filters.
         """
         super(ScheduleEditManager, self).__init__(
             name,
             user_prefs,
             calendar,
             tree_manager,
+            filterer,
         )
 
     def _create_scheduled_item(

@@ -1,5 +1,6 @@
 """User preference classes."""
 
+from collections import OrderedDict
 import os
 
 from scheduler.api import constants, utils
@@ -18,6 +19,7 @@ class UserPrefsError(Exception):
 
 class BaseUserPrefs(BaseSerializable):
     """Base user preferences class."""
+    # _DICT_TYPE = OrderedDict
 
     def __init__(self):
         """Initialise class.
@@ -93,7 +95,7 @@ class BaseUserPrefs(BaseSerializable):
         Args:
             name (str or list): name of attribute to get, or list of keys
                 representing path to attribute in dict.
-            default (variant): default value to set, if wanted.
+            default (variant): default value to use, if wanted.
 
         Returns:
             (variant or None): the user prefs attribute if found.
@@ -113,7 +115,8 @@ class BaseUserPrefs(BaseSerializable):
         Args:
             name (str or list): name of attribute to set, or list of keys
                 representing path to attribute in dict.
-            value (variant): value to set.
+            value (variant or None): value to set. If None, we delete the
+                attribute instead.
             default (variant): default value that's used when getting this
                 attribute - if this is the same as value then we just delete
                 the given key from the dictionary.
@@ -127,11 +130,25 @@ class BaseUserPrefs(BaseSerializable):
                 if not isinstance(prefs_dict, dict):
                     return
             name = name[-1]
-        if default is not None and value == default:
+        if value is None or value == default:
             if name in prefs_dict:
                 del prefs_dict[name]
         else:
             prefs_dict[name] = value
+
+    def get_or_set_attribute(self, name, value):
+        """Get user preference with given name, and set if doesn't exits.
+
+        Args:
+            name (str or list): name of attribute to get, or list of keys
+                representing path to attribute in dict.
+            value (variant): value to set if doesn't exist.
+        """
+        attr_value = self.get_attribute(name)
+        if attr_value is None:
+            self.set_attribute(name, value)
+            attr_value = value
+        return attr_value
 
     @classmethod
     def from_dict(cls, dictionary):

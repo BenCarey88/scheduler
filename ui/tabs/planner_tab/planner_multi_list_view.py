@@ -46,17 +46,18 @@ class BasePlannerMultilist(object):
 
 class PlannerMultiListWeekView(BasePlannerMultilist, BaseMultiListWeekView):
     """Multi list week view for planner."""
-    def __init__(self, name, project, parent=None):
+    def __init__(self, name, project, num_days=7, parent=None):
         """Initialise multi-list planner view.
 
         Args:
             name (str): name of tab.
             project (Project): the project we're working on.
+            num_days (int): number of days to generate for. Defaults to week.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         list_views = [
             TitledPlannerListView(name, project, TimePeriod.DAY)
-            for _ in range(7)
+            for _ in range(num_days)
         ]
         super(PlannerMultiListWeekView, self).__init__(
             name,

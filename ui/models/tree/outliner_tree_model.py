@@ -31,9 +31,13 @@ class OutlinerTreeModel(BaseTreeModel):
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
         self._hide_filtered_items = hide_filtered_items
+        if hide_filtered_items:
+            filter_ = tree_manager.child_filter
+        else:
+            filter_ = tree_manager.field_filter
         super(OutlinerTreeModel, self).__init__(
             tree_manager,
-            filter=tree_manager.child_filter if hide_filtered_items else None,
+            filter=filter_,
             mime_data_format=constants.OUTLINER_TREE_MIME_DATA_FORMAT,
             parent=parent,
         )
@@ -147,7 +151,11 @@ class OutlinerTreeModel(BaseTreeModel):
             (bool): whether or not action was successful.
         """
         self._hide_filtered_items = hide
-        if hide:
+        self.update_filter()
+
+    def update_filter(self):
+        """Update filter to match tree manager."""
+        if self._hide_filtered_items:
             return self.set_filter(self.tree_manager.child_filter)
         else:
-            return self.set_filter(None)
+            return self.set_filter(self.tree_manager.field_filter)

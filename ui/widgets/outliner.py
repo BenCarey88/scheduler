@@ -1,4 +1,4 @@
-"""Task Outliner Panel."""
+"""Task Outliner View."""
 
 from functools import partial
 
@@ -141,6 +141,12 @@ class Outliner(BaseTreeView):
     def on_model_data_change(self, *args):
         """Update view to pick up changes in model."""
         self.viewport().update()
+
+    def on_field_filter_changed(self):
+        """Callback for when field filter is changed in filter view."""
+        self.model().update_filter()
+        self.expand_items_from_tree_manager()
+        self.tab.on_outliner_filter_changed()
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

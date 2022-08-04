@@ -351,6 +351,14 @@ class PlannedItem(Hosted, NestedSerializable):
         if planned_item not in self._planned_children:
             self._planned_children.append(planned_item)
 
+    # TODO: I think there's a problem here with autosaves: the assumption
+    # with this _get_id method (and same for the ones in scheduled item class)
+    # was that it will only be called once, as the program is being closed,
+    # but because of autosaves, this isn't true. This just means the id name
+    # may be dodgy, but everything else should work afaik.
+    # To fix, I think we need to check if item currently exists in registry
+    # rather than check if self._id is set, and then we can make autosaves
+    # clear the id registry after each cache.
     def _get_id(self):
         """Generate unique id for object.
 

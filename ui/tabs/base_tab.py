@@ -5,6 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.edit.edit_callbacks import CallbackItemType
 
 from scheduler.ui.widgets.outliner import Outliner
+from scheduler.ui.widgets.outliner_panel import OutlinerPanel
 
 
 class BaseTab(QtWidgets.QWidget):
@@ -20,7 +21,13 @@ class BaseTab(QtWidgets.QWidget):
         super(BaseTab, self).__init__(parent=parent)
         self.name = name
         self.tree_manager = project.get_tree_manager(name)
-        self.outliner = Outliner(self, self.tree_manager, parent=self)
+        self.outliner_panel = OutlinerPanel(
+            self,
+            self.tree_manager,
+            parent=self,
+        )
+        self.outliner = self.outliner_panel.outliner
+        self.filter_view = self.outliner_panel.filter_view
         self._is_active = False
 
         self.outer_layout = QtWidgets.QVBoxLayout()
@@ -46,7 +53,7 @@ class BaseTab(QtWidgets.QWidget):
             *args: additional args dependent on type of edit.
         """
         if callback_type[0] == CallbackItemType.TREE and self._is_active:
-            self.outliner.pre_edit_callback(callback_type, *args)
+            self.outliner_panel.pre_edit_callback(callback_type, *args)
 
     def post_edit_callback(self, callback_type, *args):
         """Callback for after an edit of any type is run.
@@ -55,8 +62,12 @@ class BaseTab(QtWidgets.QWidget):
             callback_type (CallbackType): edit callback type.
             *args: additional args dependent on type of edit.
         """
-        if callback_type[0] == CallbackItemType.TREE and self._is_active:
-            self.outliner.post_edit_callback(callback_type, *args)
+        item_type = callback_type[0]
+        if item_type != CallbackItemType.FILTER:
+            self.tree_manager.clear_filter_caches()
+        if (self._is_active and
+                item_type in (CallbackItemType.TREE, CallbackItemType.FILTER)):
+            self.outliner_panel.post_edit_callback(callback_type, *args)
         self.update()
 
     def set_active(self, value):
@@ -67,6 +78,7 @@ class BaseTab(QtWidgets.QWidget):
         """
         self._is_active = value
         self.outliner._is_active = value
+        self.filter_view._is_active = value
 
     def on_tab_changed(self):
         """Callback for when we change to this tab.
@@ -76,5 +88,5 @@ class BaseTab(QtWidgets.QWidget):
         that tab. This should be monitored and may need to change if we
         start to see lags either during edits or when changing tab.
         """
-        self.outliner.on_tab_changed()
+        self.outliner_panel.on_tab_changed()
         self.update()

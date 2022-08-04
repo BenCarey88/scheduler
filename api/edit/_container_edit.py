@@ -1029,7 +1029,9 @@ class DictEdit(BaseContainerEdit):
             raise EditError("dict_ argument must be a dict")
         if (isinstance(dict_, ORDERED_DICT_TYPES) 
                 != isinstance(diff_dict, ORDERED_DICT_TYPES)):
-            raise EditError("diff_dict must both be ordered or unordered")
+            raise EditError(
+                "diff_dict and dict_ must both be ordered or unordered"
+            )
         super(DictEdit, self).__init__(
             dict_,
             diff_dict,

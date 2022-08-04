@@ -40,14 +40,18 @@ def filter_from_dict(dict_repr):
     Returns:
         (BaseFilter or None): the filter class, if found.
     """
-    filter_class = dict_repr.get(BaseFilter._FILTER_CLASS_NAME_KEY)
+    filter_class_name = dict_repr.get(BaseFilter._FILTER_CLASS_NAME_KEY)
+    filter_class = _SERIALIZABLE_FILTER_CLASSES.get(filter_class_name)
     if filter_class is not None:
-        return filter_class._from_dict(dict_repr)
+        filter_ = filter_class._from_dict(dict_repr)
+        filter_.set_name(dict_repr.get(BaseFilter._NAME_KEY))
+        return filter_
     return None
 
 
 class BaseFilter(object):
     """Base filter class, with function for filtering items in a container."""
+    _NAME_KEY = "name"
     _FILTER_CLASS_NAME_KEY = "filter_class"
     _FILTER_CLASS_NAME = None
 
@@ -55,9 +59,67 @@ class BaseFilter(object):
         """Initialize."""
         self._composite_filter_class = CompositeFilter
         self._is_valid = True
+        self._name = None
+        # set filter cache to None in classes we don't want to cache
+        # filter caches should be cleared after every edit
+        self._filter_cache = {}
+
+    @property
+    def name(self):
+        """Get name of filter, if exists.
+
+        Returns:
+            (str or None): filter name.
+        """
+        return self._name
+
+    def set_name(self, name):
+        """Set name of filter.
+
+        Args:
+            name (str): filter name.
+        """
+        self._name = name
+
+    def clear_cache(self):
+        """Clear filter cache."""
+        if self._filter_cache is not None:
+            self._filter_cache = {}
+
+    def _get_cache_key(self, *args, **kwargs):
+        """Get key to cache args and kwargs for filter function.
+
+        Since args and kwargs are dynamic in the filter function, this must
+        be reimplemented to account for different args and kwargs.
+        """
+        raise NotImplementedError(
+            "_get_cache_key must be implemented in sunclasses where number "
+            "of arguments to filter_function is fixed."
+        )
 
     def filter_function(self, *args, **kwargs):
         """Filter function.
+
+        Similarly to the distinction between run and _run in edit classes,
+        _filter_function determines the class-specific implementation, and is
+        called by filter_function, which defines generic behaviour for all
+        filter functions.
+
+        Returns:
+            (bool): True if item should stay in container, False if it should
+                be filtered out.
+        """
+        if self._filter_cache is not None:
+            cache_key = self.get_cache_key(*args, **kwargs)
+            if cache_key in self._filter_cache:
+                return self._filter_cache[cache_key]
+            value = self._filter_function(*args, **kwargs)
+            self._filter_cache[cache_key] = value
+            return value
+        return self._filter_function(*args, **kwargs)
+
+    def _filter_function(self, *args, **kwargs):
+        """Filter function implementation.
 
         Returns:
             (bool): True if item should stay in container, False if it should
@@ -67,7 +129,7 @@ class BaseFilter(object):
 
     def __call__(self, *args, **kwargs):
         """Call filter function."""
-        return self.filter_function(*args, **kwargs)
+        return self._filter_function(*args, **kwargs)
 
     def __or__(self, filter_):
         """Combine this with given filter to make a less restrictive filter.
@@ -93,7 +155,7 @@ class BaseFilter(object):
         for f in (self, filter_):
             if (isinstance(f, CompositeFilter)
                     and f._compositon_operator == CompositeFilter.OR):
-                subfilters_list.append(f._subfilters_list)
+                subfilters_list.extend(f._subfilters_list)
             else:
                 subfilters_list.append(f)
         return self._composite_filter_class(
@@ -127,7 +189,7 @@ class BaseFilter(object):
         for f in (self, filter_):
             if (isinstance(f, CompositeFilter)
                     and f._compositon_operator == CompositeFilter.AND):
-                subfilters_list.append(f._subfilters_list)
+                subfilters_list.extend(f._subfilters_list)
             else:
                 subfilters_list.append(f)
         return self._composite_filter_class(
@@ -158,8 +220,10 @@ class BaseFilter(object):
             (dict): dictionary representation.
         """
         if self._FILTER_CLASS_NAME is not None:
-            dict_repr = self._get_dict_repr()
+            dict_repr = self._to_dict()
             dict_repr[self._FILTER_CLASS_NAME_KEY] = self._FILTER_CLASS_NAME
+            if self.name is not None:
+                dict_repr[self._NAME_KEY] = self.name
             return dict_repr
         raise FilterError(
             "Filter class {0} is unserializable. It needs to be wrapped by "
@@ -196,8 +260,8 @@ class CompositeFilter(BaseFilter):
     """Filter made of composites of other filters."""
     SUBFILTERS_KEY = "subfilters"
     COMPOSITION_OPERATOR_KEY = "composition_operator"
-    AND = "and"
-    OR = "or"
+    AND = "AND"
+    OR = "OR"
 
     def __init__(self, subfilters_list=None, composition_operator=None):
         """Initialize filter.
@@ -213,7 +277,7 @@ class CompositeFilter(BaseFilter):
         if not subfilters_list:
             self._is_valid = False
 
-    def filter_function(self, *args, **kwargs):
+    def _filter_function(self, *args, **kwargs):
         """Filter function.
 
         Returns:
@@ -224,12 +288,12 @@ class CompositeFilter(BaseFilter):
             return True
         if self._compositon_operator == self.AND:
             return all([
-                subfilter.filter_function(*args, **kwargs)
+                subfilter._filter_function(*args, **kwargs)
                 for subfilter in self._subfilters_list
             ])
         elif self._compositon_operator == self.OR:
             return any([
-                subfilter.filter_function(*args, **kwargs)
+                subfilter._filter_function(*args, **kwargs)
                 for subfilter in self._subfilters_list
             ])
         else:
@@ -308,7 +372,7 @@ class CustomFilter(BaseFilter):
         if function is None:
             self._is_valid = False
         if function is not None:
-            self.filter_function = function
+            self._filter_function = function
 
 
 class NoFilter(BaseFilter):

@@ -15,6 +15,7 @@ class BaseSchedulerFilter(BaseFilter):
         """Initialize."""
         super(BaseSchedulerFilter, self).__init__()
         self._composite_filter_class = CompositeSchedulerFilter
+        self._get_cache_key = lambda item: item
 
 
 @register_serializable_filter("CompositeSchedulerFilter")
@@ -38,7 +39,7 @@ class TaskTreeFilter(BaseSchedulerFilter):
         super(TaskTreeFilter, self).__init__()
         self._tree_filter = tree_filter
 
-    def filter_function(self, scheduled_item):
+    def _filter_function(self, scheduled_item):
         """If event is a task that's not in the filtered tree, remove it."""
         if (scheduled_item.tree_item is None
                 or scheduled_item.type != ScheduledItemType.TASK):

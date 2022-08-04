@@ -41,11 +41,12 @@ def require_class(require_class, raise_error=False):
 
 class BaseManager(object):
     """Base manager class that all others inherit from."""
-    def __init__(self, user_prefs, name="", suffix="manager"):
+    def __init__(self, user_prefs, filterer, name="", suffix="manager"):
         """Initialize class.
 
         Args:
             user_prefs (ProjectUserPrefs): project user prefs class.
+            filterer (Filterer): filterer class for storing filters.
             name (str): name of manager.
             suffix (str): string to append to name.
         """
@@ -56,6 +57,11 @@ class BaseManager(object):
         else:
             self._name = suffix
         self._project_user_prefs = user_prefs
+        self._filterer = filterer
+
+    def clear_filter_caches(self):
+        """Clear all filter caches."""
+        self._filterer.clear_filter_caches()
 
 
 class BaseCalendarManager(BaseManager):
@@ -65,6 +71,7 @@ class BaseCalendarManager(BaseManager):
             user_prefs,
             calendar,
             tree_manager,
+            filterer,
             name="",
             suffix="manager"):
         """Initialize class.
@@ -73,6 +80,7 @@ class BaseCalendarManager(BaseManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
+            filterer (Filterer): filterer class for storing filters.
             name (str): manager name.
             suffix (str): string to append to name.
         """
@@ -80,6 +88,7 @@ class BaseCalendarManager(BaseManager):
         self._calendar = calendar
         super(BaseCalendarManager, self).__init__(
             user_prefs,
+            filterer=filterer,
             name=name,
             suffix=suffix,
         )

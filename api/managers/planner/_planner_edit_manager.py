@@ -16,7 +16,7 @@ from ._base_planner_manager import BasePlannerManager
 
 class PlannerEditManager(BasePlannerManager):
     """Planner edit manager to apply edits to planned items."""
-    def __init__(self, name, user_prefs, calendar, tree_manager):
+    def __init__(self, name, user_prefs, calendar, tree_manager, filterer):
         """Initialize class.
 
         Args:
@@ -24,12 +24,14 @@ class PlannerEditManager(BasePlannerManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
+            filterer (Filterer): filterer class for storing filters.
         """
         super(PlannerEditManager, self).__init__(
             name,
             user_prefs,
             calendar,
             tree_manager,
+            filterer,
         )
 
     def create_planned_item(

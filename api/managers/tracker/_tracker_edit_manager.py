@@ -6,7 +6,14 @@ from ._base_tracker_manager import BaseTrackerManager
 
 class TrackerEditManager(BaseTrackerManager):
     """Planner edit manager to apply edits to planned items."""
-    def __init__(self, name, user_prefs, calendar, tree_manager, tracker):
+    def __init__(
+            self,
+            name,
+            user_prefs,
+            calendar,
+            tree_manager,
+            filterer,
+            tracker):
         """Initialize class.
 
         Args:
@@ -15,11 +22,13 @@ class TrackerEditManager(BaseTrackerManager):
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
             tracker (Tracker): tracker object.
+            filterer (Filterer): filterer class for storing filters.
         """
         super(TrackerEditManager, self).__init__(
             name,
             user_prefs,
             calendar,
             tree_manager,
+            filterer,
             tracker,
         )

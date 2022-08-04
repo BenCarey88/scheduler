@@ -14,6 +14,7 @@ class BasePlannerFilter(BaseFilter):
         """Initialize."""
         super(BasePlannerFilter, self).__init__()
         self._composite_filter_class = CompositePlannerFilter
+        self._get_cache_key = lambda item: item
 
 
 @register_serializable_filter("CompositePlannerFilter")
@@ -37,7 +38,7 @@ class TaskTreeFilter(BasePlannerFilter):
         super(TaskTreeFilter, self).__init__()
         self._tree_filter = tree_filter
 
-    def filter_function(self, planned_item):
+    def _filter_function(self, planned_item):
         """If item is a task that's not in the filtered tree, remove it."""
         if planned_item.tree_item is None:
             return True

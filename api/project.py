@@ -2,7 +2,9 @@
 
 import os
 
+from .calendar import Calendar, Tracker
 from .common.user_prefs import ProjectUserPrefs
+from .filter import Filterer
 from .managers import (
     HistoryManager,
     PlannerManager,
@@ -17,7 +19,6 @@ from .serialization.serializable import (
     SerializationError,
 )
 from .serialization import file_utils
-from .calendar import Calendar, Tracker
 from .tree import TaskRoot
 from .utils import backup_git_repo
 
@@ -35,6 +36,7 @@ class ProjectTree(object):
     TASK_DIR_NAME = "tasks"
     CALENDAR_DIR_NAME = "calendar"
     TRACKER_FILE_NAME = "tracker.json"
+    FILTERER_FILE_NAME = "filterer.json"
     # NOTES_FILE_NAME = "notes.txt"
     USER_PREFS_FILE_NAME = "user_prefs.json"
 
@@ -118,6 +120,15 @@ class ProjectTree(object):
         """
         return os.path.join(self._project_root_path, self.TRACKER_FILE_NAME)
 
+    @property
+    def filterer_file(self):
+        """Get file path for filterer.
+
+        Returns:
+            (str): path to filterer file.
+        """
+        return os.path.join(self._project_root_path, self.FILTERER_FILE_NAME)
+
     # @property
     # def notes_file(self):
     #     """Get file path for notes.
@@ -145,6 +156,7 @@ class Project(CustomSerializable):
         - Tasks
         - Calendar
         - Tracker
+        - Filterer
 
     A project also includes the following data (which aren't considered
     components):
@@ -202,7 +214,6 @@ class Project(CustomSerializable):
         )
         self._task_root.set_archive_root(self._archive_task_root)
 
-        # TODO: calendar and tracker need to init with task archive too
         self._calendar = Calendar.safe_read(
             self._project_tree.calendar_directory,
             self._task_root,
@@ -215,6 +226,9 @@ class Project(CustomSerializable):
         self._tracker = Tracker.safe_read(
             self._project_tree.tracker_file,
             self._task_root,
+        )
+        self._filterer = Filterer.safe_read(
+            self._project_tree.filterer_file,
         )
         self._user_prefs = ProjectUserPrefs.safe_read(
             self._project_tree.project_user_prefs_file,
@@ -259,6 +273,15 @@ class Project(CustomSerializable):
         return self._tracker
 
     @property
+    def filterer(self):
+        """Get filterer component.
+
+        Returns:
+            (Filterer): filterer object.
+        """
+        return self._filterer
+
+    @property
     def archive_task_root(self):
         """Get archive task root.
 
@@ -299,6 +322,7 @@ class Project(CustomSerializable):
                 name,
                 self.user_prefs,
                 self.task_root,
+                self.filterer,
             )
         return self._tree_managers.get(name)
 
@@ -318,6 +342,7 @@ class Project(CustomSerializable):
                 self.user_prefs,
                 self.calendar,
                 self.get_tree_manager(name),
+                self.filterer,
             )
         return self._planner_managers.get(name)
 
@@ -337,6 +362,7 @@ class Project(CustomSerializable):
                 self.user_prefs,
                 self.calendar,
                 self.get_tree_manager(name),
+                self.filterer,
             )
         return self._schedule_managers.get(name)
 
@@ -356,6 +382,7 @@ class Project(CustomSerializable):
                 self.user_prefs,
                 self.calendar,
                 self.get_tree_manager(name),
+                self.filterer,
                 self.tracker,
             )
         return self._tracker_managers.get(name)
@@ -375,6 +402,7 @@ class Project(CustomSerializable):
                 self.user_prefs,
                 self.calendar,
                 self.get_tree_manager(name),
+                self.filterer,
             )
         return self._history_managers.get(name)
 
@@ -387,14 +415,15 @@ class Project(CustomSerializable):
             project_tree (ProjectTree): project tree to write to.
         """
         self._task_root.write(project_tree.tasks_directory)
-        self._calendar.write(project_tree.calendar_directory)
-        self._tracker.write(project_tree.tracker_file)
-        self._archive_task_root.write(
-            project_tree.archive_tree.tasks_directory
-        )
-        self._archive_calendar.write(
-            project_tree.archive_tree.calendar_directory
-        )
+        # self._calendar.write(project_tree.calendar_directory)
+        # self._tracker.write(project_tree.tracker_file)
+        # self._filterer.write(project_tree.filterer_file)
+        # self._archive_task_root.write(
+        #     project_tree.archive_tree.tasks_directory
+        # )
+        # self._archive_calendar.write(
+        #     project_tree.archive_tree.calendar_directory
+        # )
 
     @classmethod
     def from_directory(cls, project_root_path):
@@ -431,6 +460,7 @@ class Project(CustomSerializable):
                 pass
         self._write_all_components(self._project_tree)
 
+    # TODO: also autosave user prefs?
     def autosave(self):
         """Write project files to autosaves directory."""
         if not os.path.exists(self._autosaves_tree.root_directory):

@@ -6,7 +6,7 @@ from ._base_history_manager import BaseHistoryManager
 
 class HistoryFilterManager(BaseHistoryManager):
     """History filter manager to maintain filter attrs for planned items."""
-    def __init__(self, name, user_prefs, calendar, tree_manager):
+    def __init__(self, name, user_prefs, calendar, tree_manager, filterer):
         """Initialize class.
 
         Args:
@@ -14,12 +14,14 @@ class HistoryFilterManager(BaseHistoryManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
+            filterer (Filterer): filterer class for storing filters.
         """
         super(HistoryFilterManager, self).__init__(
             name,
             user_prefs,
             calendar,
             tree_manager,
+            filterer,
         )
 
     @property

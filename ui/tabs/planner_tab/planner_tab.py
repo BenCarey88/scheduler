@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from scheduler.api.constants import TimePeriod
+from scheduler.api.constants import TimePeriod as TP
 
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
@@ -33,16 +33,25 @@ class PlannerTab(BaseCalendarTab):
             ## DAY ##
             (
                 (DateType.DAY, ViewType.LIST),
-                TitledPlannerListView(name, project, TimePeriod.DAY),
+                TitledPlannerListView(name, project, TP.DAY),
             ),
             (
                 (DateType.DAY, ViewType.HYBRID),
-                OverlayedPlannerHybridView(name, project, TimePeriod.DAY),
+                OverlayedPlannerHybridView(name, project, TP.DAY),
+            ),
+            ## THREE DAYS ##
+            (
+                (DateType.THREE_DAYS, ViewType.MULTILIST),
+                PlannerMultiListWeekView(name, project, num_days=3),
+            ),
+            (
+                (DateType.THREE_DAYS, ViewType.HYBRID),
+                OverlayedPlannerHybridView(name, project, TP.WEEK, num_days=3),
             ),
             ## WEEK ##
             (
                 (DateType.WEEK, ViewType.LIST),
-                TitledPlannerListView(name, project, TimePeriod.WEEK),
+                TitledPlannerListView(name, project, TP.WEEK),
             ),
             (
                 (DateType.WEEK, ViewType.MULTILIST),
@@ -50,12 +59,12 @@ class PlannerTab(BaseCalendarTab):
             ),
             (
                 (DateType.WEEK, ViewType.HYBRID),
-                OverlayedPlannerHybridView(name, project, TimePeriod.WEEK),
+                OverlayedPlannerHybridView(name, project, TP.WEEK),
             ),
             ## MONTH ##
             (
                 (DateType.MONTH, ViewType.LIST),
-                TitledPlannerListView(name, project, TimePeriod.MONTH),
+                TitledPlannerListView(name, project, TP.MONTH),
             ),
             (
                 (DateType.MONTH, ViewType.MULTILIST),
@@ -63,12 +72,12 @@ class PlannerTab(BaseCalendarTab):
             ),
             (
                 (DateType.MONTH, ViewType.HYBRID),
-                OverlayedPlannerHybridView(name, project, TimePeriod.MONTH),
+                OverlayedPlannerHybridView(name, project, TP.MONTH),
             ),
             ## YEAR ##
             (
                 (DateType.YEAR, ViewType.LIST),
-                TitledPlannerListView(name, project, TimePeriod.YEAR),
+                TitledPlannerListView(name, project, TP.YEAR),
             ),
             (
                 (DateType.YEAR, ViewType.MULTILIST),
@@ -76,7 +85,7 @@ class PlannerTab(BaseCalendarTab):
             ),
             (
                 (DateType.YEAR, ViewType.HYBRID),
-                OverlayedPlannerHybridView(name, project, TimePeriod.YEAR),
+                OverlayedPlannerHybridView(name, project, TP.YEAR),
             ),
         ])
         super(PlannerTab, self).__init__(

@@ -14,6 +14,7 @@ class BaseTrackerFilter(BaseFilter):
         """Initialize."""
         super(BaseTrackerFilter, self).__init__()
         self._composite_filter_class = CompositeTrackerFilter
+        self._get_cache_key = lambda item: item
 
 
 @register_serializable_filter("CompositeTrackerFilter")
@@ -37,6 +38,6 @@ class TaskTreeFilter(BaseTrackerFilter):
         super(TaskTreeFilter, self).__init__()
         self._tree_filter = tree_filter
 
-    def filter_function(self, task_item):
+    def _filter_function(self, task_item):
         """If item is a task that's not in the filtered tree, remove it."""
         return self._tree_filter.recursive_filter(task_item)

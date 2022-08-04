@@ -6,8 +6,14 @@ editing the underlying tree item data, eg. whether or not the item
 is being filtered for in the current tab.
 """
 
-from scheduler.api.tree.base_task_item import BaseTaskItem
+from scheduler.api.edit.filter_edit import (
+    AddFilterEdit,
+    RemoveFilterEdit,
+    ModifyFilterEdit,
+)
+from scheduler.api.filter import FilterType
 from scheduler.api.filter.tree_filters import NoFilter, FilterByItem
+from scheduler.api.tree.base_task_item import BaseTaskItem
 from scheduler.api.utils import fallback_value
 
 from ._base_tree_manager import BaseTreeManager
@@ -43,31 +49,40 @@ class TreeFilterManager(BaseTreeManager):
         IS_EXPANDED,
     ]
     FILTERED_TASKS_PREF = "task_filters"
+    FIELD_FILTERS_PREF = "field_filters"
+    ACTIVE_FIELD_FILTER_PREF = "active_field_filter"
 
-    def __init__(self, name, user_prefs, tree_root):
+    def __init__(self, name, user_prefs, tree_root, filterer):
         """Initialise tree filter manager.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
+            filterer (Filterer): filterer class for storing filters.
 
         Attributes:
             _tree_data (dict(str, dict)): additional tree data for each item.
             _filtered_items (set(str)): set of items we're filtering out.
+            _active_field_filter (FieldFilter or CompositeFilter): the
+                currently selected field filter.
+            _current_item (BaseTaskItem): the currently selected task item.
         """
         super(TreeFilterManager, self).__init__(
             name,
             user_prefs,
             tree_root,
+            filterer,
         )
         self._tree_data = {}
         self._filtered_items = set()
-        self._setup_from_user_prefs()
+        self._active_field_filter = None
         self._current_item = None
+        self._setup_from_user_prefs()
 
     def _setup_from_user_prefs(self):
         """Setup filtering based on user prefs."""
+        # item attributes
         filter_attrs = self._project_user_prefs.get_attribute(
             [self._name, self.FILTERED_TASKS_PREF],
             {}
@@ -78,6 +93,15 @@ class TreeFilterManager(BaseTreeManager):
                     self._tree_data.setdefault(tree_item, {})[attr] = value
                     if attr == self.IS_SELECTED_FOR_FILTERING and value==True:
                         self._filtered_items.add(tree_item)
+
+        # active field filter
+        active_filter_name = self._project_user_prefs.get_attribute(
+            [self._name, self.ACTIVE_FIELD_FILTER_PREF]
+        )
+        if active_filter_name is not None:
+            self._active_field_filter = self.get_field_filter(
+                active_filter_name
+            )
 
     def has_attribute(self, tree_item, attribute):
         """Check if tree item already has attribute defined in internal dict.
@@ -129,7 +153,7 @@ class TreeFilterManager(BaseTreeManager):
             self._project_user_prefs.set_attribute(
                 [self._name, self.FILTERED_TASKS_PREF, tree_item, attribute],
                 value,
-                default
+                default,
             )
         item_dict = self._tree_data.setdefault(tree_item, {})
         item_dict[attribute] = value
@@ -143,6 +167,10 @@ class TreeFilterManager(BaseTreeManager):
         Returns:
             (bool): whether or not the given item is being filtered out.
         """
+        if (tree_item.parent is not None and tree_item not in
+                tree_item.parent.get_filtered_children(self.field_filter)):
+            return True
+
         if self.has_attribute(tree_item, self.IS_FILTERED_OUT):
             return self.get_attribute(tree_item, self.IS_FILTERED_OUT)
 
@@ -323,6 +351,26 @@ class TreeFilterManager(BaseTreeManager):
         return True
 
     @property
+    def field_filters_dict(self):
+        """Get dict of all field filters.
+
+        Returns:
+            (dict(str, BaseFilter)): dictionary of all tree field filters.
+        """
+        return self._filterer.get_filters(FilterType.TREE)
+
+    @property
+    def field_filter(self):
+        """Get field filter, which is applied to the outliner itself.
+
+        Returns:
+            (BaseFilter): field filter.
+        """
+        if self._active_field_filter:
+            return self._active_field_filter
+        return NoFilter()
+
+    @property
     def child_filter(self):
         """Get filter to filter children.
 
@@ -330,8 +378,8 @@ class TreeFilterManager(BaseTreeManager):
             (BaseFilter): filter to filter children with.
         """
         if self._filtered_items:
-            return FilterByItem(list(self._filtered_items))
-        return NoFilter()
+            return FilterByItem(list(self._filtered_items)) & self.field_filter
+        return self.field_filter
 
     @require_class(BaseTaskItem, raise_error=True)
     def get_filtered_children(self, tree_item):
@@ -345,6 +393,68 @@ class TreeFilterManager(BaseTreeManager):
         """
         with tree_item.filter_children(self.child_filter):
             return tree_item.get_all_children()
+
+    def get_field_filter(self, name):
+        """Get field filter by name.
+
+        Returns:
+            (BaseFilter or None): field filter, if found.
+        """
+        return self._filterer.get_filters(FilterType.TREE).get(name)
+
+    def set_active_field_filter(self, field_filter):
+        """Set active field filter.
+
+        Args:
+            field_filter (BaseFilter or None): the field filter to set active.
+                If None, delete the filter.
+        """
+        self._active_field_filter = field_filter
+        self._project_user_prefs.set_attribute(
+            [self._name, self.ACTIVE_FIELD_FILTER_PREF],
+            field_filter.name if field_filter is not None else None,
+        )
+
+    def add_field_filter(self, field_filter):
+        """Add given field filter.
+
+        Args:
+            field_filter (BaseFilter): the field filter to add.
+        """
+        AddFilterEdit.create_and_run(
+            self._filterer,
+            FilterType.TREE,
+            field_filter,
+        )
+        # self._filterer.add_filter(FilterType.TREE, field_filter)
+
+    def modify_field_filter(self, old_name, field_filter):
+        """Modify given field filter.
+
+        Args:
+            old_name (str): old name of filter we're modifying.
+            field_filter (BaseFilter): the field filter after modification.
+        """
+        ModifyFilterEdit.create_and_run(
+            self._filterer,
+            FilterType.TREE,
+            old_name,
+            field_filter,
+        )
+        # self._filterer.modify_filter(FilterType.TREE, old_name, field_filter)
+
+    def remove_field_filter(self, name):
+        """Remove field filter with given name.
+
+        Args:
+            name (str): name of filter to remove.
+        """
+        RemoveFilterEdit.create_and_run(
+            self._filterer,
+            FilterType.TREE,
+            name,
+        )
+        # self.filterer.remove_filter(FilterType.TREE, name)
 
     def set_current_item(self, item):
         """Set given item as the currently selected one.

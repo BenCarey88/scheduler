@@ -45,12 +45,6 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             self.post_edit_callback,
         )
 
-        from .widgets.filter_dialog import FilterDialog
-        FilterDialog(
-            self.tabs_widget.currentWidget(),
-            self.tabs_widget.currentWidget().tree_manager,
-        ).exec()
-
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
         self.splitter = QtWidgets.QSplitter(self)
@@ -97,7 +91,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             *args,
             **kwargs
         )
-        self.outliner_stack.addWidget(tab.outliner)
+        self.outliner_stack.addWidget(tab.outliner_panel)
         tab_icon = QtGui.QIcon(
             os.path.join(
                 os.path.dirname(__file__), "icons", "{0}.png".format(tab.name)

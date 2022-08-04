@@ -6,7 +6,7 @@ from ._base_planner_manager import BasePlannerManager
 
 class PlannerFilterManager(BasePlannerManager):
     """Planner filter manager to maintain filter attrs for planned items."""
-    def __init__(self, name, user_prefs, calendar, tree_manager):
+    def __init__(self, name, user_prefs, calendar, tree_manager, filterer):
         """Initialize class.
 
         Args:
@@ -14,12 +14,14 @@ class PlannerFilterManager(BasePlannerManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             tree_manager (TreeManager): tree manager used by this tab.
+            filterer (Filterer): filterer class for storing filters.
         """
         super(PlannerFilterManager, self).__init__(
             name,
             user_prefs,
             calendar,
             tree_manager,
+            filterer,
         )
 
     @property

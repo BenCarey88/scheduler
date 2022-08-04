@@ -2,7 +2,6 @@
 
 
 from abc import ABC, abstractclassmethod, abstractmethod
-from ast import excepthandler
 from collections import OrderedDict
 import json
 import os
@@ -190,7 +189,7 @@ class BaseSerializable(ABC):
             )
         json_dict = cls._read_json_file(
             file_path,
-            as_ordered_dict=(cls._DICT_TYPE==OrderedDict)
+            as_ordered_dict=(cls._DICT_TYPE==OrderedDict),
         )
         return cls.from_dict(json_dict, *args, **kwargs)
 
@@ -525,7 +524,7 @@ class NestedSerializable(BaseSerializable):
             if os.path.exists(info_file_path):
                 return_dict = cls._read_json_file(
                     info_file_path,
-                    as_ordered_dict=(cls._DICT_TYPE==OrderedDict)
+                    as_ordered_dict=(cls._DICT_TYPE==OrderedDict),
                 )
 
         # get order from order file if given

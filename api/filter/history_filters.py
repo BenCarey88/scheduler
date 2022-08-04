@@ -14,6 +14,7 @@ class BaseHistoryFilter(BaseFilter):
         """Initialize."""
         super(BaseHistoryFilter, self).__init__()
         self._composite_filter_class = CompositeHistoryFilter
+        self._get_cache_key = lambda item, _: item
 
 
 @register_serializable_filter("CompositeHistoryFilter")
@@ -37,6 +38,6 @@ class TaskTreeFilter(BaseHistoryFilter):
         super(TaskTreeFilter, self).__init__()
         self._tree_filter = tree_filter
 
-    def filter_function(self, task_item, history_dict):
+    def _filter_function(self, task_item, history_dict):
         """If item is a task that's not in the filtered tree, remove it."""
         return self._tree_filter.recursive_filter(task_item)

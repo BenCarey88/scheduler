@@ -3,6 +3,11 @@
 from functools import partial
 
 from . import edit_log
+from .filter_edit import (
+    AddFilterEdit,
+    RemoveFilterEdit,
+    ModifyFilterEdit,
+)
 from .tree_edit import (
     AddChildrenEdit,
     ArchiveTreeItemEdit,
@@ -42,6 +47,7 @@ class CallbackItemType(object):
     TREE = "Tree"
     SCHEDULER = "Scheduler"
     PLANNER = "Planner"
+    FILTER = "Filter"
 
 
 class CallbackEditType(object):
@@ -131,6 +137,17 @@ class CallbackType(object):
         PLANNER_FULL_UPDATE:
             Args:   (calendar_period)
             Edits:  [SortPlannedItemsEdit]
+
+    Filter:
+        FILTER_ADD:
+            Args:   (filter)
+            Edits:  [AddFilterEdit]
+        FILTER_REMOVE:
+            Args:   (filter)
+            Edits:  [RemoveFilterEdit]
+        FILTER_MODIFY:
+            Args:   (old_filter, modified_filter)
+            Edits:  [ModifyFilterEdit]
     """
     TREE_ADD = (CallbackItemType.TREE, CallbackEditType.ADD)
     TREE_REMOVE = (CallbackItemType.TREE, CallbackEditType.REMOVE)
@@ -146,6 +163,9 @@ class CallbackType(object):
     PLANNER_FULL_UPDATE = (
         CallbackItemType.PLANNER, CallbackEditType.FULL_UPDATE
     )
+    FILTER_ADD = (CallbackItemType.FILTER, CallbackEditType.ADD)
+    FILTER_REMOVE = (CallbackItemType.FILTER, CallbackEditType.REMOVE)
+    FILTER_MODIFY = (CallbackItemType.FILTER, CallbackEditType.MODIFY)
 
     EDIT_CLASS_MAPPING = {
         TREE_ADD: [AddChildrenEdit, InsertChildrenEdit, UnarchiveTreeItemEdit],
@@ -170,6 +190,9 @@ class CallbackType(object):
         PLANNER_MODIFY: [ModifyPlannedItemEdit],
         PLANNER_MOVE: [MovePlannedItemEdit],
         PLANNER_FULL_UPDATE: [SortPlannedItemsEdit],
+        FILTER_ADD: [AddFilterEdit],
+        FILTER_REMOVE: [RemoveFilterEdit],
+        FILTER_MODIFY: [ModifyFilterEdit],
     }
 
     @classmethod

@@ -1,6 +1,6 @@
 """Filters that use operations on fields."""
 
-import re
+import fnmatch
 
 from scheduler.api.utils import OrderedEnum
 from ._base_filter import BaseFilter
@@ -8,17 +8,18 @@ from ._base_filter import BaseFilter
 
 class FilterOperator(OrderedEnum):
     """Filter operators."""
-    EQUALS = "is"
-    NOT_EQUAL = "is not"
-    IN = "in"
-    MATCHES = "matches"
-    LESS_THAN = "less than"
-    LESS_THAN_EQ = "less or equal"
-    GREATER_THAN = "greater than"
-    GREATER_THAN_EQ = "greater or equal"
+    EQUALS = "Is"
+    NOT_EQUAL = "Is Not"
+    IN = "In"
+    MATCHES = "Matches"
+    STARTS_WITH = "Starts With"
+    LESS_THAN = "Less Than"
+    LESS_THAN_EQ = "Less or Equal"
+    GREATER_THAN = "Greater Than"
+    GREATER_THAN_EQ = "Greater or Equal"
 
     BASE_OPS = [EQUALS, NOT_EQUAL]  # IN not implemented yet
-    STRING_OPS = [MATCHES]
+    STRING_OPS = [MATCHES, STARTS_WITH]
     MATH_OPS = [
         LESS_THAN,
         LESS_THAN_EQ,
@@ -50,7 +51,7 @@ class FieldFilter(BaseFilter):
         self._field_operator = field_operator
         self._field_value = field_value
 
-    def filter_function(self, *args, **kwargs):
+    def _filter_function(self, *args, **kwargs):
         """Filter function.
 
         Returns:
@@ -65,7 +66,9 @@ class FieldFilter(BaseFilter):
         if self._field_operator == FilterOperator.IN:
             return field_value in self._field_value
         if self._field_operator == FilterOperator.MATCHES:
-            return re.match(self._field_value, field_value)
+            return fnmatch.fnmatch(self._field_value, field_value)
+        if self._field_operator == FilterOperator.STARTS_WITH:
+            return field_value.startswith(self._field_value)
         if self._field_operator == FilterOperator.LESS_THAN:
             return field_value < self._field_value
         if self._field_operator == FilterOperator.LESS_THAN_EQ:

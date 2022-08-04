@@ -564,15 +564,23 @@ class CalendarWeek(BaseCalendarPeriod):
     def iter_planned_items(self, filter=None):
         """Iterate through planned week items.
 
+        If week length isn't 7, we can't treat this as a week so we instead
+        iterate through planned day items for each day in week.
+
         Args:
             filter (function, BaseFilter or None): filter to apply, if given.
 
         Yields:
             (PlannedItem): next planned item.
         """
-        with self.start_day._planned_week_items.apply_filter(filter):
-            for item in self.start_day._planned_week_items:
-                yield item
+        if self.length == 7:
+            with self.start_day._planned_week_items.apply_filter(filter):
+                for item in self.start_day._planned_week_items:
+                    yield item
+        else:
+            for day in self.iter_days():
+                for item in day.iter_planned_items(filter=filter):
+                    yield item
 
     def next(self):
         """Get calendar week starting immediately after this one.

@@ -25,18 +25,20 @@ from ._base_tree_manager import BaseTreeManager
 
 class TreeEditManager(BaseTreeManager):
     """Tree edit manager to apply edits to tree items."""
-    def __init__(self, name, user_prefs, tree_root):
+    def __init__(self, name, user_prefs, tree_root, filterer):
         """Initialise class.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
+            filterer (Filterer): filterer class for storing filters.
         """
         super(TreeEditManager, self).__init__(
             name,
             user_prefs,
             tree_root,
+            filterer,
         )
 
     @require_class(BaseTaskItem, raise_error=True)

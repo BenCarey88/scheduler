@@ -52,7 +52,7 @@ class TaskCategory(BaseTaskItem):
         """
         return OrderedDict([
             (category.name, category)
-            for category in self._children.items()
+            for category in self._children.values()
             if isinstance(category, TaskCategory)
         ])
 
@@ -66,7 +66,7 @@ class TaskCategory(BaseTaskItem):
         """
         return OrderedDict([
             (task.name, task)
-            for task in self._children.items()
+            for task in self._children.values()
             if isinstance(task, Task)
         ])
 

@@ -1,7 +1,6 @@
 """Classes to define conversion of various types to json-compatible types."""
 
-
-# from scheduler.api.common.id_registry import get_object_by_id, get_object_id
+from scheduler.api.filter import filter_from_dict
 
 
 class SerializerError(Exception):
@@ -86,6 +85,7 @@ class NumberSerializer(BaseSerializer):
     """
     def serialize(self, obj):
         return str(obj)
+
     def deserialize(self, obj):
         try:
             return float(obj)
@@ -127,8 +127,6 @@ class DateTimeSerializer(BaseSerializer):
         )
 
 
-# TODO: give tree root its archive tree root as an attribute so we don't
-# need to keep passing both.
 class TreeSerializer(BaseSerializer):
     """Serialize a tree object using its path.
 
@@ -153,6 +151,18 @@ class TreeSerializer(BaseSerializer):
     def deserialize(self, obj):
         return self._tree_root.get_item_at_path(obj, search_archive=True)
 
+
+class FilterSerializer(BaseSerializer):
+    """Serialize a filter object.
+
+    Types:
+        BaseFilter
+    """
+    def serialize(self, obj):
+        return obj.to_dict()
+
+    def deserialize(self, obj):
+        return filter_from_dict(obj)
 
 # TODO: should we make these strings smaller, eg. just letters with an ! or etc
 # still needs to be distinctive so we don't create it accidentally but could
@@ -189,11 +199,14 @@ def get_serializer_from_string(string, *args, **kwargs):
         BaseSerializer,
         DateTimeSerializer,
         TreeSerializer,
-        # IdSerializer,
+        FilterSerializer,
     ]
     for serializer in serializers:
         if string.startswith(serializer.__name__):
             return serializer.from_string(string, *args, **kwargs)
     raise SerializerError(
-        "Cannot find serializer from string {0}".format(string)
+        "Cannot find serializer from {0}string {1}".format(
+            "empty " if not string else "",
+            string,
+        )
     )

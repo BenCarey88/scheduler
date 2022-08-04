@@ -20,14 +20,19 @@ class SchedulerWindow(QtWidgets.QMainWindow):
     CURRENT_TAB_PREF = "current_tab"
     SPLITTER_SIZES = "splitter_sizes"
 
-    def __init__(self, *args, **kwargs):
-        """Initialise main window."""
-        super(SchedulerWindow, self).__init__(*args, **kwargs)
+    def __init__(self, project_directory=None):
+        """Initialise main window.
+
+        Args:
+            project_directory (str or None): project directory to use, if set.
+        """
+        super(SchedulerWindow, self).__init__()
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
 
         # TODO: need functionality here for if active project not set
-        self.project = Project.read(user_prefs.get_active_project())
+        project_dir = project_directory or user_prefs.get_active_project()
+        self.project = Project.read(project_dir)
         self.project_user_prefs = self.project.user_prefs
 
         self.setup_tabs()
@@ -270,21 +275,27 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             # or at least give some indication it's happening?
             # and/or maybe also add a check for when last commit was (only do one
             # a day / one every few days / whatever)
-            error = self.project.git_backup()
-            if error:
-                simple_message_dialog(
-                    "Git backup failed for {0}".format(
-                        self.project.root_directory
-                    ),
-                    informative_text=error
-                )
+            backup_git = simple_message_dialog("Backup scheduler data on git?")
+            if backup_git:
+                error = self.project.git_backup()
+                if error:
+                    simple_message_dialog(
+                        "Git backup failed for {0}".format(
+                            self.project.root_directory
+                        ),
+                        informative_text=error
+                    )
         super(SchedulerWindow, self).closeEvent(event)
 
 
-def run_application():
-    """Open application window."""
+def run_application(project=None):
+    """Open application window.
+
+    Args:
+        project (str or None): project directory to use, if set.
+    """
     app = QtWidgets.QApplication(sys.argv)
     set_style(app, "application.qss")
-    window = SchedulerWindow()
+    window = SchedulerWindow(project)
     window.showMaximized()
     app.exec_()

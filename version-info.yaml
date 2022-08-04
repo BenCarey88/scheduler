@@ -1,4 +1,9 @@
 
+1.2.0-dev:
+    Dev work on top of 1.2.0 release (to be added as 1.2.1):
+        - ask user before git backup
+        - added commandline arg to use custom project directory
+
 1.2.0:
     Added Planner and History Tabs, as well as filter view and archiving:
         - new tabs and additional view types for each of the calendar tabs

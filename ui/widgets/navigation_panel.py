@@ -50,6 +50,8 @@ class NavigationPanel(QtWidgets.QWidget):
             calendar_period,
             view_types_dict,
             start_view_type=None,
+            default_mappings=None,
+            weekday_start=0,
             hide_day_change_buttons=False,
             use_full_period_names=False,
             use_week_for_day=False,
@@ -63,9 +65,14 @@ class NavigationPanel(QtWidgets.QWidget):
             view_types_dict (OrderedDict(DateType, list(ViewType)): dict
                 associating a list of possible view types for each view date
                 type.
-            start_view_type (ViewType or None): start view type to use, if given.
-            hide_day_change_buttons (bool): if True, always hide the day change
-                buttons that switch the week views to start on a different day.
+            start_view_type (ViewType or None): start view type, if given.
+            default_mappings (dict or None): default mappings of date type
+                and view types, if given.
+            weekday_start (str or int): default starting weekday to use if date
+                type is week.
+            day_change_buttons_hidden (bool): if True, always hide the day
+                change buttons that switch the week views to start on a
+                different day.
             use_full_period_names (bool): if True, use long names for periods.
             use_week_for_day (bool): if True, use calendar week item to
                 represent a calendar day in the navigation panel. In practice,
@@ -79,7 +86,7 @@ class NavigationPanel(QtWidgets.QWidget):
         self.calendar = calendar
         self.calendar_period = calendar_period
         self.date_type = self.get_date_type(calendar_period)
-        self.hide_day_change_buttons = hide_day_change_buttons
+        self.day_change_buttons_hidden = hide_day_change_buttons
         self.use_full_period_names = use_full_period_names
         self.use_week_for_day = use_week_for_day
         if use_week_for_day and isinstance(calendar_period, CalendarDay):
@@ -92,9 +99,11 @@ class NavigationPanel(QtWidgets.QWidget):
             raise Exception(
                 "Date type {0} not allowed for this tab".format(self.date_type)
             )
-        self.cached_view_types_dict = {}
+        self.cached_view_types_dict = default_mappings or {}
         self.cached_calendar_periods = {}
-        self.cached_weekday_start = 0
+        if isinstance(weekday_start, str):
+            weekday_start = Date.weekday_int_from_string(weekday_start)
+        self.cached_weekday_start = weekday_start
 
         self.setFixedHeight(30)
         layout = QtWidgets.QHBoxLayout()
@@ -152,11 +161,11 @@ class NavigationPanel(QtWidgets.QWidget):
         """Update widget."""
         self.date_label.setText(self.get_date_label())
         self.prev_weekday_button.setHidden(
-            self.hide_day_change_buttons or
+            self.day_change_buttons_hidden or
             self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
         )
         self.next_weekday_button.setHidden(
-            self.hide_day_change_buttons or
+            self.day_change_buttons_hidden or
             self.date_type not in [DateType.THREE_DAYS, DateType.WEEK]
         )
         super(NavigationPanel, self).update()
@@ -478,3 +487,12 @@ class NavigationPanel(QtWidgets.QWidget):
         self.view_type = view_type
         self.cached_view_types_dict[self.date_type] = self.view_type
         self.VIEW_TYPE_CHANGED_SIGNAL.emit(view_type, self.calendar_period)
+
+    def set_day_change_buttons_visibility(self, value):
+        """Hide or unhide day change buttons.
+
+        Args:
+            value (bool): whether to hide or unhide.
+        """
+        self.day_change_buttons_hidden = value
+        self.update()

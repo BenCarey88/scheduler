@@ -32,6 +32,8 @@ class BaseCalendarView(object):
         self.calendar = project.calendar
         self.calendar_period = None
         self._is_active = False
+        # set this attribute to True if we want to remove day change buttons
+        self.hide_day_change_buttons = False
 
     def get_subviews(self):
         """Get any subviews of current view.

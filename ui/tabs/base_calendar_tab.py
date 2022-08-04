@@ -5,6 +5,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
+from scheduler.api.calendar.calendar_period import CalendarWeek
 
 from scheduler.ui.widgets.navigation_panel import NavigationPanel
 from .base_tab import BaseTab
@@ -17,6 +18,11 @@ class BaseCalendarTab(BaseTab):
     Subclasses must implement their own view. The bases of these views
     can be found in the base_calendar_view module.
     """
+    VIEWS_KEY = "views"
+    MAPPINGS_PREF = "date_view_mappings"
+    START_DATE_TYPE_PREF = "date_type"
+    START_VIEW_TYPE_PREF = "view_type"
+    WEEK_START_PREF = "week_start_day"
     WEEK_START_DAY = Date.SAT
 
     def __init__(
@@ -26,7 +32,6 @@ class BaseCalendarTab(BaseTab):
             main_views_dict,
             date_type,
             view_type,
-            hide_day_change_buttons=False,
             use_full_period_names=False,
             parent=None):
         """Initialise tab.
@@ -34,12 +39,12 @@ class BaseCalendarTab(BaseTab):
         Args:
             name (str): name of tab (to pass to manager classes).
             project (Project): the project we're working on.
-            main_views_dict (OrderedDict(tuple, QtGui.QAbstractItemView))):
-                dict of main views keyed by date type and view type tuple.
-            date_type (DateType): date type to start with.
-            view_type (ViewType): view type to start with.
-            hide_day_change_buttons (bool): if True, always hide the day change
-                buttons that switch the week views to start on a different day.
+            main_views_dict (OrderedDict(tuple, BaseCalendarView))): dict of
+                main views keyed by date type and view type tuple.
+            date_type (DateType): date type to start with, if none set in
+                user prefs.
+            view_type (ViewType): view type to start with, if none set in
+                user prefs.
             use_full_period_names (bool): if True, use long names for periods
                 in navigation bar.
             parent (QtGui.QWidget or None): QWidget parent of widget.
@@ -54,14 +59,39 @@ class BaseCalendarTab(BaseTab):
             project,
             parent=parent,
         )
+        self.user_prefs = project.user_prefs
         self.calendar = project.calendar
+
+        # get starting date and view types
+        saved_date_type = self.user_prefs.get_attribute(
+            [self.name, self.VIEWS_KEY, self.START_DATE_TYPE_PREF]
+        )
+        if saved_date_type is None:
+            saved_date_type = date_type
+        saved_view_type = self.user_prefs.get_attribute(
+            [self.name, self.VIEWS_KEY, self.START_VIEW_TYPE_PREF]
+        )
+        if saved_view_type is None:
+            saved_view_type = view_type
+        if (saved_date_type, saved_view_type) in main_views_dict:
+            date_type = saved_date_type
+            view_type = saved_view_type
         self.date_type = date_type
         self.view_type = view_type
+        date_view_mappings = self.user_prefs.get_attribute(
+            [self.name, self.VIEWS_KEY, self.MAPPINGS_PREF],
+        )
+
+        weekday_start = self.user_prefs.get_attribute(
+            [self.name, self.VIEWS_KEY, self.WEEK_START_PREF],
+            self.WEEK_START_DAY,
+        )
         calendar_period = NavigationPanel.get_current_calendar_period(
             project.calendar,
             self.date_type,
-            self.WEEK_START_DAY,
+            weekday_start,
         )
+
         self.main_views_dict = main_views_dict
         view_types_dict = OrderedDict()
         for date_type, view_type in main_views_dict.keys():
@@ -72,7 +102,8 @@ class BaseCalendarTab(BaseTab):
             calendar_period,
             view_types_dict,
             start_view_type=self.view_type,
-            hide_day_change_buttons=hide_day_change_buttons,
+            weekday_start=weekday_start,
+            default_mappings=date_view_mappings,
             use_full_period_names=use_full_period_names,
             parent=self,
         )
@@ -118,6 +149,11 @@ class BaseCalendarTab(BaseTab):
         Args:
             calendar_period (BaseCalendarPeriod): calendar period to set.
         """
+        if isinstance(calendar_period, CalendarWeek):
+            self.user_prefs.set_attribute(
+                [self.name, self.VIEWS_KEY, self.WEEK_START_PREF],
+                calendar_period.start_date.weekday,
+            )
         self.main_view.set_to_calendar_period(calendar_period)
 
     def update_date_type(self, date_type, view_type, calendar_period):
@@ -135,7 +171,16 @@ class BaseCalendarTab(BaseTab):
         self.main_view.set_active(True)
         self.main_view.on_view_changed()
         self.main_views_stack.setCurrentWidget(self.main_view)
+        self._update_day_change_buttons()
         self.set_to_calendar_period(calendar_period)
+        self.user_prefs.set_attribute(
+            [self.name, self.VIEWS_KEY, self.START_DATE_TYPE_PREF],
+            date_type,
+        )
+        self.user_prefs.set_attribute(
+            [self.name, self.VIEWS_KEY, self.START_VIEW_TYPE_PREF],
+            view_type,
+        )
 
     def update_view_type(self, view_type, calendar_period):
         """Change main view based on view type.
@@ -150,7 +195,24 @@ class BaseCalendarTab(BaseTab):
         self.main_view.set_active(True)
         self.main_view.on_view_changed()
         self.main_views_stack.setCurrentWidget(self.main_view)
+        self._update_day_change_buttons()
         self.set_to_calendar_period(calendar_period)
+        self.user_prefs.set_attribute(
+            [self.name, self.VIEWS_KEY, self.START_VIEW_TYPE_PREF],
+            view_type,
+        )
+        self.user_prefs.set_attribute(
+            [self.name, self.VIEWS_KEY, self.MAPPINGS_PREF, self.date_type],
+            view_type,
+        )
+
+    def _update_day_change_buttons(self):
+        """Update day change buttons in navigation panel according to view."""
+        hide_day_change = self.main_view.hide_day_change_buttons
+        if hide_day_change != self.navigation_panel.day_change_buttons_hidden:
+            self.navigation_panel.set_day_change_buttons_visibility(
+                hide_day_change
+            )
 
     def pre_edit_callback(self, callback_type, *args):
         """Callback for before an edit of any type is run.

@@ -19,6 +19,12 @@ class BaseTreeFilter(BaseFilter):
         super(BaseTreeFilter, self).__init__()
         self._composite_filter_class = CompositeTreeFilter
         self._get_cache_key = lambda item: item
+        self._recursive_cache = {}
+
+    def clear_cache(self):
+        """Clear cache."""
+        super(BaseTreeFilter, self).clear_cache()
+        self._recursive_cache = {}
 
     def recursive_filter(self, child_item):
         """Check if an item or any of its ancestors are filtered.
@@ -29,11 +35,17 @@ class BaseTreeFilter(BaseFilter):
         Returns:
             (bool): True if item and all ancestors shouldn't be filtered.
         """
+        if child_item in self._recursive_cache:
+            return self._recursive_cache[child_item]
+
         if not self._filter_function(child_item):
-            return False
-        if child_item.parent is None:
-            return True
-        return self.recursive_filter(child_item.parent)
+            value = False
+        elif child_item.parent is None:
+            value = True
+        else:
+            value = self.recursive_filter(child_item.parent)
+        self._recursive_cache[child_item] = value
+        return value
 
     def get_filtered_dict(self, child_dict):
         """Get filtered dict.

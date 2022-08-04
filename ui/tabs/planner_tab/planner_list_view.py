@@ -2,8 +2,9 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
 from scheduler.api.calendar.planned_item import PlannedItem
+from scheduler.api.constants import TimePeriod
+from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
 
 from scheduler.ui.models.list import PlannerListModel
 from scheduler.ui.tabs.base_calendar_view import (
@@ -40,6 +41,7 @@ class TitledPlannerListView(BaseTitledView):
             parent=parent,
         )
         self.planner_list_view.installEventFilter(self)
+        self.hide_day_change_buttons = (time_period == TimePeriod.WEEK)
 
     def setup(self):
         """Additional setup after tab init."""

@@ -9,22 +9,47 @@ from .outliner import Outliner
 
 class OutlinerPanel(QtWidgets.QSplitter):
     """Outliner Panel, containing outliner and filter widget."""
-    def __init__(self, tab, tree_manager, parent=None):
+    PANEL_KEY = "outliner_panel"
+    SPLITTER_SIZES_PREF = "splitter_sizes"
+
+    def __init__(self, tab, name, project, parent=None):
         """Initialise panel.
 
         Args:
             tab (BaseTab): tab this outliner is used for.
-            tree_manager (TreeManager): tree manager object.
+            name (str): name of tab (to pass to manager classes).
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(OutlinerPanel, self).__init__(parent=parent)
-        self.tree_manager = tree_manager
+        self.name = name
+        self.tree_manager = project.get_tree_manager(name)
+        self.user_prefs = project.user_prefs
         self.setOrientation(QtCore.Qt.Orientation.Vertical)
-        self.outliner = Outliner(tab, tree_manager)
-        filter_widget = FilterWidget(tree_manager, self.outliner)
-        self.filter_view = filter_widget.filter_view
-        self.addWidget(filter_widget)
+        self.outliner = Outliner(tab, self.tree_manager)
+        self.filter_widget = FilterWidget(self.tree_manager, self.outliner)
+        self.filter_view = self.filter_widget.filter_view
+        self.addWidget(self.filter_widget)
         self.addWidget(self.outliner)
+
+        self.splitterMoved.connect(self.on_splitter_moved)
+        splitter_sizes = self.user_prefs.get_attribute(
+            [self.name, self.PANEL_KEY, self.SPLITTER_SIZES_PREF]
+        )
+        if splitter_sizes:
+            self.setSizes(splitter_sizes)
+
+    def on_splitter_moved(self, new_pos, index):
+        """Called when splitter is moved.
+
+        Args:
+            new_pos (int): new position of splitter.
+            index (int): index of splitter moved.
+        """
+        self.user_prefs.set_attribute(
+            [self.name, self.PANEL_KEY, self.SPLITTER_SIZES_PREF],
+            [self.filter_widget.height(), self.outliner.height()]
+        )
 
     def pre_edit_callback(self, callback_type, *args):
         """Callback for before an edit of any type is run.

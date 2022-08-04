@@ -94,7 +94,6 @@ class PlannerTab(BaseCalendarTab):
             main_views_dict,
             DateType.YEAR,
             ViewType.MULTILIST,
-            hide_day_change_buttons=True,
             use_full_period_names=True,
             parent=parent,
         )

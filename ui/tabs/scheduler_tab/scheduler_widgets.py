@@ -16,7 +16,6 @@ class ScheduledItemWidget(object):
             timetable_view,
             schedule_manager,
             scheduled_item):
-            #orig_mouse_pos):
         """Initialize widget.
 
         Args:
@@ -244,6 +243,7 @@ class ScheduledItemWidget(object):
         rounding = 1
         alpha = 100 if self._scheduled_item.is_background else 200
 
+        # setup brush
         if self._schedule_manager.has_task_type(self._scheduled_item):
             tree_item = self._scheduled_item.tree_item
             if tree_item and tree_item.color:
@@ -256,6 +256,7 @@ class ScheduledItemWidget(object):
         brush = QtGui.QBrush(brush_color)
         painter.setBrush(brush)
 
+        # setup path
         path = QtGui.QPainterPath()
         rect.adjust(
             border_size/2, border_size/2, -border_size/2, -border_size/2
@@ -265,6 +266,7 @@ class ScheduledItemWidget(object):
         painter.fillPath(path, painter.brush())
         painter.strokePath(path, painter.pen())
 
+        # setup text
         text_padding = 3
         text_margin = min(rect.width() / 2, 7)
         text_height = 20
@@ -279,6 +281,7 @@ class ScheduledItemWidget(object):
             self.end_time.string(),
         )
 
+        # draw rects
         text_range = rect.height() - 2 * text_margin
         total_text_height = text_height
         num_text_rects = 0
@@ -307,6 +310,20 @@ class ScheduledItemWidget(object):
                 rect.height(),
             )
             painter.drawText(text_rect, text_alignment, name_text)
+
+        # TODO: add delete button and checkbox
+        # checkbox = QtWidgets.QStyleOptionButton()
+        # checkbox.rect = QtCore.QRect(
+        #     rect.left() - 20,
+        #     rect.top() + 10,
+        #     rect.left() - 10,
+        #     rect.top() + 20,
+        # )
+        # self._timetable_view.viewport().style().drawControl(
+        #     QtWidgets.QStyle.CE_CheckBox,
+        #     checkbox,
+        #     painter,
+        # )
 
 
 class SelectionRect(object):

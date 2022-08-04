@@ -82,12 +82,12 @@ class ModifyFilterEdit(CompositeEdit):
             super(AddFilterEdit, self).__init__([])
             self._is_valid = False
             return
-        rename_edit = DictEdit(
+        rename_edit = DictEdit.create_unregistered(
             filter_dict,
             OrderedDict([(old_name, modified_name)]),
             ContainerOp.RENAME,
         )
-        modify_edit = DictEdit(
+        modify_edit = DictEdit.create_unregistered(
             filter_dict,
             OrderedDict([(modified_name, modified_filter)]),
             ContainerOp.MODIFY,

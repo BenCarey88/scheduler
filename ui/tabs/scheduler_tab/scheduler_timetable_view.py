@@ -464,17 +464,20 @@ class SchedulerTimetableView(BaseWeekTableView):
             self.HOVERED_ITEM_REMOVED_SIGNAL.emit()
 
         pos = event.pos()
-        # item rects drawn last are the ones we should click first
-        for item_widget in reversed(self.scheduled_item_widgets):
-            if item_widget.contains(pos):
-                time = self.time_from_y_pos(pos.y())
-                item_widget.set_mouse_pos_start_time(time)
-                self.selected_scheduled_item = item_widget
-                if item_widget.at_top(event.pos()):
-                    item_widget.is_being_resized_top = True
-                elif item_widget.at_bottom(event.pos()):
-                    item_widget.is_being_resized_bottom = True
-                return
+        modifiers = QtWidgets.QApplication.keyboardModifiers()
+        # ctrl modifier used to create new selection rect
+        if modifiers != QtCore.Qt.KeyboardModifier.ControlModifier:
+            # item rects drawn last are the ones we should click first
+            for item_widget in reversed(self.scheduled_item_widgets):
+                if item_widget.contains(pos):
+                    time = self.time_from_y_pos(pos.y())
+                    item_widget.set_mouse_pos_start_time(time)
+                    self.selected_scheduled_item = item_widget
+                    if item_widget.at_top(event.pos()):
+                        item_widget.is_being_resized_top = True
+                    elif item_widget.at_bottom(event.pos()):
+                        item_widget.is_being_resized_bottom = True
+                    return
 
         mouse_col = self.column_from_mouse_pos(pos)
         if mouse_col is not None:

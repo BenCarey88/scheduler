@@ -23,7 +23,8 @@ class BaseTab(QtWidgets.QWidget):
         self.tree_manager = project.get_tree_manager(name)
         self.outliner_panel = OutlinerPanel(
             self,
-            self.tree_manager,
+            name,
+            project,
             parent=self,
         )
         self.outliner = self.outliner_panel.outliner

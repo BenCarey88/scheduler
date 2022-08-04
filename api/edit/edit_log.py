@@ -10,10 +10,9 @@ class CallbackError(Exception):
 
 class EditLog(object):
     """Log of user edits made in tool.
-    
+
     Friend Classes: [BaseEdit]
     """
-
     def __init__(self):
         """Initialise edit log.
 

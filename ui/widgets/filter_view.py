@@ -128,7 +128,8 @@ class FilterListModel(QtCore.QAbstractListModel):
             )
             self.outliner.on_field_filter_changed()
             return True
-        return super(FilterListModel, self).setData(index, value, role)
+        super(FilterListModel, self).setData(index, value, role)
+        return True
 
     def flags(self, index):
         """Get item flags.
@@ -188,8 +189,12 @@ class FilterItemDelegate(QtWidgets.QStyledItemDelegate):
         row = index.row()
         if row >= 0:
             filter_ = list(self.tree_manager.field_filters_dict.values())[row]
-            dialog = FilterDialog(self.tree_manager, filter_, parent=parent)
-            return dialog
+            editor = QtWidgets.QWidget(parent=parent)
+            # TODO: getting a weird thing where can't reopen this immediately
+            # after closing dialog for some reason
+            dialog = FilterDialog(self.tree_manager, filter_)
+            dialog.exec_()
+            return editor
         return super(FilterItemDelegate, self).createEditor(
             parent,
             option,

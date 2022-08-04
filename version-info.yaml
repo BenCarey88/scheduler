@@ -1,4 +1,14 @@
 
+1.2.0:
+    Added Planner and History Tabs, as well as filter view and archiving:
+        - new tabs and additional view types for each of the calendar tabs
+        - filterer class and filter view for creating custom filters
+        - basic archiving functionality setup for trees
+        - user prefs and project user prefs
+        - hosted data container classes and container pairing logic
+        - edit callbacks
+        - major api and ui refactoring
+
 1.1.1:
     - Added background items and repeat calendar items
     - Also small additional features:

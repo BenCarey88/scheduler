@@ -6,32 +6,19 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api import constants as api_constants
-from scheduler.api.common.date_time import Date, Time
-from scheduler.api.timetable.calendar import Calendar
-from scheduler.api.timetable.tracker import Tracker
-from scheduler.api.edit import edit_log
-from scheduler.api.tree.task_root import TaskRoot
+from scheduler.api.common import user_prefs
+from scheduler.api.edit import edit_callbacks, edit_log
+from scheduler.api.project import Project
 
-from .constants import (
-    CANCEL_BUTTON,
-    NO_BUTTON,
-    SHORT_TIMER_INTERVAL,
-    YES_BUTTON
-)
-
-from .tabs.calendar_tab import CalendarTab
-from .tabs.notes_tab import NotesTab
-from .tabs.task_tab import TaskTab
-from .tabs.tracker_tab import TrackerTab
-from .tabs.suggestions_tab import SuggestionsTab
-
-from .models.tree_manager import TreeManager
-from .utils import custom_message_dialog, set_style
-from .widgets.outliner import Outliner
+from . import constants as ui_constants
+from .tabs import SchedulerTab, HistoryTab, PlannerTab, TaskTab, TrackerTab
+from .utils import custom_message_dialog, set_style, simple_message_dialog
 
 
 class SchedulerWindow(QtWidgets.QMainWindow):
     """Scheduler window class."""
+    CURRENT_TAB_PREF = "current_tab"
+    SPLITTER_SIZES = "splitter_sizes"
 
     def __init__(self, *args, **kwargs):
         """Initialise main window."""
@@ -39,66 +26,55 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Scheduler")
         self.resize(1600, 800)
 
-        self.tree_root = TaskRoot.from_directory(
-            api_constants.TASKS_DIRECTORY
-        )
-        self.calendar = Calendar.from_directory(
-            api_constants.CALENDAR_DIRECTORY,
-            self.tree_root
-        )
-        self.tracker = Tracker.from_file(
-            api_constants.TRACKER_FILE,
-            self.tree_root
-        )
+        # TODO: need functionality here for if active project not set
+        self.project = Project.read(user_prefs.get_active_project())
+        self.project_user_prefs = self.project.user_prefs
 
-        edit_log.open_edit_registry()
         self.setup_tabs()
         self.setup_menu()
-        self.saved_edit_id = edit_log.latest_edit_id()
-        self.autosaved_edit_id = edit_log.latest_edit_id()
-        self.startTimer(SHORT_TIMER_INTERVAL)
+        self.saved_edit = edit_log.latest_edit()
+        self.autosaved_edit = edit_log.latest_edit()
+        self.timer_id = self.startTimer(ui_constants.SHORT_TIMER_INTERVAL)
+        edit_log.open_edit_registry()
+        edit_callbacks.register_general_purpose_pre_callback(
+            self,
+            self.pre_edit_callback,
+        )
+        edit_callbacks.register_general_purpose_post_callback(
+            self,
+            self.post_edit_callback,
+        )
 
     def setup_tabs(self):
         """Setup the tabs widget and different pages."""
-        splitter = QtWidgets.QSplitter(self)
-        self.setCentralWidget(splitter)
-        splitter.setChildrenCollapsible(False)
+        self.splitter = QtWidgets.QSplitter(self)
+        self.setCentralWidget(self.splitter)
+        self.splitter.setChildrenCollapsible(False)
 
         self.outliner_stack = QtWidgets.QStackedWidget(self)
         self.tabs_widget = QtWidgets.QTabWidget(self)
-        splitter.addWidget(self.outliner_stack)
-        splitter.addWidget(self.tabs_widget)
+        self.splitter.addWidget(self.outliner_stack)
+        self.splitter.addWidget(self.tabs_widget)
+        self.current_active_tab = 0
 
-        self.tasks_tab = self.create_tab_and_outliner(
-            "Tasks",
-            TaskTab
-        )
-        self.calendar_tab = self.create_tab_and_outliner(
-            "Calendar",
-            CalendarTab,
-            self.calendar
-        )
-        self.tracker_tab = self.create_tab_and_outliner(
-            "Tracker",
-            TrackerTab,
-            self.calendar,
-            self.tracker
-        )
-        self.suggestions_tab = self.create_tab_and_outliner(
-            "Suggestions",
-            SuggestionsTab
-        )
-        self.notes_tab = self.create_tab_and_outliner(
-            "Notes",
-            NotesTab
+        self.splitter.splitterMoved.connect(self.on_splitter_moved)
+        self.splitter.setSizes(
+            user_prefs.get_app_user_pref(self.SPLITTER_SIZES, [1, 1])
         )
 
-        self.tabs_widget.currentChanged.connect(self.change_tab)
-        self.tabs_widget.setCurrentIndex(1)
+        self.tasks_tab = self.create_tab_and_outliner(TaskTab)
+        self.planner_tab = self.create_tab_and_outliner(PlannerTab)
+        self.scheduler_tab = self.create_tab_and_outliner(SchedulerTab)
+        self.tracker_tab = self.create_tab_and_outliner(TrackerTab)
+        self.history_tab = self.create_tab_and_outliner(HistoryTab)
 
-    # TODO: neaten up args for this? Maybe add calendar to everything? 
-    # Or remove this function altogether?
-    def create_tab_and_outliner(self, tab_name, tab_class, *args, **kwargs):
+        self.tabs_widget.currentChanged.connect(self.on_tab_changed)
+        self.tabs_widget.setCurrentIndex(
+            user_prefs.get_app_user_pref(self.CURRENT_TAB_PREF, 0)
+        )
+        self.tabs_widget.currentWidget().set_active(True)
+
+    def create_tab_and_outliner(self, tab_class, *args, **kwargs):
         """Create tab and outliner combo for given tab_type.
 
         Args:
@@ -108,19 +84,24 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             kwargs (dict): additional kwargs to pass to tab init.
 
         Returns:
-            (QtWidgets.QTabWidget): the tab widgter.
+            (QtWidgets.QTabWidget): the tab widget.
         """
-        tab_tree_manager = TreeManager()
-        outliner = Outliner(self.tree_root, tab_tree_manager)
-        self.outliner_stack.addWidget(outliner)
         tab = tab_class(
-            self.tree_root,
-            tab_tree_manager,
-            outliner,
+            self.project,
             *args,
             **kwargs
         )
-        self.tabs_widget.addTab(tab, tab_name)
+        self.outliner_stack.addWidget(tab.outliner_panel)
+        tab_icon = QtGui.QIcon(
+            os.path.join(
+                os.path.dirname(__file__), "icons", "{0}.png".format(tab.name)
+            ),
+        )
+        self.tabs_widget.addTab(
+            tab,
+            tab_icon,
+            tab.name.capitalize()
+        )
         return tab
 
     def setup_menu(self):
@@ -140,14 +121,56 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         redo_action = edit_menu.addAction("Redo")
         redo_action.triggered.connect(self.redo)
 
-    def change_tab(self, index):
+    def pre_edit_callback(self, callback_type, *args):
+        """Callback for before an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        for tab_num in range(self.tabs_widget.count()):
+            self.tabs_widget.widget(tab_num).pre_edit_callback(
+                callback_type,
+                *args
+            )
+
+    def post_edit_callback(self, callback_type, *args):
+        """Callback for after an edit of any type is run.
+
+        Args:
+            callback_type (CallbackType): edit callback type.
+            *args: additional args dependent on type of edit.
+        """
+        for tab_num in range(self.tabs_widget.count()):
+            self.tabs_widget.widget(tab_num).post_edit_callback(
+                callback_type,
+                *args
+            )
+
+    def on_tab_changed(self, index):
         """Called when changing to different tab.
-        
+
         Args:
             index (int): index of new tab.
         """
+        user_prefs.set_app_user_pref(self.CURRENT_TAB_PREF, index)
+        self.tabs_widget.widget(self.current_active_tab).set_active(False)
+        self.tabs_widget.currentWidget().set_active(True)
+        self.current_active_tab = index
         self.outliner_stack.setCurrentIndex(index)
-        self.tabs_widget.currentWidget().update()
+        self.tabs_widget.currentWidget().on_tab_changed()
+
+    def on_splitter_moved(self, new_pos, index):
+        """Called when splitter is moved.
+
+        Args:
+            new_pos (int): new position of splitter.
+            index (int): index of splitter moved.
+        """
+        user_prefs.set_app_user_pref(
+            self.SPLITTER_SIZES,
+            [self.outliner_stack.width(), self.tabs_widget.width()]
+        )
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
@@ -172,21 +195,15 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             if event.key() == QtCore.Qt.Key_Z:
                 self.redo()
 
-        super(SchedulerWindow, self).keyPressEvent(event)
+        return super(SchedulerWindow, self).keyPressEvent(event)
 
     def save(self):
         """Save scheduler data."""
-        if self.saved_edit_id != edit_log.latest_edit_id():
-            self.tree_root.write()
-            # TODO: make calendar and tree root save consistent
-            self.calendar.write(
-                api_constants.CALENDAR_DIRECTORY
-            )
-            self.tracker.write(
-                api_constants.TRACKER_FILE
-            )
-            self.saved_edit_id = edit_log.latest_edit_id()
-        self.notes_tab.save()
+        self.project.autosave()
+        if self.saved_edit != edit_log.latest_edit():
+            self.project.write()
+            self.saved_edit = edit_log.latest_edit()
+        # self.notes_tab.save()
 
     def undo(self):
         """Undo last action."""
@@ -205,17 +222,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def _autosave(self):
         """Autosave backup file if needed."""
-        if self.autosaved_edit_id != edit_log.latest_edit_id():
-            self.tree_root.write(
-                api_constants.TASKS_AUTOSAVES_DIRECTORY
-            )
-            self.calendar.write(
-                api_constants.CALENDAR_AUTOSAVES_DIRECTORY
-            )
-            self.tracker.write(
-                api_constants.TRACKER_AUTOSAVES_FILE
-            )
-            self.autosaved_edit_id = edit_log.latest_edit_id()
+        if self.autosaved_edit != edit_log.latest_edit():
+            self.project.autosave()
 
     def timerEvent(self, event):
         """Called every timer_interval. Used to make autosaves.
@@ -223,7 +231,8 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        self._autosave()
+        if event.timerId() == self.timer_id:
+            self._autosave()
 
     def closeEvent(self, event):
         """Called on closing: prompt user to save changes if not done yet.
@@ -232,28 +241,50 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             event (QtCore.QEvent): the close event.
         """
         self._autosave()
-        if self.saved_edit_id != edit_log.latest_edit_id():
+        # TODO: add user prefs saves to autosave function?
+        user_prefs.save_app_user_prefs()
+        # TODO: THIS NEEDS ERROR CATCHING:
+        self.project.write_user_prefs()
+        if self.saved_edit != edit_log.latest_edit():
             result = custom_message_dialog(
                 "Unsaved Changes",
-                buttons=[YES_BUTTON, NO_BUTTON, CANCEL_BUTTON],
+                buttons=[
+                    ui_constants.YES_BUTTON,
+                    ui_constants.NO_BUTTON,
+                    ui_constants.CANCEL_BUTTON
+                ],
                 informative_text=(
                     "There are unsaved changes. Save before closing?"
                 )
             )
-            if result == CANCEL_BUTTON:
+            if result == ui_constants.CANCEL_BUTTON:
                 event.ignore()
                 return
-            if result == YES_BUTTON:
-                self.tree_root.write()
-                self.notes_tab.save()
+            if result == ui_constants.YES_BUTTON:
+                self.save()
             event.accept()
+
+        # hacky, remove this when speed is less of an issue here
+        if not api_constants.DEV_MODE:
+            # TODO: maybe make this a prompted option rather than always done?
+            # or at least give some indication it's happening?
+            # and/or maybe also add a check for when last commit was (only do one
+            # a day / one every few days / whatever)
+            error = self.project.git_backup()
+            if error:
+                simple_message_dialog(
+                    "Git backup failed for {0}".format(
+                        self.project.root_directory
+                    ),
+                    informative_text=error
+                )
         super(SchedulerWindow, self).closeEvent(event)
 
 
 def run_application():
     """Open application window."""
     app = QtWidgets.QApplication(sys.argv)
-    set_style(app, "stylesheet.qss")
+    set_style(app, "application.qss")
     window = SchedulerWindow()
     window.showMaximized()
     app.exec_()

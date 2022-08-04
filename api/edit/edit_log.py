@@ -4,12 +4,15 @@
 from contextlib import contextmanager
 
 
+class CallbackError(Exception):
+    """Exception for callback class errors."""
+
+
 class EditLog(object):
     """Log of user edits made in tool.
-    
+
     Friend Classes: [BaseEdit]
     """
-
     def __init__(self):
         """Initialise edit log.
 
@@ -20,33 +23,156 @@ class EditLog(object):
             _registration_locked (bool): toggle to tell if the log is currently
                 being modified. This allows us to ensure we don't re-add
                 functions to the log when they're being used to undo or redo.
-            _edit_to_add (BaseEdit or None): edit that we're in the process
-                of performing and adding to the log. This is used for
-                continuous edits where the edit can be updated continuously by
-                the user before being added to the log (eg. dragging a calendar
-                item to change its time).
+            _pre_edit_callback_dict (dict): dictionary representing callbacks
+                to be run before certain types of edit are done.
+            _post_edit_callback_dict (dict): dictionary representing callbacks
+                to be run before certain types of edit are done.
+            _pre_undo_callback_dict (dict): dictionary representing callbacks
+                to be run before certain types of edit are undone.
+            _post_undo_callback_dict (dict): dictionary representing callbacks
+                to be run after certain types of edit are undone.
         """
         self._log = []
         self._undo_log = []
-        self.__registration_locked = True
-        self._edit_to_add = None
+        self._registration_locked = True
+        self._pre_edit_callback_dict = {}
+        self._post_edit_callback_dict = {}
+        self._pre_undo_callback_dict = {}
+        self._post_undo_callback_dict = {}
 
     @property
-    def _registration_locked(self):
-        """Check whether registration is locked.
-
-        We treat the edit registry as locked if either:
-            - the __registration_locked attribute is True
-            - there is an edit currently saved in the _edit_to_add attribute
+    def is_locked(self):
+        """Check whether edit log is locked.
 
         Returns:
-            (bool): whether or not edit registration is locked.
+            (bool): whether or not edit log registration is locked.
         """
-        return (self.__registration_locked or bool(self._edit_to_add))
+        return self._registration_locked
+
+    def register_pre_edit_callback(self, edit_class, callback_id, callback):
+        """Register callback to be run before an an edit of given type is done.
+
+        Args:
+            edit_class (class): edit class we're registering callback for..
+            callback_id (variant): id for specific callback.
+            callback (function): callback to register.
+        """
+        callbacks_dict = self._pre_edit_callback_dict.setdefault(edit_class, {})
+        if callback_id in callbacks_dict:
+            raise CallbackError(
+                "There is already a pre_edit_callback with id {0} registered "
+                "for edit class {1}".format(str(callback_id), edit_class)
+            )
+        callbacks_dict[callback_id] = callback
+
+    def register_post_edit_callback(self, edit_class, callback_id, callback):
+        """Register callback to be run after an an edit of given type is done.
+
+        Args:
+            edit_class (class): edit class we're registering callback for..
+            callback_id (variant): id for specific callback.
+            callback (function): callback to register.
+        """
+        callbacks_dict = self._post_edit_callback_dict.setdefault(edit_class, {})
+        if callback_id in callbacks_dict:
+            raise CallbackError(
+                "There is already a post_edit_callback with id {0} registered "
+                "for edit class {1}".format(str(callback_id), edit_class)
+            )
+        callbacks_dict[callback_id] = callback
+
+    def register_pre_undo_callback(self, edit_class, callback_id, callback):
+        """Register callback to be run before an edit of given type is undone.
+
+        Args:
+            edit_class (class): edit class we're registering callback for..
+            callback_id (variant): id for specific callback.
+            callback (function): callback to register.
+        """
+        callbacks_dict = self._pre_undo_callback_dict.setdefault(edit_class, {})
+        if callback_id in callbacks_dict:
+            raise CallbackError(
+                "There is already a pre_undo_callback with id {0} registered "
+                "for edit class {1}".format(str(callback_id), edit_class)
+            )
+        callbacks_dict[callback_id] = callback
+
+    def register_post_undo_callback(self, edit_class, callback_id, callback):
+        """Register callback to be run after an edit of given type is undone.
+
+        Args:
+            edit_class (class): edit class we're registering callback for.
+            callback_id (variant): id for specific callback.
+            callback (function): callback to register.
+        """
+        callbacks_dict = self._post_undo_callback_dict.setdefault(edit_class, {})
+        if callback_id in callbacks_dict:
+            raise CallbackError(
+                "There is already a post_undo_callback with id {0} registered "
+                "for edit class {1}".format(str(callback_id), edit_class)
+            )
+        callbacks_dict[callback_id] = callback
+
+    def run_pre_edit_callbacks(self, edit):
+        """Run callbacks before a given edit is done.
+
+        Args:
+            edit (BaseEdit): the edit to run for.
+        """
+        callbacks = self._pre_edit_callback_dict.get(type(edit), {})
+        for callback in callbacks.values():
+            callback(*edit._callback_args)
+
+    def run_post_edit_callbacks(self, edit):
+        """Run callbacks after a given edit is done.
+
+        Args:
+            edit (BaseEdit): the edit to run for.
+        """
+        callbacks = self._post_edit_callback_dict.get(type(edit), {})
+        for callback in callbacks.values():
+            callback(*edit._callback_args)
+
+    def run_pre_undo_callbacks(self, edit):
+        """Run callbacks before a given edit is undone.
+
+        Args:
+            edit (BaseEdit): the edit to run for.
+        """
+        callbacks = self._pre_undo_callback_dict.get(type(edit), {})
+        for callback in callbacks.values():
+            callback(*edit._undo_callback_args)
+
+    def run_post_undo_callbacks(self, edit):
+        """Run callbacks after a given edit is undone.
+
+        Args:
+            edit (BaseEdit): the edit to run for.
+        """
+        callbacks = self._post_undo_callback_dict.get(type(edit), {})
+        for callback in callbacks.values():
+            callback(*edit._undo_callback_args)
+
+    def remove_callbacks(self, callback_id):
+        """Remove all callbacks with the given callback id from the registry.
+
+        Args:
+            callback_id (variant): id for callback.
+        """
+        callback_dicts = (
+            self._pre_edit_callback_dict,
+            self._post_edit_callback_dict,
+            self._pre_undo_callback_dict,
+            self._post_undo_callback_dict,
+        )
+        for callback_dict in callback_dicts:
+            for callback_subdict in callback_dict.values():
+                if callback_id in callback_subdict:
+                    del callback_subdict[callback_id]
 
     def open_registry(self):
         """Open edit registry so edits can be added."""
-        self.__registration_locked = False
+        self._registration_locked = False
 
     @contextmanager
     def lock_registry(self):
@@ -55,10 +181,12 @@ class EditLog(object):
         In theory this shouldn't be needed right now but maybe could be
         useful/necessary down the line.
         """
-        __registration_locked = self.__registration_locked
-        self.__registration_locked = True
-        yield
-        self.__registration_locked = __registration_locked
+        _registration_locked = self._registration_locked
+        self._registration_locked = True
+        try:
+            yield
+        finally:
+            self._registration_locked = _registration_locked
 
     def add_edit(self, edit):
         """Add edit object to list.
@@ -78,26 +206,12 @@ class EditLog(object):
             return False
         if self._undo_log:
             self._undo_log = []
+        latest_edit = self.get_latest_edit()
+        if latest_edit is not None and edit._stacks_with(latest_edit):
+            edit._previous_edit_in_stack = latest_edit
+            latest_edit._next_edit_in_stack = edit
         self._log.append(edit)
         return True
-
-    def begin_add_edit(self, edit):
-        """Begin adding edit to log.
-
-        This is for continuous edits, where the edit can be updated
-        continuously by the user before being added to the log (eg. dragging
-        a calendar item to change its time).
-
-        Args:
-            edit (BaseEdit): edit object to register.
-        """
-        self._edit_to_add = edit
-
-    def end_add_edit(self):
-        """Finish adding edit to log and unlock registry."""
-        edit = self._edit_to_add
-        self._edit_to_add = None
-        self.add_edit(edit)
 
     def undo(self):
         """Undo most recent edit.
@@ -112,7 +226,9 @@ class EditLog(object):
                 return False
             edit._undo()
             self._undo_log.append(edit)
-            return True
+        if edit._previous_edit_in_stack is not None:
+            self.undo()
+        return True
 
     def redo(self):
         """Redo most recently undone edit.
@@ -127,16 +243,19 @@ class EditLog(object):
                 return False
             edit._redo()
             self._log.append(edit)
-            return True
+        if edit._next_edit_in_stack is not None:
+            self.redo()
+        return True
 
-    def get_latest_edit_id(self):
-        """Get id of most recent edit.
+    def get_latest_edit(self):
+        """Get most recent edit.
 
         Returns:
-            (str): id of most recent edit.
+            (BaseEdit or None): most recent edit, if one exists.
         """
         if self._log:
-            return self._log[-1].id
+            return self._log[-1]
+        return None
 
     def get_log_text(self, long=True):
         """Get string representation of all edits in edit log.
@@ -152,22 +271,32 @@ class EditLog(object):
         title = "\n--------\nEDIT LOG\n--------\n\n"
         if not self._log:
             return "{0}[EMPTY]\n\n".format(title)
+
+        edit_stack_string = None
         for edit in self._log:
-            edit_string = edit.name
-            if long:
-                edit_string += "\n\t{0}".format(edit.description)
-            edit_strings.append(edit_string)
+            # if edit is part of stack, use edit_stack_name (and descriptions)
+            if edit._next_edit_in_stack is not None:
+                if edit_stack_string is None:
+                    edit_stack_string = edit.edit_stack_name
+                if long:
+                    edit_stack_string += "\n\t{0}".format(edit.description)
+            # if this is the last item of an edit stack, add to edit_strings
+            elif edit_stack_string is not None:
+                edit_strings.append(edit_stack_string)
+                edit_stack_string = None
+            # if no stack, just use the edit name (and descriptions)
+            else:
+                edit_string = edit.name
+                if long:
+                    edit_string += "\n\t{0}".format(edit.description)
+                edit_strings.append(edit_string)
+
         return "{0}{1}\n\n--------\n\n".format(
             title,
             "\n\n".join(edit_strings)
         )
 
 
-# TODO: Now we have so many of these functions, is this still the best way to
-# use the edit log singleton? In theory we could initialise it in the
-# application, but remember that the singleton is also needed in the edit
-# classes, so that may be a ball-ache - would still def need to be a singleton
-# (because fuck passing the edit_log as an argument to each edit)
 EDIT_LOG = EditLog()
 
 
@@ -178,7 +307,7 @@ def open_edit_registry():
 
 def undo():
     """Run undo on edit log singleton.
-    
+
     Returns:
         (bool): whether or not undo was performed.
     """
@@ -194,13 +323,23 @@ def redo():
     return EDIT_LOG.redo()
 
 
-def latest_edit_id():
-    """Get id of most recent edit.
+def latest_edit():
+    """Get most recent edit.
 
     Returns:
-        (str): id of most recent edit.
+        (BaseEdit or None): most recent edit, if one exists.
     """
-    return EDIT_LOG.get_latest_edit_id()
+    return EDIT_LOG.get_latest_edit()
+
+
+def remove_edit_callbacks(callback_id):
+    """Remove all callbacks with the given callback id.
+
+    Args:
+        callback_id (variant): id to remove. This usually represents the
+            ui class that defines the given callbacks.
+    """
+    EDIT_LOG.remove_callbacks(callback_id)
 
 
 def print_edit_log(long=True):

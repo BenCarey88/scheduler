@@ -1,0 +1,15 @@
+
+TaskHeaderWidget {
+    border: 1px dotted grey;
+}
+
+TaskHeaderListView {
+    border: none;
+}
+TaskHeaderListView::item:hover {
+    background-color: transparent;
+}
+
+QLineEdit {
+    border: none;
+}

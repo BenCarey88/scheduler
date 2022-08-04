@@ -1,49 +1,48 @@
 """Root task item.
 
 At any one time the scheduler ui should have one TaskRoot item that is
-used across all its tabs and widgets.
+used across all its tabs and widgets, and one archive TaskRoot.
 """
 
-from collections import OrderedDict
-from scheduler.api.edit.tree_edit import MoveTreeItemEdit
+from scheduler.api.common.object_wrappers import HostedDataDict
+from scheduler.api.serialization.serializable import (
+    SaveType,
+    SerializableFileTypes,
+)
+from scheduler.api.utils import fallback_value
 
-from .exceptions import TaskFileError
 from .task_category import TaskCategory
 
 
 class TaskRoot(TaskCategory):
     """Root item for all task data for the scheduler."""
+    _SAVE_TYPE = SaveType.DIRECTORY
+    _ORDER_FILE = "root{0}".format(SerializableFileTypes.ORDER)
+    _MARKER_FILE = _ORDER_FILE
 
-    TREE_FILE_MARKER = "root.info"
-    CATEGORIES_KEY = "categories"
+    _SUBDIR_KEY = "categories"
+    _SUBDIR_CLASS = TaskCategory
+    _FILE_KEY = None
+
+    CATEGORIES_KEY = _SUBDIR_KEY
     ROOT_NAME = ""
+    ARCHIVE_ROOT_NAME = "ARCHIVE"
 
-    def __init__(self, directory_path=None, *args, **kwargs):
+    def __init__(self, name=None, *args, **kwargs):
         """Initialise TaskRoot item.
 
         Args:
-            directory_path (str or None): path to directory this should be
-                saved to, or None if not set yet.
+            name (str or None): name. If None, use ROOT_NAME.
             args (tuple): additional args to allow super class classmethod
                 to use this init.
             kwargs (dict): additional kwargs to allow super class classmethod
                 to use this init.
         """
-        super(TaskRoot, self).__init__(name=self.ROOT_NAME, parent=None)
-        self._directory_path = directory_path
-        self.allowed_child_types = [TaskCategory]
-
-        # use category in place of subcategory in category function names
-        self.create_category = self.create_subcategory
-        self.create_new_category = self.create_subcategory
-        self.add_category = self.add_subcategory
-        self.remove_category = self.remove_subcategory
-        self.remove_categories = self.remove_subcategories
-        self.get_category = self.get_subcategory
-        self.get_category_at_index = self.get_subcategory_at_index
-        self.get_all_categories = self.get_all_subcategories
-        self.num_categories = self.num_subcategories
-        self.num_category_descendants = self.num_subcategory_descendants
+        name = name or self.ROOT_NAME
+        super(TaskRoot, self).__init__(name=name, parent=None)
+        self._allowed_child_types = [TaskCategory]
+        self._history_data = None
+        self._archive_root = None
 
     @property
     def _categories(self):
@@ -54,125 +53,116 @@ class TaskRoot(TaskCategory):
         """
         return self._children
 
-    def set_directory_path(self, directory_path):
-        """Change directory path to read/write from/to.
+    @property
+    def archive_root(self):
+        """Get corresponding archive tree root for this tree.
+
+        Returns:
+            (TaskRoot): archive root.
+        """
+        return self._archive_root
+
+    def set_archive_root(self, archive_root):
+        """Set corresponding archive tree root for this tree.
 
         Args:
-            directory_path (str): new directory path.
+            (TaskRoot): archive root.
         """
-        self._directory_path = directory_path
+        self._archive_root = archive_root
 
-    def get_directory_path(self):
-        """Get directory path to read/write from/to.
-        
-        Returns:
-            directory_path (str): name of directory path.
-        """
-        return self._directory_path
-
-    def get_item_at_path(self, path):
+    def get_item_at_path(self, path, strict=False, search_archive=False):
         """Get item at given path.
 
         Args:
             path (list(str) or str): path to item as a list or a string.
+            strict (bool): if True, require that root names of path match
+                as well.
+            search_archive (bool): if True, search archive root as well.
 
         Returns:
-            (BaseTreeItem or None): tree item at given path, if one exists.
+            (BaseTaskItem or None): tree item at given path, if one exists.
         """
         if isinstance(path, str):
             path_list = path.split(self.TREE_PATH_SEPARATOR)
         elif isinstance(path, list):
             path_list = path
         else:
-            return
+            return None
         if len(path_list) == 0:
             return None
-        if path_list[0] != self.name:
-            return None
         tree_item = self
+        if path_list[0] != self.name:
+            if (search_archive 
+                    and self.archive_root is not None
+                    and path_list[0] == self.ARCHIVE_ROOT_NAME):
+                tree_item = self.archive_root
+            elif strict:
+                return None
         for name in path_list[1:]:
             tree_item = tree_item.get_child(name)
             if not tree_item:
                 break
         return tree_item
 
-    # TODO: does this belong here? Potentially yeah, arguably it's quite
-    # good for tree root to have a lot of control of the tree, then tree
-    # manager could use functions from there to control stuff
-    # there's just a bit of an open q surrounding what should be used to edit
-    # a tree as currently it's done by edits, within each tree class, by tree
-    # manager and directly from both model and widgets.
-    # current ideal is:
-    #     widget -> (model) -> tree_manager -> tree_items -> edits
-    # but gets messy bc widgets still need to have access to tree items
-    # directly, for TaskWdigets and CategoryWidgets if nothing else
-    #  SEE DOC IN NOTES FOR DISCUSSION ON THIS.
-    #
-    # TODO: maybe build up an open qs/to-do list page rather than scattering
-    # unneat todo questions around lol - I think the in-code TODOs should be
-    # reserved for things we definitely want to implement
-    def move_tree_item(self, path_to_item, path_to_new_parent, index=None):
-        """Move item at given path under parent at given path.
+    def get_shared_ancestor(self, tree_item):
+        """Get the closest ancestor to given item that exists in this tree.
 
         Args:
-            path_to_item (list(str) or str): path list of item to move.
-            path_to_new_parent (list(str) or str): path list of parent to move it to.
-            index (int or None): index in new parent's _children dict to move
-                it to. If None, add at end.
-        """
-        item = self.get_item_at_path(path_to_item)
-        new_parent = self.get_item_at_path(path_to_new_parent)
-        if not item or not new_parent or item.is_ancestor(new_parent):
-            return
-        if index is None:
-            index = new_parent.num_children()
-        if (item.parent.id != new_parent.id
-                and item.name in new_parent._children.keys()):
-            return
-        if type(item) not in new_parent.allowed_child_types:
-            return
-        if index < 0 or index > new_parent.num_children():
-            return
-        MoveTreeItemEdit.create_and_run(
-            item,
-            new_parent,
-            index,
-            register_edit=self._register_edits,
-        )
-
-    def write(self, directory_path=None):
-        """Write data to directory tree.
-
-        Args:
-            directory_path (str or None): path to directory, if we want to
-                write to a different one. Otherwise we use the one set as
-                self._directory_path.
-        """
-        directory_path = directory_path or self._directory_path
-        if not directory_path:
-            raise TaskFileError(
-                "Directory path has not been set on task root."
-            )
-        super(TaskRoot, self).write(directory_path)
-
-    @classmethod
-    def from_directory(cls, directory_path):
-        """Create TaskRoot object from task directory.
-
-        Args:
-            directory_path (str): path to tasks directory.
-
-        Raises:
-            (TaskFileError): if the directory doesn't exist or isn't a task
-                directory (ie. doesn't have a TREE_FILE_MARKER)
+            tree_item (BaseTreeItem): tree item to check against.
 
         Returns:
-            (TaskRoot): TaskRoot object populated with tasks from directory
-                tree.
+            (BaseTreeItem): shared ancestor.
         """
-        root = super(TaskRoot, cls).from_directory(directory_path)
-        root.set_directory_path(directory_path)
-        return root
+        ancestor = self
+        while tree_item is not None:
+            ancestor = self.get_item_at_path(tree_item.path)
+            if ancestor is not None:
+                return ancestor
+            tree_item = tree_item.parent
+        return ancestor
+
+    def create_missing_ancestors(self, tree_item, shared_ancestor=None):
+        """Create ancestors that are missing to get to given item.
+
+        Args:
+            tree_item (BaseTreeItem): tree item to check against.
+            shared_ancestor (BaseTreeItem or None): pre-calculated shared
+                ancestor; if not given, we work it out here.
+
+        Returns:
+            (list(BaseTreeItem)): newly created skeletal ancestors. The
+                created ancestors will each contain the next one down
+                as a child but no other children. The created items are
+                not activated, and will not contain this item in their
+                child list.
+        """
+        missing_ancestors = []
+        shared_ancestor = fallback_value(
+            shared_ancestor,
+            self.get_shared_ancestor(tree_item),
+        )
+        tree_item = tree_item.parent
+        if tree_item is None:
+            return []
+        while tree_item.path_list[1:] != shared_ancestor.path_list[1:]:
+            new_ancestor = tree_item.clone()
+            if missing_ancestors:
+                child = missing_ancestors[0]
+                new_ancestor._children[child.name] = child
+            missing_ancestors.insert(0, new_ancestor)
+            tree_item = tree_item.parent
+        return missing_ancestors
+
+    def get_history_for_date(self, date):
+        """Get task history dict at given date.
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (dict): history dict for given day.
+        """
+        return self._history_data.get_history_for_date(date)
 
     @classmethod
     def from_dict(cls, json_dict, name=None):
@@ -189,8 +179,77 @@ class TaskRoot(TaskCategory):
             (TaskRoot): task root class for given dict.
         """
         name = name or cls.ROOT_NAME
-        return super(TaskRoot, cls).from_dict(
+        history_data = HistoryData()
+        task_root = super(TaskRoot, cls).from_dict(
             json_dict,
             name=name,
+            history_data=history_data,
             parent=None
         )
+        task_root._history_data = history_data
+        return task_root
+
+
+# TODO: work out what should happen to history when items are deleted
+class HistoryData(object):
+    """Struct to store history data for tasks by day, to add to calendar.
+
+    Structure is like this:
+    {
+        date_1: {
+            task_1: {
+                status: task_status,
+                value: task_value,
+                comments: {
+                    time_1: comment_1,
+                    time_2: comment_2,
+                    ...
+                }
+            },
+            ...
+        },
+        ...
+    }
+
+    This is built up when reading the items from dict, and then passed
+    to the calendar afterwards.
+    """
+    def __init__(self):
+        """Initialize structure."""
+        self._dict = {}
+
+    def _add_data(self, date, task, history_dict):
+        """Add history for given tree item at given date.
+
+        Args:
+            date (Date): date to add at.
+            task (Task): tree item to add history for.
+            history_dict (dict): dict representing history for item.
+        """
+        self._dict.setdefault(date, HostedDataDict())[task] = history_dict
+
+    def get_history_for_date(self, date):
+        """Get history at given date.
+
+        Note that this adds a subdict to the internal if one doesn't exist
+        so that any edits to this dictionary will be seen in the returned
+        dict too.
+
+        Args:
+            date (Date): date to add at.
+
+        Returns:
+            (dict): history dict for given day.
+        """
+        return self._dict.setdefault(date, HostedDataDict())
+
+    def _update_for_task(self, date, task):
+        """Update dict to get history for task at given date.
+
+        Args:
+            date (Date): date to update at.
+            task (Task): task to get history for.
+        """
+        history_dict = task.history.get_dict_at_date(date)
+        if history_dict != self._dict.get(date, {}).get(task):
+            self._dict.setdefault(date, HostedDataDict())[task] = history_dict

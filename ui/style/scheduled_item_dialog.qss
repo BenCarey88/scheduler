@@ -1,0 +1,10 @@
+
+QWidget {
+    font: 15px;
+}
+
+QTabBar::tab {
+    font: 15px;
+    height: 30px;
+    width: 80px;
+}

@@ -1,29 +1,29 @@
 
-this release:
-=============
-* repeat items
-* colours
+upcoming release:
+=================
+(/) proxy model for planner tab (for sorting)
+(/) history tab (model + view)
 
 
 next release:
 =============
+(/) make outliner/task tab/item dialog tree views inherit from same base
+    (/) key events
+    (/) right click actions
+    (- hover text?)
+(/) do most remaining views for each tab?
+(/) planned item / scheduled item connections
+* new task fields
+* archive tree and calendar
+* basic filters for the 4 main tabs
+
+
+general
+=======
 * background items cannot be moved and need double click to edit?
-* nicer text for background items
+* nicer look for background items
+    - no border
+    - no text (except maybe scrollover) - or choose if there's text
 * cross top-right and checkbox top-left of calendar items
-
-* git scripts for automatically backing up the data
-* investigate saving slowness?
-
-* general top bar for non-task tabs
-* colour editor (right click for tasks and included in calendar)
-
-stretch goal:
--------------
-* v basic planner tab
-* v basic review tab
-
-
-general:
-========
+* color editor (right click item for tasks and included in calendar)
 * add in loggers everywhere
-

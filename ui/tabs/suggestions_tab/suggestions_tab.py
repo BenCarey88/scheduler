@@ -8,19 +8,16 @@ from scheduler.ui.tabs.base_tab import BaseTab
 class SuggestionsTab(BaseTab):
     """Suggestions tab."""
 
-    def __init__(self, tree_root, tree_manager, outliner, parent=None):
+    def __init__(self, project, parent=None):
         """Setup suggestions tab main view.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            outliner (Outliner): outliner widget.
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(SuggestionsTab, self).__init__(
-            tree_root,
-            tree_manager,
-            outliner,
+            "suggestions",
+            project,
             parent=parent
         )
         self.view = QtWidgets.QWidget(self)

@@ -10,14 +10,40 @@ class DateTimeError(Exception):
     """Exception class for datetime related errors."""
 
 
+#TODO: complete this logic
+def date_time_obj_from_string(string, *args, **kwargs):
+    """General method to get a DateTime object from a string.
+
+    Args:
+        string (str): string to deserialize as date time object.
+        args (list): args to pass to date time class from_string method.
+        kwargs (list): kwargs to pass to date time class from_string method.
+
+    Returns:
+        (BaseDateTimeWrapper or TimeDelta): date time object represented
+            by string.
+    """
+    raise NotImplementedError(
+        "General DateTime deserialization isn't finished yet"
+    )
+    if string.startswith("TimeDelta("):
+        return TimeDelta.from_string(string)
+
+    raise DateTimeError(
+        "Cannot deserialize {0} as DateTime or TimeDelta object".format(
+            string
+        )
+    )
+
+
 class TimeDelta(object):
     """Wrapper around datetime.timedelta class.
 
     We implement two additions to the datetime.timedelta usage:
         - datetime.timedelta doesn't allow month or year values since these can
             represent varying amounts of time. We implement these by storing
-            them as extra attributes which we only interpret depending on the
-            during addition/subtraction with a Date, Time or DateTime object.
+            them as extra attributes which we only interpret during
+            addition/subtraction with a Date, Time or DateTime object.
             Note though that if these are used we'll no longer be able to use
             methods like total_seconds or the days property.
         - datetime.timedelta classes can only be added to datetime or date
@@ -67,6 +93,42 @@ class TimeDelta(object):
                 minutes=minutes,
                 seconds=seconds
             )
+
+    def __eq__(self, time_delta):
+        """Check if this is equal to another timedelta object.
+
+        Args:
+            time_delta (TimeDelta): object to check equality with.
+
+        Returns:
+            (bool): whether this equals time_delta.
+        """
+        if isinstance(time_delta, TimeDelta):
+            return (
+                self._timedelta_obj == time_delta._timedelta_obj
+                and self._years == time_delta._years
+                and self._months == time_delta._months
+            )
+        return False
+
+    def __ne__(self, time_delta):
+        """Check if this is not equal to another date time object.
+
+        Args:
+            time_delta (TimeDelta): object to check equality with.
+
+        Returns:
+            (bool): whether this does not equal time_delta.
+        """
+        return (not self.__eq__(time_delta))
+
+    def __hash__(self):
+        """Hash this object using the timedelta_obj hash.
+
+        Returns:
+            (int): the object hash.
+        """
+        return hash((self._timedelta_obj, self._years, self._months))
 
     def __add__(self, timedelta_or_datetime):
         """Add this to another timedelta, or to a BaseDateTimeWrapper object.
@@ -271,6 +333,30 @@ class TimeDelta(object):
         self._check_no_years_or_months()
         return self._timedelta_obj.days
 
+    @property
+    def months(self):
+        """Get number of months in time delta.
+
+        Note that this uses self._months and self._years. It does not
+        attempt to calculate additional months made up by extra days.
+
+        Returns:
+            (int): number of months.
+        """
+        return (self._years * 12) + self._months
+
+    @property
+    def years(self):
+        """Get number of years in time delta.
+
+        Note that this uses self._months and self._years. It does not
+        attempt to calculate additional years made up by extra days.
+
+        Returns:
+            (int): number of years.
+        """
+        return self._years + (self._months % 12)
+
     def total_seconds(self):
         """Get total number of seconds of time delta.
 
@@ -370,21 +456,13 @@ class TimeDelta(object):
             kwargs[name] = int(value)
         return cls(**kwargs)
 
-    def __repr__(self):
-        """Override string representation of self.
-
-        Return:
-            (str): string representation.
-        """
-        return str(self._timedelta_obj)
-
     def __str__(self):
         """Override string representation of self.
 
         Return:
             (str): string representation.
         """
-        return self.__repr__()
+        return str(self._timedelta_obj)
 
 
 class BaseDateTimeWrapper(object):
@@ -416,6 +494,10 @@ class BaseDateTimeWrapper(object):
     DEC = "December"
     MONTHS = [JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC]
     NUM_MONTHS = len(MONTHS)
+
+    # Time Data
+    DAY_START = 0
+    DAY_END = 24
 
     def __init__(self, datetime_obj):
         """Initialise base class.
@@ -675,7 +757,7 @@ class BaseDateTimeWrapper(object):
         """
         return str(self._datetime_obj)
 
-    def __repr__(self):
+    def __str__(self):
         """Override string representation of self.
 
         Return:
@@ -683,7 +765,7 @@ class BaseDateTimeWrapper(object):
         """
         return self.string()
 
-    def __str__(self):
+    def __repr__(self):
         """Override string representation of self.
 
         Return:
@@ -837,7 +919,7 @@ class Date(BaseDateTimeWrapper):
         """Get weekday.
 
         Returns:
-            (int): integerr from 0 to 6 representing weekday.
+            (int): integer from 0 to 6 representing weekday.
         """
         return self._datetime_obj.weekday()
 
@@ -870,13 +952,14 @@ class Date(BaseDateTimeWrapper):
             (str): day ordinal.
         """
         day = self.day
-        if day == 1:
-            return "1st"
-        if day == 2:
-            return "2nd"
-        if day == 3:
-            return "3rd"
-        return "{0}th".format(self.day)
+        suffix = "th"
+        if day % 10 == 1 and day != 11:
+            suffix = "st"
+        if day % 10 == 2 and day != 12:
+            suffix = "nd"
+        if day % 10 == 3 and day != 13:
+            suffix = "rd"
+        return "{0}{1}".format(day, suffix)
 
 
 class Time(BaseDateTimeWrapper):

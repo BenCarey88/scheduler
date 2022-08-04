@@ -1,89 +1,71 @@
-"""Task Outliner Panel."""
+"""Task Outliner View."""
 
 from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import Task, TaskType
-from scheduler.api.tree.task_category import TaskCategory
-from scheduler.api.tree.task_root import TaskRoot
-from scheduler.ui.models.task_category_model import TaskCategoryModel
-from scheduler.ui.utils import simple_message_dialog
+from scheduler.ui.models.tree import OutlinerTreeModel
+from .base_tree_view import BaseTreeView
 
 
-class Outliner(QtWidgets.QTreeView):
+class Outliner(BaseTreeView):
     """Task Outliner panel."""
-
-    MODEL_UPDATED_SIGNAL = QtCore.pyqtSignal()
-    CURRENT_CHANGED_SIGNAL = QtCore.pyqtSignal(
-        QtCore.QModelIndex,
-        QtCore.QModelIndex
-    )
-
-    def __init__(self, tree_root, tree_manager, parent=None):
+    def __init__(self, tab, tree_manager, parent=None):
         """Initialise task outliner.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for outliner model.
+            tab (BaseTab): tab this outliner is used for.
             tree_manager (TreeManager): tree manager item.
             parent (QtGui.QWidget or None): QWidget parent of widget. 
         """
-        super(Outliner, self).__init__(parent)
-
+        super(Outliner, self).__init__(tree_manager, parent=parent)
+        self.tab = tab
         self.tree_manager = tree_manager
-        self.root = tree_root
+        self.root = tree_manager.tree_root
         self._allow_key_events = True
+        self._is_full_tree = True
+        self._is_outliner = True
+        self._is_active = False
+        # TODO: get this from user prefs:
         self._hide_filtered_items = False
 
-        self.reset_view(False)
+        self.setModel(
+            OutlinerTreeModel(
+                self.tree_manager,
+                hide_filtered_items=self._hide_filtered_items,
+                parent=self
+            )
+        )
+        self.selectionModel().currentChanged.connect(
+            self.on_current_changed
+        )
+        self.model().dataChanged.connect(
+            self.tab.on_outliner_filter_changed
+        )
+        self.model().dataChanged.connect(self.on_model_data_change)
+
         self.setHeaderHidden(True)
         self.header().setStretchLastSection(False)
         self.header().setSectionResizeMode(
             0, QtWidgets.QHeaderView.ResizeMode.Stretch
         )
         self.header().resizeSection(1, 1)
-        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
-        self.setDragEnabled(True)
-        self.setDropIndicatorShown(True)
-        self.viewport().setAcceptDrops(True)
 
+        self.expand_items_from_tree_manager()
         self.expanded.connect(partial(self.mark_item_expanded, value=True))
         self.collapsed.connect(partial(self.mark_item_expanded, value=False))
 
-        # self.setSelectionBehavior(
-        #     QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems
-        # )
+    def on_tab_changed(self):
+        """Callback for when tab is changed.
 
-    # TODO: rename update in all views, as it conflicts with standard qt function
-    def update(self):
-        """Update view to pick up changes in model."""
-        self.reset_view(keep_selection=True)
-
-    def _get_selected_items(self):
-        """Get tree items that are selected.
-
-        Returns:
-            (list(BaseTreeItem)): selected tree items.
+        We run a full update here, as the alternative is running callbacks
+        for every outliner for every tree edit, which gets a bit heavy.
         """
-        return [
-            index.internalPointer()
-            for index in self.selectedIndexes()
-            if index.isValid()
-        ]
+        self.model().beginResetModel()
+        self.model().endResetModel()
+        self.expand_items_from_tree_manager()
 
-    def _get_current_item(self):
-        """Get current tree item.
-
-        Returns:
-            (BaseTreeItem or None): current tree item, if there is one.
-        """
-        return (
-            self.currentIndex().internalPointer()
-            if self.currentIndex().isValid()
-            else None
-        )
-
-    def _expand_item(self, index):
+    def _expand_item_from_tree_manager(self, index):
         """Recursively expand item at given index.
 
         This only expands items marked as expanded in the tree_manager.
@@ -94,97 +76,25 @@ class Outliner(QtWidgets.QTreeView):
         if not index.isValid():
             return
         item = index.internalPointer()
-        if not isinstance(item, TaskCategory):
+        if item is None:
             return
         if self.tree_manager.is_expanded(item):
             self.setExpanded(index, True)
         else:
             self.setExpanded(index, False)
         for i in range(item.num_children()):
-            child_index = self._model.index(i, 0, index)
-            self._expand_item(child_index)
+            child_index = self.model().index(i, 0, index)
+            self._expand_item_from_tree_manager(child_index)
 
-    def expand_items(self):
-        """Expand all items marked as expanded in tree_manager."""#
+    def expand_items_from_tree_manager(self):
+        """Expand all items marked as expanded in tree_manager."""
         for i in range(self.root.num_children()):
-            child_index = self._model.index(i, 0, QtCore.QModelIndex())
-            self._expand_item(child_index)
-
-    def reset_view(self, keep_selection=False):
-        """Reset view.
-
-        Args:
-            keep_selection (bool): if True, save current selection before
-                resetting and reselect any items that still exist.
-        """
-        selected_items = []
-        current_item = None
-        if keep_selection:
-            selected_items = self._get_selected_items()
-            current_item = self._get_current_item()
-
-        # TODO: This is just for debugging, remove later
-        dodgy_parents = self.root.get_descendants_with_incorrect_parents()
-        if dodgy_parents:
-            print (dodgy_parents)
-
-        # TODO: afaik this is currently only needed for adding siblings to
-        # top-level category - I think we should be able to avoid resetting
-        # the model every time, so should try to remove this in future.
-        # BUT will need to add in an update filters function.
-        self._model = TaskCategoryModel(
-            self.root,
-            self.tree_manager,
-            hide_filtered_items=self._hide_filtered_items,
-            parent=self
-        )
-        self._model.dataChanged.connect(
-            self.update
-        )
-        self._model.dataChanged.connect(
-            self.MODEL_UPDATED_SIGNAL.emit
-        )
-        self.setModel(self._model)
-        self.selectionModel().currentChanged.connect(
-            self.CURRENT_CHANGED_SIGNAL.emit
-        )
-        # force update of view by calling expandAll
-        # TODO: Maybe when we've renamed the update function this can call the
-        # original update method?
-        self.expand_items()
-
-        for item in selected_items:
-            item_row = item.index()
-            if item_row is None:
-                continue
-            index = self._model.createIndex(
-                item_row,
-                0,
-                item
-            )
-            if not index.isValid():
-                continue
-            self.selectionModel().select(
-                index,
-                self.selectionModel().SelectionFlag.Select
-            )
-        if current_item:
-            item_row = current_item.index()
-            if item_row is not None:
-                index = self._model.createIndex(
-                    item_row,
-                    0,
-                    current_item
-                )
-                if index.isValid():
-                    self.selectionModel().setCurrentIndex(
-                        index,
-                        self.selectionModel().SelectionFlag.Current
-                    )
+            child_index = self.model().index(i, 0, QtCore.QModelIndex())
+            self._expand_item_from_tree_manager(child_index)
 
     def mark_item_expanded(self, index, value):
         """Mark item as expanded in tree manager.
-        
+
         This is called whenever an item is collapsed/expanded in the view.
 
         Args:
@@ -196,117 +106,90 @@ class Outliner(QtWidgets.QTreeView):
             if item:
                 self.tree_manager.expand_item(item, value)
 
+    def expand_items_from_filtered(self):
+        """Expand or collapsed items based on which are filtered.
+
+        Returns:
+            (bool): whether or not action is successful.
+        """
+        success = self.tree_manager.set_expanded_from_filtered()
+        self.expand_items_from_tree_manager()
+        return success
+
+    def toggle_items_hidden(self):
+        """Toggle whether or not items are hidden.
+
+        Returns:
+            (bool): whether or not action is successful.
+        """
+        self._hide_filtered_items = not self._hide_filtered_items
+        return self.model().set_items_hidden(self._hide_filtered_items)
+
+    def on_current_changed(self, new_index, old_index):
+        """Callback for when current index is changed.
+
+        Args:
+            new_index (QtCore.QModelIndex): new index.
+            old_index (QtCore.QModelIndex): previous index.
+        """
+        if new_index.isValid():
+            item = new_index.internalPointer()
+            if item:
+                self.tree_manager.set_current_item(item)
+                self.tab.on_outliner_current_changed(item)
+
+    def on_model_data_change(self, *args):
+        """Update view to pick up changes in model."""
+        self.viewport().update()
+
+    def on_field_filter_changed(self):
+        """Callback for when field filter is changed in filter view."""
+        self.model().update_filter()
+        self.expand_items_from_tree_manager()
+        self.tab.on_outliner_filter_changed()
+
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.
 
         Args:
             event (PySide.QtGui.QKeyEvent): The event.
         """
-        if not self._allow_key_events:
-            return
         modifiers = event.modifiers()
+        success = False
 
-        if not modifiers:
-            # del: remove item
-            if event.key() == QtCore.Qt.Key_Delete:
-                selected_items = self._get_selected_items()
-                if selected_items:
-                    continue_deletion = simple_message_dialog(
-                        "Delete the following items?",
-                        "\n".join([item.name for item in selected_items]),
-                        parent=self
-                    )
-                    if continue_deletion:
-                        for item in selected_items:
-                            item.parent.remove_child(item.name)
-                    # note we reset model rather than update here
-                    # as we don't want to keep selection
-                    self.reset_view()
-                    self.MODEL_UPDATED_SIGNAL.emit()
-
-        elif modifiers == QtCore.Qt.ControlModifier:
-            # ctrl+plus: add new task
-            if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
-                current_item = self._get_current_item()
-                if current_item:
-                    if isinstance(current_item, (TaskCategory, TaskRoot)):
-                        current_item.create_new_task()
-                        self.update()
-                        self.MODEL_UPDATED_SIGNAL.emit()
-            # ctrl+asterisk: add new subcategory
-            elif event.key() in (QtCore.Qt.Key_Asterisk, QtCore.Qt.Key_8):
-                current_item = self._get_current_item()
-                if (current_item
-                        and type(current_item) in [TaskCategory, TaskRoot]):
-                    current_item.create_new_subcategory()
-                    self.update()
-                    self.MODEL_UPDATED_SIGNAL.emit()
-            # ctrl+up: move task up an index
-            elif event.key() == QtCore.Qt.Key_Up:
-                current_item = self._get_current_item()
-                if current_item:
-                    index = current_item.index()
-                    if index is not None:
-                        current_item.move(index - 1)
-                        self.update()
-                        self.MODEL_UPDATED_SIGNAL.emit()
-                        return
-            # ctrl+down: move task down an index
-            elif event.key() == QtCore.Qt.Key_Down:
-                current_item = self._get_current_item()
-                if current_item:
-                    index = current_item.index()
-                    if index is not None:
-                        current_item.move(index + 1)
-                        self.update()
-                        self.MODEL_UPDATED_SIGNAL.emit()
-                        return
-            # ctrl+del: force remove item
-            elif event.key() == QtCore.Qt.Key_Delete:
-                selected_items = self._get_selected_items()
-                if selected_items:
-                    for item in selected_items:
-                        item.parent.remove_child(item.name)
-                    # note we reset model rather than update here
-                    # as we don't want to keep selection
-                    self.reset_view()
-                    self.MODEL_UPDATED_SIGNAL.emit()
-            # ctrl+r: switch task to routine
-            elif event.key() == QtCore.Qt.Key_R:
-                current_item = self._get_current_item()
-                if current_item and isinstance(current_item, Task):
-                    if current_item.type == TaskType.ROUTINE:
-                        current_item.change_task_type(TaskType.GENERAL)
-                    elif current_item.type == TaskType.GENERAL:
-                        current_item.change_task_type(TaskType.ROUTINE)
-                    self.update()
-                    self.MODEL_UPDATED_SIGNAL.emit()
+        if modifiers == QtCore.Qt.ControlModifier:
             # ctrl+h: hide or unhide filtered items in outliner
-            elif event.key() == QtCore.Qt.Key_H:
-                self._hide_filtered_items = not self._hide_filtered_items
-                self.update()
-                self.MODEL_UPDATED_SIGNAL.emit()
+            if event.key() == QtCore.Qt.Key_H:
+                success = self.toggle_items_hidden()
+                if success:
+                    self.expand_items_from_tree_manager()
             # ctrl+e: auto-collapse and expand based on filter-status
             elif event.key() == QtCore.Qt.Key_E:
-                self.tree_manager.set_expanded_from_filtered(self.root)
-                self.update()
-                self.MODEL_UPDATED_SIGNAL.emit()
-
-        elif modifiers == QtCore.Qt.ShiftModifier:
-            if event.key() == QtCore.Qt.Key_Tab:
-                pass
-                # TODO: self._active_task_widget.move_item_up_a_level
-
-        elif modifiers == (QtCore.Qt.ShiftModifier|QtCore.Qt.ControlModifier):
-            # ctrl+shift+plus: add new sibling
-            if event.key() in (QtCore.Qt.Key_Plus, QtCore.Qt.Key_Equal):
-                current_item = self._get_current_item()
-                if current_item:
-                    if type(current_item) == TaskCategory:
-                        current_item.create_new_sibling_category()
-                    elif type(current_item) == Task:
-                        current_item.create_new_sibling_task()
-                    self.update()
-                    self.MODEL_UPDATED_SIGNAL.emit()
+                success = self.expand_items_from_filtered()
 
         super(Outliner, self).keyPressEvent(event)
+
+    def _build_right_click_menu(self, item=None):
+        """Build right click menu for given item.
+
+        Args:
+            item (BaseTaskItem or None): item to build menu for.
+
+        Returns:
+            (QtWidgets.QMenu): the right click menu.
+        """
+        right_click_menu = super(Outliner, self)._build_right_click_menu(
+            item=item
+        )
+        right_click_menu.addSeparator()
+
+        if self._hide_filtered_items:
+            action = right_click_menu.addAction("Unhide filtered items")
+        else:
+            action = right_click_menu.addAction("Hide filtered items")
+        self._connect_action_to_func(action, self.toggle_items_hidden)
+
+        action = right_click_menu.addAction("Expand from filtered")
+        self._connect_action_to_func(action, self.expand_items_from_filtered)
+
+        return right_click_menu

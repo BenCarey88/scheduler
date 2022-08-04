@@ -3,7 +3,7 @@
 from collections import OrderedDict
 import unittest
 
-from api.edit.tree_edit import BaseTreeEdit, OrderedDictOp, OrderedDictEdit
+from api.edit.tree_edit import BaseTreeEdit, ContainerOp, DictEdit
 from api.tree._base_tree_item import BaseTreeItem
 from api.tree.task import Task
 
@@ -26,10 +26,10 @@ class OrderedDictEditTest(unittest.TestCase):
 
     def test_add(self):
         """Test add operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.ordered_dict,
-            diff_dict=OrderedDict([("z", "Z")]),
-            op_type=OrderedDictOp.ADD,
+        edit = DictEdit(
+            self.ordered_dict,
+            OrderedDict([("z", "Z")]),
+            ContainerOp.ADD,
         )
         edit.run()
         self.assertEqual(
@@ -50,10 +50,10 @@ class OrderedDictEditTest(unittest.TestCase):
 
     def test_insert(self):
         """Test insert operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.ordered_dict,
-            diff_dict=OrderedDict([("z", (2, "Z"))]),
-            op_type=OrderedDictOp.INSERT,
+        edit = DictEdit(
+            self.ordered_dict,
+            OrderedDict([("z", (2, "Z"))]),
+            ContainerOp.INSERT,
         )
         edit.run()
         self.assertEqual(
@@ -74,10 +74,10 @@ class OrderedDictEditTest(unittest.TestCase):
 
     def test_remove(self):
         """Test remove operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.ordered_dict,
-            diff_dict=OrderedDict([("b", None), ("d", None)]),
-            op_type=OrderedDictOp.REMOVE,
+        edit = DictEdit(
+            self.ordered_dict,
+            OrderedDict([("b", None), ("d", None)]),
+            ContainerOp.REMOVE,
         )
         edit.run()
         self.assertEqual(
@@ -95,10 +95,10 @@ class OrderedDictEditTest(unittest.TestCase):
 
     def test_rename(self):
         """Test rename operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.ordered_dict,
-            diff_dict=OrderedDict([("a", "z"), ("b", "y")]),
-            op_type=OrderedDictOp.RENAME,
+        edit = DictEdit(
+            self.ordered_dict,
+            OrderedDict([("a", "z"), ("b", "y")]),
+            ContainerOp.RENAME,
         )
         edit.run()
         self.assertEqual(
@@ -118,10 +118,10 @@ class OrderedDictEditTest(unittest.TestCase):
 
     def test_modify(self):
         """Test modify operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.ordered_dict,
-            diff_dict=OrderedDict([("c", "Z"), ("a", "Y")]),
-            op_type=OrderedDictOp.MODIFY,
+        edit = DictEdit(
+            self.ordered_dict,
+            OrderedDict([("c", "Z"), ("a", "Y")]),
+            ContainerOp.MODIFY,
         )
         edit.run()
         self.assertEqual(
@@ -141,10 +141,10 @@ class OrderedDictEditTest(unittest.TestCase):
 
     def test_move(self):
         """Test move operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.ordered_dict,
-            diff_dict=OrderedDict([("b", 2), ("d", 1), ("c", 3)]),
-            op_type=OrderedDictOp.MOVE,
+        edit = DictEdit(
+            self.ordered_dict,
+            OrderedDict([("b", 2), ("d", 1), ("c", 3)]),
+            ContainerOp.MOVE,
         )
         edit.run()
         self.assertEqual(
@@ -185,9 +185,9 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
 
     def test_add_recursive(self):
         """Test recursive add operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.recursive_dict,
-            diff_dict=create_ordered_dict_from_tuples([
+        edit = DictEdit(
+            self.recursive_dict,
+            create_ordered_dict_from_tuples([
                 ("dict", [
                     ("subdict", [
                         ("c", "C")
@@ -196,7 +196,7 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
                 ]),
                 ("e", "E")
             ]),
-            op_type=OrderedDictOp.ADD,
+            ContainerOp.ADD,
             recursive=True,
         )
         edit.run()
@@ -226,9 +226,9 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
 
     def test_insert_recursive(self):
         """Test recursive insert operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.recursive_dict,
-            diff_dict=create_ordered_dict_from_tuples([
+        edit = DictEdit(
+            self.recursive_dict,
+            create_ordered_dict_from_tuples([
                 ("dict", [
                     ("subdict", [
                         ("c", (0, "C"))
@@ -237,7 +237,7 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
                 ]),
                 ("e", (2, "E"))
             ]),
-            op_type=OrderedDictOp.INSERT,
+            ContainerOp.INSERT,
             recursive=True,
         )
         edit.run()
@@ -267,16 +267,16 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
 
     def test_remove_recursive(self):
         """Test recursive remove operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.recursive_dict,
-            diff_dict=create_ordered_dict_from_tuples([
+        edit = DictEdit(
+            self.recursive_dict,
+            create_ordered_dict_from_tuples([
                 ("dict", [
                     ("subdict", None),
                     ("b", None)
                 ]),
                 ("a", None)
             ]),
-            op_type=OrderedDictOp.REMOVE,
+            ContainerOp.REMOVE,
             recursive=True,
         )
         edit.run()
@@ -297,16 +297,16 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
 
     def test_rename_recursive(self):
         """Test recursive rename operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.recursive_dict,
-            diff_dict=create_ordered_dict_from_tuples([
+        edit = DictEdit(
+            self.recursive_dict,
+            create_ordered_dict_from_tuples([
                 ("dict", [
                     ("subdict", "SUBDICT"),
                     ("b", "B")
                 ]),
                 ("a", "A")
             ]),
-            op_type=OrderedDictOp.RENAME,
+            ContainerOp.RENAME,
             recursive=True,
         )
         edit.run()
@@ -333,16 +333,16 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
 
     def test_modify_recursive(self):
         """Test recursive modify operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.recursive_dict,
-            diff_dict=create_ordered_dict_from_tuples([
+        edit = DictEdit(
+            self.recursive_dict,
+            create_ordered_dict_from_tuples([
                 ("dict", [
                     ("subdict", None),
                     ("a", "Y")
                 ]),
                 ("a", "Z")
             ]),
-            op_type=OrderedDictOp.MODIFY,
+            ContainerOp.MODIFY,
             recursive=True,
         )
         edit.run()
@@ -366,15 +366,15 @@ class OrderedDictRecursiveEditTest(unittest.TestCase):
 
     def test_move_recursive(self):
         """Test recursive move operation."""
-        edit = OrderedDictEdit(
-            ordered_dict=self.recursive_dict,
-            diff_dict=create_ordered_dict_from_tuples([
+        edit = DictEdit(
+            self.recursive_dict,
+            create_ordered_dict_from_tuples([
                 ("dict", [
                     ("subdict", 2),
                 ]),
                 ("a", 0)
             ]),
-            op_type=OrderedDictOp.MOVE,
+            ContainerOp.MOVE,
             recursive=True,
         )
         edit.run()

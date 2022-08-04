@@ -1,5 +1,8 @@
 """Notes Tab."""
 
+# TODO: no longer consistent with new project setup, either remove
+# or add to project tree.
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
@@ -11,19 +14,16 @@ from scheduler.ui.tabs.base_tab import BaseTab
 class NotesTab(BaseTab):
     """Suggestions tab."""
 
-    def __init__(self, tree_root, tree_manager, outliner, parent=None):
+    def __init__(self, project, parent=None):
         """Setup suggestions tab main view.
 
         Args:
-            tree_root (BaseTreeItem): tree root item for tab's models.
-            tree_manager (TreeManager): tree manager object.
-            outliner (Outliner): outliner widget.
+            project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(NotesTab, self).__init__(
-            tree_root,
-            tree_manager,
-            outliner,
+            "notes",
+            project,
             parent=parent
         )
         self.text_edit = QtWidgets.QTextEdit(self)

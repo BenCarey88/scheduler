@@ -103,7 +103,7 @@ class FilterFieldData(object):
         Returns:
             (ValueWidgetWrapper): widget to edit this field.
         """
-        if (operator == FilterOperator.MATCHES
+        if (operator in FilterOperator.STRING_OPS
                 and issubclass(self.value_type, str)):
             widget = QtWidgets.QLineEdit()
             return ValueWidgetWrapper(widget, widget.text, widget.setText)

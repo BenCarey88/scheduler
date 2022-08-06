@@ -13,14 +13,16 @@ class FilterOperator(OrderedEnum):
     NOT_EQUAL = "Is Not"
     IN = "In"
     MATCHES = "Matches"
+    DOESNT_MATCH = "Does not Match"
     STARTS_WITH = "Starts With"
+    ENDS_WITH = "Ends With"
     LESS_THAN = "Less Than"
     LESS_THAN_EQ = "Less or Equal"
     GREATER_THAN = "Greater Than"
     GREATER_THAN_EQ = "Greater or Equal"
 
     BASE_OPS = [EQUALS, NOT_EQUAL]  # IN not implemented yet
-    STRING_OPS = [MATCHES, STARTS_WITH]
+    STRING_OPS = [MATCHES, DOESNT_MATCH, STARTS_WITH, ENDS_WITH]
     MATH_OPS = [
         LESS_THAN,
         LESS_THAN_EQ,
@@ -88,8 +90,12 @@ class FieldFilter(BaseFilter):
             return field_value in self._field_value
         if self._field_operator == FilterOperator.MATCHES:
             return fnmatch.fnmatch(self._field_value, field_value)
+        if self._field_operator == FilterOperator.DOESNT_MATCH:
+            return not fnmatch.fnmatch(self._field_value, field_value)
         if self._field_operator == FilterOperator.STARTS_WITH:
             return field_value.startswith(self._field_value)
+        if self._field_operator == FilterOperator.ENDS_WITH:
+            return field_value.endswith(self._field_value)
         if self._field_operator == FilterOperator.LESS_THAN:
             return field_maths_value < self._field_maths_value
         if self._field_operator == FilterOperator.LESS_THAN_EQ:

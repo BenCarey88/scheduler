@@ -3,6 +3,7 @@
     Dev work on top of 1.2.0-dev release (to be added as 1.2.1):
         - 3-day period always starts at current day
         - task status and task importance filters
+        - added endswith and doesnt_match field filter operators
 
 1.2.0-dev:
     Dev work on top of 1.2.0 release (to be added as 1.2.1):

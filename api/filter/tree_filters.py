@@ -2,7 +2,12 @@
 
 from collections import OrderedDict
 
-from scheduler.api.tree.task import Task
+from scheduler.api.tree.task import (
+    Task,
+    TaskImportance,
+    TaskStatus,
+    TaskSize,
+)
 from ._base_filter import (
     BaseFilter,
     CompositeFilter,
@@ -69,6 +74,7 @@ class BaseTreeFieldFilter(FieldFilter, BaseTreeFilter):
             field_getter,
             field_operator,
             field_value,
+            math_ops_key=None,
             tasks_only=False,
             check_descendants=True):
         """Initialize.
@@ -78,6 +84,8 @@ class BaseTreeFieldFilter(FieldFilter, BaseTreeFilter):
                 the item we're filtering.
             field_operator (FilterOperator): operator to apply to field.
             field_value (variant): value to use with operator.
+            math_ops_key (function or None): function to convert field
+                to a numeric value for maths ops, if needed.
             tasks_only (bool): if True, only apply filter to tasks. Task
                 categories will get included only if some of their children
                 are.
@@ -88,6 +96,7 @@ class BaseTreeFieldFilter(FieldFilter, BaseTreeFilter):
             field_getter,
             field_operator,
             field_value,
+            math_ops_key=math_ops_key,
         )
         self._tasks_only = tasks_only
         self._check_descendants = check_descendants
@@ -154,6 +163,7 @@ class TaskStatusFilter(BaseTreeFieldFilter):
             lambda task: task.status,
             filter_operator,
             filter_value,
+            math_ops_key=TaskStatus.filter_key,
             tasks_only=True,
         )
 
@@ -172,6 +182,44 @@ class TaskTypeFilter(BaseTreeFieldFilter):
             lambda task: task.type,
             filter_operator,
             filter_value,
+            tasks_only=True,
+        )
+
+
+@register_serializable_filter("TaskSizeFilter")
+class TaskSizeFilter(BaseTreeFieldFilter):
+    """Filter for task size."""
+    def __init__(self, filter_operator, filter_value):
+        """Initialize filter.
+
+        Args:
+            field_operator (FilterOperator): operator to apply to field.
+            field_value (variant): value to use with operator.
+        """
+        super(TaskSizeFilter, self).__init__(
+            lambda task: task.size,
+            filter_operator,
+            filter_value,
+            math_ops_key=TaskSize.filter_key,
+            tasks_only=True,
+        )
+
+
+@register_serializable_filter("TaskImportanceFilter")
+class TaskImportanceFilter(BaseTreeFieldFilter):
+    """Filter for task importance."""
+    def __init__(self, filter_operator, filter_value):
+        """Initialize filter.
+
+        Args:
+            field_operator (FilterOperator): operator to apply to field.
+            field_value (variant): value to use with operator.
+        """
+        super(TaskImportanceFilter, self).__init__(
+            lambda task: task.importance,
+            filter_operator,
+            filter_value,
+            math_ops_key=TaskImportance.filter_key,
             tasks_only=True,
         )
 

@@ -16,14 +16,25 @@ from scheduler.api.filter import FieldFilter, FilterOperator
 from scheduler.api.filter.tree_filters import (
     NoFilter,
     CompositeTreeFilter,
+    TaskImportanceFilter,
     TaskPathFilter,
+    TaskSizeFilter,
     TaskStatusFilter,
     TaskTypeFilter,
 )
-from scheduler.api.tree.task import TaskStatus, TaskType
+from scheduler.api.tree.task import (
+    TaskImportance,
+    TaskSize,
+    TaskStatus,
+    TaskType,
+)
 from scheduler.api.utils import fallback_value, OrderedEnum
 
-from scheduler.ui.utils import set_style, simple_message_dialog
+from scheduler.ui.utils import (
+    set_style,
+    simple_message_dialog,
+    suppress_signals,
+)
 
 
 class FilterDialogError(Exception):
@@ -72,7 +83,9 @@ class FilterFieldData(object):
         """
         if issubclass(self.value_type, str):
             return FilterOperator.BASE_OPS + FilterOperator.STRING_OPS
-        elif issubclass(self.value_type, float, int, BaseDateTimeWrapper):
+        elif issubclass(self.value_type, (float, int, BaseDateTimeWrapper)):
+            return FilterOperator.BASE_OPS + FilterOperator.MATH_OPS
+        elif issubclass(self.value_type, OrderedEnum):
             return FilterOperator.BASE_OPS + FilterOperator.MATH_OPS
         else:
             raise FilterDialogError(
@@ -117,7 +130,7 @@ class FilterFieldData(object):
             return ValueWidgetWrapper(
                 widget,
                 widget.currentText,
-                widget.setCurrentText
+                widget.setCurrentText,
             )
         raise FilterDialogError(
             "Cannot get widget for field {0} with operator of type {1}"
@@ -127,17 +140,43 @@ class FilterFieldData(object):
 
 class FilterField(OrderedEnum):
     """Filter fields"""
-    STATUS = FilterFieldData("Status", TaskStatusFilter, TaskStatus.VALUES)
-    TYPE = FilterFieldData("Type", TaskTypeFilter, TaskType.VALUES)
-    PATH = FilterFieldData("Path", TaskPathFilter)
+    STATUS = FilterFieldData(
+        "Status",
+        TaskStatusFilter,
+        TaskStatus.VALUES,
+        OrderedEnum,
+    )
+    TYPE = FilterFieldData(
+        "Type",
+        TaskTypeFilter,
+        TaskType.VALUES,
+    )
+    SIZE = FilterFieldData(
+        "Size",
+        TaskSizeFilter,
+        TaskSize.VALUES,
+        OrderedEnum,
+    )
+    IMPORTANCE = FilterFieldData(
+        "Importance",
+        TaskImportanceFilter,
+        TaskImportance.VALUES,
+        OrderedEnum,
+    )
+    PATH = FilterFieldData(
+        "Path",
+        TaskPathFilter,
+    )
 
-    VALUES = [STATUS, TYPE, PATH]
+    VALUES = [STATUS, TYPE, SIZE, IMPORTANCE, PATH]
     VALUES_DICT = OrderedDict([(field.name, field) for field in VALUES])
     FIELD_NAMES = list(VALUES_DICT.keys())
 
 
 class FieldWidget(QtWidgets.QWidget):
     """Widget defining a field in the dialog."""
+    MAX_COMBOBOX_HEIGHT = 25
+
     def __init__(
             self,
             field=None,
@@ -159,17 +198,32 @@ class FieldWidget(QtWidgets.QWidget):
         self.setLayout(self.main_layout)
 
         self.field_combo_box = QtWidgets.QComboBox()
+        self.field_combo_box.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Fixed,
+        )
         self.field_combo_box.addItems([""] + FilterField.FIELD_NAMES)
         self.main_layout.addWidget(self.field_combo_box)
 
         self.operator_combo_box = QtWidgets.QComboBox()
+        self.operator_combo_box.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Fixed,
+        )
         self.main_layout.addWidget(self.operator_combo_box)
 
         self.value_widget_wrapper = self._default_value_widget_wrapper()
-        self.main_layout.addWidget(self.value_widget)
+        self.value_widget_stack = QtWidgets.QStackedWidget()
+        # self.value_widget_stack.setMaximumHeight(self.MAX_COMBOBOX_HEIGHT)
+        self.value_widget_stack.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Preferred,
+            QtWidgets.QSizePolicy.Policy.Fixed,
+        )
+        self.value_widget_stack.addWidget(self.value_widget)
+        self.value_widgets_cache = {("", ""): self.value_widget_wrapper}
+        self.main_layout.addWidget(self.value_widget_stack)
+        # self.main_layout.addWidget(self.value_widget)
 
-        self.update_operators()
-        self.update_values()
         self.field_combo_box.currentTextChanged.connect(
             self.update_operators
         )
@@ -223,19 +277,34 @@ class FieldWidget(QtWidgets.QWidget):
         Args:
             operator (str): the current operator.
         """
-        self.value_widget.deleteLater()
+        # self.main_layout.removeWidget(self.value_widget)
+        # self.value_widget.deleteLater()
         field_name = self.field_combo_box.currentText()
         field = FilterField.VALUES_DICT.get(field_name)
         if not field:
-            self.value_widget_wrapper = self._default_value_widget_wrapper()
-            self.main_layout.addWidget(self.value_widget)
+            self.value_widget_wrapper = self.value_widgets_cache[("", "")]
+            # self.value_widget_wrapper = self._default_value_widget_wrapper()
+            # self.main_layout.addWidget(self.value_widget)
+            self.value_widget_stack.setCurrentWidget(self.value_widget)
             return
         operator = fallback_value(
             operator,
             self.operator_combo_box.currentText(),
         )
-        self.value_widget_wrapper = field.get_value_widget_wrapper(operator)
-        self.main_layout.addWidget(self.value_widget)
+        # self.value_widget_wrapper = field.get_value_widget_wrapper(operator)
+        # self.main_layout.addWidget(self.value_widget)
+        self.value_widget_wrapper = self.value_widgets_cache.get(
+            (field, operator)
+        )
+        if self.value_widget_wrapper is None:
+            self.value_widget_wrapper = field.get_value_widget_wrapper(
+                operator
+            )
+            self.value_widget_stack.addWidget(self.value_widget)
+            self.value_widgets_cache[(field, operator)] = (
+                self.value_widget_wrapper
+            )
+        self.value_widget_stack.setCurrentWidget(self.value_widget)
 
     @property
     def value_widget(self):
@@ -356,8 +425,8 @@ class FilterGroupWidget(QtWidgets.QFrame):
         self.operator_labels = []
         for filter_ in self.subfilters:
             self.add_filter_widget(filter_)
-        # if not self.subfilters:
-        #     self.add_filter_widget()
+        if not self.subfilters:
+            self.add_filter_widget()
 
     def add_filter_widget(self, filter_=None, make_group=False):
         """Add filter widget.

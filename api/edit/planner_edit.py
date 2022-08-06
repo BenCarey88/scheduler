@@ -247,7 +247,7 @@ class ModifyPlannedItemEdit(CompositeEdit):
         self._name = "ModifyPlannedItem ({0})".format(planned_item.name)
         self._description = attribute_edit.get_description(
             planned_item,
-            planned_item.name
+            planned_item.name,
         )
 
 

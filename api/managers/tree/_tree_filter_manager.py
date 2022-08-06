@@ -441,6 +441,9 @@ class TreeFilterManager(BaseTreeManager):
             old_name,
             field_filter,
         )
+        # ensure filter is set as active if the one it replaced was active
+        if self._active_field_filter.name == old_name:
+            self.set_active_field_filter(field_filter)
         # self._filterer.modify_filter(FilterType.TREE, old_name, field_filter)
 
     def remove_field_filter(self, name):

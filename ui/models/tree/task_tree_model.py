@@ -14,6 +14,8 @@ class TaskTreeModel(BaseTreeModel):
     This model is intended to be used in the main panel of the Task Tab.
     """
     STATUS_COLUMN = "Status"
+    IMPORTANCE_COLUMN = "Importance"
+    SIZE_COLUMN = "Size"
 
     def __init__(self, tree_manager, root_task, parent=None):
         """Initialise task tree model.
@@ -29,7 +31,12 @@ class TaskTreeModel(BaseTreeModel):
             mime_data_format=constants.TASK_TAB_TREE_MIME_DATA_FORMAT,
             parent=parent,
         )
-        self.columns = [self.NAME_COLUMN, self.STATUS_COLUMN]
+        self.columns = [
+            self.NAME_COLUMN,
+            self.STATUS_COLUMN,
+            self.IMPORTANCE_COLUMN,
+            self.SIZE_COLUMN,
+        ]
 
     @property
     def child_filter(self):
@@ -87,6 +94,32 @@ class TaskTreeModel(BaseTreeModel):
                         item.status
                     )
 
+        # Importance Column
+        if column_name in self.IMPORTANCE_COLUMN:
+            if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                item = index.internalPointer()
+                if item:
+                    return item.importance
+            if role == QtCore.Qt.ItemDataRole.ForegroundRole:
+                item = index.internalPointer()
+                if item:
+                    return constants.TASK_IMPORTANCE_COLORS.get(
+                        item.importance
+                    )
+            if role == QtCore.Qt.ItemDataRole.FontRole:
+                item = index.internalPointer()
+                if item:
+                    font = QtGui.QFont()
+                    font.setBold(True)
+                    return font
+
+        # Size Column
+        if column_name in self.SIZE_COLUMN:
+            if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                item = index.internalPointer()
+                if item:
+                    return item.size
+
         return super(TaskTreeModel, self).data(index, role)
 
     def setData(self, index, value, role):
@@ -102,13 +135,32 @@ class TaskTreeModel(BaseTreeModel):
         Returns:
             (bool): True if setting data was successful, else False.
         """
-        if (role == QtCore.Qt.ItemDataRole.CheckStateRole and
-                self.get_column_name(index) == self.STATUS_COLUMN):
+        column_name = self.get_column_name(index)
+        if column_name is None:
+            return False
+        if (column_name == self.STATUS_COLUMN and
+                role == QtCore.Qt.ItemDataRole.CheckStateRole):
             task_item = index.internalPointer()
             if not task_item:
                 return False
-            self.tree_manager.update_task(task_item)
-            return True
+            return self.tree_manager.update_task(task_item)
+        if role == QtCore.Qt.ItemDataRole.EditRole:
+            if column_name == self.IMPORTANCE_COLUMN:
+                task_item = index.internalPointer()
+                if not task_item:
+                    return False
+                return self.tree_manager.modify_task(
+                    task_item,
+                    importance=value,
+                )
+            if column_name == self.SIZE_COLUMN:
+                task_item = index.internalPointer()
+                if not task_item:
+                    return False
+                return self.tree_manager.modify_task(
+                    task_item,
+                    size=value,
+                )
         return super(TaskTreeModel, self).setData(index, value, role)
 
     def flags(self, index):
@@ -122,11 +174,14 @@ class TaskTreeModel(BaseTreeModel):
         """
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
+        flags = (
+            QtCore.Qt.ItemFlag.ItemIsEnabled |
+            QtCore.Qt.ItemFlag.ItemIsSelectable |
+            QtCore.Qt.ItemFlag.ItemIsEditable
+        )
         if self.get_column_name(index) == self.STATUS_COLUMN:
-            return (
-                QtCore.Qt.ItemFlag.ItemIsEnabled |
-                QtCore.Qt.ItemFlag.ItemIsSelectable |
-                QtCore.Qt.ItemFlag.ItemIsEditable |
-                QtCore.Qt.ItemFlag.ItemIsUserCheckable
-            )
+            return flags | QtCore.Qt.ItemFlag.ItemIsUserCheckable
+        if (self.get_column_name(index) in
+                (self.IMPORTANCE_COLUMN, self.SIZE_COLUMN)):
+            return flags
         return super(TaskTreeModel, self).flags(index)

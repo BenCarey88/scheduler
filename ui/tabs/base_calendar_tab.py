@@ -149,7 +149,8 @@ class BaseCalendarTab(BaseTab):
         Args:
             calendar_period (BaseCalendarPeriod): calendar period to set.
         """
-        if isinstance(calendar_period, CalendarWeek):
+        if (isinstance(calendar_period, CalendarWeek) 
+                and calendar_period.length == 7):
             self.user_prefs.set_attribute(
                 [self.name, self.VIEWS_KEY, self.WEEK_START_PREF],
                 calendar_period.start_date.weekday,

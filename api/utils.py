@@ -189,6 +189,15 @@ class OrderedEnum(object):
                 return i
         return i + 1
 
+    @classmethod
+    def filter_key(cls, value):
+        """Key, but returns None if value not found."""
+        i = 0
+        for i, val in enumerate(cls.VALUES):
+            if val == value:
+                return i
+        return None
+
 
 """Id registry to store floating items by temporary ids."""
 _TEMPORARY_ID_REGISTRY = {}

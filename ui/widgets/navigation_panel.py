@@ -197,15 +197,18 @@ class NavigationPanel(QtWidgets.QWidget):
             DateType.MONTH: CalendarMonth,
             DateType.YEAR: CalendarYear,
         }.get(date_type)
-        length = {
-            DateType.DAY: 1,
-            DateType.THREE_DAYS: 3,
-        }.get(date_type, 7)
         if not period_type:
             raise NotImplementedError(
                 "Can't run get_current_calendar_period with date_type {0}"
                 "".format(date_type)
             )
+        length = {
+            DateType.DAY: 1,
+            DateType.THREE_DAYS: 3,
+        }.get(date_type, 7)
+        starting_weekday = {
+            DateType.THREE_DAYS: Date.now().weekday,
+        }.get(date_type, starting_weekday)
         return calendar.get_current_period(
             period_type,
             starting_weekday,
@@ -467,12 +470,12 @@ class NavigationPanel(QtWidgets.QWidget):
             self.view_type_dropdown.setModel(
                 QtCore.QStringListModel(allowed_view_types)
             )
-        if date_type in self.cached_view_types_dict:
-            self.view_type_dropdown.setCurrentText(
-                self.cached_view_types_dict[date_type]
-            )
-        elif self.view_type in allowed_view_types:
-            self.date_type_dropdown.setCurrentText(self.view_type)
+            if date_type in self.cached_view_types_dict:
+                self.view_type_dropdown.setCurrentText(
+                    self.cached_view_types_dict[date_type]
+                )
+            elif self.view_type in allowed_view_types:
+                self.view_type_dropdown.setCurrentText(self.view_type)
         self.view_type = self.view_type_dropdown.currentText()
         self.cached_view_types_dict[self.date_type] = self.view_type
         self.update()

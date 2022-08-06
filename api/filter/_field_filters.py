@@ -2,6 +2,7 @@
 
 import fnmatch
 
+from scheduler.api.common import BaseDateTimeWrapper
 from scheduler.api.utils import OrderedEnum
 from ._base_filter import BaseFilter
 
@@ -34,7 +35,12 @@ class FieldFilter(BaseFilter):
     FIELD_OPERATOR_KEY = "field_operator"
     FIELD_VALUE_KEY = "field_value"
 
-    def __init__(self, field_getter, field_operator, field_value):
+    def __init__(
+            self,
+            field_getter,
+            field_operator,
+            field_value,
+            math_ops_key=None):
         """Initialize.
 
         Args:
@@ -45,11 +51,18 @@ class FieldFilter(BaseFilter):
                 a key and value arg).
             field_operator (FilterOperator): operator to apply to field.
             field_value (variant): value to use with operator.
+            math_ops_key (function or None): function to convert field
+                to a numeric value for maths ops, if needed.
         """
         super(FieldFilter, self).__init__()
         self._field_getter = field_getter
         self._field_operator = field_operator
         self._field_value = field_value
+        self._field_maths_value = field_value
+        self._math_ops_key = math_ops_key
+        if (math_ops_key is not None and
+                field_operator in FilterOperator.MATH_OPS):
+            self._field_maths_value = math_ops_key(field_value)
 
     def _filter_function(self, *args, **kwargs):
         """Filter function.
@@ -59,6 +72,14 @@ class FieldFilter(BaseFilter):
                 be filtered out.
         """
         field_value = self._field_getter(*args, **kwargs)
+        field_maths_value = field_value
+        if (self._math_ops_key is not None and
+                self._field_operator in FilterOperator.MATH_OPS):
+            field_maths_value = self._math_ops_key(field_value)
+            if not isinstance(field_maths_value,
+                    (int, float, BaseDateTimeWrapper)):
+                return False
+
         if self._field_operator == FilterOperator.EQUALS:
             return field_value == self._field_value
         if self._field_operator == FilterOperator.NOT_EQUAL:
@@ -70,13 +91,13 @@ class FieldFilter(BaseFilter):
         if self._field_operator == FilterOperator.STARTS_WITH:
             return field_value.startswith(self._field_value)
         if self._field_operator == FilterOperator.LESS_THAN:
-            return field_value < self._field_value
+            return field_maths_value < self._field_maths_value
         if self._field_operator == FilterOperator.LESS_THAN_EQ:
-            return field_value <= self._field_value
+            return field_maths_value <= self._field_maths_value
         if self._field_operator == FilterOperator.GREATER_THAN:
-            return field_value > self._field_value
+            return field_maths_value > self._field_maths_value
         if self._field_operator == FilterOperator.GREATER_THAN_EQ:
-            return field_value >= self._field_value
+            return field_maths_value >= self._field_maths_value
 
     @property
     def field_operator(self):

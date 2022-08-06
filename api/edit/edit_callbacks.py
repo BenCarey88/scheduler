@@ -20,7 +20,7 @@ from .tree_edit import (
     UnarchiveTreeItemEdit,
 )
 from .task_edit import (
-    ChangeTaskTypeEdit,
+    ModifyTaskEdit,
     UpdateTaskHistoryEdit,
 )
 from .planner_edit import (
@@ -98,7 +98,7 @@ class CallbackType(object):
             Edits:  [
                 RenameChildrenEdit,
                 ReplaceTreeItemEdit,
-                ChangeTaskTypeEdit,
+                ModifyTaskEdit,
                 UpdateTaskHistoryEdit,
             ]
         TREE_MOVE:
@@ -173,7 +173,7 @@ class CallbackType(object):
         TREE_MODIFY: [
             RenameChildrenEdit,
             ReplaceTreeItemEdit,
-            ChangeTaskTypeEdit,
+            ModifyTaskEdit,
             UpdateTaskHistoryEdit,
         ],
         TREE_MOVE: [MoveChildrenEdit, MoveTreeItemEdit],

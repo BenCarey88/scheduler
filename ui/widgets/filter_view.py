@@ -126,10 +126,11 @@ class FilterListModel(QtCore.QAbstractListModel):
             self.tree_manager.set_active_field_filter(
                 filter_ if value else None
             )
+            self.beginResetModel()
+            self.endResetModel()
             self.outliner.on_field_filter_changed()
             return True
-        super(FilterListModel, self).setData(index, value, role)
-        return True
+        return super(FilterListModel, self).setData(index, value, role)
 
     def flags(self, index):
         """Get item flags.

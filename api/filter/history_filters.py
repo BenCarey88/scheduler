@@ -14,7 +14,6 @@ class BaseHistoryFilter(BaseFilter):
         """Initialize."""
         super(BaseHistoryFilter, self).__init__()
         self._composite_filter_class = CompositeHistoryFilter
-        self._get_cache_key = lambda item, _: item
 
 
 @register_serializable_filter("CompositeHistoryFilter")

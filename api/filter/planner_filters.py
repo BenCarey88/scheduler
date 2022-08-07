@@ -14,7 +14,6 @@ class BasePlannerFilter(BaseFilter):
         """Initialize."""
         super(BasePlannerFilter, self).__init__()
         self._composite_filter_class = CompositePlannerFilter
-        self._get_cache_key = lambda item: item
 
 
 @register_serializable_filter("CompositePlannerFilter")

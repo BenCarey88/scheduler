@@ -23,7 +23,6 @@ class BaseTreeFilter(BaseFilter):
         """Initialize."""
         super(BaseTreeFilter, self).__init__()
         self._composite_filter_class = CompositeTreeFilter
-        self._get_cache_key = lambda item: item
         self._recursive_cache = {}
 
     def clear_cache(self):
@@ -43,7 +42,7 @@ class BaseTreeFilter(BaseFilter):
         if child_item in self._recursive_cache:
             return self._recursive_cache[child_item]
 
-        if not self._filter_function(child_item):
+        if not self.filter_function(child_item):
             value = False
         elif child_item.parent is None:
             value = True
@@ -63,7 +62,7 @@ class BaseTreeFilter(BaseFilter):
         """
         return OrderedDict([
             (name, child) for name, child in child_dict.items()
-            if self._filter_function(child)
+            if self.filter_function(child)
         ])
 
 

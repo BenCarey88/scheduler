@@ -86,17 +86,6 @@ class BaseFilter(object):
         if self._filter_cache is not None:
             self._filter_cache = {}
 
-    def _get_cache_key(self, *args, **kwargs):
-        """Get key to cache args and kwargs for filter function.
-
-        Since args and kwargs are dynamic in the filter function, this must
-        be reimplemented to account for different args and kwargs.
-        """
-        raise NotImplementedError(
-            "_get_cache_key must be implemented in sunclasses where number "
-            "of arguments to filter_function is fixed."
-        )
-
     def filter_function(self, *args, **kwargs):
         """Filter function.
 
@@ -109,8 +98,11 @@ class BaseFilter(object):
             (bool): True if item should stay in container, False if it should
                 be filtered out.
         """
+        if not self._is_valid:
+            return True
         if self._filter_cache is not None:
-            cache_key = self.get_cache_key(*args, **kwargs)
+            # TODO: remove the **kwargs in filter_func, they're not supported
+            cache_key = tuple([*args])
             if cache_key in self._filter_cache:
                 return self._filter_cache[cache_key]
             value = self._filter_function(*args, **kwargs)
@@ -129,7 +121,7 @@ class BaseFilter(object):
 
     def __call__(self, *args, **kwargs):
         """Call filter function."""
-        return self._filter_function(*args, **kwargs)
+        return self.filter_function(*args, **kwargs)
 
     def __or__(self, filter_):
         """Combine this with given filter to make a less restrictive filter.
@@ -373,6 +365,7 @@ class CustomFilter(BaseFilter):
             self._is_valid = False
         if function is not None:
             self._filter_function = function
+        self._filter_cache = None
 
 
 class NoFilter(BaseFilter):

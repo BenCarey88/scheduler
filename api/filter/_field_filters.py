@@ -89,9 +89,9 @@ class FieldFilter(BaseFilter):
         if self._field_operator == FilterOperator.IN:
             return field_value in self._field_value
         if self._field_operator == FilterOperator.MATCHES:
-            return fnmatch.fnmatch(self._field_value, field_value)
+            return fnmatch.fnmatch(field_value, self._field_value)
         if self._field_operator == FilterOperator.DOESNT_MATCH:
-            return not fnmatch.fnmatch(self._field_value, field_value)
+            return not fnmatch.fnmatch(field_value, self._field_value)
         if self._field_operator == FilterOperator.STARTS_WITH:
             return field_value.startswith(self._field_value)
         if self._field_operator == FilterOperator.ENDS_WITH:

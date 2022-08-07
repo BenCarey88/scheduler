@@ -15,7 +15,6 @@ class BaseSchedulerFilter(BaseFilter):
         """Initialize."""
         super(BaseSchedulerFilter, self).__init__()
         self._composite_filter_class = CompositeSchedulerFilter
-        self._get_cache_key = lambda item: item
 
 
 @register_serializable_filter("CompositeSchedulerFilter")

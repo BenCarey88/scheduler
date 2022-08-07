@@ -797,6 +797,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             event_name=name,
             is_background=is_background,
         )
+        scheduled_item._activate()
         id = dict_repr.get(cls.ID_KEY, None)
         if id is not None:
             item_registry.register_item(id, scheduled_item)
@@ -927,7 +928,7 @@ class ScheduledItem(BaseScheduledItem):
             end_datetime.time(),
             start_datetime.date(),
         )
-        scheduled_item._activate()
+        # scheduled_item._activate()
         return scheduled_item
 
 
@@ -1173,7 +1174,7 @@ class RepeatScheduledItem(BaseScheduledItem):
                     date
                 )
             )
-        repeat_item._activate()
+        # repeat_item._activate()
         return repeat_item
 
 
@@ -1452,5 +1453,5 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             override_start_datetime,
             override_end_datetime,
         )
-        repeat_scheduled_item_instance._activate()
+        # repeat_scheduled_item_instance._activate()
         return repeat_scheduled_item_instance

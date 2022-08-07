@@ -4,6 +4,7 @@
         - improvements to filter speed with caching (but more still to do)
         - disabling autosaves for now because they're crashing things
         - made separate weekday starts for week and three_days in nav panel
+        - switched order of activation to fix error with scheduled items
 
 1.2.0-dev-1:
     Dev work on top of 1.2.0-dev release (to be added as 1.2.1):

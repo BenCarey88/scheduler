@@ -1,6 +1,7 @@
 
 1.2.0-dev-2:
     Dev work on top of 1.2.0-dev-1 release (to be added as 1.2.1):
+        - disabling autosaves for now because they're crashing things
         - improvements to filter speed with caching (but more still to do)
 
 1.2.0-dev-1:

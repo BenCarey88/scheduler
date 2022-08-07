@@ -204,7 +204,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
 
     def save(self):
         """Save scheduler data."""
-        self.project.autosave()
+        # self.project.autosave()
         if self.saved_edit != edit_log.latest_edit():
             self.project.write()
             self.saved_edit = edit_log.latest_edit()
@@ -236,8 +236,9 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the timer event.
         """
-        if event.timerId() == self.timer_id:
-            self._autosave()
+        # TODO: reenable autosave once I've figured out error (see Notes doc)
+        # if event.timerId() == self.timer_id:
+        #     self._autosave()
 
     def closeEvent(self, event):
         """Called on closing: prompt user to save changes if not done yet.
@@ -245,7 +246,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         Args:
             event (QtCore.QEvent): the close event.
         """
-        self._autosave()
+        # self._autosave()
         # TODO: add user prefs saves to autosave function?
         user_prefs.save_app_user_prefs()
         # TODO: THIS NEEDS ERROR CATCHING:

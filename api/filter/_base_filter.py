@@ -1,5 +1,7 @@
 """Base filter class."""
 
+from collections import Hashable
+
 
 class FilterError(Exception):
     """Base exception for filter class errors."""
@@ -102,7 +104,13 @@ class BaseFilter(object):
             return True
         if self._filter_cache is not None:
             # TODO: remove the **kwargs in filter_func, they're not supported
-            cache_key = tuple([*args])
+            # TODO: will this always be enough? may need to redo _get_cache_key
+            # but just default to this value
+            hashable_args = [
+                arg for arg in (list(args) + list(kwargs.values()))
+                if isinstance(arg, Hashable)
+            ]
+            cache_key = tuple(hashable_args)
             if cache_key in self._filter_cache:
                 return self._filter_cache[cache_key]
             value = self._filter_function(*args, **kwargs)

@@ -65,6 +65,7 @@ class PlannerMultiListWeekView(BasePlannerMultilist, BaseMultiListWeekView):
             list_views,
             parent=parent,
         )
+        self.hide_day_change_buttons = (num_days == 7)
 
 
 class PlannerMultiListMonthView(BasePlannerMultilist, BaseMultiListMonthView):

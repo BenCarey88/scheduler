@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from scheduler.api.common.date_time import Date
 from scheduler.api.calendar.calendar_period import CalendarWeek
 
-from scheduler.ui.widgets.navigation_panel import NavigationPanel
+from scheduler.ui.widgets.navigation_panel import DateType, NavigationPanel
 from .base_tab import BaseTab
 
 
@@ -22,7 +22,7 @@ class BaseCalendarTab(BaseTab):
     MAPPINGS_PREF = "date_view_mappings"
     START_DATE_TYPE_PREF = "date_type"
     START_VIEW_TYPE_PREF = "view_type"
-    WEEK_START_PREF = "week_start_day"
+    WEEK_START_PREF = "week_start_days"
     WEEK_START_DAY = Date.SAT
 
     def __init__(
@@ -82,32 +82,36 @@ class BaseCalendarTab(BaseTab):
             [self.name, self.VIEWS_KEY, self.MAPPINGS_PREF],
         )
 
-        weekday_start = self.user_prefs.get_attribute(
+        weekday_starts = self.user_prefs.get_attribute(
             [self.name, self.VIEWS_KEY, self.WEEK_START_PREF],
-            self.WEEK_START_DAY,
+            {
+                DateType.WEEK: self.WEEK_START_DAY,
+                DateType.THREE_DAYS: Date.now().weekday,
+            },
         )
         calendar_period = NavigationPanel.get_current_calendar_period(
             project.calendar,
             self.date_type,
-            weekday_start,
+            weekday_starts.get(self.date_type, self.WEEK_START_DAY),
         )
 
         self.main_views_dict = main_views_dict
         view_types_dict = OrderedDict()
         for date_type, view_type in main_views_dict.keys():
             view_types_dict.setdefault(date_type, []).append(view_type)
+        self.main_view = main_views_dict.get((self.date_type, self.view_type))
 
         self.navigation_panel = NavigationPanel(
             self.calendar,
             calendar_period,
             view_types_dict,
             start_view_type=self.view_type,
-            weekday_start=weekday_start,
+            weekday_starts=weekday_starts,
             default_mappings=date_view_mappings,
             use_full_period_names=use_full_period_names,
+            hide_day_change_buttons=self.main_view.hide_day_change_buttons,
             parent=self,
         )
-        self.main_view = main_views_dict.get((self.date_type, self.view_type))
         if not self.main_view:
             raise Exception(
                 "Cannot initialise {0} with (date, view) == ({1}, {2})"
@@ -153,7 +157,7 @@ class BaseCalendarTab(BaseTab):
                 and calendar_period.length == 7):
             self.user_prefs.set_attribute(
                 [self.name, self.VIEWS_KEY, self.WEEK_START_PREF],
-                calendar_period.start_date.weekday,
+                {DateType.WEEK: calendar_period.start_date.weekday},
             )
         self.main_view.set_to_calendar_period(calendar_period)
 

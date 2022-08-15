@@ -1,4 +1,9 @@
 
+1.2.0-dev-3:
+    Dev work on top of 1.2.0-dev-2 release (to be added as 1.2.1):
+        - open planned item dialog for new planned items
+        - bugfix with setting items in hosted data dict
+
 1.2.0-dev-2:
     Dev work on top of 1.2.0-dev-1 release (to be added as 1.2.1):
         - improvements to filter speed with caching (but more still to do)

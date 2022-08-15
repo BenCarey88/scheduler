@@ -18,6 +18,7 @@ class PlannedItemDialog(ItemDialog):
             planned_item=None,
             tree_item=None,
             index=None,
+            planned_item_parent=None,
             parent=None):
         """Initialise dialog.
 
@@ -31,6 +32,8 @@ class PlannedItemDialog(ItemDialog):
             tree_item (Task or None): tree item to initialize with, if we're
                 not passing a planned item.
             index (int or None): index to create at.
+            planned_item_parent (PlannedItem or None): planned item parent for
+                this planned item, if given.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
         super(PlannedItemDialog, self).__init__(
@@ -44,6 +47,7 @@ class PlannedItemDialog(ItemDialog):
         self._calendar_period = calendar_period
         self._planner_manager = planner_manager
         self._index = index
+        self._planned_item_parent = planned_item_parent
 
         if planned_item is None:
             # create a temp planned item just to get default values
@@ -93,6 +97,7 @@ class PlannedItemDialog(ItemDialog):
                 self._calendar_period,
                 self.tree_item,
                 index=self._index,
+                parent=self._planned_item_parent,
             )
         super(PlannedItemDialog, self).accept_and_close()
 

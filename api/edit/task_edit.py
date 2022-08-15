@@ -5,7 +5,7 @@ from functools import partial
 
 from scheduler.api.common.date_time import Date
 from ._core_edits import AttributeEdit, CompositeEdit, SelfInverseSimpleEdit
-from ._container_edit import DictEdit, ContainerOp
+from ._container_edit import DictEdit, ContainerEditFlag, ContainerOp
 
 
 class ModifyTaskEdit(AttributeEdit):

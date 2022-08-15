@@ -459,14 +459,25 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             elif calendar_period.contains(self.calendar_period):
                 # If it's a view of a lower period type, create a child item
                 # TODO: sync up to callbacks
-                return self.planner_manager.create_planned_item(
-                    self.calendar,
-                    self.calendar_period,
-                    planned_item.tree_item,
-                    index=row,
-                    parent=planned_item,
-                )
-
+                if self.open_dialog_on_drop_event:
+                    dialog = PlannedItemDialog(
+                        self.tree_manager,
+                        self.planner_manager,
+                        self.calendar_period,
+                        tree_item=planned_item.tree_item,
+                        index=row,
+                        planned_item_parent=planned_item,
+                    )
+                    success = dialog.exec()
+                else:
+                    success = self.planner_manager.create_planned_item(
+                        self.calendar,
+                        self.calendar_period,
+                        planned_item.tree_item,
+                        index=row,
+                        parent=planned_item,
+                    )
+                return success
         return False
 
     ### Callbacks ###

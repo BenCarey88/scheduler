@@ -932,6 +932,7 @@ class ScheduledItem(BaseScheduledItem):
         return scheduled_item
 
 
+# TODO: allow overriding to delete instances too
 class RepeatScheduledItem(BaseScheduledItem):
     """Class for repeating scheduled items.
 

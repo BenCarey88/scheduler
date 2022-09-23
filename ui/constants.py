@@ -25,6 +25,7 @@ PLANNED_ITEM_MIME_DATA_FORMAT = "planned_item_mime_data"
 
 # Colors
 BLACK = QtGui.QColor(0, 0, 0)
+WHITE = QtGui.QColor(255, 255, 255)
 BASE_TEXT_COLOR = BLACK
 INACTIVE_TEXT_COLOR = QtGui.QColor(150, 150, 150)
 TASK_STATUS_COLORS = {

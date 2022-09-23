@@ -393,6 +393,11 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return True
+        modifiers = QtWidgets.QApplication.keyboardModifiers()
+        open_dialog_on_drop_event = self.open_dialog_on_drop_event
+        if modifiers == QtCore.Qt.ControlModifier:
+            # ctrl + drop: no dialog
+            open_dialog_on_drop_event = False
 
         if row < 0:
             parent = parent_index.internalPointer()
@@ -414,7 +419,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             if tree_item is None:
                 return False
 
-            if self.open_dialog_on_drop_event:
+            if open_dialog_on_drop_event:
                 dialog = PlannedItemDialog(
                     self.tree_manager,
                     self.planner_manager,
@@ -459,7 +464,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             elif calendar_period.contains(self.calendar_period):
                 # If it's a view of a lower period type, create a child item
                 # TODO: sync up to callbacks
-                if self.open_dialog_on_drop_event:
+                if open_dialog_on_drop_event:
                     dialog = PlannedItemDialog(
                         self.tree_manager,
                         self.planner_manager,

@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from scheduler.api.constants import TimePeriod
+from scheduler.api.constants import TimePeriod as TP
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.tabs.planner_tab.planner_hybrid_view import (
     OverlayedPlannerHybridView
@@ -30,11 +30,15 @@ class SchedulerTab(BaseCalendarTab):
             ),
             (
                 (DateType.DAY, ViewType.HYBRID),
-                OverlayedPlannerHybridView(name, project, TimePeriod.DAY),
+                OverlayedPlannerHybridView(name, project, TP.DAY),
             ),
             (
                 (DateType.THREE_DAYS, ViewType.TIMETABLE),
                 SchedulerTimetableView(name, project, num_days=3),
+            ),
+            (
+                (DateType.THREE_DAYS, ViewType.HYBRID),
+                OverlayedPlannerHybridView(name, project, TP.WEEK, num_days=3),
             ),
             (
                 (DateType.WEEK, ViewType.TIMETABLE),

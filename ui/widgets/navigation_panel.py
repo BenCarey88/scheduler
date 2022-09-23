@@ -413,7 +413,7 @@ class NavigationPanel(QtWidgets.QWidget):
                 )
             elif isinstance(period, (CalendarMonth, CalendarYear)):
                 self.calendar_period = period.get_start_week(
-                    self.cached_weekday_start
+                    self.cached_weekday_starts.get(DateType.WEEK),
                 )
 
         elif self.date_type == DateType.MONTH:

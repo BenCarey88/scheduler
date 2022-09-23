@@ -239,6 +239,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         # TODO: reenable autosave once I've figured out error (see Notes doc)
         # if event.timerId() == self.timer_id:
         #     self._autosave()
+        super(SchedulerWindow, self).timerEvent(event)
 
     def closeEvent(self, event):
         """Called on closing: prompt user to save changes if not done yet.

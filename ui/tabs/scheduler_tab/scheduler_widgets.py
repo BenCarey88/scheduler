@@ -1,10 +1,12 @@
 """Classes defining the drawing of items in scheduler tab."""
 
+from tabnanny import check
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime
+from scheduler.api.tree import TaskStatus
 from scheduler.api.utils import fallback_value
-from scheduler.ui import constants
+from scheduler.ui import constants, utils
 
 
 class ScheduledItemWidget(object):
@@ -32,6 +34,8 @@ class ScheduledItemWidget(object):
         self.is_being_moved = False
         self.is_being_resized_top = False
         self.is_being_resized_bottom = False
+        self.delete_pressed = False
+        self.checkbox_pressed = False
         self.mouse_pos_start_time = None
         self._edited_date = None
         self._edited_start_time = None
@@ -102,6 +106,113 @@ class ScheduledItemWidget(object):
             self.end_time,
         )
 
+    @property
+    def checkbox_rect(self):
+        """Get checkbox rectangle.
+
+        Returns:
+            (QtCore.QRectF or None): the rectangle for this item's checkbox,
+                if exists.
+        """
+        is_task = self._schedule_manager.has_task_type(
+            self._scheduled_item,
+            strict=True,
+        )
+        if not is_task or self._scheduled_item.is_background:
+            return None
+        max_buffer = 3
+        min_buffer = 1
+        buffer = max_buffer
+        max_size = 15
+        rect = self.rect
+        size = min(rect.height() - 2*buffer, max_size)
+        if size < max_size:
+            buffer = min_buffer
+            size = min(rect.height() - 2*buffer, max_size)
+        if size > 0:
+            return QtCore.QRectF(
+                rect.right() - size - buffer,
+                rect.bottom() - size - buffer,
+                size,
+                size,
+            )
+        return None
+
+    @property
+    def delete_button_rect(self):
+        """Get delete button rectangle.
+
+        Returns:
+            (QtCore.QRectF): the rectangle for this item's delete button.
+        """
+        max_buffer = 3
+        min_buffer = 1
+        buffer = max_buffer
+        max_size = 15
+        rect = self.rect
+        size = min(rect.height() - 2*buffer, max_size)
+        if size < max_size:
+            buffer = min_buffer
+            size = min(rect.height() - 2*buffer, max_size)
+        if size > 0:
+            # if can't fit over top of checkbox, put to the left
+            if 2 * size + 2 * buffer > rect.height():
+                return QtCore.QRectF(
+                    rect.right() - 2*size - 2*buffer,
+                    rect.bottom() - size - buffer,
+                    size,
+                    size,
+                )
+            else:
+                return QtCore.QRectF(
+                    rect.right() - size - buffer,
+                    rect.top() + buffer,
+                    size,
+                    size,
+                )
+        return None
+
+    @property
+    def checkbox_status(self):
+        """Get checkbox status of scheduled item.
+
+        Returns:
+            (QtWidgets.QStyle or None): checkbox status, if exists.
+        """
+        is_task = self._schedule_manager.has_task_type(
+            self._scheduled_item,
+            strict=True,
+        )
+        if not is_task or self._scheduled_item.is_background:
+            return None
+        task = self._scheduled_item.tree_item
+        # TODO: ultimately allow checkbox to be based on various options
+        # but for now the logic should probably be somtehing like:
+        #   all scheduled items hold a checkbox attr
+        #   make sure that task histories can give us the status of
+        #       items immediately before a given date time
+        #   if item was completed before this time, changing value has no
+        #       effect
+        #   if item was in progress before this time, changing value to
+        #       1 adds a new in progress entry, 2 completes, 0 removes any
+        #       entry added by 1 or 2
+        #   if item was unstarted, 1 or 2 change to unstarted/complete, 0
+        #       again removes unstarted entry
+        return {
+            TaskStatus.UNSTARTED: QtWidgets.QStyle.State_Off,
+            TaskStatus.IN_PROGRESS: QtWidgets.QStyle.State_NoChange,
+            TaskStatus.COMPLETE: QtWidgets.QStyle.State_On,
+        }.get(task.status, None)
+
+    @property
+    def display_buttons(self):
+        """Property determining whether or not we should display buttons.
+
+        Returns:
+            (bool): whether or not we should display buttons.
+        """
+        return self._timetable_view.display_widget_buttons
+
     def contains(self, pos):
         """Check if widget contains position.
 
@@ -112,6 +223,34 @@ class ScheduledItemWidget(object):
             (bool): whether or not widget contains pos.
         """
         return self.rect.contains(pos)
+
+    def over_checkbox(self, pos):
+        """Check if position is over checkbox rect.
+
+        Args:
+            pos (QtCore.QPos): position to check.
+
+        Returns:
+            (bool): whether or not checkbox rect contains pos.
+        """
+        checkbox_rect = self.checkbox_rect
+        if checkbox_rect:
+            return checkbox_rect.contains(pos)
+        return False
+
+    def over_delete_button(self, pos):
+        """Check if position is over delete button rect.
+
+        Args:
+            pos (QtCore.QPos): position to check.
+
+        Returns:
+            (bool): whether or not delete button rect contains pos.
+        """
+        delete_button_rect = self.delete_button_rect
+        if delete_button_rect:
+            return delete_button_rect.contains(pos)
+        return False
 
     def at_top(self, pos):
         """Check if mouse pos is at top of widget.
@@ -206,7 +345,7 @@ class ScheduledItemWidget(object):
         return False
 
     def deselect(self):
-        """Call when we've finished using this item."""
+        """Call when we've finished editing this item."""
         self._schedule_manager.move_scheduled_item(
             self._scheduled_item,
             date=self._edited_date,
@@ -221,6 +360,26 @@ class ScheduledItemWidget(object):
         self.is_being_resized_top = False
         self.is_being_resized_bottom = False
         self.update_orig_datetime_attrs()
+
+    def delete(self, force=False):
+        """Delete scheduled item.
+
+        Args:
+            force (bool): if True, don't prompt user confirmation.
+        """
+        # TODO: for repeat scheduled items, this should give option
+        # to delete either instance or repeat item.
+        continue_deletion = force or utils.simple_message_dialog(
+            "Delete Scheduled Item?",
+            parent=self._timetable_view,
+        )
+        if continue_deletion:
+            self._schedule_manager.remove_scheduled_item(
+                self.get_item_to_modify(),
+            )
+
+    def toggle_checkbox(self):
+        """Toggle checkbox."""
 
     def get_item_to_modify(self):
         """Get the scheduled item to open with the scheduled item dialog.
@@ -238,7 +397,6 @@ class ScheduledItemWidget(object):
         Args:
             painter (QtGui.QPainter): qt painter object.
         """
-        rect = self.rect
         border_size = 1
         rounding = 1
         alpha = 100 if self._scheduled_item.is_background else 200
@@ -256,9 +414,9 @@ class ScheduledItemWidget(object):
         brush = QtGui.QBrush(brush_color)
         painter.setBrush(brush)
 
-        # setup path
+        # setup path and fill rects
         path = QtGui.QPainterPath()
-        rect.adjust(
+        rect = self.rect.adjusted(
             border_size/2, border_size/2, -border_size/2, -border_size/2
         )
         path.addRoundedRect(rect, rounding, rounding)
@@ -281,7 +439,7 @@ class ScheduledItemWidget(object):
             self.end_time.string(),
         )
 
-        # draw rects
+        # draw text rects
         text_range = rect.height() - 2 * text_margin
         total_text_height = text_height
         num_text_rects = 0
@@ -311,19 +469,67 @@ class ScheduledItemWidget(object):
             )
             painter.drawText(text_rect, text_alignment, name_text)
 
-        # TODO: add delete button and checkbox
-        # checkbox = QtWidgets.QStyleOptionButton()
-        # checkbox.rect = QtCore.QRect(
-        #     rect.left() - 20,
-        #     rect.top() + 10,
-        #     rect.left() - 10,
-        #     rect.top() + 20,
-        # )
-        # self._timetable_view.viewport().style().drawControl(
-        #     QtWidgets.QStyle.CE_CheckBox,
-        #     checkbox,
-        #     painter,
-        # )
+        if not self.display_buttons:
+            return
+
+        # draw delete button
+        dbr = self.delete_button_rect
+        if dbr:
+            buffer = 3
+            dbr.adjust(buffer, buffer, -buffer, -buffer)
+            painter.drawLine(
+                QtCore.QPointF(dbr.left(), dbr.top()),
+                QtCore.QPointF(dbr.right(), dbr.bottom()),
+            )
+            painter.drawLine(
+                QtCore.QPointF(dbr.right(), dbr.top()),
+                QtCore.QPointF(dbr.left(), dbr.bottom()),
+            )
+
+        # draw checkbox rect
+        cr = self.checkbox_rect
+        if cr:
+            cr.adjust(
+                border_size/2, border_size/2, -border_size/2, -border_size/2
+            )
+            path = QtGui.QPainterPath()
+            path.addRoundedRect(cr, rounding, rounding)
+            painter.setClipPath(path)
+            fill_color = constants.WHITE
+            fill_color.setAlpha(150)
+            painter.fillPath(path, QtGui.QBrush(fill_color))
+            painter.strokePath(path, painter.pen())
+
+            pen = QtGui.QPen(constants.BLACK, 1)
+            painter.setPen(pen)
+            checkbox_status = self.checkbox_status
+            if checkbox_status == QtWidgets.QStyle.State_NoChange:
+                # draw line
+                line_left = QtCore.QPointF(
+                    cr.left() + cr.width() / 8,
+                    cr.top() + cr.width() / 8,
+                )
+                line_right = QtCore.QPointF(
+                    cr.right() - cr.width() / 8,
+                    cr.bottom() - cr.width() / 8,
+                )
+                painter.drawLine(line_left, line_right)
+            elif checkbox_status == QtWidgets.QStyle.State_On:
+                # draw tick
+                tick_left = QtCore.QPointF(
+                    cr.left() + cr.width() / 5,
+                    cr.bottom() - cr.height() / 3,
+                )
+                tick_bottom = QtCore.QPointF(
+                    cr.left() + cr.width() / 2,
+                    cr.bottom() - cr.height() / 8,
+                )
+                tick_right = QtCore.QPointF(
+                    cr.right() - cr.width() / 8,
+                    cr.top() + cr.height() / 8,
+                )
+                painter.drawLine(tick_left, tick_bottom)
+                painter.drawLine(tick_bottom, tick_right)
 
 
 class SelectionRect(object):

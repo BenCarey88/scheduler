@@ -411,3 +411,4 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
             self.connections_timer_id = None
             self.display_all_connections = False
             self.update()
+        super(PlannerHybridView, self).timerEvent(event)

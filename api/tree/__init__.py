@@ -4,9 +4,9 @@ from .base_task_item import BaseTaskItem
 from .task import (
     Task,
     TaskHistory,
-    TaskImportance,
-    TaskSize,
-    TaskStatus,
+    # TaskImportance,
+    # TaskSize,
+    # TaskStatus,
     TaskType,
     TaskValueType,
 )

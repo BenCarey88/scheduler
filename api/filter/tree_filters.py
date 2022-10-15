@@ -2,12 +2,8 @@
 
 from collections import OrderedDict
 
-from scheduler.api.tree.task import (
-    Task,
-    TaskImportance,
-    TaskStatus,
-    TaskSize,
-)
+from scheduler.api.tree.task import Task
+from scheduler.api.constants import ItemSize, ItemImportance, ItemStatus
 from ._base_filter import (
     BaseFilter,
     CompositeFilter,
@@ -162,7 +158,7 @@ class TaskStatusFilter(BaseTreeFieldFilter):
             lambda task: task.status,
             filter_operator,
             filter_value,
-            math_ops_key=TaskStatus.filter_key,
+            math_ops_key=ItemStatus.key_function,
             tasks_only=True,
         )
 
@@ -199,7 +195,7 @@ class TaskSizeFilter(BaseTreeFieldFilter):
             lambda task: task.size,
             filter_operator,
             filter_value,
-            math_ops_key=TaskSize.filter_key,
+            math_ops_key=ItemSize.key_function,
             tasks_only=True,
         )
 
@@ -218,7 +214,7 @@ class TaskImportanceFilter(BaseTreeFieldFilter):
             lambda task: task.importance,
             filter_operator,
             filter_value,
-            math_ops_key=TaskImportance.filter_key,
+            math_ops_key=ItemImportance.key_function,
             tasks_only=True,
         )
 

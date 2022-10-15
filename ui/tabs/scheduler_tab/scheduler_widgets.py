@@ -4,7 +4,7 @@ from tabnanny import check
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime
-from scheduler.api.tree import TaskStatus
+from scheduler.api.constants import ItemStatus
 from scheduler.api.utils import fallback_value
 from scheduler.ui import constants, utils
 
@@ -199,9 +199,9 @@ class ScheduledItemWidget(object):
         #   if item was unstarted, 1 or 2 change to unstarted/complete, 0
         #       again removes unstarted entry
         return {
-            TaskStatus.UNSTARTED: QtWidgets.QStyle.State_Off,
-            TaskStatus.IN_PROGRESS: QtWidgets.QStyle.State_NoChange,
-            TaskStatus.COMPLETE: QtWidgets.QStyle.State_On,
+            ItemStatus.UNSTARTED: QtWidgets.QStyle.State_Off,
+            ItemStatus.IN_PROGRESS: QtWidgets.QStyle.State_NoChange,
+            ItemStatus.COMPLETE: QtWidgets.QStyle.State_On,
         }.get(task.status, None)
 
     @property

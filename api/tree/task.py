@@ -5,54 +5,50 @@ from collections import OrderedDict
 from scheduler.api.common.date_time import Date, Time
 from scheduler.api.common.object_wrappers import MutableAttribute
 from scheduler.api.serialization.serializable import SaveType
-from scheduler.api.utils import OrderedEnum
+from scheduler.api.constants import ItemStatus
+from scheduler.api.utils import OrderedStringEnum
 
 from .base_task_item import BaseTaskItem
 
 
-class TaskType(OrderedEnum):
+class TaskType(OrderedStringEnum):
     """Enumeration for task types."""
     ROUTINE = "Routine"
     GENERAL = "General"
-    VALUES = [ROUTINE, GENERAL]
 
 
-class TaskStatus(OrderedEnum):
-    """Enumeration for task statuses."""
-    UNSTARTED = "Unstarted"
-    IN_PROGRESS = "In Progress"
-    COMPLETE = "Complete"
-    VALUES = [UNSTARTED, IN_PROGRESS, COMPLETE]
+# class TaskStatus(OrderedStringEnum):
+#     """Enumeration for task statuses."""
+#     UNSTARTED = "Unstarted"
+#     IN_PROGRESS = "In Progress"
+#     COMPLETE = "Complete"
 
 
-class TaskValueType(OrderedEnum):
+class TaskValueType(OrderedStringEnum):
     """Enumeration for task value types."""
-    NONE = None
+    NONE = ""
     TIME = "Time"
     STRING = "String"
     INT = "Int"
     FLOAT = "Float"
     MULTI = "Multi"
-    VALUES = [NONE, TIME, STRING, INT, FLOAT, MULTI]
 
 
-class TaskSize(OrderedEnum):
-    """Struct to store size types of task."""
-    NONE = ""
-    BIG = "big"
-    MEDIUM = "medium"
-    SMALL = "small"
-    VALUES = [NONE, SMALL, MEDIUM, BIG]
+# class TaskSize(OrderedStringEnum):
+#     """Struct to store size types of task."""
+#     NONE = ""
+#     SMALL = "small"
+#     MEDIUM = "medium"
+#     BIG = "big"
 
 
-class TaskImportance(OrderedEnum):
-    """Struct to store levels of importance for task."""
-    NONE = ""
-    CRITICAL = "critical"
-    MAJOR = "major"
-    MODERATE = "moderate"
-    MINOR = "minor"
-    VALUES = [NONE, MINOR, MODERATE, MAJOR, CRITICAL]
+# class TaskImportance(OrderedStringEnum):
+#     """Struct to store levels of importance for task."""
+#     NONE = ""
+#     MINOR = "minor"
+#     MODERATE = "moderate"
+#     MAJOR = "major"
+#     CRITICAL = "critical"
 
 
 class Task(BaseTaskItem):
@@ -86,13 +82,13 @@ class Task(BaseTaskItem):
             parent (Task or None): parent of current task, if task is subtask.
             task_type (TaskType or None): type of task (routine or general).
                 if None, we default to general.
-            status (TaskStatus or None): status of current task. If None,
+            status (ItemStatus or None): status of current task. If None,
                 we default to unstarted.
             history_dict (OrderedDict or None): serialized task history dict,
                 if exists.
             value_type (TaskValueType or None): task value type, if not None.
-            size (TaskSize or None): task size, if given.
-            importance (TaskImportance or None): task importance, if given.
+            size (ItemSize or None): task size, if given.
+            importance (ItemImportance or None): task importance, if given.
         """
         super(Task, self).__init__(name, parent)
         self._type = MutableAttribute(
@@ -100,7 +96,7 @@ class Task(BaseTaskItem):
             "type"
         )
         self._status = MutableAttribute(
-            status or TaskStatus.UNSTARTED,
+            status or ItemStatus.UNSTARTED,
             "status",
         )
         self._history = (
@@ -138,10 +134,10 @@ class Task(BaseTaskItem):
         routines, which are time based.
 
         Returns:
-            (TaskStatus): current status.
+            (ItemStatus): current status.
         """
         if (self.type == TaskType.ROUTINE
-                and self._status.value == TaskStatus.COMPLETE):
+                and self._status.value == ItemStatus.COMPLETE):
             last_completed = self.history.last_completed
             if last_completed and last_completed != Date.now():
                 # date_completed = self.history.last_completed
@@ -151,7 +147,7 @@ class Task(BaseTaskItem):
                     # probably not but really these statuses are not ideal
                     # for routines. Ultimately I do think routines need their
                     # own subclass, which may mean TaskTypes become unneeded.
-                self._status.set_value(TaskStatus.UNSTARTED)
+                self._status.set_value(ItemStatus.UNSTARTED)
         return self._status.value
 
     @property
@@ -168,7 +164,7 @@ class Task(BaseTaskItem):
         """Get task size.
 
         Returns:
-            (TaskSize): task size.
+            (ItemSize): task size.
         """
         return self._size.value
 
@@ -177,7 +173,7 @@ class Task(BaseTaskItem):
         """Get task size.
 
         Returns:
-            (TaskImportance): task importance.
+            (ItemImportance): task importance.
         """
         return self._importance.value
 
@@ -220,7 +216,7 @@ class Task(BaseTaskItem):
             date (Date): date to query.
 
         Returns:
-            (TaskStatus): task status at given date.
+            (ItemStatus): task status at given date.
         """
         return self.history.get_status_at_date(date)
 
@@ -397,7 +393,7 @@ class TaskHistory(object):
             (Date or None): date of last completion, if exists.
         """
         for date, subdict in reversed(self._dict.items()):
-            if subdict.get(self.STATUS_KEY) == TaskStatus.COMPLETE:
+            if subdict.get(self.STATUS_KEY) == ItemStatus.COMPLETE:
                 return date
         return None
 
@@ -429,7 +425,7 @@ class TaskHistory(object):
             date (Date): date to query.
 
         Returns:
-            (TaskStatus): task status at given date.
+            (ItemStatus): task status at given date.
         """
         status = self.get_dict_at_date(date).get(self.STATUS_KEY)
         if status:
@@ -439,7 +435,7 @@ class TaskHistory(object):
             for recorded_date, subdict in reversed(self._dict.items()):
                 if recorded_date < date and self.STATUS_KEY in subdict:
                     return subdict[self.STATUS_KEY]
-        return TaskStatus.UNSTARTED
+        return ItemStatus.UNSTARTED
 
     def get_value_at_date(self, date):
         """Get task value at given date.

@@ -2,7 +2,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import TaskStatus, TaskType
+from scheduler.api.constants import ItemStatus
+from scheduler.api.tree.task import TaskType
 
 from scheduler.ui import constants
 from ._base_tree_model import BaseTreeModel
@@ -78,8 +79,8 @@ class TaskTreeModel(BaseTreeModel):
                 item = index.internalPointer()
                 if item:
                     font = QtGui.QFont()
-                    if (item.status == TaskStatus.COMPLETE
-                            or item.status == TaskStatus.IN_PROGRESS):
+                    if (item.status == ItemStatus.COMPLETE
+                            or item.status == ItemStatus.IN_PROGRESS):
                         font.setBold(True)
                     if item.type == TaskType.ROUTINE:
                         font.setItalic(True)

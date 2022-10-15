@@ -4,7 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree import TaskSize, TaskImportance
+from scheduler.api.constants import ItemImportance, ItemSize
 
 from scheduler.ui.widgets.base_tree_view import BaseTreeView
 from scheduler.ui.models.tree import TaskTreeModel
@@ -151,12 +151,12 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QComboBox(parent)
-                editor.addItems(TaskImportance.VALUES)
+                editor.addItems(ItemImportance.get_values())
                 return editor
         elif column_name == self._model.SIZE_COLUMN:
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QComboBox(parent)
-                editor.addItems(TaskSize.VALUES)
+                editor.addItems(ItemSize.get_values())
                 return editor
         return super().createEditor(parent, option, index)

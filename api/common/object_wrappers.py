@@ -163,7 +163,7 @@ class Hosted(object):
                 pair.
             _driven_paried_data_containers (dict(str,BaseHostedDataContainer)):
                 dictionary of paired data containers that must be driven by
-                their pair. 
+                their pair.
         """
         super(Hosted, self).__init__(*args, **kwargs)
         self._host = None
@@ -279,7 +279,7 @@ class Hosted(object):
 class _BaseHostedContainer():
     """Base class for classes that hold a hosted object.
 
-    These are for mutable attributes, or list or dict attributes in a Hosted
+    These are for mutable attributes or list or dict attributes in a Hosted
     class that reference instances of other Hosted classes.
 
     This base class provides the base implementation for the pairing
@@ -397,7 +397,7 @@ class _BaseHostedContainer():
             raise HostError("No valid paired data container found.")
         return container
 
-    def _check_not_locked(self):
+    def _assert_not_locked(self):
         """Check if container is locked, and raise an error if so."""
         if self._locked:
             raise HostError("Cannot mutate locked data container.")
@@ -565,7 +565,7 @@ class MutableHostedAttribute(_BaseHostedContainer, BaseObjectWrapper):
         Returns:
             (bool): True if value was changed, else False.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         value = self._get_host_object(value)
         if self._value != value:
             if self.is_paired:
@@ -757,7 +757,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         Args:
             index (int or slice): index or slice to delete.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         if isinstance(index, slice):
             indexes_and_values = list(self._iter_filtered_with_old_index())
             for old_index, value in indexes_and_values[index]:
@@ -787,7 +787,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
             value (Hosted, _HostObject, None or list): value to set, or list
                 of values if index is a slice.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         if isinstance(index, slice):
             if not isinstance(value, Iterable):
                 raise TypeError("Can only assign an iterable with a slice")
@@ -856,7 +856,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
             index (int): value to insert at.
             value (Hosted, _HostObject or None): value to set):
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         value = self._get_host_object(value)
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
@@ -1109,7 +1109,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         Args:
             key (variant or _Hosted): key to delete.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         for i, k, v in self._iter_filtered_with_old_index():
             if ((self._keys_are_hosted and k.data == key)
                     or (not self._keys_are_hosted and k == key)):
@@ -1132,7 +1132,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             key (variant or _Hosted): key to set.
             value (Hosted, _HostObject or None): value to set.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         if self._values_are_hosted:
             value = self._get_host_object(value)
         for i, k, v in self._iter_filtered_with_old_index():
@@ -1211,7 +1211,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             last (bool): if true, move to last element of dict, otherwise
                 move to start of dict.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         for i, k, _ in self._iter_filtered_with_old_index():
             if ((self._keys_are_hosted and k.data == key)
                     or (not self._keys_are_hosted and k == key)):

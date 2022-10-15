@@ -1,8 +1,9 @@
 """Utility functions for scheduler api."""
 
 from contextlib import contextmanager
-import sys
 import datetime
+from enum import Enum
+import sys
 
 
 @contextmanager
@@ -32,6 +33,7 @@ def indent_print(bookend=None, indent=1, time_it=False):
             print ("[END]:", bookend)
     elif time_it:
         print ("[TIME]:", duration)
+
 
 def catch_exceptions(exceptions=None):
     """Decorator factory to make a function safe from the given exceptions.
@@ -173,30 +175,127 @@ def backup_git_repo(repo_path, commit_message="backup"):
     return None
 
 
-class OrderedEnum(object):
-    """Base ordered enumerator struct with string values.
+class OrderedStringEnum(str, Enum):
+    """Base ordered enumerator with string values.
 
-    Enumerators with an ordering should inherit from this and
-    fill in the values list to define the ordering.
+    All string enum classes should inherit from this. It defines an
+    ordering on the values based on the order they're written in the
+    class definitions, with the first values the smallest.
+
+    If you want to manually define the ordering, you can use tuples
+    to define the order values, eg.
+
+    class Color(OrderedStringEnum):
+        RED = ("Red", 0)
+        BLUE = ("Blue", 1)
+        GREEN = ("Green", 2)
     """
-    VALUES = []
-    @classmethod
-    def key(cls, value):
-        """Get key, used to order values."""
-        i = 0
-        for i, val in enumerate(cls.VALUES):
-            if val == value:
-                return i
-        return i + 1
+    def __new__(cls, *args):
+        if len(args) == 1:
+            number = len(cls.__members__)
+            obj = str.__new__(cls, args[0])
+            obj._key_ = number
+            return obj
+        elif len(args) == 2:
+            value, number = args
+            obj = str.__new__(cls, value)
+            obj._key_ = number
+            return obj
+        raise Exception(
+            "Invalid args to pass to OrderedStringEnum: {0}".format(str(args))
+        )
 
     @classmethod
-    def filter_key(cls, value):
-        """Key, but returns None if value not found."""
-        i = 0
-        for i, val in enumerate(cls.VALUES):
-            if val == value:
-                return i
-        return None
+    def get_values(cls):
+        """Get all values for enum."""
+        return cls.__members__
+
+    @property
+    def key(self):
+        """Get key for ordering comparisons."""
+        return self._key_
+
+    def key_function(self):
+        """Get key for ordering comparisons.
+
+        This is the same as the above but no longer implemented as a property.
+        """
+        return self._key_
+
+    def _assert_comparable(self, other):
+        """Assert that the given values are comparable."""
+        if (not issubclass(self.__class__, other.__class__)
+                or not issubclass(other.__class__, self.__class__)):
+            raise Exception(
+                "Cannot compare enum values of different classes "
+                "{0} and {1}".format(
+                    self.__class__.__name__,
+                    other.__class__.__name__,
+                )
+            )
+
+    def __gt__(self, other):
+        """Check if this is greater than another enum."""
+        self._assert_comparable(other)
+        return self.key > other.key
+
+    def __ge__(self, other):
+        """Check if this is greater than or equal to another enum."""
+        self._assert_comparable(other)
+        return self.key >= other.key
+
+    def __lt__(self, other):
+        """Check if this is less than another enum."""
+        self._assert_comparable(other)
+        return self.key < other.key
+    
+    def __gt__(self, other):
+        """Check if this is greater than another enum."""
+        self._assert_comparable(other)
+        return self.key <= other.key
+
+    def __repr__(self):
+        """Get string representation of enum."""
+        return self.value
+
+    def __str__(self):
+        """Get string representation of enum."""
+        return self.value
+
+
+# TODO: USE ACTUAL ENUMS (see my test under
+# ~/OneDrive/Documents/Coding/Python/Other/Tests/enums.py)
+# will need updating of all derived classes, and crucially
+# will also require changes to serialization as I assume enums can't
+# be automatically json-serialized? Maybe worth writing my own json
+# encoder in this class too and then using that in the serializable
+# module instead of the standard json one
+# TBH, this needs to be combined with whatever's going on in the
+# serializer classes too. It's a bit unneat atm.
+# class OrderedStringEnum(object):
+#     """Base ordered enumerator struct with string values.
+
+#     Enumerators with an ordering should inherit from this and
+#     fill in the values list to define the ordering.
+#     """
+#     VALUES = []
+#     @classmethod
+#     def key(cls, value):
+#         """Get key, used to order values."""
+#         i = 0
+#         for i, val in enumerate(cls.VALUES):
+#             if val == value:
+#                 return i
+#         return i + 1
+
+#     @classmethod
+#     def filter_key(cls, value):
+#         """Key, but returns None if value not found."""
+#         i = 0
+#         for i, val in enumerate(cls.VALUES):
+#             if val == value:
+#                 return i
+#         return None
 
 
 """Id registry to store floating items by temporary ids."""

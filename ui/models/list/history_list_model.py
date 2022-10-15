@@ -5,7 +5,8 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time
-from scheduler.api.tree import TaskType, TaskStatus, TaskHistory
+from scheduler.api.constants import ItemStatus
+from scheduler.api.tree import TaskType, TaskHistory
 from scheduler.ui import constants, utils
 
 
@@ -119,8 +120,8 @@ class HistoryListModel(QtCore.QAbstractItemModel):
             if item:
                 status = item.get_status_at_date(self.date)
                 font = QtGui.QFont()
-                if (status == TaskStatus.COMPLETE
-                        or status == TaskStatus.IN_PROGRESS):
+                if (status == ItemStatus.COMPLETE
+                        or status == ItemStatus.IN_PROGRESS):
                     font.setBold(True)
                 if item.type == TaskType.ROUTINE:
                     font.setItalic(True)

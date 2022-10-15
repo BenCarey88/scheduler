@@ -486,6 +486,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             parent=self,
             driven=True,
         )
+        self._status = MutableAttribute(0, "status")
         self._id = None
 
     class _Decorators(object):
@@ -653,6 +654,16 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         return self._is_background.value
 
     @property
+    def status(self):
+        """Get check status of item.
+
+        Returns:
+            (int): integer representing check status. 0 means unchecked,
+                1 means half-checked and 2 means checked.
+        """
+        return self._status.value
+
+    @property
     def defunct(self):
         """Override defunct property.
 
@@ -669,7 +680,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         """Get planned items associated to this one.
 
         Usually there would just be the one, but we want to allow multiple,
-        eg. you plan writing/planning and writing/first_draft and then
+        eg. you plan /writing/planning and /writing/first_draft and then
         schedule them both with a single writing scheduled item.
 
         Returns:

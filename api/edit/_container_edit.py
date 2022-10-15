@@ -6,7 +6,7 @@ from scheduler.api.common.object_wrappers import (
     HostedDataDict,
     HostedDataList,
 )
-from scheduler.api import utils
+from scheduler.api.utils import add_key_at_start, OrderedStringEnum
 from ._base_edit import BaseEdit, EditError
 from ._core_edits import CompositeEdit
 
@@ -18,7 +18,7 @@ HOSTED_CONTAINER_TYPES = (HostedDataDict, HostedDataList)
 CONTAINER_TYPES = (*LIST_TYPES, *DICT_TYPES)
 
 
-class ContainerOp(object):
+class ContainerOp(OrderedStringEnum):
     """Enum representing an edit operation on a container."""
     ADD = "Add"
     INSERT = "Insert"
@@ -30,18 +30,6 @@ class ContainerOp(object):
     ADD_OR_MODIFY = "Add_Or_Modify"
     REMOVE_OR_MODIFY = "Remove_Or_Modify"
 
-    _INVERSES = {
-        ADD: REMOVE,
-        INSERT: REMOVE,
-        REMOVE: INSERT,
-        RENAME: RENAME,
-        MODIFY: MODIFY,
-        MOVE: MOVE,
-        SORT: SORT,
-        ADD_OR_MODIFY: REMOVE_OR_MODIFY,
-        REMOVE_OR_MODIFY: ADD_OR_MODIFY,
-    }
-
     @classmethod
     def get_inverse_op(cls, op_type):
         """Get inverse operation of given operation.
@@ -52,10 +40,20 @@ class ContainerOp(object):
         Returns:
             (ContainerOp): inverse operation type.
         """
-        return cls._INVERSES.get(op_type)
+        return {
+            cls.ADD: cls.REMOVE,
+            cls.INSERT: cls.REMOVE,
+            cls.REMOVE: cls.INSERT,
+            cls.RENAME: cls.RENAME,
+            cls.MODIFY: cls.MODIFY,
+            cls.MOVE: cls.MOVE,
+            cls.SORT: cls.SORT,
+            cls.ADD_OR_MODIFY: cls.REMOVE_OR_MODIFY,
+            cls.REMOVE_OR_MODIFY: cls.ADD_OR_MODIFY,
+        }.get(op_type)
 
 
-class ContainerEditFlag(object):
+class ContainerEditFlag(OrderedStringEnum):
     """Enum representing flags for container edits.
 
     Flag types:
@@ -314,7 +312,7 @@ class BaseContainerEdit(BaseEdit):
             value (variant): value to add at key.
         """
         if isinstance(inverse_diff_dict, ORDERED_DICT_TYPES):
-            utils.add_key_at_start(inverse_diff_dict, key, value)
+            add_key_at_start(inverse_diff_dict, key, value)
         else:
             inverse_diff_dict[key] = value
 

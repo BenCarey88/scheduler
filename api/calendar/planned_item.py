@@ -15,7 +15,7 @@ from scheduler.api.serialization.serializable import (
 )
 from scheduler.api import constants
 from scheduler.api.constants import TimePeriod as TP
-from scheduler.api.utils import fallback_value, OrderedEnum
+from scheduler.api.utils import fallback_value
 
 
 class PlannedItemError(Exception):
@@ -69,6 +69,7 @@ class PlannedItem(Hosted, NestedSerializable):
             parent=self,
             driver=True,
         )
+        self._status = MutableAttribute(0, "status")
         self._planned_children = HostedDataList(
             pairing_id=constants.PLANNER_PARENT_CHILD_PAIRING,
             parent=self,
@@ -144,6 +145,17 @@ class PlannedItem(Hosted, NestedSerializable):
             return self.tree_item.path
         return ""
 
+    # TODO: for neatness, this should probably be an enum not an int
+    @property
+    def status(self):
+        """Get status of item.
+
+        Returns:
+            (int): integer representing check status. 0 means unchecked,
+                1 means half-checked and 2 means checked.
+        """
+        return self._status.value
+
     @property
     def scheduled_items(self):
         """Get scheduled items associated to this one.
@@ -193,7 +205,7 @@ class PlannedItem(Hosted, NestedSerializable):
                 )
             )
         return (
-            TP.key(self.time_period) < TP.key(item.time_period)
+            self.time_period < item.time_period
         )
 
     def __le__(self, item):
@@ -208,9 +220,7 @@ class PlannedItem(Hosted, NestedSerializable):
                     item.__class__.__name__
                 )
             )
-        return (
-            TP.key(self.time_period) <= TP.key(item.time_period)
-        )
+        return self.time_period <= item.time_period
 
     def __gt__(self, item):
         """Check if self is over a greater period than other item.
@@ -224,9 +234,7 @@ class PlannedItem(Hosted, NestedSerializable):
                     item.__class__.__name__
                 )
             )
-        return (
-            TP.key(self.time_period) > TP.key(item.time_period)
-        )
+        return self.time_period > item.time_period
 
     def __ge__(self, item):
         """Check if self is over a greater or equal time period to other item.
@@ -240,9 +248,7 @@ class PlannedItem(Hosted, NestedSerializable):
                     item.__class__.__name__
                 )
             )
-        return (
-            TP.key(self.time_period) >= TP.key(item.time_period)
-        )
+        return self.time_period >= item.time_period
 
     def get_item_container(self, calendar_period=None):
         """Get the list that this item should be contained in.

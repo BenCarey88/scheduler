@@ -2,7 +2,7 @@
 
 import os
 
-from .utils import OrderedEnum
+from .utils import OrderedStringEnum
 
 
 # System and File
@@ -17,14 +17,34 @@ if DEV_MODE:
 USER_PREFS_FILE = os.path.join(SCHEDULER_PKG_DIR, "user_prefs.json")
 
 
-# Calendar Periods
-class TimePeriod(OrderedEnum):
-    """Struct to store different time periods."""
+# Global Enums
+class TimePeriod(OrderedStringEnum):
+    """Enum for different time periods."""
     DAY = "day"
     WEEK = "week"
     MONTH = "month"
     YEAR = "year"
-    VALUES = [DAY, WEEK, MONTH, YEAR]
+
+class ItemStatus(OrderedStringEnum):
+    """Enum for statuses of items."""
+    UNSTARTED = "Unstarted"
+    IN_PROGRESS = "In Progress"
+    COMPLETE = "Complete"
+
+class ItemSize(OrderedStringEnum):
+    """Enum to store size types of items."""
+    NONE = ""
+    SMALL = "small"
+    MEDIUM = "medium"
+    BIG = "big"
+
+class ItemImportance(OrderedStringEnum):
+    """Enum to store levels of importance for items."""
+    NONE = ""
+    MINOR = "minor"
+    MODERATE = "moderate"
+    MAJOR = "major"
+    CRITICAL = "critical"
 
 
 # Hosted Data Container Pairing
@@ -34,7 +54,8 @@ PLANNER_SCHEDULER_PAIRING = "Planner_Scheduler_Pairing"
 PLANNER_PARENT_CHILD_PAIRING = "Planner_Parent_Child_Pairing"
 
 
-# TODO: this should DEFINITELY be set by user, as task attribute, hardcoding for now
+# TODO: this should DEFINITELY be set by user, as task attribute,
+# hardcoding for now
 TASK_COLORS = {
     "Projects": (255, 165, 0),                  # Orange
     "Work": (245, 245, 190),                    # Yellow

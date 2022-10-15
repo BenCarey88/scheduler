@@ -50,7 +50,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
         Args:
             task_item (Task): the task item this edit is being run on.
             date_time (DateTime): time that the update is being made.
-            new_status (TaskStatus or None): new status to update with.
+            new_status (Status or None): new status to update with.
             new_value (variant or None): value to set for task at given time.
             comment (str or None): comment to add to task history, if given.
         """

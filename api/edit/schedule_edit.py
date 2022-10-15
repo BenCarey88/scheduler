@@ -15,6 +15,7 @@ from ._core_edits import (
     SelfInverseSimpleEdit,
 )
 from .planner_edit import AddScheduledItemChildRelationshipEdit
+from .task_edit import UpdateTaskHistoryEdit
 
 
 class AddScheduledItemEdit(CompositeEdit):
@@ -369,4 +370,64 @@ class ReplaceScheduledItemEdit(CompositeEdit):
         self._description = "Replace scheduled item {0} --> {1}".format(
             old_scheduled_item.name,
             new_scheduled_item.name,
+        )
+
+
+class UpdateScheduledItemCheckStatusEdit(CompositeEdit):
+    """Update check status of scheduled edit."""
+    def __init__(self, scheduled_item, new_status, date_time):
+        """Initialise edit.
+
+        Args:
+            scheduled_item (BaseScheduledItem): scheduled item whose check
+                status we should edit.
+            new_status (int): new status to change to.
+            date_time (DateTime): the date and time this edit was done.
+        """
+        subedits = []
+        attribute_edit = AttributeEdit.create_unregistered(
+            {scheduled_item._status: new_status}
+        )
+        subedits.append(attribute_edit)
+        for planned_item in scheduled_item.planned_items:
+            planned_item_edit = SelfInverseSimpleEdit(
+                planned_item._update_status_from_scheduled_items
+            )
+            subedits.append(planned_item_edit)
+        if (scheduled_item.updates_task_status and
+                scheduled_item.tree_item is not None):
+            # TODO: check it's not a task category too? Or maybe remove
+            # the not-None tree item check here and just require that both
+            # these are checked in the manager class instead.
+            task = scheduled_item.tree_item
+            new_task_status = task.get_new_status(new_status, date_time)
+            # ^this method (maybe rename) should basically return the
+            # new_status if it is higher than the current status of
+            # the task at this time, otherwise return None.
+            # Maybe need to deal with what happens if that status is
+            # overridden at a later time (at least for non-routines)?
+            # NOTE that this will be easier once we make status a global
+            # enum rather than using the task specific TaskStatus
+            if new_task_status is not None:
+                task_edit = UpdateTaskHistoryEdit(
+                    task,
+                    date_time=date_time,
+                    new_status=new_task_status,
+                )
+                subedits.append(task_edit)
+        super(UpdateScheduledItemCheckStatusEdit, self).__init__(subedits)
+        self._is_valid = (new_status != scheduled_item.status)
+        self._callback_args = self._undo_callback_args = [
+            scheduled_item,
+            scheduled_item,
+        ]
+        self._name = "UpdateScheduledItemCheckStatusEdit ({0})".format(
+            scheduled_item.name
+        )
+        self._description = (
+            "Update check status of scheduled item {0} ({1} --> {2})".format(
+                scheduled_item.name,
+                scheduled_item.status,
+                new_status,
+            )
         )

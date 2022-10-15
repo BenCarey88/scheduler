@@ -1,6 +1,7 @@
 """Tree edit manager for managing edits on tree items."""
 
 from scheduler.api.common.date_time import DateTime
+from scheduler.api.constants import ItemStatus
 from scheduler.api.edit.tree_edit import (
     ArchiveTreeItemEdit,
     InsertChildrenEdit,
@@ -15,7 +16,7 @@ from scheduler.api.edit.task_edit import (
     UpdateTaskHistoryEdit,
 )
 from scheduler.api.tree.exceptions import UnallowedChildType
-from scheduler.api.tree.task import Task, TaskStatus, TaskType
+from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.base_task_item import BaseTaskItem
 
@@ -370,7 +371,7 @@ class TreeEditManager(BaseTreeManager):
             task_item (Task): task item to edit.
             date (DateTime or None): datetime object to update task history
                 with. If None, we use current.
-            status (TaskStatus or None): status to update task with. If None
+            status (ItemStatus or None): status to update task with. If None
                 given, we calculate the next one.
             value (variant or None): value to set for task at given time. If
                 None, we ignore.
@@ -384,15 +385,15 @@ class TreeEditManager(BaseTreeManager):
 
         if status is None:
             current_status = task_item.get_status_at_date(date_time.date())
-            if current_status == TaskStatus.UNSTARTED:
+            if current_status == ItemStatus.UNSTARTED:
                 if task_item.type == TaskType.ROUTINE:
-                    status = TaskStatus.COMPLETE
+                    status = ItemStatus.COMPLETE
                 else:
-                    status = TaskStatus.IN_PROGRESS
-            elif current_status == TaskStatus.IN_PROGRESS:
-                status = TaskStatus.COMPLETE
-            elif current_status == TaskStatus.COMPLETE:
-                status = TaskStatus.UNSTARTED
+                    status = ItemStatus.IN_PROGRESS
+            elif current_status == ItemStatus.IN_PROGRESS:
+                status = ItemStatus.COMPLETE
+            elif current_status == ItemStatus.COMPLETE:
+                status = ItemStatus.UNSTARTED
 
         return UpdateTaskHistoryEdit.create_and_run(
             task_item,
@@ -436,8 +437,8 @@ class TreeEditManager(BaseTreeManager):
 
         Args:
             task_item (Task): task to modify.
-            size (TaskSize or None): new size to change to, if given.
-            importance (TaskImportance): new importance, if given.
+            size (ItemSize or None): new size to change to, if given.
+            importance (ItemImportance): new importance, if given.
 
         Returns:
             (bool): whether or not edit was successful.

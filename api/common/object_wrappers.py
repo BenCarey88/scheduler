@@ -612,6 +612,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
     """
     def __init__(
             self,
+            internal_list=None,
             pairing_id=None,
             parent=None,
             filter=None,
@@ -620,10 +621,12 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         """Initialize.
 
         Args:
-            parent (Hosted or None): the class this is an attribute
-                of. This is only required for paired containers.
+            internal_list (list or None): if given, use this to populate the
+                internal list.
             pairing_id (str or None): if given, this id defines the pairing
                 of this container to another container with the same id.
+            parent (Hosted or None): the class this is an attribute
+                of. This is only required for paired containers.
             filter (function): additional filter applied to list to ignore
                 data in specific cases.
             driver (bool): whether or not this container drives its pair.
@@ -641,6 +644,11 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         if not isinstance(filter, BaseFilter):
             self._filter = CustomFilter(filter)
         self._iter_hosts = self._iter_filtered
+
+        # populate internal list
+        if internal_list is not None:
+            for item in internal_list:
+                self.append(item)
 
     @contextmanager
     def apply_filter(self, filter=None):
@@ -940,6 +948,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
     """
     def __init__(
             self,
+            internal_dict=None,
             host_keys=True,
             host_values=False,
             pairing_id=None,
@@ -951,6 +960,8 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         """Initialize.
 
         Args:
+            internal_dict (dict or None): if given, use this to populate the
+                internal dict.
             host_keys (bool): if True, keys are hosted.
             host_values (bool): if True, values are hosted.
             pairing_id (str or None): if given, this id defines the pairing
@@ -969,6 +980,10 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             raise HostError(
                 "HostedDataDict must use hosted data for keys or values"
             )
+        if pairing_id is not None and self._key_value_func is None:
+            raise HostError(
+                "Paired HostedDataDicts must have a key_value_func"
+            )
         super(HostedDataDict, self).__init__(
             pairing_id=pairing_id,
             parent=parent,
@@ -983,6 +998,11 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         self._filter = filter
         if not isinstance(filter, BaseFilter):
             self._filter = CustomFilter(filter)
+
+        # populate internal dict
+        if internal_dict is not None:
+            for key, value in internal_dict.items():
+                self[key] = value
 
     @contextmanager
     def apply_filter(self, filter=None):

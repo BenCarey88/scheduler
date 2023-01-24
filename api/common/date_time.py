@@ -477,7 +477,6 @@ class BaseDateTimeWrapper(object):
     SAT = "Saturday"
     SUN = "Sunday"
     WEEKDAYS = [MON, TUE, WED, THU, FRI, SAT, SUN]
-    NUM_WEEKDAYS = len(WEEKDAYS)
 
     # Month strings
     JAN = "January"
@@ -493,7 +492,6 @@ class BaseDateTimeWrapper(object):
     NOV = "November"
     DEC = "December"
     MONTHS = [JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC]
-    NUM_MONTHS = len(MONTHS)
 
     # Time Data
     DAY_START = 0

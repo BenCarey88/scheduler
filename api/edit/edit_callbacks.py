@@ -2,6 +2,8 @@
 
 from functools import partial
 
+from scheduler.api.utils import OrderedStringEnum
+
 from . import edit_log
 from .filter_edit import (
     AddFilterEdit,
@@ -42,7 +44,7 @@ from .schedule_edit import (
 )
 
 
-class CallbackItemType(object):
+class CallbackItemType(OrderedStringEnum):
     """Struct representing callback item types."""
     TREE = "Tree"
     SCHEDULER = "Scheduler"
@@ -50,7 +52,7 @@ class CallbackItemType(object):
     FILTER = "Filter"
 
 
-class CallbackEditType(object):
+class CallbackEditType(OrderedStringEnum):
     """Struct representing callback edit types."""
     ADD = "add"
     REMOVE = "remove"

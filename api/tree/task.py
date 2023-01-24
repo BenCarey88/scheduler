@@ -2,10 +2,17 @@
 
 from collections import OrderedDict
 
-from scheduler.api.common.date_time import Date, Time
-from scheduler.api.common.object_wrappers import MutableAttribute
+from scheduler.api.common.date_time import Date, Time, TimeDelta
+from scheduler.api.common.object_wrappers import (
+    HostedDataDict,
+    MutableAttribute,
+)
+from scheduler.api.common.timeline import TimelineDict
 from scheduler.api.serialization.serializable import SaveType
-from scheduler.api.constants import ItemStatus
+from scheduler.api.constants import (
+    ItemStatus,
+    TASK_HISTORY_INFLUENCERS_PAIRING,
+)
 from scheduler.api.utils import OrderedStringEnum
 
 from .base_task_item import BaseTaskItem
@@ -107,6 +114,7 @@ class Task(BaseTaskItem):
         self.value_type = value_type or TaskValueType.NONE
         self._size = MutableAttribute(size, "size")
         self._importance = MutableAttribute(importance, "importance")
+        self._history_influencers = HostedDataDict(host_keys=True)
         self._allowed_child_types = [Task]
 
     @property
@@ -345,18 +353,41 @@ class TaskHistory(object):
         date_1: {
             status: task_status,
             value: task_value,
-            comments: {
-                time_1: comment_1,
-                time_2: comment_2,
+            commment: comment,
+            status_influencers: {
+                unstarted: [influencer_1, ...],
+                in_progress: [...],
+                completed: [...],
+            },
+            times: {
+                time_1: {
+                    status: status_1,
+                    value: value_1,
+                    comment: comment_1,
+                    status_influencers: {
+                        unstarted: [influencer_1, ...],
+                        in_progress: [...],
+                        completed: [...],
+                    },
+                },
+                time_2: {
+                    status: status_2,
+                    value: value_2,
+                    comment: comment_2,
+                    status_influencers: {...}
+                },
                 ...
-            }
+            },
         },
         ...
     }
     """
     STATUS_KEY = "status"
     VALUE_KEY = "value"
-    COMMENTS_KEY = "comments"
+    COMMENT_KEY = "comment"
+    # INFLUENCERS_KEY = "influencers"
+    STATUS_INFLUENCERS_KEY = "status_influencers"
+    TIMES_KEY = "times"
 
     def __init__(self, task):
         """Initialise task history object.
@@ -365,7 +396,7 @@ class TaskHistory(object):
             task (Task): task this is describing the history of.
         """
         self._task = task
-        self._dict = OrderedDict()
+        self._dict = TimelineDict()
 
     def __bool__(self):
         """Override bool operator to indicate whether dictionary is filled.
@@ -408,6 +439,19 @@ class TaskHistory(object):
         """
         return self._dict.get(date, {})
 
+    def get_dict_at_datetime(self, date_time):
+        """Get dict describing task history at given datetime.
+
+        Args:
+            date_time (DateTime): datetime to query.
+
+        Returns:
+            (dict): subdict of internal dict for given date.
+        """
+        date_dict = self._dict.get(date_time.date(), {})
+        times_dict = date_dict.get(self.TIMES_KEY, {})
+        return times_dict.get(date_time.time(), {})
+
     def iter_date_dicts(self):
         """iterate through task history dicts for each recorded date.
         
@@ -448,6 +492,56 @@ class TaskHistory(object):
         """
         return self.get_dict_at_date(date).get(self.VALUE_KEY, None)
 
+    def get_status_at_datetime(self, date_time):
+        """Get task status at given datetime.
+
+        Currently this works by the following logic: if there are statuses
+        set at or before this time in the date, pick the most recent one.
+        Otherwise, find the status set at the date of the previous day.
+        Statuses on the current day are considered to be completed at the
+        very end of the day, so won't apply to a datetime within the day.
+
+        Args:
+            date_time (DateTime): datetime to query.
+
+        Returns:
+            (ItemStatus): task status at given datetime.
+        """
+        date_dict = self.get_dict_at_date(date_time.date())
+        times_dict = date_dict.get(self.TIMES_KEY, {})
+        for time, subdict in reversed(times_dict.items()):
+            if self.STATUS_KEY in subdict and time <= date_time.time():
+                return subdict[self.STATUS_KEY]
+        return self.get_status_at_date(
+            date_time.date() - TimeDelta(days=1)
+        )
+
+    def get_value_at_datetime(self, date_time):
+        """Get task value at given datetime.
+
+        Currently this works by the following logic: if there are values
+        set at or before this time in the date, pick the most recent one.
+        Otherwise, find the value set at the date of the previous day.
+        Values on the current day are considered to be completed at the
+        very end of the day, so won't apply to a datetime within the day.
+
+        Args:
+            date_time (DateTime): datetime to query.
+
+        Returns:
+            (variant or None): task value at given datetime, if set.
+        """
+        date_dict = self.get_dict_at_date(date_time.date())
+        times_dict = date_dict.get(self.TIMES_KEY, {})
+        for time, subdict in reversed(times_dict.items()):
+            if self.VALUE_KEY in subdict and time <= date_time.time():
+                return subdict[self.VALUE_KEY]
+        return self.get_value_at_date(
+            date_time.date() - TimeDelta(days=1)
+        )
+
+    # TODO: this doesn't work for undos - use gets instead and then implement
+    # as an edit
     def _update_task_status(self):
         """Update task status to reflect today's date history.
 
@@ -459,9 +553,101 @@ class TaskHistory(object):
         """
         status = self.get_status_at_date(Date.now())
         if status != self._task.status:
+            # global_influencers = self._task._history_influencers.get(
+            #     self._task.GLOBAL_INFLUENCER
+            # )
+            # if global_influencers:
+            #     influenced_status = global_influencers.get(
+            #         self._task.STATUS_KEY
+            #     )
+            #     if influenced_status >= status:
+            #         return False
             self._task._status.set_value(status)
             return True
         return False
+
+    # TODO: this doesn't work for undos - use gets instead and then implement
+    # as an edit
+    def _update_task_at_date(self, date):
+        """Update task at date to match time dict at that date.
+
+        This is intended to be used by edit classes only.
+
+        Args:
+            date (Date): date to update at.
+
+        Returns:
+            (bool): whether or not any updates were made.
+        """
+        date_dict = self.get_dict_at_date(date)
+        if date_dict is None:
+            # if nothing exists at date, there's nothing to update
+            return False
+        if self._task._history_influencers.get(date):
+            # if there is an influencer for this date, just use that
+            return False
+
+        value_set = False
+        status_set = False
+        times_dict = date_dict.get(self.TIMES_KEY, {})
+        for _, subdict in reversed(times_dict.items()):
+            if not value_set and self.VALUE_KEY in subdict:
+                date_dict[self.VALUE_KEY] = subdict[self.VALUE_KEY]
+                value_set = True
+            if not status_set and self.STATUS_KEY in subdict:
+                date_dict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
+                status_set = True
+        return status_set or value_set
+
+    def _get_diff_dict_at_date(self, date, update_from_time=True):
+        """Get diff dict for a given date based on the time dict.
+
+        This is intended to be used by edit classes. It returns a dict
+        defining any new status that should be set at date level based
+        on its influencers and time subdict. The logic first ensures
+        that the status is set to whatever the latest influencer sets
+        it to, then overrides this with the time value so long as this
+        is greater than the influencer.
+
+        Args:
+            date (Date): date to check at.
+            update_from_time (bool): if True, allow overrides from the
+                time subdict. Otherwise only base on influencers.
+
+        Returns:
+            (dict): diff dict.
+        """
+        date_dict = self.get_dict_at_date(date)
+        if date_dict is None:
+            # if nothing exists at date, there's nothing to update
+            return {}
+
+        # influenced status is status set by most recent influencer
+        new_status = None
+        status = date_dict.get(self.STATUS_KEY)
+        influenced_status = None
+        influences_dict = date_dict.get(self.INFLUENCERS_KEY, {})
+        for _, subdict in reversed(influences_dict.items()):
+            if self.STATUS_KEY in subdict:
+                influenced_status = subdict[self.STATUS_KEY]
+        if influenced_status and status != influenced_status:
+            new_status = influenced_status
+
+        # new time status is latest status in time dict
+        if update_from_time:
+            time_status = None
+            times_dict = date_dict.get(self.TIMES_KEY, {})
+            for _, subdict in reversed(times_dict.items()):
+                if self.STATUS_KEY in subdict:
+                    time_status = subdict[self.STATUS_KEY]
+                    if not new_status or time_status > new_status:
+                        new_status = time_status
+                        new_influencers = 
+                    break
+
+        if new_status and new_status != status:
+            return {self.STATUS_KEY: new_status}
+        return None
 
     def to_dict(self):
         """Convert class to serialized json dict.
@@ -478,11 +664,15 @@ class TaskHistory(object):
                 json_subdict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
             if self.VALUE_KEY in subdict:
                 json_subdict[self.VALUE_KEY] = subdict[self.VALUE_KEY]
-            if self.COMMENTS_KEY in subdict:
-                json_comments_subdict = OrderedDict()
-                json_subdict[self.COMMENTS_KEY] = json_comments_subdict
-                for time, comment in subdict[self.COMMENTS_KEY].items():
-                    json_comments_subdict[time.string()] = comment
+            if self.COMMENT_KEY in subdict:
+                json_subdict[self.COMMENT_KEY] = subdict[self.COMMENT_KEY]
+            if self.TIMES_KEY in subdict:
+                json_times_subdict = OrderedDict()
+                json_subdict[self.TIMES_KEY] = json_times_subdict
+                for time, time_subdict in subdict[self.TIMES_KEY].items():
+                    json_times_subdict[time.string()] = OrderedDict(
+                        time_subdict
+                    )
             if json_subdict:
                 json_dict[date.string()] = json_subdict
         return json_dict
@@ -498,7 +688,7 @@ class TaskHistory(object):
         Returns:
             (TaskHistory): task history class with given dict.
         """
-        class_dict = OrderedDict()
+        class_dict = TimelineDict()
         for date, subdict in json_dict.items():
             class_subdict = {}
             class_dict[Date.from_string(date)] = class_subdict
@@ -506,11 +696,15 @@ class TaskHistory(object):
                 class_subdict[cls.STATUS_KEY] = subdict[cls.STATUS_KEY]
             if cls.VALUE_KEY in subdict:
                 class_subdict[cls.VALUE_KEY] = subdict[cls.VALUE_KEY]
-            if cls.COMMENTS_KEY in subdict:
-                class_comments_subdict = OrderedDict()
-                class_subdict[cls.COMMENTS_KEY] = class_comments_subdict
-                for time, comment in subdict[cls.COMMENTS_KEY].items():
-                    class_comments_subdict[Time.from_string(time)] = comment
+            if cls.COMMENT_KEY in subdict:
+                class_subdict[cls.COMMENT_KEY] = subdict[cls.COMMENT_KEY]
+            if cls.TIMES_KEY in subdict:
+                class_times_subdict = TimelineDict()
+                class_subdict[cls.TIMES_KEY] = class_times_subdict
+                for time, time_subdict in subdict[cls.TIMES_KEY].items():
+                    class_times_subdict[Time.from_string(time)] = OrderedDict(
+                        time_subdict
+                    )
         task_history = cls(task)
         task_history._dict = class_dict
         return task_history

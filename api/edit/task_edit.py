@@ -3,7 +3,10 @@
 from collections import OrderedDict
 from functools import partial
 
-from scheduler.api.common.date_time import Date
+from scheduler.api.common.date_time import Date, DateTime
+from scheduler.api.common.object_wrappers import HostedDataDict, HostedDataList
+from scheduler.api.common.timeline import TimelineDict
+from ._base_edit import EditError
 from ._core_edits import AttributeEdit, CompositeEdit, SelfInverseSimpleEdit
 from ._container_edit import DictEdit, ContainerEditFlag, ContainerOp
 
@@ -19,6 +22,7 @@ class ModifyTaskEdit(AttributeEdit):
             new_type (TaskType): new type to change to.
         """
         # type edits apply to whole family
+        # TODO: THEY SHOULDN'T!
         if task_item._type in attr_dict:
             new_type = attr_dict[task_item._type]
             attr_dict.update(
@@ -41,32 +45,40 @@ class UpdateTaskHistoryEdit(CompositeEdit):
     def __init__(
             self,
             task_item,
-            date_time,
+            date,
+            time=None,
             new_status=None,
             new_value=None,
-            comment=None):
-        """Initialise base tree edit.
+            comment=None,
+            influencer=None):
+        """Initialise edit.
 
         Args:
             task_item (Task): the task item this edit is being run on.
-            date_time (DateTime): time that the update is being made.
-            new_status (Status or None): new status to update with.
+            date (Date): date to update at.
+            time (Time or None): time to update at, if given.
+            new_status (ItemStatus or None): new status to update with.
             new_value (variant or None): value to set for task at given time.
             comment (str or None): comment to add to task history, if given.
         """
         self.task_item = task_item
         history = task_item.history
-        date = date_time.date()
-        date_dict = OrderedDict()
-        diff_dict = OrderedDict({date: date_dict})
+
+        datetime_dict = OrderedDict()
         if new_status:
-            date_dict[history.STATUS_KEY] = new_status
+            datetime_dict[history.STATUS_KEY] = new_status
         if new_value:
-            date_dict[history.VALUE_KEY] = new_value
+            datetime_dict[history.VALUE_KEY] = new_value
         if comment:
-            date_dict[history.COMMENTS_KEY] = OrderedDict({
-                date_time.time(): comment
-            })
+            datetime_dict[history.COMMENT_KEY] = comment
+
+        if time is None:
+            diff_dict = TimelineDict({date: datetime_dict})
+        else:
+            diff_dict = TimelineDict(
+                {date: {history.TIMES_KEY: datetime_dict}}
+            )
+
         history_edit = DictEdit.create_unregistered(
             history._dict,
             diff_dict,
@@ -77,6 +89,13 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             history._update_task_status,
         )
         subedits = [history_edit, update_task_edit]
+        if time is not None:
+            # if doing a time edit, then update history at that date
+            update_date_edit = SelfInverseSimpleEdit.create_unregistered(
+                partial(history._update_task_at_date, date)
+                # TODO: create this function
+            )
+            subedits.insert(1, update_date_edit)
         if not history.get_dict_at_date(date):
             # add to root history data dict too if not been added yet
             global_history_edit = SelfInverseSimpleEdit.create_unregistered(
@@ -128,4 +147,142 @@ class UpdateTaskHistoryEdit(CompositeEdit):
                 date,
                 " - {0}".format(update_text) if update_text else ""
             )
+        )
+
+
+# Replace UpdateTaskHistoryEdit with this new UpdateHistoryEdit
+
+class UpdateHistoryEdit(CompositeEdit):
+    """Edit to update task history at given date or time."""
+    def __init__(
+            self,
+            task_item,
+            datetime=None,
+            new_status=None,
+            new_value=None,
+            comment=None,
+            influencer=None):
+        """Initialise edit.
+
+        Args:
+            task_item (Task): the task item this edit is being run on.
+            datetime (Date, DateTime or None): the date or datetime to update
+                at. [If not given, we update globally.?]
+            new_datetime (Date, DateTime or None): the date or datetime that
+                this influencer will now be influencing at. If not given, the
+                edit will remove the influencer instead.
+            new_status (ItemStatus or None):  new status to update with.
+            new_value (variant or None): value to set for task at given time.
+            comment (str or None): comment to add to task history, if given.
+            influencer (variant or None): the object that is influencing the
+                status update, if given.
+        """
+
+
+class UpdateStatusInfluencerEdit(CompositeEdit):
+    """Edit to update a status history influencer for a task."""
+    def __init__(
+            self,
+            task_item,
+            influencer,
+            old_status=None,
+            new_status=None,
+            old_datetime=None,
+            new_datetime=None):
+        """Initialise edit.
+
+        Args:
+            task_item (Task): the task whose status is being influenced.
+            influencer (variant): the object that is influencing the status.
+            old_status (ItemStatus or None): the status that the influencer
+                was setting. If None, the influencer is being added.
+            new_status (ItemStatus or None): the status that the influencer
+                will be setting. If None, the influencer is being removed.
+            old_datetime (Date, DateTime or None): the date or datetime that
+                this influencer was previously influencing at. If not given,
+                the edit will add it as a new influencer instead.
+            new_datetime (Date, DateTime or None): the date or datetime that
+                this influencer will now be influencing at. If not given, the
+                edit will remove the influencer instead.
+        """
+        history = task_item.history
+        subedits = []
+
+        # remove old status at old date/time
+        if old_status is not None and old_datetime is not None:
+            if isinstance(old_datetime, Date):
+                remove_diff_dict = TimelineDict({
+                    old_datetime: {
+                        history.STATUS_INFLUENCERS_KEY: {
+                            old_status: HostedDataList([influencer])
+                        }
+                    }
+                })
+            elif isinstance(old_datetime, DateTime):
+                remove_diff_dict = TimelineDict({
+                    old_datetime.date(): {
+                        history.TIMES_KEY: TimelineDict({
+                            old_datetime.time(): {
+                                history.STATUS_INFLUENCERS_KEY: {
+                                    old_status: HostedDataList([influencer])
+                                }
+                            }
+                        })
+                    }
+                })
+            else:
+                raise EditError("old_datetime arg must be a Date or DateTime")
+            remove_edit = DictEdit.create_unregistered(
+                history._dict,
+                remove_diff_dict,
+                ContainerOp.REMOVE,
+                recursive=True,
+                edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
+            )
+            subedits.append(remove_edit)
+
+        # add new status at new date/time
+        if new_status is not None and new_datetime is not None:
+            if isinstance(new_datetime, Date):
+                add_diff_dict = TimelineDict({
+                    new_datetime: {
+                        history.STATUS_INFLUENCERS_KEY: {
+                            new_status: HostedDataList([influencer])
+                        }
+                    }
+                })
+            elif isinstance(old_datetime, DateTime):
+                add_diff_dict = TimelineDict({
+                    new_datetime.date(): {
+                        history.TIMES_KEY: TimelineDict({
+                            new_datetime.time(): {
+                                history.STATUS_INFLUENCERS_KEY: {
+                                    new_status: HostedDataList([influencer])
+                                }
+                            }
+                        })
+                    }
+                })
+            else:
+                raise EditError("new_datetime arg must be a Date or DateTime")
+            add_edit = DictEdit.create_unregistered(
+                history._dict,
+                add_diff_dict,
+                ContainerOp.ADD,
+                recursive=True,
+            )
+            subedits.append(add_edit)
+
+        update_status_edit = SelfInverseSimpleEdit.create_unregistered(
+            history._update_task_status,
+        )
+        subedits.append(update_status_edit)
+
+        super(UpdateStatusInfluencerEdit, self).__init__(
+            subedits,
+            reverse_order_for_inverse=False,
+        )
+        self._is_valid = self._is_valid and (
+            old_status != new_status or
+            old_datetime != new_datetime
         )

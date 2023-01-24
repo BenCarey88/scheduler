@@ -4,6 +4,7 @@ from functools import partial
 
 from scheduler.api.common.object_wrappers import (
     Hosted,
+    HostedDataDict,
     HostedDataList,
     MutableAttribute,
     MutableHostedAttribute,
@@ -69,7 +70,10 @@ class PlannedItem(Hosted, NestedSerializable):
             parent=self,
             driver=True,
         )
-        self._status = MutableAttribute(0, "status")
+        self._status = MutableAttribute(
+            constants.ItemStatus.UNSTARTED,
+            "status"
+        )
         self._planned_children = HostedDataList(
             pairing_id=constants.PLANNER_PARENT_CHILD_PAIRING,
             parent=self,
@@ -145,16 +149,26 @@ class PlannedItem(Hosted, NestedSerializable):
             return self.tree_item.path
         return ""
 
-    # TODO: for neatness, this should probably be an enum not an int
     @property
     def status(self):
         """Get status of item.
 
         Returns:
-            (int): integer representing check status. 0 means unchecked,
-                1 means half-checked and 2 means checked.
+            (ItemStatus): status of item.
         """
         return self._status.value
+
+    @property
+    def end_date(self):
+        """Get end date for planned item.
+
+        Returns:
+            (Date): end date.
+        """
+        if self.time_period == TP.DAY:
+            return self.calendar_period.date
+        else:
+            return self.calendar_period.end_date
 
     @property
     def scheduled_items(self):

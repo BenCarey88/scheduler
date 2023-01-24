@@ -12,6 +12,7 @@ from scheduler.api.common.date_time import (
 )
 from scheduler.api.common.object_wrappers import (
     Hosted,
+    HostedDataDict,
     HostedDataList,
     MutableAttribute,
     MutableHostedAttribute,
@@ -486,7 +487,10 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             parent=self,
             driven=True,
         )
-        self._status = MutableAttribute(0, "status")
+        self._status = MutableAttribute(
+            constants.ItemStatus.UNSTARTED,
+            "status",
+        )
         self._id = None
 
     class _Decorators(object):
@@ -658,8 +662,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         """Get check status of item.
 
         Returns:
-            (int): integer representing check status. 0 means unchecked,
-                1 means half-checked and 2 means checked.
+            (ItemStatus): status of item.
         """
         return self._status.value
 

@@ -406,8 +406,35 @@ class UpdateScheduledItemCheckStatusEdit(CompositeEdit):
             # the task at this time, otherwise return None.
             # Maybe need to deal with what happens if that status is
             # overridden at a later time (at least for non-routines)?
-            # NOTE that this will be easier once we make status a global
-            # enum rather than using the task specific TaskStatus
+            #
+            # ALSO need to deal with the case of cycling through the statuses
+            # ie. if we set to in_progress then complete, then unstarted, the
+            # unstarted should act to bring us back to where we began. So I
+            # think we basically need to check: is there a task history at
+            # this specific time? If so, then that specific task history should
+            # just be removed when we go from complete to unstarted. Otherwise,
+            # use the get_new_status function. This will need an update to the
+            # way we store task history though as currently it only stores by
+            # date.
+            # EXCEPT: this doesn't work if the scheduled item is then moved.
+            # so what we really need is a way for the task/task history to know
+            # that the current status is influenced by this item. eg. give it
+            # a status_influencers attribute, and if it's this item then we can
+            # do the second thing, otherwise do the first.
+            # eg _status_influencers = {
+            #   sched_item_1: {
+            #       date_time_1: IN_PROGRESS,
+            #   },
+            #   sched_item_2: {
+            #       date_time_2: COMPLETE,
+            #   },
+            #   planned_item_1: {
+            #       date_1: IN_PROGRESS,
+            #   }
+            # }
+            # then moving sched_item_2 status -> unstarted means that we delete
+            # it from the status influencers and update task history from the
+            # remaining influencers? Could get slow with lots of influencers?
             if new_task_status is not None:
                 task_edit = UpdateTaskHistoryEdit(
                     task,

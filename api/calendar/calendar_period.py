@@ -805,6 +805,24 @@ class CalendarMonth(BaseCalendarPeriod):
         return self.calendar.get_day(Date(self._year, self._month, 1))
 
     @property
+    def start_date(self):
+        """Get start date of month.
+
+        Returns:
+            (Date): start date.
+        """
+        return self._start_date
+
+    @property
+    def end_date(self):
+        """Get end date of month.
+
+        Returns:
+            (Date): end date.
+        """
+        return self._start_date + TimeDelta(days=self._length-1)
+
+    @property
     def calendar_year(self):
         """Get calendar year that month is contained in.
 
@@ -1085,6 +1103,24 @@ class CalendarYear(BaseCalendarPeriod):
             (CalendarDay): start calendar day.
         """
         return self.calendar.get_day(Date(self._year, 1, 1))
+
+    @property
+    def start_date(self):
+        """Get start date of year.
+
+        Returns:
+            (Date): start date.
+        """
+        return self.start_day.date
+
+    @property
+    def end_date(self):
+        """Get end date of year.
+
+        Returns:
+            (Date): end date.
+        """
+        return self.calendar.get_day(Date(self._year, 12, 31)).date
 
     def get_start_week(self, starting_day=0, length=7):
         """Get first week of year.

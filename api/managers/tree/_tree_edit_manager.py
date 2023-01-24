@@ -397,7 +397,8 @@ class TreeEditManager(BaseTreeManager):
 
         return UpdateTaskHistoryEdit.create_and_run(
             task_item,
-            date_time,
+            date_time.date(),
+            date_time.time(),
             status,
             value,
             comment=comment,

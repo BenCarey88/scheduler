@@ -27,3 +27,5 @@ general
 * cross top-right and checkbox top-left of calendar items
 * color editor (right click item for tasks and included in calendar)
 * add in loggers everywhere
+* add in dates for these note tabs. Atm it's impossible to tell which are current
+    and which are super old

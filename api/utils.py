@@ -249,8 +249,8 @@ class OrderedStringEnum(str, Enum):
         self._assert_comparable(other)
         return self.key < other.key
     
-    def __gt__(self, other):
-        """Check if this is greater than another enum."""
+    def __le__(self, other):
+        """Check if this is less than or equal to another enum."""
         self._assert_comparable(other)
         return self.key <= other.key
 

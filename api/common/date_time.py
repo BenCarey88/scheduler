@@ -716,7 +716,7 @@ class BaseDateTimeWrapper(object):
         in october, and then subtract that date from the result, we'll end
         up with TimeDelta(days=31), which is not always the same thing. This
         ambiguity must be kept in mind whenever using the __sub__ method on
-        two date_time objects.
+        two Date or DateTime objects.
 
         Args:
             timedelta_or_datetime (TimeDelta or datetime.timedelta or

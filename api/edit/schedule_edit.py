@@ -400,6 +400,7 @@ class UpdateScheduledItemCheckStatusEdit(CompositeEdit):
             # the not-None tree item check here and just require that both
             # these are checked in the manager class instead.
             task = scheduled_item.tree_item
+            # TODO: DEFINE THE METHOD BELOW OR REMOVE IT
             new_task_status = task.get_new_status(new_status, date_time)
             # ^this method (maybe rename) should basically return the
             # new_status if it is higher than the current status of
@@ -436,6 +437,7 @@ class UpdateScheduledItemCheckStatusEdit(CompositeEdit):
             # it from the status influencers and update task history from the
             # remaining influencers? Could get slow with lots of influencers?
             if new_task_status is not None:
+                # TODO: UPDATE THIS AND REMOVE THAT GOD-AWFUL COMMENT ABOVE
                 task_edit = UpdateTaskHistoryEdit(
                     task,
                     date_time=date_time,

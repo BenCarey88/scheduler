@@ -103,7 +103,7 @@ class TimelineDict(MutableMapping):
                 )
 
         # add item in at correct place
-        for i, (k, _) in enumerate(zip(self._key_list, self._value_list)):
+        for i, k in enumerate(self._key_list):
             if k == key:
                 self._value_list[i] = value
                 return
@@ -140,6 +140,72 @@ class TimelineDict(MutableMapping):
         item = self[old_datetime]
         del self[old_datetime]
         self[new_datetime] = item
+
+    def latest_key(self):
+        """Get latest date/time in timeline.
+
+        Returns:
+            (BaseDateTimeWrapper or None): the latest date/time, if
+                the timeline is non-empty.
+        """
+        for date_time in reversed(self._key_list)):
+            return date_time
+        return None
+
+    def latest_value(self):
+        """Get value at latest date/time in timeline.
+
+        Returns:
+            (variant or None): the value at latest date/time.
+        """
+        for value in reversed(self._value_list):
+            return value
+        return None
+
+    def latest_item(self):
+        """Get latest date/time in timeline and corresponding value.
+
+        Returns:
+            (BaseDateTimeWrapper or None): the latest date/time, if
+                the timeline is non-empty.
+            (variant or None): the value at that time.
+        """
+        for datetime, value in reversed(zip(self._key_list, self._value_list)):
+            return datetime, value
+        return None, None
+
+    def earliest_key(self):
+        """Get earliest date/time in timeline.
+
+        Returns:
+            (BaseDateTimeWrapper or None): the earliest date/time, if
+                the timeline is non-empty.
+        """
+        for date_time in self._key_list:
+            return date_time
+        return None
+
+    def earliest_value(self):
+        """Get value at earliest date/time in timeline.
+
+        Returns:
+            (variant or None): the value at the earliest date/time.
+        """
+        for value in self._value_list:
+            return value
+        return None
+
+    def earliest_item(self):
+        """Get earliest date/time in timeline and corresponding value.
+
+        Returns:
+            (BaseDateTimeWrapper or None): the earliest date/time, if
+                the timeline is non-empty.
+            (variant, None): the value at that time.
+        """
+        for date_time, value in zip(self._key_list, self._value_list):
+            return date_time, value
+        return None, None
 
 
 # TODO: would it probably be easier to make this a list instead of an

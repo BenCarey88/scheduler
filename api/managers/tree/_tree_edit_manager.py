@@ -396,12 +396,12 @@ class TreeEditManager(BaseTreeManager):
                 status = ItemStatus.UNSTARTED
 
         return UpdateTaskHistoryEdit.create_and_run(
-            task_item,
-            date_time.date(),
-            date_time.time(),
-            status,
-            value,
-            comment=comment,
+            task_item=task_item,
+            influencer=task_item,
+            old_datetime=None,
+            new_datetime=date_time,
+            new_status=status,
+            new_value=value,
         )
 
     @require_class(Task, raise_error=False)

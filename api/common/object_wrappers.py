@@ -446,7 +446,7 @@ class _BaseHostedContainer():
             container._remove_paired_object(self._parent)
 
     def _apply_pairing(self):
-        """Remove this container's class instance from its paired containers.
+        """Add this container's class instance to its paired containers.
 
         This only should be run during activation of the class instance.
         """

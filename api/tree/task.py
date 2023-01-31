@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from scheduler.api.common.date_time import Date, Time, TimeDelta
+from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.common.object_wrappers import (
     HostedDataDict,
     MutableAttribute,
@@ -144,6 +144,15 @@ class Task(BaseTaskItem):
         Returns:
             (ItemStatus): current status.
         """
+        return self.history.get_status_at_datetime(DateTime.now())
+
+        # I'm changing this to just find status at the current datetime, as it
+        # needs to update as the time changes.
+        # TODO: keep an eye on if this seems to slow stuff down considerably.
+        # there's definitely stuff I can do with caching to speed it up
+        # TODO: delete below when I'm more confident, and delete the
+        # _status attribute, plus its corresponding logic in the to_dict
+        # and from_dict methods
         if (self.type == TaskType.ROUTINE
                 and self._status.value == ItemStatus.COMPLETE):
             last_completed = self.history.last_completed
@@ -353,28 +362,29 @@ class TaskHistory(object):
         date_1: {
             status: task_status,
             value: task_value,
-            commment: comment,
-            status_influencers: {
-                unstarted: [influencer_1, ...],
-                in_progress: [...],
-                completed: [...],
-            },
+            latest_time: time_n,
             times: {
                 time_1: {
                     status: status_1,
                     value: value_1,
                     comment: comment_1,
-                    status_influencers: {
-                        unstarted: [influencer_1, ...],
-                        in_progress: [...],
-                        completed: [...],
+                    influencers: {
+                        influencer_1: {
+                            status: status_1.1,
+                            value: value_1.1,
+                        }
+                        influencer_2: {
+                            status: status1.2,
+                            value: value_1.2,
+                        },
+                        ...
                     },
                 },
                 time_2: {
                     status: status_2,
                     value: value_2,
                     comment: comment_2,
-                    status_influencers: {...}
+                    influencers: {...},
                 },
                 ...
             },
@@ -385,9 +395,9 @@ class TaskHistory(object):
     STATUS_KEY = "status"
     VALUE_KEY = "value"
     COMMENT_KEY = "comment"
-    # INFLUENCERS_KEY = "influencers"
-    STATUS_INFLUENCERS_KEY = "status_influencers"
+    INFLUENCERS_KEY = "influencers"
     TIMES_KEY = "times"
+    LATEST_TIME_KEY = "latest_time"
 
     def __init__(self, task):
         """Initialise task history object.
@@ -462,8 +472,45 @@ class TaskHistory(object):
         for date, subdict in self._dict.items():
             yield date, subdict
 
-    def get_status_at_date(self, date):
-        """Get task status at given date.
+    # def get_status_at_date(self, date, end=False):
+    #     """Get task status at given date.
+
+    #     This will just return the status specified at the given date, if
+    #     it exists, otherwise it will find the most recently specified date.
+    #     If nothing is specified before this date, it defaults to unstarted.
+    #     Note that this DOESN'T attempt to look at the time subdictionary.
+    #     It is the responsibility of any edit that alters the time subdict
+    #     to also propagate any status changes up to the current date.
+
+    #     Args:
+    #         date (Date): date to query.
+
+    #     Returns:
+    #         (ItemStatus): task status at given date.
+    #     """
+    #     status = self.get_dict_at_date(date).get(self.STATUS_KEY)
+    #     if status:
+    #         return status
+    #     if self._task.type != TaskType.ROUTINE:
+    #         # if task isn't routine, default to last recorded status
+    #         for recorded_date, subdict in reversed(self._dict.items()):
+    #             if recorded_date < date and self.STATUS_KEY in subdict:
+    #                 return subdict[self.STATUS_KEY]
+    #     return ItemStatus.UNSTARTED
+
+    def get_status_at_end_of_date(self, date):
+        """Get task status by end of given date.
+
+        This will just return the status specified by the STATUS key at the
+        given date if it exists, as this represents the latest status at
+        that date. If it doesn't exist, this will return the status at the
+        start of the date, as determined by the function below.
+
+        Note that this DOESN'T attempt to look at the time subdictionary.
+        It is the responsibility of any edit that alters the time subdict
+        to also propagate any status changes up to the current date.
+        Crucially this means that we CAN'T use this function as part of
+        the logic for the _update_date_dict_from_time method.
 
         Args:
             date (Date): date to query.
@@ -474,6 +521,21 @@ class TaskHistory(object):
         status = self.get_dict_at_date(date).get(self.STATUS_KEY)
         if status:
             return status
+        return self.get_status_at_start_of_date(date)
+
+    def get_status_at_start_of_date(self, date):
+        """Get task status at the start of given date.
+
+        For routines this will always be unstarted. For non-routines,
+        this is just the most recent status before the current date
+        (defaulting to unstarted).
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (ItemStatus): task status at start of given date.
+        """
         if self._task.type != TaskType.ROUTINE:
             # if task isn't routine, default to last recorded status
             for recorded_date, subdict in reversed(self._dict.items()):
@@ -481,6 +543,24 @@ class TaskHistory(object):
                     return subdict[self.STATUS_KEY]
         return ItemStatus.UNSTARTED
 
+    def get_status_at_date(self, date):
+        """Get task status at the end of given date.
+
+        TODO: This is here for backwards compatibility. It should be removed
+        soon once all its uses are replaced with get_status_at_end_of_date.
+        OR: we should keep? I don't know. Maybe want to go back to being
+        able to set directly at dates and just interpreting it as end of
+        dates?
+
+        Args:
+            date (Date): date to query.
+
+        Returns:
+            (ItemStatus): task status at start of given date.
+        """
+        return self.get_status_at_end_of_date(date)
+
+    # TODO: make this match the corresponding status methods?
     def get_value_at_date(self, date):
         """Get task value at given date.
 
@@ -512,9 +592,7 @@ class TaskHistory(object):
         for time, subdict in reversed(times_dict.items()):
             if self.STATUS_KEY in subdict and time <= date_time.time():
                 return subdict[self.STATUS_KEY]
-        return self.get_status_at_date(
-            date_time.date() - TimeDelta(days=1)
-        )
+        return self.get_status_at_start_of_date(date_time.date())
 
     def get_value_at_datetime(self, date_time):
         """Get task value at given datetime.
@@ -542,112 +620,236 @@ class TaskHistory(object):
 
     # TODO: this doesn't work for undos - use gets instead and then implement
     # as an edit
-    def _update_task_status(self):
-        """Update task status to reflect today's date history.
+    # def _update_task_status(self):
+    #     """Update task status to reflect today's date history.
 
-        This is intended to be used by edit classes only, as it modifies the
-        value of the task status mutable attribute.
+    #     This is intended to be used by edit classes only, as it modifies the
+    #     value of the task status mutable attribute.
+
+    #     Returns:
+    #         (bool): whether or not status was changed.
+    #     """
+    #     status = self.get_status_at_date(Date.now())
+    #     if status != self._task.status:
+    #         # global_influencers = self._task._history_influencers.get(
+    #         #     self._task.GLOBAL_INFLUENCER
+    #         # )
+    #         # if global_influencers:
+    #         #     influenced_status = global_influencers.get(
+    #         #         self._task.STATUS_KEY
+    #         #     )
+    #         #     if influenced_status >= status:
+    #         #         return False
+    #         self._task._status.set_value(status)
+    #         return True
+    #     return False
+
+    # def _update_task_at_date(self, date):
+    #     """Update task at date to match time dict at that date.
+
+    #     This is intended to be used by edit classes only.
+
+    #     Args:
+    #         date (Date): date to update at.
+
+    #     Returns:
+    #         (bool): whether or not any updates were made.
+    #     """
+    #     date_dict = self.get_dict_at_date(date)
+    #     if date_dict is None:
+    #         # if nothing exists at date, there's nothing to update
+    #         return False
+    #     # if self._task._history_influencers.get(date):
+    #     #     # if there is an influencer for this date, just use that
+    #     #     return False
+
+    #     value_set = False
+    #     status_set = False
+    #     times_dict = date_dict.get(self.TIMES_KEY, {})
+    #     for _, subdict in reversed(times_dict.items()):
+    #         if not value_set and self.VALUE_KEY in subdict:
+    #             date_dict[self.VALUE_KEY] = subdict[self.VALUE_KEY]
+    #             value_set = True
+    #         if not status_set and self.STATUS_KEY in subdict:
+    #             date_dict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
+    #             status_set = True
+    #     return status_set or value_set
+
+    def get_influencers_dict(self, date_time):
+        """Get influencers dict for given datetime.
+
+        Args:
+            date_time (DateTime): date time to check.
 
         Returns:
-            (bool): whether or not status was changed.
+            (HostedDataDict): influencers dict.
         """
-        status = self.get_status_at_date(Date.now())
-        if status != self._task.status:
-            # global_influencers = self._task._history_influencers.get(
-            #     self._task.GLOBAL_INFLUENCER
-            # )
-            # if global_influencers:
-            #     influenced_status = global_influencers.get(
-            #         self._task.STATUS_KEY
-            #     )
-            #     if influenced_status >= status:
-            #         return False
-            self._task._status.set_value(status)
-            return True
-        return False
+        time_dict = self.get_dict_at_datetime(date_time)
+        return time_dict.get(self.INFLUENCERS_KEY, {})
 
-    # TODO: this doesn't work for undos - use gets instead and then implement
-    # as an edit
-    def _update_task_at_date(self, date):
-        """Update task at date to match time dict at that date.
+    def get_influenced_status(self, date_time, influencer):
+        """Get status defined by given influencer at given datetime, if exists.
+
+        Args:
+            date_time (DateTime): date time to check.
+            influencer (variant): item to check.
+
+        Returns:
+            (ItemStatus or None): status, if found.
+        """
+        influencers_dict = self.get_infleuncers_dict(date_time)
+        return influencers_dict.get(influencer, {}).get(self.STATUS_KEY)
+
+    def get_influenced_value(self, date_time, influencer):
+        """Get value defined by given influencer at given datetime, if exists.
+
+        Args:
+            date_time (DateTime): date time to check.
+            influencer (variant): item to check.
+
+        Returns:
+            (variant or None): value, if found.
+        """
+        influencers_dict = self.get_infleuncers_dict(date_time)
+        return influencers_dict.get(influencer, {}).get(self.VALUE_KEY)
+
+    def _update_from_influencers(self, date_time, update_date_dict=True):
+        """Update status and values based on influencers at datetime.
 
         This is intended to be used by edit classes only.
 
         Args:
-            date (Date): date to update at.
-
-        Returns:
-            (bool): whether or not any updates were made.
+            date_time (DateTime): datetime to update at.
+            update_date_dict (bool): if True, also propagate updates up to
+                date dict. This is included to allow us to skip this update
+                in an edit that is already doing it elsewhere.
         """
+        date = date_time.date()
+        time = date_time.time()
+        time_dict = self.get_dict_at_datetime(date_time)
         date_dict = self.get_dict_at_date(date)
-        if date_dict is None:
-            # if nothing exists at date, there's nothing to update
-            return False
-        if self._task._history_influencers.get(date):
-            # if there is an influencer for this date, just use that
-            return False
-
-        value_set = False
-        status_set = False
         times_dict = date_dict.get(self.TIMES_KEY, {})
-        for _, subdict in reversed(times_dict.items()):
-            if not value_set and self.VALUE_KEY in subdict:
-                date_dict[self.VALUE_KEY] = subdict[self.VALUE_KEY]
+
+        # update time_dict status and value from influencers at that time
+        status_set = False
+        value_set = False
+        influencers_dict = time_dict.get(self.INFLUENCERS_KEY, {})
+        for influencer_dict in reversed(influencers_dict.values()):
+            if self.STATUS_KEY in influencer_dict:
+                status = influencer_dict.get(self.STATUS_KEY)
+                if not status_set or status > status_set:
+                    # use most complete status if multiple exist
+                    time_dict[self.STATUS_KEY] = status
+                    status_set = status
+            if not value_set and self.VALUE_KEY in influencer_dict:
+                value = influencer_dict.get(self.VALUE_KEY)
+                time_dict[self.VALUE_KEY] = value
                 value_set = True
-            if not status_set and self.STATUS_KEY in subdict:
-                date_dict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
-                status_set = True
-        return status_set or value_set
+            if value_set and status_set == ItemStatus.COMPLETE:
+                break
+        else:
+            # delete status or value if no influencer is setting them
+            if not status_set and self.STATUS_KEY in time_dict:
+                del time_dict[self.STATUS_KEY]
+            if not value_set and self.VALUE_KEY in time_dict:
+                del time_dict[self.VALUE_KEY]
+            # delete time dict if neither status nor value is set
+            if not (status_set or value_set) and time in times_dict:
+                del times_dict[time]
 
-    def _get_diff_dict_at_date(self, date, update_from_time=True):
-        """Get diff dict for a given date based on the time dict.
+        # then update date dict from time dict
+        if update_date_dict:
+            self._update_date_dict_from_times(date)
 
-        This is intended to be used by edit classes. It returns a dict
-        defining any new status that should be set at date level based
-        on its influencers and time subdict. The logic first ensures
-        that the status is set to whatever the latest influencer sets
-        it to, then overrides this with the time value so long as this
-        is greater than the influencer.
+    def _update_date_dict_from_times(self, date):
+        """Update date dict based on time subdict.
 
         Args:
-            date (Date): date to check at.
-            update_from_time (bool): if True, allow overrides from the
-                time subdict. Otherwise only base on influencers.
-
-        Returns:
-            (dict): diff dict.
+            date (Date): date to update at.
         """
         date_dict = self.get_dict_at_date(date)
-        if date_dict is None:
-            # if nothing exists at date, there's nothing to update
-            return {}
+        time_dict = date_dict.get(self.TIMES_KEY)
+        if not time_dict:
+            return
 
-        # influenced status is status set by most recent influencer
-        new_status = None
-        status = date_dict.get(self.STATUS_KEY)
-        influenced_status = None
-        influences_dict = date_dict.get(self.INFLUENCERS_KEY, {})
-        for _, subdict in reversed(influences_dict.items()):
-            if self.STATUS_KEY in subdict:
-                influenced_status = subdict[self.STATUS_KEY]
-        if influenced_status and status != influenced_status:
-            new_status = influenced_status
+        # set latest time
+        latest_time = time_dict.latest_key()
+        if latest_time and date_dict.get(self.LATEST_TIME_KEY) != latest_time:
+            date_dict[self.LATEST_TIME_KEY] = latest_time
 
-        # new time status is latest status in time dict
-        if update_from_time:
-            time_status = None
-            times_dict = date_dict.get(self.TIMES_KEY, {})
-            for _, subdict in reversed(times_dict.items()):
-                if self.STATUS_KEY in subdict:
-                    time_status = subdict[self.STATUS_KEY]
-                    if not new_status or time_status > new_status:
-                        new_status = time_status
-                        new_influencers = 
-                    break
+        # update status and values to latest defined or delete if not there
+        status_set = False
+        value_set = False
+        for time_subdict in reversed(time_dict.values()):
+            if not status_set and self.STATUS_KEY in time_subdict:
+                date_dict[self.STATUS_KEY] = time_subdict.get(self.STATUS_KEY)
+                status_set = True
+            if not value_set and self.VALUE_KEY in time_subdict:
+                date_dict[self.VALUE_KEY] = time_subdict.get(self.VALUE_KEY)
+                value_set = True
+            if value_set and status_set:
+                break
+        else:
+            # delete status or value if not set in subdict
+            if not status_set and self.STATUS_KEY in date_dict:
+                del date_dict[self.STATUS_KEY]
+            if not value_set and self.VALUE_KEY in date_dict:
+                del date_dict[self.VALUE_KEY]
+            # delete times subdict if we're not setting a status or value
+            # note that we can't delete the date dict as it may go out of
+            # sync with the corresponding date dict in the global history
+            if not (status_set or value_set) and self.TIMES_KEY in date_dict:
+                del date_dict[self.TIMES_KEY]
 
-        if new_status and new_status != status:
-            return {self.STATUS_KEY: new_status}
-        return None
+    # def _get_diff_dict_at_date(self, date, update_from_time=True):
+    #     """Get diff dict for a given date based on the time dict.
+
+    #     This is intended to be used by edit classes. It returns a dict
+    #     defining any new status that should be set at date level based
+    #     on its influencers and time subdict. The logic first ensures
+    #     that the status is set to whatever the latest influencer sets
+    #     it to, then overrides this with the time value so long as this
+    #     is greater than the influencer.
+
+    #     Args:
+    #         date (Date): date to check at.
+    #         update_from_time (bool): if True, allow overrides from the
+    #             time subdict. Otherwise only base on influencers.
+
+    #     Returns:
+    #         (dict): diff dict.
+    #     """
+    #     date_dict = self.get_dict_at_date(date)
+    #     if date_dict is None:
+    #         # if nothing exists at date, there's nothing to update
+    #         return {}
+
+    #     # influenced status is status set by most recent influencer
+    #     new_status = None
+    #     status = date_dict.get(self.STATUS_KEY)
+    #     influenced_status = None
+    #     influences_dict = date_dict.get(self.INFLUENCERS_KEY, {})
+    #     for _, subdict in reversed(influences_dict.items()):
+    #         if self.STATUS_KEY in subdict:
+    #             influenced_status = subdict[self.STATUS_KEY]
+    #     if influenced_status and status != influenced_status:
+    #         new_status = influenced_status
+
+    #     # new time status is latest status in time dict
+    #     if update_from_time:
+    #         time_status = None
+    #         times_dict = date_dict.get(self.TIMES_KEY, {})
+    #         for _, subdict in reversed(times_dict.items()):
+    #             if self.STATUS_KEY in subdict:
+    #                 time_status = subdict[self.STATUS_KEY]
+    #                 if not new_status or time_status > new_status:
+    #                     new_status = time_status
+    #                     new_influencers = 
+    #                 break
+
+    #     if new_status and new_status != status:
+    #         return {self.STATUS_KEY: new_status}
+    #     return None
 
     def to_dict(self):
         """Convert class to serialized json dict.

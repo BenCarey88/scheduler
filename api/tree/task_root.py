@@ -92,7 +92,7 @@ class TaskRoot(TaskCategory):
             return None
         tree_item = self
         if path_list[0] != self.name:
-            if (search_archive 
+            if (search_archive
                     and self.archive_root is not None
                     and path_list[0] == self.ARCHIVE_ROOT_NAME):
                 tree_item = self.archive_root
@@ -149,6 +149,7 @@ class TaskRoot(TaskCategory):
             if missing_ancestors:
                 child = missing_ancestors[0]
                 new_ancestor._children[child.name] = child
+                # TODO: do we need to add a parent attribute to child here too?
             missing_ancestors.insert(0, new_ancestor)
             tree_item = tree_item.parent
         return missing_ancestors

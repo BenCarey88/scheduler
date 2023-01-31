@@ -64,11 +64,11 @@ class ContainerEditFlag(OrderedStringEnum):
             apply the edit to the first instance of that value they find
             in the list (so if there are any repeats of a value in the list,
             the edit will only be applied once to that value).
-        IGNORE_DUPLICATES: only add items to a container if they're not
-            already there.
+        LIST_IGNORE_DUPLICATES: only add items to a list container if they're
+            not already there.
     """
     LIST_FIND_BY_VALUE = "List_Find_By_Value"
-    IGNORE_DUPLICATES = "List_Ignore_Duplicates"
+    LIST_IGNORE_DUPLICATES = "List_Ignore_Duplicates"
 
 
 class BaseContainerEdit(BaseEdit):
@@ -142,7 +142,7 @@ class BaseContainerEdit(BaseEdit):
             )
             # ^note that I currently am allowing hosted data containers as
             # a lower level of a recursive diff dict, which is being used
-            # in UpdateStatusInfluencerEdit (and maybe others) - not sure
+            # in UpdateTaskHistoryEdit (and maybe others) - not sure
             # if this should be allowed or not, keep an eye out to see
             # if it causes issues
         self._container = container
@@ -433,9 +433,6 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
-                and value in dict_.values()):
-            return False
         if key not in dict_:
             if inverse_diff_dict is not None:
                 self._add_inverse_diff_dict_key(inverse_diff_dict, key, None)
@@ -479,9 +476,6 @@ class BaseContainerEdit(BaseEdit):
             )
 
         index, new_value = value_tuple
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
-                and new_value in dict_.values()):
-            return False
         if key not in dict_:
             if index < 0 or index > len(dict_):
                 return False
@@ -756,7 +750,7 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+        if (ContainerEditFlag.LIST_IGNORE_DUPLICATES in self._edit_flags
                 and value in list_):
             return False
         if inverse_diff_list is not None:
@@ -792,7 +786,7 @@ class BaseContainerEdit(BaseEdit):
         if not isinstance(value_tuple, tuple) or len(value_tuple) != 2:
             raise EditError("diff list for INSERT op needs 2-tuple values")
         index, new_value = value_tuple
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+        if (ContainerEditFlag.LIST_IGNORE_DUPLICATES in self._edit_flags
                 and new_value in list_):
             return False
         if index < 0 or index > len(list_):

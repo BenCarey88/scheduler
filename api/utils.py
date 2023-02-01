@@ -208,7 +208,7 @@ class OrderedStringEnum(str, Enum):
     @classmethod
     def get_values(cls):
         """Get all values for enum."""
-        return cls.__members__
+        return list(cls.__members__)
 
     @property
     def key(self):
@@ -261,6 +261,42 @@ class OrderedStringEnum(str, Enum):
     def __str__(self):
         """Get string representation of enum."""
         return self.value
+
+    def next(self, cycle=True):
+        """Get the next enum in the class.
+
+        Args:
+            cycle (bool): if True, cycle round to start after end.
+
+        Returns:
+            (OrderedStringEnum or None): next enum, if found.
+        """
+        cls = self.__class__
+        members = list(cls)
+        index = members.index(self) + 1
+        if index >= len(members):
+            if not cycle:
+                return None
+            index = 0
+        return members[index]
+
+    def prev(self, cycle=True):
+        """Get the previous enum in the class.
+
+        Args:
+            cycle (bool): if True, cycle round to end after start.
+
+        Returns:
+            (OrderedStringEnum or None): previous enum, if found.
+        """
+        cls = self.__class__
+        members = list(cls)
+        index = members.index(self) - 1
+        if index < 0:
+            if not cycle:
+                return None
+            index = len(members) - 1
+        return members[index]
 
 
 # TODO: USE ACTUAL ENUMS (see my test under

@@ -9,10 +9,7 @@ from scheduler.api.common.object_wrappers import (
 )
 from scheduler.api.common.timeline import TimelineDict
 from scheduler.api.serialization.serializable import SaveType
-from scheduler.api.constants import (
-    ItemStatus,
-    TASK_HISTORY_INFLUENCERS_PAIRING,
-)
+from scheduler.api.constants import ItemStatus
 from scheduler.api.utils import OrderedStringEnum
 
 from .base_task_item import BaseTaskItem
@@ -433,7 +430,8 @@ class TaskHistory(object):
         Returns:
             (Date or None): date of last completion, if exists.
         """
-        for date, subdict in reversed(self._dict.items()):
+        for date in reversed(self._dict):
+            subdict = self._dict[date]
             if subdict.get(self.STATUS_KEY) == ItemStatus.COMPLETE:
                 return date
         return None
@@ -538,7 +536,8 @@ class TaskHistory(object):
         """
         if self._task.type != TaskType.ROUTINE:
             # if task isn't routine, default to last recorded status
-            for recorded_date, subdict in reversed(self._dict.items()):
+            for recorded_date in reversed(self._dict):
+                subdict = self._dict[recorded_date]
                 if recorded_date < date and self.STATUS_KEY in subdict:
                     return subdict[self.STATUS_KEY]
         return ItemStatus.UNSTARTED
@@ -589,7 +588,8 @@ class TaskHistory(object):
         """
         date_dict = self.get_dict_at_date(date_time.date())
         times_dict = date_dict.get(self.TIMES_KEY, {})
-        for time, subdict in reversed(times_dict.items()):
+        for time in reversed(times_dict):
+            subdict = times_dict.get(time)
             if self.STATUS_KEY in subdict and time <= date_time.time():
                 return subdict[self.STATUS_KEY]
         return self.get_status_at_start_of_date(date_time.date())
@@ -611,7 +611,8 @@ class TaskHistory(object):
         """
         date_dict = self.get_dict_at_date(date_time.date())
         times_dict = date_dict.get(self.TIMES_KEY, {})
-        for time, subdict in reversed(times_dict.items()):
+        for time in reversed(times_dict):
+            subdict = times_dict.get(time)
             if self.VALUE_KEY in subdict and time <= date_time.time():
                 return subdict[self.VALUE_KEY]
         return self.get_value_at_date(
@@ -697,7 +698,7 @@ class TaskHistory(object):
         Returns:
             (ItemStatus or None): status, if found.
         """
-        influencers_dict = self.get_infleuncers_dict(date_time)
+        influencers_dict = self.get_influencers_dict(date_time)
         return influencers_dict.get(influencer, {}).get(self.STATUS_KEY)
 
     def get_influenced_value(self, date_time, influencer):
@@ -710,9 +711,43 @@ class TaskHistory(object):
         Returns:
             (variant or None): value, if found.
         """
-        influencers_dict = self.get_infleuncers_dict(date_time)
+        influencers_dict = self.get_influencers_dict(date_time)
         return influencers_dict.get(influencer, {}).get(self.VALUE_KEY)
 
+    # TODO: THIS CAUSES CRASHES - FIX
+    #
+    # This does some cleanup on the dictionary, deleting unnecessary bits,
+    # but that means we get crashes, for example in the following scenario:
+    #   - edit removes an influencer from a time dict, triggering cleanup
+    #   - cleanup deletes a time dict because that was the only influencer
+    #   - inverse edit is now assuming that the dict will look the same and
+    #       so has an inverse_diff_dict that matches the old structure
+    #   - this inverse_diff_dict no longer matches the new structure and
+    #       crashes when it attempts to do an insert but can't go far enough
+    #       down the nesting
+    #
+    # to fix this, we could:
+    #   a) remove the deletion stuff. I don't like this solution though as
+    #       we do want to delete things or the dict will be quite messy?
+    #       probably the easiest option though. I guess we're safe to delete
+    #       anything except the influencer dicts, but this means maintaining
+    #       essentially empty timeline dicts of no longer relevant times
+    #   b) make this function a getter that returns a diff_dict, so we can
+    #       do the update properly as an edit. This is a better option, BUT:
+    #       we could have some deletion and some addition to do? Not certain,
+    #       but if we do then we need to ensure these are returned as separate
+    #       dicts so we can do 2 separate edits with them. Either way, this
+    #       needs to make it clear when returning whether the edit should be
+    #       deletion or insertion.
+    #   MAIN PROBLEM HERE: the getter won't be up to date when we use it goddamn
+    #   so I guess we would need to also pass in all the relevant changes to
+    #   consider, ie. influencers we're going to remove/add at each time. So
+    #   we'll basically need to port all of UpdateTaskHistoryEdit's args
+    #   into here, in which case may as well also return the diff dicts computed
+    #   there too. So basically can have a function get_diff_dicts() which
+    #   returns one large diff_dict for a remove edit and one large diff_dict
+    #   for an add_or_modify edit, then do remove first and then add
+    #
     def _update_from_influencers(self, date_time, update_date_dict=True):
         """Update status and values based on influencers at datetime.
 
@@ -734,7 +769,8 @@ class TaskHistory(object):
         status_set = False
         value_set = False
         influencers_dict = time_dict.get(self.INFLUENCERS_KEY, {})
-        for influencer_dict in reversed(influencers_dict.values()):
+        for influencer in reversed(influencers_dict):
+            influencer_dict = influencers_dict[influencer]
             if self.STATUS_KEY in influencer_dict:
                 status = influencer_dict.get(self.STATUS_KEY)
                 if not status_set or status > status_set:
@@ -754,6 +790,7 @@ class TaskHistory(object):
             if not value_set and self.VALUE_KEY in time_dict:
                 del time_dict[self.VALUE_KEY]
             # delete time dict if neither status nor value is set
+            # (cause 1 of above mentioned crash)
             if not (status_set or value_set) and time in times_dict:
                 del times_dict[time]
 
@@ -768,9 +805,7 @@ class TaskHistory(object):
             date (Date): date to update at.
         """
         date_dict = self.get_dict_at_date(date)
-        time_dict = date_dict.get(self.TIMES_KEY)
-        if not time_dict:
-            return
+        time_dict = date_dict.get(self.TIMES_KEY, TimelineDict())
 
         # set latest time
         latest_time = time_dict.latest_key()
@@ -780,7 +815,8 @@ class TaskHistory(object):
         # update status and values to latest defined or delete if not there
         status_set = False
         value_set = False
-        for time_subdict in reversed(time_dict.values()):
+        for time in reversed(time_dict):
+            time_subdict = time_dict.get(time)
             if not status_set and self.STATUS_KEY in time_subdict:
                 date_dict[self.STATUS_KEY] = time_subdict.get(self.STATUS_KEY)
                 status_set = True
@@ -798,8 +834,12 @@ class TaskHistory(object):
             # delete times subdict if we're not setting a status or value
             # note that we can't delete the date dict as it may go out of
             # sync with the corresponding date dict in the global history
-            if not (status_set or value_set) and self.TIMES_KEY in date_dict:
-                del date_dict[self.TIMES_KEY]
+            if not (status_set or value_set):
+                if self.TIMES_KEY in date_dict:
+                    # cause 2 of above mentioned crash
+                    del date_dict[self.TIMES_KEY]
+                if self.LATEST_TIME_KEY in date_dict:
+                    del date_dict[self.LATEST_TIME_KEY]
 
     # def _get_diff_dict_at_date(self, date, update_from_time=True):
     #     """Get diff dict for a given date based on the time dict.

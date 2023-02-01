@@ -395,6 +395,9 @@ class TreeEditManager(BaseTreeManager):
             elif current_status == ItemStatus.COMPLETE:
                 status = ItemStatus.UNSTARTED
 
+        # TODO: we may want to remove task from previous datetimes it sets
+        # to avoid unnecessarily clogging up tree when we toggle through?
+        # at least any previous ones set on same day?
         return UpdateTaskHistoryEdit.create_and_run(
             task_item=task_item,
             influencer=task_item,

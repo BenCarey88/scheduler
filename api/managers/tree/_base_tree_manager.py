@@ -60,30 +60,6 @@ class BaseTreeManager(BaseManager):
             yield descendant
 
     @require_class(BaseTaskItem, raise_error=True)
-    def is_task(self, item):
-        """Check if tree item is task.
-
-        Args:
-            item (BaseTaskItem): tree item to check.
-
-        Return:
-            (bool): whether or not item is task.
-        """
-        return isinstance(item, Task)
-
-    @require_class(BaseTaskItem, raise_error=True)
-    def is_task_category(self, item):
-        """Check if tree item is task category.
-
-        Args:
-            item (BaseTaskItem): tree item to check.
-
-        Return:
-            (bool): whether or not item is task category.
-        """
-        return isinstance(item, TaskCategory)
-
-    @require_class(BaseTaskItem, raise_error=True)
     def is_top_level_task(self, item):
         """Check if tree item is a top level task.
 

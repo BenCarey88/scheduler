@@ -1,5 +1,9 @@
 """Base manager classes for others to inherit from."""
 
+from scheduler.api.tree.base_task_item import BaseTaskItem
+from scheduler.api.tree.task import Task
+from scheduler.api.tree.task_category import TaskCategory
+
 
 class ManagerError(Exception):
     """Base error class for manager exceptions."""
@@ -62,6 +66,30 @@ class BaseManager(object):
     def clear_filter_caches(self):
         """Clear all filter caches."""
         self._filterer.clear_filter_caches()
+
+    @require_class(BaseTaskItem, raise_error=True)
+    def is_task(self, item):
+        """Check if tree item is task.
+
+        Args:
+            item (BaseTaskItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is task.
+        """
+        return isinstance(item, Task)
+
+    @require_class(BaseTaskItem, raise_error=True)
+    def is_task_category(self, item):
+        """Check if tree item is task category.
+
+        Args:
+            item (BaseTaskItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is task category.
+        """
+        return isinstance(item, TaskCategory)
 
 
 class BaseCalendarManager(BaseManager):

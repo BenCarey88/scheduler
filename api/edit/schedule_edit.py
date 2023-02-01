@@ -3,8 +3,6 @@
 Friend classes: [Calendar, CalendarPeriod, ScheduledItem]
 """
 
-# TODO: delete the commented out MutableHostedAttributes
-# from scheduler.api.common.object_wrappers import MutableHostedAttribute
 from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
 from ._core_edits import (
     ActivateHostedDataEdit,
@@ -373,16 +371,19 @@ class ReplaceScheduledItemEdit(CompositeEdit):
         )
 
 
-class UpdateScheduledItemCheckStatusEdit(CompositeEdit):
+class UpdateScheduledItemStatusEdit(CompositeEdit):
     """Update check status of scheduled edit."""
-    def __init__(self, scheduled_item, new_status, date_time):
+    def __init__(self, scheduled_item, date_time, new_status, task_item=None):
         """Initialise edit.
 
         Args:
             scheduled_item (BaseScheduledItem): scheduled item whose check
                 status we should edit.
             new_status (int): new status to change to.
-            date_time (DateTime): the date and time this edit was done.
+            date_time (DateTime): the date and time this status change should
+                be applied at.
+            task_item (Task or None): tree item associated to scheduled item,
+                if it exists and is a Task (not a TaskCategory).
         """
         subedits = []
         attribute_edit = AttributeEdit.create_unregistered(
@@ -390,67 +391,35 @@ class UpdateScheduledItemCheckStatusEdit(CompositeEdit):
         )
         subedits.append(attribute_edit)
         for planned_item in scheduled_item.planned_items:
-            planned_item_edit = SelfInverseSimpleEdit(
-                planned_item._update_status_from_scheduled_items
+            # TODO: make this method below
+            # planned_item_edit = SelfInverseSimpleEdit(
+            #     planned_item._update_status_from_scheduled_items
+            # )
+            # subedits.append(planned_item_edit)
+            pass
+        if task_item is not None:
+            prev_task_status = task_item.history.get_influenced_status(
+                date_time,
+                scheduled_item,
             )
-            subedits.append(planned_item_edit)
-        if (scheduled_item.updates_task_status and
-                scheduled_item.tree_item is not None):
-            # TODO: check it's not a task category too? Or maybe remove
-            # the not-None tree item check here and just require that both
-            # these are checked in the manager class instead.
-            task = scheduled_item.tree_item
-            # TODO: DEFINE THE METHOD BELOW OR REMOVE IT
-            new_task_status = task.get_new_status(new_status, date_time)
-            # ^this method (maybe rename) should basically return the
-            # new_status if it is higher than the current status of
-            # the task at this time, otherwise return None.
-            # Maybe need to deal with what happens if that status is
-            # overridden at a later time (at least for non-routines)?
-            #
-            # ALSO need to deal with the case of cycling through the statuses
-            # ie. if we set to in_progress then complete, then unstarted, the
-            # unstarted should act to bring us back to where we began. So I
-            # think we basically need to check: is there a task history at
-            # this specific time? If so, then that specific task history should
-            # just be removed when we go from complete to unstarted. Otherwise,
-            # use the get_new_status function. This will need an update to the
-            # way we store task history though as currently it only stores by
-            # date.
-            # EXCEPT: this doesn't work if the scheduled item is then moved.
-            # so what we really need is a way for the task/task history to know
-            # that the current status is influenced by this item. eg. give it
-            # a status_influencers attribute, and if it's this item then we can
-            # do the second thing, otherwise do the first.
-            # eg _status_influencers = {
-            #   sched_item_1: {
-            #       date_time_1: IN_PROGRESS,
-            #   },
-            #   sched_item_2: {
-            #       date_time_2: COMPLETE,
-            #   },
-            #   planned_item_1: {
-            #       date_1: IN_PROGRESS,
-            #   }
-            # }
-            # then moving sched_item_2 status -> unstarted means that we delete
-            # it from the status influencers and update task history from the
-            # remaining influencers? Could get slow with lots of influencers?
-            if new_task_status is not None:
-                # TODO: UPDATE THIS AND REMOVE THAT GOD-AWFUL COMMENT ABOVE
-                task_edit = UpdateTaskHistoryEdit(
-                    task,
-                    date_time=date_time,
+            new_task_status = scheduled_item.get_new_task_status(new_status)
+            if prev_task_status != new_task_status:
+                task_edit = UpdateTaskHistoryEdit.create_unregistered(
+                    task_item,
+                    influencer=scheduled_item,
+                    old_datetime=date_time,
+                    new_datetime=date_time,
                     new_status=new_task_status,
                 )
                 subedits.append(task_edit)
-        super(UpdateScheduledItemCheckStatusEdit, self).__init__(subedits)
+
+        super(UpdateScheduledItemStatusEdit, self).__init__(subedits)
         self._is_valid = (new_status != scheduled_item.status)
         self._callback_args = self._undo_callback_args = [
             scheduled_item,
             scheduled_item,
         ]
-        self._name = "UpdateScheduledItemCheckStatusEdit ({0})".format(
+        self._name = "UpdateScheduledItemStatusEdit ({0})".format(
             scheduled_item.name
         )
         self._description = (

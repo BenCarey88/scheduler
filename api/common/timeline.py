@@ -42,6 +42,15 @@ class TimelineDict(MutableMapping):
         for key in self._key_list:
             yield key
 
+    def __reversed__(self):
+        """Iterate backwards through keys.
+
+        Yields:
+            (BaseDateTimeWrapper): the keys.
+        """
+        for key in reversed(self._key_list):
+            yield key
+
     def __len__(self):
         """Get length of filtered dict.
 
@@ -115,7 +124,7 @@ class TimelineDict(MutableMapping):
         self._value_list.append(value)
 
     def __str__(self):
-        """Get string representation of list.
+        """Get string representation of dict.
 
         Returns:
             (str): string repr.
@@ -125,6 +134,39 @@ class TimelineDict(MutableMapping):
             for key, value in zip(self._key_list, self._value_list)
         ])
         return "{" + string + "}"
+
+    def __repr__(self):
+        """Get string representation of dict.
+
+        Returns:
+            (str): string repr.
+        """
+        string = ", ".join([
+            "{0}:{1}".format(key, value)
+            for key, value in zip(self._key_list, self._value_list)
+        ])
+        return "TimelineDict({" + string + "})"
+
+    def move_to_end(self, key, last=True):
+        """Move key, value to one end of dict.
+
+        Args:
+            key (variant or Hosted): key to move.
+            last (bool): if true, move to last element of dict, otherwise
+                move to start of dict.
+        """
+        if key in self._key_list:
+            i = self._key_list.index(key)
+        else:
+            raise KeyError(
+                "No valid item at key {0} in TimelineDict".format(key)
+            )
+        if last:
+            self._key_list.append(self._key_list.pop(i))
+            self._value_list.append(self._value_list.pop(i))
+        else:
+            self._key_list.insert(0, self._key_list.pop(i))
+            self._value_list.insert(0, self._value_list.pop(i))
 
     def change_time(self, old_datetime, new_datetime):
         """Change item at old datetime to new datetime.
@@ -148,7 +190,7 @@ class TimelineDict(MutableMapping):
             (BaseDateTimeWrapper or None): the latest date/time, if
                 the timeline is non-empty.
         """
-        for date_time in reversed(self._key_list)):
+        for date_time in reversed(self._key_list):
             return date_time
         return None
 

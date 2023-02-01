@@ -41,6 +41,7 @@ from .schedule_edit import (
     ModifyRepeatScheduledItemEdit,
     ModifyRepeatScheduledItemInstanceEdit,
     ReplaceScheduledItemEdit,
+    UpdateScheduledItemStatusEdit,
 )
 
 
@@ -121,6 +122,7 @@ class CallbackType(object):
                 ModifyRepeatScheduledItemEdit,
                 ModifyRepeatScheduledItemInstanceEdit,
                 ReplaceScheduledItemEdit,
+                UpdateScheduledItemStatusEdit,
             ]
 
     Planner:
@@ -186,6 +188,7 @@ class CallbackType(object):
             ModifyRepeatScheduledItemEdit,
             ModifyRepeatScheduledItemInstanceEdit,
             ReplaceScheduledItemEdit,
+            UpdateScheduledItemStatusEdit,
         ],
         PLANNER_ADD: [AddPlannedItemEdit, AddPlannedItemAsChildEdit],
         PLANNER_REMOVE: [RemovePlannedItemEdit],

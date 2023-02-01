@@ -244,6 +244,8 @@ class BaseContainerEdit(BaseEdit):
                 "Can only call ContainerEdit _inverse_run once _run has "
                 "been called."
             )
+        print ("\n")
+        print ("inverse diff dict", self._inverse_diff_container)
         self._run_operation(
             self._container,
             self._inverse_diff_container,
@@ -465,6 +467,10 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
+        print ("key", key)
+        print ("value_tuple", value_tuple)
+        print ("dict", dict_)
+
         if not isinstance(value_tuple, tuple) or len(value_tuple) != 2:
             raise EditError("diff_dict for INSERT op needs 2-tuple values")
         if not isinstance(dict_, ORDERED_DICT_TYPES):
@@ -518,11 +524,15 @@ class BaseContainerEdit(BaseEdit):
         if key in dict_:
             if inverse_diff_dict is not None:
                 index = list(dict_.keys()).index(key)
+                print ("value", (index, dict_[key]))
+                print ("key", key)
+                print ("inverse diff dict", inverse_diff_dict)
                 self._add_inverse_diff_dict_key(
                     inverse_diff_dict,
                     key,
                     (index, dict_[key])
                 )
+                print ("inverse diff dict after", inverse_diff_dict, "\n")
             if not as_validity_check:
                 del dict_[key]
             return True

@@ -857,6 +857,14 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         """
         return str(self._list)
 
+    def __str__(self):
+        """Get string representation of list.
+
+        Returns:
+            (str): string repr.
+        """
+        return "HostedDataList(" + str(self._list) + ")"
+
     def insert(self, index, value):
         """Insert given value at given index into list.
 
@@ -1050,14 +1058,22 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             filter = CustomFilter(filter)
         self._filter &= filter
 
-    def _iter_filtered(self):
+    def _iter_filtered(self, reverse=False):
         """Iterate through filtered dict.
+
+        Args:
+            reverse (bool): if True, iterate in reverse.
 
         Yields:
             (variant or _HostObject): the valid keys.
             (variant or _HostObject): the valid values.
         """
-        for key, value in zip(self._key_list, self._value_list):
+        key_list = self._key_list
+        value_list = self._value_list
+        if reverse:
+            key_list = reversed(key_list)
+            value_list = reversed(value_list)
+        for key, value in zip(key_list, value_list):
             if ((self._values_are_hosted and value.defunct)
                     or (self._keys_are_hosted and key.defunct)):
                 continue
@@ -1093,6 +1109,18 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
                 objects, since this method is accessed externally).
         """
         for k, _ in self._iter_filtered():
+            if self._keys_are_hosted:
+                yield k.data
+            else:
+                yield k
+
+    def __reversed__(self):
+        """Iterate backwards through filtered keys.
+
+        Yields:
+            (BaseDateTimeWrapper): the keys.
+        """
+        for k, _ in self._iter_filtered(reverse=True):
             if self._keys_are_hosted:
                 yield k.data
             else:
@@ -1180,7 +1208,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
                 self._add_to_paired_container(value)
 
     def __str__(self):
-        """Get string representation of list.
+        """Get string representation of dict.
 
         Returns:
             (str): string repr.
@@ -1190,6 +1218,18 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             for key, value in zip(self._key_list, self._value_list)
         ])
         return "{" + string + "}"
+
+    def __repr__(self):
+        """Get string representation of dict.
+
+        Returns:
+            (str): string repr.
+        """
+        string = ", ".join([
+            "{0}:{1}".format(key, value)
+            for key, value in zip(self._key_list, self._value_list)
+        ])
+        return "HostedDataDict({" + string + "})"
 
     def _iter_hosts(self):
         """Iterate through all hosts in this container.

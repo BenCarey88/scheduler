@@ -202,7 +202,7 @@ class ScheduledItemWidget(object):
             ItemStatus.UNSTARTED: QtWidgets.QStyle.State_Off,
             ItemStatus.IN_PROGRESS: QtWidgets.QStyle.State_NoChange,
             ItemStatus.COMPLETE: QtWidgets.QStyle.State_On,
-        }.get(task.status, None)
+        }.get(self._scheduled_item.status, None)
 
     @property
     def display_buttons(self):
@@ -374,12 +374,16 @@ class ScheduledItemWidget(object):
             parent=self._timetable_view,
         )
         if continue_deletion:
+            # TODO: make this apply to _scheduled_item rather than item
+            # to modify, as this deletion should apply to item instance?
+            # BUT: the edit doesn't currently work for them
             self._schedule_manager.remove_scheduled_item(
                 self.get_item_to_modify(),
             )
 
     def toggle_checkbox(self):
         """Toggle checkbox."""
+        self._schedule_manager.update_check_status(self._scheduled_item)
 
     def get_item_to_modify(self):
         """Get the scheduled item to open with the scheduled item dialog.

@@ -58,7 +58,10 @@ class ItemRegistry(object):
         """
         if id in self._items.keys():
             # TODO: need better way to handle serialization errors, tool
-            # shouldn't crash if code is saved dogily
+            # shouldn't crash if code is saved dodgily
+            # Maybe keep this error though and just have some catches in
+            # the nested serialization class so can crash but also specify
+            # where the dodgy line is in the saved files?
             raise ItemRegistryError(
                 "Item with id {0} already exists in registry".format(id)
             )

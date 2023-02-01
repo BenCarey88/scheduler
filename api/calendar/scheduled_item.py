@@ -1,7 +1,6 @@
 """Scheduled item class."""
 
 from collections import OrderedDict
-from sqlite3 import connect
 
 from scheduler.api.common.date_time import (
     Date,
@@ -25,17 +24,35 @@ from scheduler.api.serialization.serializable import (
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api import constants
-
+from scheduler.api.utils import fallback_value, OrderedStringEnum
 
 #TODO standardize exceptions
 class ScheduledItemError(Exception):
     """Generic exception for scheduled item errors."""
 
 
-class ScheduledItemType():
+class ScheduledItemType(OrderedStringEnum):
     """Struct defining types of scheduled items."""
     TASK = "task"
     EVENT = "event"
+
+
+class ScheduledItemUpdatePolicy(OrderedStringEnum):
+    """Struct defining policies for updating tasks status from scheduled items.
+
+    Policies:
+        No_Update: scheduled item update has no effect on linked task.
+        Mark_In_Progress: when scheduled item is marked as in progress or
+            complete, its linked task will be updated to in progress. This
+            is the default behaviour.
+        Mark_Complete: when scheduled item is marked as in progress or
+            complete, its linked task will be updated to match it.
+        Mirror: task status mirrors scheduled item status directly.
+    """
+    NO_UPDATE = "No_Update"
+    MARK_IN_PROGRESS = "Mark_In_Progress"
+    MARK_COMPLETE = "Mark_Complete"
+    MIRROR = "Mirror"
 
 
 class ScheduledItemRepeatPattern(NestedSerializable):
@@ -254,7 +271,7 @@ class ScheduledItemRepeatPattern(NestedSerializable):
         """Update internal list of dates to include all before given date.
 
         Args:
-            date (Date): date to updaet to.
+            date (Date): date to update to.
         """
         if self._end_date is not None:
             date = min(date, self._end_date)
@@ -482,14 +499,18 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         )
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
+        self._status = MutableAttribute(
+            constants.ItemStatus.UNSTARTED,
+            "status",
+        )
+        self._update_policy = MutableAttribute(
+            ScheduledItemUpdatePolicy.MARK_IN_PROGRESS,
+            "update policy",
+        )
         self._planned_items = HostedDataList(
             pairing_id=constants.PLANNER_SCHEDULER_PAIRING,
             parent=self,
             driven=True,
-        )
-        self._status = MutableAttribute(
-            constants.ItemStatus.UNSTARTED,
-            "status",
         )
         self._id = None
 
@@ -667,6 +688,15 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         return self._status.value
 
     @property
+    def update_policy(self):
+        """Get update policy for item.
+
+        Returns:
+            (ScheduledItemUpdatePolicy): update policy of item.
+        """
+        return self._update_policy.value
+
+    @property
     def defunct(self):
         """Override defunct property.
 
@@ -738,6 +768,33 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         raise NotImplementedError(
             "get_item_container is implemented in scheduled item subclasses."
         )
+
+    def get_new_task_status(self, new_status=None):
+        """Get new status to give the task, based on status and update policy.
+
+        Args:
+            new_status (ItemStatus or None): new status for scheduled item to
+                override current one. If not given, base it on the current one.
+
+        Returns:
+            (ItemStatus or None): new status for task, based on status of this
+                item and its update policy (if one should be set).
+        """
+        task = self.tree_item
+        if not isinstance(task, Task):
+            return None
+        status = fallback_value(new_status, self.status)
+        # task_status = task.history.get_status_at_datetime(self.start_datetime)
+
+        if self.update_policy == ScheduledItemUpdatePolicy.MARK_IN_PROGRESS:
+            if status >= constants.ItemStatus.IN_PROGRESS:
+                return constants.ItemStatus.IN_PROGRESS
+        elif self.update_policy == ScheduledItemUpdatePolicy.MARK_COMPLETE:
+            if status >= constants.ItemStatus.IN_PROGRESS:
+                return status
+        elif self.update_policy == ScheduledItemUpdatePolicy.MIRROR:
+            return status
+        return None
 
     def _get_id(self):
         """Generate unique id for object.
@@ -824,8 +881,6 @@ class ScheduledItem(BaseScheduledItem):
     This uses DateTime values to define the start and end date and time of
     the item.
     """
-    START_KEY = "start"
-    END_KEY = "end"
     START_DATETIME_KEY = "start_datetime"
     END_DATETIME_KEY = "end_datetime"
 

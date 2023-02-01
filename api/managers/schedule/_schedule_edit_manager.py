@@ -8,6 +8,7 @@ from scheduler.api.edit.schedule_edit import (
     ModifyRepeatScheduledItemEdit,
     ModifyRepeatScheduledItemInstanceEdit,
     ReplaceScheduledItemEdit,
+    UpdateScheduledItemStatusEdit,
 )
 from scheduler.api.calendar.scheduled_item import(
     BaseScheduledItem,
@@ -16,6 +17,7 @@ from scheduler.api.calendar.scheduled_item import(
     RepeatScheduledItem,
     RepeatScheduledItemInstance,
 )
+from scheduler.api.constants import ItemStatus
 from scheduler.api.utils import fallback_value
 
 from .._base_manager import require_class
@@ -272,3 +274,42 @@ class ScheduleEditManager(BaseScheduleManager):
                 )
             )
         return edit_class.create_and_run(scheduled_item, attr_dict)
+
+    @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
+    def update_check_status(self, scheduled_item, status=None):
+        """Update check status of scheduled item.
+        
+        Args:
+            scheduled_item (BaseScheduledItem): item to edit.
+            status (ItemStatus or None): status to update item with. If None
+                given, we calculate the next one.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        # TODO: currently this edit could override a task that was completed
+        # earlier to in_progress. We don't want to do this, but we do want to
+        # mark the influencer down in case that earlier completion is later
+        # removed.
+        # The problem is that we then need to change the way that the history
+        # dict works out the status as it currently just propagates up from
+        # the latest task. And I think we DO want the ability to override
+        # a task from complete back to in_progress? Maybe we can add a
+        # STATUS_OVERRIDE key to the influencer dict to tell us whether or
+        # not to override earlier times, or to check against an earlier one
+        if status is None:
+            status = scheduled_item.status.next()
+        task_item = scheduled_item.tree_item
+        if task_item is not None and not self.is_task(task_item):
+            # TODO: ^check if we need this - may be that this is being/can be
+            # sorted in scheduled_item.get_new_task_status - if so, we can
+            # move the is_task method back to base_tree_manager
+            task_item = None
+        return UpdateScheduledItemStatusEdit.create_and_run(
+            scheduled_item,
+            scheduled_item.end_datetime,
+            status,
+            task_item=task_item,
+        )
+        # TODO: find a way to trigger a task ui update after this too?
+        # so that this still updates properly if we're in the task tab

@@ -191,7 +191,6 @@ class TaskRoot(TaskCategory):
         return task_root
 
 
-# TODO: work out what should happen to history when items are deleted
 class HistoryData(object):
     """Struct to store history data for tasks by day, to add to calendar.
 
@@ -244,6 +243,7 @@ class HistoryData(object):
         """
         return self._dict.setdefault(date, HostedDataDict())
 
+    # TODO: allow multiple dates?
     def _update_for_task(self, date, task):
         """Update dict to get history for task at given date.
 

@@ -1,7 +1,9 @@
 """Structs to wrap around objects allowing us to edit them."""
 
+from collections import OrderedDict
 from collections.abc import Iterable, MutableMapping, MutableSequence
 from contextlib import contextmanager
+from copy import deepcopy
 
 from scheduler.api.filter import BaseFilter, CustomFilter
 from scheduler.api.utils import fallback_value
@@ -946,6 +948,38 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         if hosted_data in self:
             self.remove(hosted_data)
 
+    def __copy__(self):
+        """Return shallow copy of object.
+
+        Returns:
+            (HostedDataList): shallow copy of self.
+        """
+        return HostedDataList(
+            self._list,
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )
+
+    def __deepcopy__(self):
+        """Return deep copy of object.
+
+        Returns:
+            (HostedDataList): deep copy of self.
+        """
+        # NOTE: not sure how deepcopys will work with hosted objects
+        # so will need to test if I ever use this
+        return HostedDataList(
+            [deepcopy(item) for item in self._list],
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )
+
 
 class HostedDataDict(_BaseHostedContainer, MutableMapping):
     """Dict class for keying data by _HostObjects.
@@ -1286,3 +1320,47 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         else:
             self._key_list.insert(0, self._key_list.pop(i))
             self._value_list.insert(0, self._value_list.pop(i))
+
+    def __copy__(self):
+        """Return shallow copy of object.
+
+        Returns:
+            (HostedDataList): shallow copy of self.
+        """
+        return HostedDataDict(
+            OrderedDict(zip(self._key_list, self._value_list)),
+            host_keys=self._keys_are_hosted,
+            host_values=self._values_are_hosted,
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            key_value_func=self._key_value_func,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )
+
+    def __deepcopy__(self):
+        """Return deep copy of object.
+
+        Returns:
+            (HostedDataList): deep copy of self.
+        """
+        # NOTE: not sure how deepcopys will work with hosted objects
+        # so will need to test if I ever use this
+        internal_dict = OrderedDict(
+            zip(
+                [deepcopy(key) for key in self._key_list],
+                [deepcopy(value) for value in self._value_list],
+            )
+        )
+        return HostedDataDict(
+            internal_dict,
+            host_keys=self._keys_are_hosted,
+            host_values=self._values_are_hosted,
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            key_value_func=self._key_value_func,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )

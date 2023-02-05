@@ -76,6 +76,7 @@ class CompositeEdit(BaseEdit):
             self,
             edits_list,
             reverse_order_for_inverse=True,
+            keep_last_for_inverse=None,
             validity_check_edits=None):
         """Initialize composite edit.
 
@@ -86,6 +87,8 @@ class CompositeEdit(BaseEdit):
             edits_list (list(BaseEdit)): list of edits to compose.
             reverse_order_for_inverse (bool): if True, we reverse the order
                 of the edits for the inverse.
+            keep_last_for_inverse (list(BaseEdit) or None): if given, keep
+                these edits last for the inverse.
             validity_check_edits (list(BaseEdit) or None): if given,
                 determine validity based just on this sublist of edits.
         """
@@ -98,6 +101,7 @@ class CompositeEdit(BaseEdit):
                 )
         self._edits_list = edits_list
         self._reverse_order_for_inverse = reverse_order_for_inverse
+        self._keep_last_for_inverse = keep_last_for_inverse or []
         super(CompositeEdit, self).__init__()
         validity_edits = fallback_value(validity_check_edits, self._edits_list)
         # NOTE: this is_valid check is a bit dodgy, can fail since the starting
@@ -118,6 +122,10 @@ class CompositeEdit(BaseEdit):
             inverse_edits_list = reversed(self._edits_list)
         else:
             inverse_edits_list = self._edits_list
+        for edit in self._keep_last_for_inverse:
+            if edit in inverse_edits_list:
+                index = inverse_edits_list.index(edit)
+                inverse_edits_list.append(inverse_edits_list.pop(index))
         for edit in inverse_edits_list:
             edit._inverse_run()
 

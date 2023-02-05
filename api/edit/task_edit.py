@@ -308,6 +308,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
         history = task_item.history
         subedits = []
         new_updates = (new_status is not None or new_value is not None)
+        keep_last_for_inverse = []
 
         # remove influencer at old date/time if it's different to new one
         if (old_datetime is not None and
@@ -346,6 +347,17 @@ class UpdateTaskHistoryEdit(CompositeEdit):
                     )
                 )
                 subedits.extend([remove_edit, update_edit])
+
+                # update root history data dict too in case needs deleting
+                global_edit = SelfInverseSimpleEdit.create_unregistered(
+                    partial(
+                        task_item.root._history_data._update_for_task,
+                        old_datetime.date(),
+                        task_item,
+                    )
+                )
+                subedits.append(global_edit)
+                keep_last_for_inverse.append(global_edit)
 
         # add (or modify) influencer at new date/time
         if new_datetime is not None and new_updates:
@@ -390,12 +402,11 @@ class UpdateTaskHistoryEdit(CompositeEdit):
                     )
                 )
                 subedits.append(global_edit)
+                keep_last_for_inverse.append(global_edit)
 
         super(UpdateTaskHistoryEdit, self).__init__(
             subedits,
-            # TODO: can we make the add and remove reverse order and just
-            # have the global_edit last? Maybe add a keep_last arg here
-            reverse_order_for_inverse=False,
+            keep_last_for_inverse=keep_last_for_inverse,
         )
         # TODO: work out extra _is_valid conditions
 

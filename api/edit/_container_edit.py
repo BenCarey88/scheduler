@@ -14,7 +14,8 @@ from ._base_edit import BaseEdit, EditError
 
 LIST_TYPES = (list, HostedDataList)
 DICT_TYPES = (dict, HostedDataDict, TimelineDict)
-ORDERED_DICT_TYPES = (OrderedDict, HostedDataDict, TimelineDict)
+# don't include timeline dicts in below as they take care of own order
+ORDERED_DICT_TYPES = (OrderedDict, HostedDataDict)
 HOSTED_CONTAINER_TYPES = (HostedDataDict, HostedDataList)
 CONTAINER_TYPES = (*LIST_TYPES, *DICT_TYPES)
 
@@ -30,6 +31,7 @@ class ContainerOp(OrderedStringEnum):
     SORT = "Sort"
     ADD_OR_MODIFY = "Add_Or_Modify"
     REMOVE_OR_MODIFY = "Remove_Or_Modify"
+    ADD_REMOVE_OR_MODIFY = "Add_Remove_Or_Modify"
 
     @classmethod
     def get_inverse_op(cls, op_type):
@@ -45,13 +47,13 @@ class ContainerOp(OrderedStringEnum):
             cls.ADD: cls.REMOVE,
             cls.INSERT: cls.REMOVE,
             cls.REMOVE: cls.INSERT,
-            cls.RENAME: cls.RENAME,
-            cls.MODIFY: cls.MODIFY,
-            cls.MOVE: cls.MOVE,
-            cls.SORT: cls.SORT,
             cls.ADD_OR_MODIFY: cls.REMOVE_OR_MODIFY,
             cls.REMOVE_OR_MODIFY: cls.ADD_OR_MODIFY,
-        }.get(op_type)
+        }.get(op_type, op_type)
+
+
+class InsertTuple(tuple):
+    """Custom tuple used to indicate that an edit is an insert one."""
 
 
 class ContainerEditFlag(OrderedStringEnum):
@@ -108,6 +110,7 @@ class BaseContainerEdit(BaseEdit):
 
             ADD_OR_MODIFY    {key: value}         - add/change value at keys
             REMOVE_OR_MODIFY {key: value or None} - remove/change value at keys
+            ADD_REMOVE_OR_MODIFY {key: value or None} - add/remove/change
 
         diff_list formats:
             ADD:    [new_item]               - append new item
@@ -200,6 +203,8 @@ class BaseContainerEdit(BaseEdit):
                 return self._dict_add_or_modify
             if operation_type == ContainerOp.REMOVE_OR_MODIFY:
                 return self._dict_remove_or_modify
+            if operation_type == ContainerOp.ADD_REMOVE_OR_MODIFY:
+                return self._dict_add_remove_or_modify
 
             if isinstance(container, ORDERED_DICT_TYPES):
                 if operation_type == ContainerOp.MOVE:
@@ -244,8 +249,6 @@ class BaseContainerEdit(BaseEdit):
                 "Can only call ContainerEdit _inverse_run once _run has "
                 "been called."
             )
-        print ("\n")
-        print ("inverse diff dict", self._inverse_diff_container)
         self._run_operation(
             self._container,
             self._inverse_diff_container,
@@ -435,6 +438,16 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
+        # add edits with InsertTuple values are interpreted as insert edits
+        if isinstance(value, InsertTuple):
+            return self._dict_insert(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
+
         if key not in dict_:
             if inverse_diff_dict is not None:
                 self._add_inverse_diff_dict_key(inverse_diff_dict, key, None)
@@ -467,10 +480,6 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        print ("key", key)
-        print ("value_tuple", value_tuple)
-        print ("dict", dict_)
-
         if not isinstance(value_tuple, tuple) or len(value_tuple) != 2:
             raise EditError("diff_dict for INSERT op needs 2-tuple values")
         if not isinstance(dict_, ORDERED_DICT_TYPES):
@@ -478,7 +487,8 @@ class BaseContainerEdit(BaseEdit):
                 key,
                 value_tuple[1],
                 dict_,
-                inverse_diff_dict
+                inverse_diff_dict,
+                as_validity_check,
             )
 
         index, new_value = value_tuple
@@ -524,15 +534,11 @@ class BaseContainerEdit(BaseEdit):
         if key in dict_:
             if inverse_diff_dict is not None:
                 index = list(dict_.keys()).index(key)
-                print ("value", (index, dict_[key]))
-                print ("key", key)
-                print ("inverse diff dict", inverse_diff_dict)
                 self._add_inverse_diff_dict_key(
                     inverse_diff_dict,
                     key,
-                    (index, dict_[key])
+                    InsertTuple(index, dict_[key])
                 )
-                print ("inverse diff dict after", inverse_diff_dict, "\n")
             if not as_validity_check:
                 del dict_[key]
             return True
@@ -559,7 +565,7 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        if key in dict_:
+        if key in dict_ and new_key not in dict_:
             if not as_validity_check:
                 if isinstance(dict_, ORDERED_DICT_TYPES):
                     for i in range(len(dict_)):
@@ -613,6 +619,8 @@ class BaseContainerEdit(BaseEdit):
             return True
         return False
 
+    # TODO: REMOVE has INSERT as reverse, so this doesn't work as inverse for
+    # REMOVE_OR_MODIFY
     # TODO: add some tests for these composite ones, haven't considered all
     # cases so I don't know if could hit some issues with the inverses for
     # certain recursive scenarios - but seems to work for task history :)
@@ -645,6 +653,14 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_dict,
                 as_validity_check,
             )
+        elif isinstance(value, InsertTuple):
+            return self._dict_insert(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
         else:
             return self._dict_add(
                 key,
@@ -661,7 +677,7 @@ class BaseContainerEdit(BaseEdit):
             dict_,
             inverse_diff_dict=None,
             as_validity_check=False):
-        """Remove existing key from dict if value is None, else modify key.
+        """Add, remove or modify existing key in dict.
 
         Args:
             key (variant): key to add in modify.
@@ -685,6 +701,61 @@ class BaseContainerEdit(BaseEdit):
             )
         else:
             return self._dict_modify(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
+
+    def _dict_add_remove_or_modify(
+            self,
+            key,
+            value,
+            dict_,
+            inverse_diff_dict=None,
+            as_validity_check=False):
+        """Remove existing key from dict if value is None, else modify key.
+
+        Args:
+            key (variant): key to add in modify.
+            value (variant): value for key.
+            dict_ (dict): ordered dict we're editing.
+            inverse_diff_dict (dict or None): if given, add to this to define
+                inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
+
+        Returns:
+            (bool): whether or not container is modified.
+        """
+        if key in dict_:
+            if value is None:
+                return self._dict_remove(
+                    key,
+                    value,
+                    dict_,
+                    inverse_diff_dict,
+                    as_validity_check,
+                )
+            else:
+                return self._dict_modify(
+                    key,
+                    value,
+                    dict_,
+                    inverse_diff_dict,
+                    as_validity_check,
+                )
+        elif isinstance(value, InsertTuple):
+            return self._dict_insert(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
+        else:
+            return self._dict_add(
                 key,
                 value,
                 dict_,
@@ -760,6 +831,15 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
+        # add edits with InsertTuple values are interpreted as insert edits
+        if isinstance(value, InsertTuple):
+            return self._list_insert(
+                value,
+                list_,
+                inverse_diff_list,
+                as_validity_check,
+            )
+
         if (ContainerEditFlag.LIST_IGNORE_DUPLICATES in self._edit_flags
                 and value in list_):
             return False
@@ -854,7 +934,7 @@ class BaseContainerEdit(BaseEdit):
                 value = list_.pop(index)
 
         if inverse_diff_list is not None:
-            inverse_diff_list.insert(0, (index, value))
+            inverse_diff_list.insert(0, InsertTuple(index, value))
         return True
 
     def _list_modify(
@@ -1031,6 +1111,7 @@ class DictEdit(BaseContainerEdit):
 
             ADD_OR_MODIFY    {key: value}         - add/change value at keys
             REMOVE_OR_MODIFY {key: value or None} - remove/change value at keys
+            ADD_REMOVE_OR_MODIFY {key: value or None} - add/remove/change
 
         recursive diff_dicts:
             ADD:    if key already exists, check next level and retry
@@ -1091,7 +1172,7 @@ class ListEdit(BaseContainerEdit):
             SORT:   [(key, reverse)]         - sort list by given key, reverse
 
         recursive diff_list:
-            Not really tested yet, be cautious with this.
+            Not used.
         """
         if (not isinstance(list_, LIST_TYPES)
                 or not isinstance(diff_list, LIST_TYPES)):

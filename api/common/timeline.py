@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 from collections.abc import MutableMapping
+from copy import deepcopy
 
 from scheduler.api.utils import fallback_value
 from scheduler.api.common.date_time import Date, DateTime, Time
@@ -248,6 +249,34 @@ class TimelineDict(MutableMapping):
         for date_time, value in zip(self._key_list, self._value_list):
             return date_time, value
         return None, None
+    
+    def __copy__(self):
+        """Return shallow copy of object.
+
+        Returns:
+            (TimelineDict): shallow copy of self.
+        """
+        return TimelineDict(
+            OrderedDict(zip(self._key_list, self._value_list)),
+            timeline_type=self._timeline_type,
+        )
+
+    def __deepcopy__(self):
+        """Return deep copy of object.
+
+        Returns:
+            (HostedDataList): deep copy of self.
+        """
+        internal_dict = OrderedDict(
+            zip(
+                [deepcopy(key) for key in self._key_list],
+                [deepcopy(value) for value in self._value_list],
+            )
+        )
+        return TimelineDict(
+            internal_dict,
+            timeline_type=self._timeline_type,
+        )
 
 
 # TODO: would it probably be easier to make this a list instead of an

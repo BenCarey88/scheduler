@@ -401,6 +401,7 @@ class TaskHistory(object):
     INFLUENCERS_KEY = "influencers"
     TIMES_KEY = "times"
     STATUS_OVERRIDE_KEY = "status_override"
+    CORE_FIELD_KEYS = [STATUS_KEY, VALUE_KEY, STATUS_OVERRIDE_KEY]
 
     def __init__(self, task):
         """Initialise task history object.
@@ -475,6 +476,21 @@ class TaskHistory(object):
         """
         for date, subdict in self._dict.items():
             yield date, subdict
+
+    def find_influencer_at_date(self, date, influencer):
+        """Search times dict at given date to find influencer.
+
+        Args:
+            date (Date): date to search at.
+            influencer (HostedData): influencer to search for.
+
+        Returns:
+            (Time or None): first time that influencer appears, if found.
+        """
+        times_dict = self.get_dict_at_date(date).get(self.TIMES_KEY, {})
+        for time, time_subdict in times_dict.items():
+            if influencer in time_subdict.get(self.INFLUENCERS_KEY):
+                return time
 
     # def get_status_at_date(self, date, end=False):
     #     """Get task status at given date.
@@ -739,7 +755,7 @@ class TaskHistory(object):
             self.VALUE_KEY
         )
 
-    def _get_update_edit_diff_dicts(
+    def _get_update_edit_diff_dict(
             self,
             influencer,
             old_datetime=None,
@@ -772,164 +788,111 @@ class TaskHistory(object):
             return None
         diff_dict = TimelineDict()
 
-        old_date = None
-        old_time = None
-        new_date = None
-        new_time = None
-        old_date_dict = None
-        old_time_dict = None
-        new_date_dict = None
-        new_time_dict = None
-        if isinstance(old_datetime, DateTime):
-            old_date = old_datetime.date()
-            old_time = old_datetime.time()
-            old_date_dict = self.get_dict_at_date(old_datetime.date())
-            old_time_dict = old_date_dict.get(self.TIMES_KEY, {}).get(
-                old_datetime.time(), {}
-            )
-        elif isinstance(old_datetime, Date):
-            old_date = old_datetime
-            old_date_dict = self.get_dict_at_date(old_datetime)
-        if isinstance(new_datetime, DateTime):
-            new_date = new_datetime.date()
-            new_time = new_datetime.time()
-            new_date_dict = self.get_dict_at_date(new_datetime.date())
-            new_time_dict = new_date_dict.get(self.TIMES_KEY, {}).get(
-                new_datetime.time(), {}
-            )
-        elif isinstance(new_datetime, Date):
-            new_date = new_datetime
-            new_date_dict = self.get_dict_at_date(new_datetime)
-
-        # old datetime diff dict
-        old_influencer_diff_dict = self.__get_old_influencer_diff_dict(
+        # diff dict to remove influencer at old date time, and update
+        self.__populate_diff_dict(
+            self,
+            diff_dict,
             influencer,
             old_datetime,
             new_datetime,
             core_field_updates,
+            use_old=True,
         )
-        if old_influencer_diff_dict is not None:
-            new_values_at_date_influencers = None
-            new_values_at_times_dict = None
-            if isinstance(old_datetime, Date):
-                date_diff_dict = {
-                    self.INFLUENCERS_KEY: old_influencer_diff_dict
-                }
-                diff_dict[old_datetime] = date_diff_dict
-                new_values_at_date_influencers = (
-                    influencer,
-                    old_influencer_diff_dict
-                )
-
-            else:
-                time_diff_dict = {
-                    self.INFLUENCERS_KEY: old_influencer_diff_dict
-                }
-                date_diff_dict = {
-                    self.TIMES_KEY: TimelineDict({
-                        old_datetime.time(): time_diff_dict
-                    })
-                }
-                diff_dict[old_datetime.date()] = date_diff_dict
-
-                # propagate edits up to times level
-                new_influencer_values = (
-                    core_field_updates if old_datetime == new_datetime
-                    else None
-                )
-                core_fields_dict = self.__find_core_fields_dict(
-                    old_time_dict.get(self.INFLUENCERS_KEY),
-                    update_subdicts={influencer: new_influencer_values},
-                )
-                for key in (self.STATUS_KEY,
-                        self.VALUE_KEY, self.STATUS_OVERRIDE_KEY):
-                    if core_fields_dict.get(key) != old_time_dict.get(key):
-                        time_diff_dict[key] = core_fields_dict[key]
-                new_values_at_times_dict = (old_time, core_fields_dict)
-
-            # propagate edits up to dates level
-            if old_datetime == new_datetime or old_date != new_date:
-                # see end of method for old_date == new_date case
-                core_fields_dict = self.__find_core_fields_dict(
-                    old_date_dict.get(self.INFLUENCERS_KEY, {}),
-                    update_subdicts=new_values_at_date_influencers,
-                    fallback_dict=old_date_dict.get(self.TIMES_KEY),
-                    update_fallback_subdicts=new_values_at_times_dict,
-                )
-                for key in (self.STATUS_KEY,
-                        self.VALUE_KEY, self.STATUS_OVERRIDE_KEY):
-                    if core_fields_dict.get(key) != old_date_dict.get(key):
-                        date_diff_dict[key] = core_fields_dict[key]
-
-        # new_datetime_diff_dict
-        new_influencer_diff_dict = self.__get_new_influencer_diff_dict(
+        # diff dict to add influencer at new date time, and update
+        self.__populate_diff_dict(
+            self,
+            diff_dict,
             influencer,
             old_datetime,
             new_datetime,
             core_field_updates,
+            use_old=False,
         )
-        if new_influencer_diff_dict is not None:
-            new_values_at_date_influencers = None
-            new_values_at_times_dict = None
-            if isinstance(new_datetime, Date):
-                date_diff_dict = {
-                    self.INFLUENCERS_KEY: new_influencer_diff_dict
-                }
-                diff_dict[new_datetime] = date_diff_dict
-                new_values_at_date_influencers = (
-                    influencer,
-                    new_influencer_diff_dict,
-                )
-
-            else:
-                time_diff_dict = {
-                    self.INFLUENCERS_KEY: new_influencer_diff_dict
-                }
-                date_diff_dict = {
-                    self.TIMES_KEY: TimelineDict({
-                        new_datetime.time(): time_diff_dict
-                    })
-                }
-                diff_dict[new_datetime.date()] = date_diff_dict
-
-                # propagate edits up to times level
-                core_fields_dict = self.__find_core_fields_dict(
-                    new_time_dict.get(self.INFLUENCERS_KEY),
-                    update_subdicts=(influencer, core_field_updates),
-                )
-                for key in (self.STATUS_KEY,
-                        self.VALUE_KEY, self.STATUS_OVERRIDE_KEY):
-                    if core_fields_dict.get(key) != old_time_dict.get(key):
-                        time_diff_dict[key] = core_fields_dict[key]
-                new_values_at_times_dict = (old_time, core_fields_dict)
-
-            # propagate edits up to dates level
-            if old_date != new_date:
-                # see end of method for old_date == new_date case
-                core_fields_dict = self.__find_core_fields_dict(
-                    new_date_dict.get(self.INFLUENCERS_KEY, {}),
-                    update_subdicts=new_values_at_date_influencers,
-                    fallback_dict=new_date_dict.get(self.TIMES_KEY),
-                    update_fallback_subdicts=new_values_at_times_dict,
-                )
-            else:
-                # if old date and new date are same we have multiple bits of
-                # info to carry to the dates_dict update, so needs separate
-                # consideration
-                if old_time is not None and new_time is not None:
-                    # ie. both influencers are added to DateTimes, not Dates
-                    core_fields_dict = self.__find_core_fields_dict(
-                        new_date_dict.get(self.INFLUENCERS_KEY, {}),
-                        update_subdicts=new_values_at_date_influencers,
-                        fallback_dict=new_date_dict.get(self.TIMES_KEY),
-                        update_fallback_subdicts=new_values_at_times_dict,
-                    )
-            for key in (self.STATUS_KEY,
-                    self.VALUE_KEY, self.STATUS_OVERRIDE_KEY):
-                if core_fields_dict.get(key) != old_date_dict.get(key):
-                    date_diff_dict[key] = core_fields_dict[key]
-
         return diff_dict
+
+    def __populate_diff_dict(
+            self,
+            diff_dict,
+            influencer,
+            old_datetime=None,
+            new_datetime=None,
+            core_field_updates=None,
+            use_old=True):
+        """Populate diff dict to remove or add influencer data.
+
+        Args:
+            diff_dict (dict): the overall diff dict we're building up.
+            influencer (variant): the object that is influencing the update.
+            old_datetime (Date, DateTime or None): the date or datetime that
+                this influencer was previously influencing at. If not given,
+                the edit will add it as a new influencer instead.
+            new_datetime (Date, DateTime or None): the date or datetime that
+                this update will be occurring at. If not given, the edit will
+                just remove the influencer at the old time instead.
+            core_field_updates (dict or None): dictionary of status, value and
+                status overrides that the influencer will now be defining at
+                the new date or time.
+            use_old (bool): if True, we're populating the diff dict at the old
+                date_time (ie. removing the old influencer data), else we're
+                populating at the new date_time (ie. adding influencer data).
+        """
+        old_date = self.__get_date(old_datetime)
+        new_date = self.__get_date(new_datetime)
+        if use_old:
+            date_time = old_datetime
+            date = old_date
+            influencer_dict_method = self.__get_old_influencer_diff_dict
+        else:
+            date_time = new_datetime
+            date = new_date
+            influencer_dict_method = self.__get_new_influencer_diff_dict
+
+        # get influencer diff dict
+        influencer_diff_dict = influencer_dict_method(
+            influencer,
+            old_datetime,
+            new_datetime,
+            core_field_updates,
+        )
+        if influencer_diff_dict is None:
+            return
+
+        # add influencer dict and propagate edits up to times level if needed
+        date_diff_dict = self.__add_influencer_diff_dict_at_date_time(
+            date_time,
+            influencer_diff_dict,
+            diff_dict,
+        )
+
+        # propagate edits up to dates level
+        if use_old and old_date == new_date:
+            # wait til the new date diff dict has been done to update
+            return
+        date_dict = self.get_dict_at_date(date)
+        core_fields_dict = self.__find_core_fields_dict(
+            date_dict.get(self.INFLUENCERS_KEY, {}),
+            diff_dict=date_diff_dict.get(self.INFLUENCERS_KEY),
+            fallback_dict=date_dict.get(self.TIMES_KEY),
+            fallback_diff_dict=date_diff_dict.get(self.TIMES_KEY),
+        )
+        for key in self.CORE_FIELD_KEYS:
+            if core_fields_dict.get(key) != date_dict.get(key):
+                date_diff_dict[key] = core_fields_dict[key]
+
+    def __get_date(self, date_time):
+        """Convenience method to get variables from a date or datetime.
+
+        Args:
+            date_time (Date, DateTime or None): datetime object to check.
+
+        Returns:
+            (Date or None): the date corresponding to the date_time object.
+        """
+        if isinstance(date_time, DateTime):
+            return date_time.date()
+        elif isinstance(date_time, Date):
+            return date_time
+        return None
 
     def __get_old_influencer_diff_dict(
             self,
@@ -947,7 +910,8 @@ class TaskHistory(object):
                 the update will be occurring at, if given.
             core_field_updates (dict or None): dictionary of status, value and
                 status overrides that the influencer will now be defining at
-                the new date or time.
+                the new date or time. This is included here for convenience,
+                but not actually used.
 
         Returns:
             (dict or None): diff dict to be used to remove data from the old
@@ -958,16 +922,11 @@ class TaskHistory(object):
         influencer_dict = self.get_influencer_dict(old_datetime, influencer)
         if not influencer_dict:
             return None
-
         if old_datetime == new_datetime:
-            # if datetimes are same, just remove keys that aren't needed
-            if not core_field_updates:
-                return None
-            else:
-                return HostedDataDict({influencer: core_field_updates})
-        else:
-            # otherwise remove the entire influencer dict
-            return HostedDataDict({influencer: None})
+            # if datetimes are same, just use new influencer diff dict
+            return None
+        # otherwise remove the entire influencer dict
+        return HostedDataDict({influencer: None})
 
     def __get_new_influencer_diff_dict(
             self,
@@ -992,12 +951,8 @@ class TaskHistory(object):
             (dict or None): diff dict to be used to add data to the new
                 datetime, if needed.
         """
-        if old_datetime == new_datetime:
-            # if influencers are the same, just use old influencer diff dict
-            return None
         if new_datetime is None:
             return None
-
         # values will be ported over from the dict at the old datetime
         old_influencer_dict = self.get_influencer_dict(
             old_datetime,
@@ -1009,23 +964,64 @@ class TaskHistory(object):
             influencer,
         )
         diff_dict = copy(core_field_updates)
-
-        for key in (self.STATUS_KEY,
-                self.VALUE_KEY, self.STATUS_OVERRIDE_KEY):
+        for key in self.CORE_FIELD_KEYS:
             if key in diff_dict:
-                continue
-            if (key in old_influencer_dict
+                if influencer_dict_to_overwrite.get(key) == diff_dict[key]:
+                    del diff_dict[key]
+            elif (key in old_influencer_dict
                     or key in influencer_dict_to_overwrite):
-                diff_dict[key] = old_influencer_dict.get(key)
+                diff_dict[key] = old_influencer_dict.get(key, None)
+        if not diff_dict:
+            return None
         return HostedDataDict({influencer: diff_dict})
+
+    def __add_influencer_diff_dict_at_date_time(
+            self,
+            date_time,
+            influencer_diff_dict,
+            diff_dict):
+        """Add influencer diff subdict to larger diff dict at date_time.
+
+        Args:
+            date_time (Date or DateTime): the date_time object we're adding at.
+            influencer_diff_dict (dict): the diff dict for the influencer.
+            diff_dict (dict): the larger diff dict that we're adding to.
+
+        Returns:
+            (dict): for conenience this returns the diff dict at the date.
+        """
+        if isinstance(date_time, Date):
+            date = date_time
+            date_diff_dict = {self.INFLUENCERS_KEY: influencer_diff_dict}
+            diff_dict[date] = date_diff_dict
+        else:
+            date = date_time.date()
+            time_diff_dict = {self.INFLUENCERS_KEY: influencer_diff_dict}
+            date_diff_dict = {
+                self.TIMES_KEY: TimelineDict({
+                    date_time.time(): time_diff_dict
+                })
+            }
+            diff_dict[date] = date_diff_dict
+
+            # propagate edits up to times level
+            time_dict = self.get_dict_at_datetime(date_time.time())
+            core_fields_dict = self.__find_core_fields_dict(
+                time_dict.get(self.INFLUENCERS_KEY),
+                diff_dict=influencer_diff_dict,
+            )
+            for key in self.CORE_FIELD_KEYS:
+                if core_fields_dict.get(key) != time_dict.get(key):
+                    time_diff_dict[key] = core_fields_dict[key]
+        return diff_dict.get(date, {})
 
     def __find_core_fields_dict(
             self,
             dict_,
             starting_values=None,
-            update_subdicts=None,
+            diff_dict=None,
             fallback_dict=None,
-            update_fallback_subdicts=None):
+            fallback_diff_dict=None):
         """Search through a dict to find the status and override it defines.
 
         This searches for the most recent value and the most complete status
@@ -1036,13 +1032,12 @@ class TaskHistory(object):
             dict_ (dict): ordered dict to search through.
             starting_values (dict or None): if given, use this dict to define
                 the initial values of the fields.
-            update_subdicts (dict(variant, dict/None) or None): keys at which
-                we should use new status, value or status_overrides, or ignore
-                some/all of the existing values.
+            diff_dict (dict(variant, dict/None) or None): diff_dict defining
+                updates to core values in subdicts, to include in search.
             fallback_dict (dict or None): dict to search through if some
                 fields aren't found from first one.
-            update_fallback_subdicts (tuple(variant, dict/None) or None):
-                update_subdicts arg to be used with fallback dict.
+            fallback_diff_dict (tuple(variant, dict/None) or None): diff dict
+                to be used with fallback dict.
 
         Returns:
             (dict): dictionary defining status, value and status_override.
@@ -1051,10 +1046,10 @@ class TaskHistory(object):
         status = starting_values.get(self.STATUS_KEY, None)
         value = starting_values.get(self.VALUE_KEY, None)
         status_override = starting_values.get(self.STATUS_OVERRIDE_KEY, False)
-        if update_subdicts is not None:
+        if diff_dict is not None:
             dict_ = copy(dict_)
-            for new_key, new_subdict in update_subdicts.items():
-                if new_subdict is None:
+            for new_key, diff_dict in diff_dict.items():
+                if diff_dict is None:
                     # when new subdict is None, delete from dict
                     if new_key in dict:
                         del dict_[new_key]
@@ -1062,14 +1057,13 @@ class TaskHistory(object):
                     # otherwise just add/modify keys in subdict
                     orig_subdict = dict_.get(new_key, {})
                     copied_subdict = copy(orig_subdict)
-                    for key in orig_subdict:
-                        if key not in new_subdict:
-                            continue
-                        new_value = new_subdict[key]
-                        if new_value is None:
-                            del copied_subdict[key]
-                        else:
-                            copied_subdict[key] = new_value
+                    for key in self.CORE_FIELD_KEYS:
+                        if key in diff_dict:
+                            new_value = diff_dict[key]
+                            if new_value is None:
+                                del copied_subdict[key]
+                            else:
+                                copied_subdict[key] = new_value
                     dict_[new_key] = copied_subdict
 
         for key in reversed(dict_):
@@ -1100,7 +1094,7 @@ class TaskHistory(object):
             return self.__find_core_fields_dict(
                 fallback_dict,
                 starting_values=core_fields_dict,
-                update_subdicts=update_fallback_subdicts,
+                diff_dict=fallback_diff_dict,
             )
         return core_fields_dict
 
@@ -1138,98 +1132,98 @@ class TaskHistory(object):
     #   returns one large diff_dict for a remove edit and one large diff_dict
     #   for an add_or_modify edit, then do remove first and then add
     #
-    def _update_from_influencers(self, date_time, update_date_dict=True):
-        """Update status and values based on influencers at datetime.
+            # def _update_from_influencers(self, date_time, update_date_dict=True):
+            #     """Update status and values based on influencers at datetime.
 
-        This is intended to be used by edit classes only.
+            #     This is intended to be used by edit classes only.
 
-        Args:
-            date_time (DateTime): datetime to update at.
-            update_date_dict (bool): if True, also propagate updates up to
-                date dict. This is included to allow us to skip this update
-                in an edit that is already doing it elsewhere.
-        """
-        date = date_time.date()
-        time = date_time.time()
-        time_dict = self.get_dict_at_datetime(date_time)
-        date_dict = self.get_dict_at_date(date)
-        times_dict = date_dict.get(self.TIMES_KEY, {})
+            #     Args:
+            #         date_time (DateTime): datetime to update at.
+            #         update_date_dict (bool): if True, also propagate updates up to
+            #             date dict. This is included to allow us to skip this update
+            #             in an edit that is already doing it elsewhere.
+            #     """
+            #     date = date_time.date()
+            #     time = date_time.time()
+            #     time_dict = self.get_dict_at_datetime(date_time)
+            #     date_dict = self.get_dict_at_date(date)
+            #     times_dict = date_dict.get(self.TIMES_KEY, {})
 
-        # update time_dict status and value from influencers at that time
-        status_set = False
-        value_set = False
-        influencers_dict = time_dict.get(self.INFLUENCERS_KEY, {})
-        for influencer in reversed(influencers_dict):
-            influencer_dict = influencers_dict[influencer]
-            if self.STATUS_KEY in influencer_dict:
-                status = influencer_dict.get(self.STATUS_KEY)
-                if not status_set or status > status_set:
-                    # use most complete status if multiple exist
-                    time_dict[self.STATUS_KEY] = status
-                    status_set = status
-            if not value_set and self.VALUE_KEY in influencer_dict:
-                value = influencer_dict.get(self.VALUE_KEY)
-                time_dict[self.VALUE_KEY] = value
-                value_set = True
-            if value_set and status_set == ItemStatus.COMPLETE:
-                break
-        else:
-            # delete status or value if no influencer is setting them
-            if not status_set and self.STATUS_KEY in time_dict:
-                del time_dict[self.STATUS_KEY]
-            if not value_set and self.VALUE_KEY in time_dict:
-                del time_dict[self.VALUE_KEY]
-            # delete time dict if neither status nor value is set
-            # (cause 1 of above mentioned crash)
-            if not (status_set or value_set) and time in times_dict:
-                del times_dict[time]
+            #     # update time_dict status and value from influencers at that time
+            #     status_set = False
+            #     value_set = False
+            #     influencers_dict = time_dict.get(self.INFLUENCERS_KEY, {})
+            #     for influencer in reversed(influencers_dict):
+            #         influencer_dict = influencers_dict[influencer]
+            #         if self.STATUS_KEY in influencer_dict:
+            #             status = influencer_dict.get(self.STATUS_KEY)
+            #             if not status_set or status > status_set:
+            #                 # use most complete status if multiple exist
+            #                 time_dict[self.STATUS_KEY] = status
+            #                 status_set = status
+            #         if not value_set and self.VALUE_KEY in influencer_dict:
+            #             value = influencer_dict.get(self.VALUE_KEY)
+            #             time_dict[self.VALUE_KEY] = value
+            #             value_set = True
+            #         if value_set and status_set == ItemStatus.COMPLETE:
+            #             break
+            #     else:
+            #         # delete status or value if no influencer is setting them
+            #         if not status_set and self.STATUS_KEY in time_dict:
+            #             del time_dict[self.STATUS_KEY]
+            #         if not value_set and self.VALUE_KEY in time_dict:
+            #             del time_dict[self.VALUE_KEY]
+            #         # delete time dict if neither status nor value is set
+            #         # (cause 1 of above mentioned crash)
+            #         if not (status_set or value_set) and time in times_dict:
+            #             del times_dict[time]
 
-        # then update date dict from time dict
-        if update_date_dict:
-            self._update_date_dict_from_times(date)
+            #     # then update date dict from time dict
+            #     if update_date_dict:
+            #         self._update_date_dict_from_times(date)
 
-    def _update_date_dict_from_times(self, date):
-        """Update date dict based on time subdict.
+            # def _update_date_dict_from_times(self, date):
+            #     """Update date dict based on time subdict.
 
-        Args:
-            date (Date): date to update at.
-        """
-        date_dict = self.get_dict_at_date(date)
-        time_dict = date_dict.get(self.TIMES_KEY, TimelineDict())
+            #     Args:
+            #         date (Date): date to update at.
+            #     """
+            #     date_dict = self.get_dict_at_date(date)
+            #     time_dict = date_dict.get(self.TIMES_KEY, TimelineDict())
 
-        # set latest time
-        latest_time = time_dict.latest_key()
-        if latest_time and date_dict.get(self.LATEST_TIME_KEY) != latest_time:
-            date_dict[self.LATEST_TIME_KEY] = latest_time
+            #     # set latest time
+            #     latest_time = time_dict.latest_key()
+            #     if latest_time and date_dict.get(self.LATEST_TIME_KEY) != latest_time:
+            #         date_dict[self.LATEST_TIME_KEY] = latest_time
 
-        # update status and values to latest defined or delete if not there
-        status_set = False
-        value_set = False
-        for time in reversed(time_dict):
-            time_subdict = time_dict.get(time)
-            if not status_set and self.STATUS_KEY in time_subdict:
-                date_dict[self.STATUS_KEY] = time_subdict.get(self.STATUS_KEY)
-                status_set = True
-            if not value_set and self.VALUE_KEY in time_subdict:
-                date_dict[self.VALUE_KEY] = time_subdict.get(self.VALUE_KEY)
-                value_set = True
-            if value_set and status_set:
-                break
-        else:
-            # delete status or value if not set in subdict
-            if not status_set and self.STATUS_KEY in date_dict:
-                del date_dict[self.STATUS_KEY]
-            if not value_set and self.VALUE_KEY in date_dict:
-                del date_dict[self.VALUE_KEY]
-            # delete times subdict if we're not setting a status or value
-            # note that we can't delete the date dict as it may go out of
-            # sync with the corresponding date dict in the global history
-            if not (status_set or value_set):
-                if self.TIMES_KEY in date_dict:
-                    # cause 2 of above mentioned crash
-                    del date_dict[self.TIMES_KEY]
-                if self.LATEST_TIME_KEY in date_dict:
-                    del date_dict[self.LATEST_TIME_KEY]
+            #     # update status and values to latest defined or delete if not there
+            #     status_set = False
+            #     value_set = False
+            #     for time in reversed(time_dict):
+            #         time_subdict = time_dict.get(time)
+            #         if not status_set and self.STATUS_KEY in time_subdict:
+            #             date_dict[self.STATUS_KEY] = time_subdict.get(self.STATUS_KEY)
+            #             status_set = True
+            #         if not value_set and self.VALUE_KEY in time_subdict:
+            #             date_dict[self.VALUE_KEY] = time_subdict.get(self.VALUE_KEY)
+            #             value_set = True
+            #         if value_set and status_set:
+            #             break
+            #     else:
+            #         # delete status or value if not set in subdict
+            #         if not status_set and self.STATUS_KEY in date_dict:
+            #             del date_dict[self.STATUS_KEY]
+            #         if not value_set and self.VALUE_KEY in date_dict:
+            #             del date_dict[self.VALUE_KEY]
+            #         # delete times subdict if we're not setting a status or value
+            #         # note that we can't delete the date dict as it may go out of
+            #         # sync with the corresponding date dict in the global history
+            #         if not (status_set or value_set):
+            #             if self.TIMES_KEY in date_dict:
+            #                 # cause 2 of above mentioned crash
+            #                 del date_dict[self.TIMES_KEY]
+            #             if self.LATEST_TIME_KEY in date_dict:
+            #                 del date_dict[self.LATEST_TIME_KEY]
 
     # def _get_diff_dict_at_date(self, date, update_from_time=True):
     #     """Get diff dict for a given date based on the time dict.

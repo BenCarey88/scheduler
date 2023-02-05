@@ -243,14 +243,16 @@ class HistoryData(object):
         """
         return self._dict.setdefault(date, HostedDataDict())
 
-    # TODO: allow multiple dates?
-    def _update_for_task(self, date, task):
+    def _update_for_task_at_dates(self, task, dates):
         """Update dict to get history for task at given date.
 
         Args:
-            date (Date): date to update at.
             task (Task): task to get history for.
+            dates (list(Date)): dates to update at.
         """
-        history_dict = task.history.get_dict_at_date(date)
-        if history_dict != self._dict.get(date, {}).get(task):
-            self._dict.setdefault(date, HostedDataDict())[task] = history_dict
+        for date in dates:
+            history_dict = task.history.get_dict_at_date(date)
+            if history_dict != self._dict.get(date, {}).get(task):
+                self._dict.setdefault(date, HostedDataDict())[task] = (
+                    history_dict
+                )

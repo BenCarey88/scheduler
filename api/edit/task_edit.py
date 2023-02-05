@@ -288,128 +288,76 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             old_datetime=None,
             new_datetime=None,
             new_status=None,
-            new_value=None):
+            new_value=None,
+            new_status_override=None,
+            remove_status=False,
+            remove_value=False,
+            remove_status_override=False):
         """Initialise edit.
 
         Args:
             task_item (Task): the task which is being updated.
             influencer (variant): the object that is influencing the update.
-            old_datetime (DateTime or None): the datetime that this influencer
-                was previously influencing at. If not given, the edit will add
-                it as a new influencer instead.
-            new_datetime (Date, DateTime or None): the datetime that this
-                update will be occurring at. If not given, the edit will just
-                remove the influencer at the old time instead.
+            old_datetime (Date, DateTime or None): the date or datetime that
+                this influencer was previously influencing at. If not given,
+                the edit will add it as a new influencer instead.
+            new_datetime (Date, DateTime or None): the date or datetime that
+                this update will be occurring at. If not given, the edit will
+                just remove the influencer at the old time instead.
             new_status (ItemStatus or None): the status that the influencer
                 will now be setting, if given.
             new_value (variant or None): the new value that the influencer will
                 now be setting, if given.
+            remove_status (bool): if True, remove status from influencer.
+            remove_value (bool): if True, remove value from influencer.
+            remove_status_override (bool): if True, remove status override.
         """
         history = task_item.history
-        subedits = []
-        new_updates = (new_status is not None or new_value is not None)
-        keep_last_for_inverse = []
+        core_field_updates = {}
+        keys_and_args = {
+            history.STATUS_KEY: (new_status, remove_status),
+            history.VALUE_KEY: (new_value, remove_value),
+            history.STATUS_OVERRIDE_KEY: (
+                new_status_override, remove_status_override
+            ),
+        }
+        for key, (add_arg, remove_arg) in keys_and_args.items():
+            if remove_arg:
+                core_field_updates[key] = None
+            elif add_arg is not None:
+                core_field_updates[key] = add_arg
 
-        # remove influencer at old date/time if it's different to new one
-        if (old_datetime is not None and
-                (old_datetime != new_datetime or not new_updates)):
-            influencers_dict = history.get_influencers_dict(old_datetime)
-            if influencer in influencers_dict:
-                remove_diff_dict = TimelineDict({
-                    old_datetime.date(): {
-                        history.TIMES_KEY: TimelineDict({
-                            old_datetime.time(): {
-                                history.INFLUENCERS_KEY: HostedDataDict({
-                                    influencer: None
-                                })
-                            }
-                        })
-                    }
-                })
-                remove_edit = DictEdit.create_unregistered(
-                    history._dict,
-                    remove_diff_dict,
-                    ContainerOp.REMOVE,
-                    recursive=True,
-                )
-                # propagate updates upwards
-                update_date_dict = (
-                    new_datetime is None
-                    or old_datetime.date() != new_datetime.date()
-                    or not new_updates
-                )
-                # ^ only update date dict if not being done later
-                update_edit = SelfInverseSimpleEdit.create_unregistered(
-                    partial(
-                        history._update_from_influencers,
-                        old_datetime,
-                        update_date_dict=update_date_dict,
-                    )
-                )
-                subedits.extend([remove_edit, update_edit])
+        # dictionary edit to update history dict
+        diff_dict = history._get_update_edit_diff_dict(
+            influencer,
+            old_datetime,
+            new_datetime,
+            core_field_updates,
+        )
+        if diff_dict is None:
+            super(UpdateTaskHistoryEdit, self).__init__([])
+            return
+        dict_edit = DictEdit.create_unregistered(
+            history._dict,
+            diff_dict,
+            ContainerOp.ADD_REMOVE_OR_MODIFY,
+            recursive=True,
+        )
 
-                # update root history data dict too in case needs deleting
-                global_edit = SelfInverseSimpleEdit.create_unregistered(
-                    partial(
-                        task_item.root._history_data._update_for_task,
-                        old_datetime.date(),
-                        task_item,
-                    )
-                )
-                subedits.append(global_edit)
-                keep_last_for_inverse.append(global_edit)
-
-        # add (or modify) influencer at new date/time
-        if new_datetime is not None and new_updates:
-            influencer_dict = {}
-            if new_status is not None:
-                influencer_dict[history.STATUS_KEY] = new_status
-            if new_value is not None:
-                influencer_dict[history.VALUE_KEY] = new_value
-            add_diff_dict = TimelineDict({
-                new_datetime.date(): {
-                    history.TIMES_KEY: TimelineDict({
-                        new_datetime.time(): {
-                            history.INFLUENCERS_KEY: HostedDataDict({
-                                influencer: influencer_dict
-                            })
-                        }
-                    })
-                }
-            })
-            add_edit = DictEdit.create_unregistered(
-                history._dict,
-                add_diff_dict,
-                ContainerOp.ADD_OR_MODIFY,
-                recursive=True,
+        # add to root history data dict too
+        global_edit = SelfInverseSimpleEdit.create_unregistered(
+            partial(
+                task_item.root._history_data._update_for_task,
+                task_item,
+                [old_datetime.date(), new_datetime.date()]
             )
-            # propagate updates upwards
-            update_edit = SelfInverseSimpleEdit.create_unregistered(
-                partial(
-                    history._update_from_influencers,
-                    new_datetime,
-                )
-            )
-            subedits.extend([add_edit, update_edit])
-
-            # add to root history data dict too if not been added yet
-            if not history.get_dict_at_date(new_datetime.date()):
-                global_edit = SelfInverseSimpleEdit.create_unregistered(
-                    partial(
-                        task_item.root._history_data._update_for_task,
-                        new_datetime.date(),
-                        task_item,
-                    )
-                )
-                subedits.append(global_edit)
-                keep_last_for_inverse.append(global_edit)
+        )
 
         super(UpdateTaskHistoryEdit, self).__init__(
-            subedits,
-            keep_last_for_inverse=keep_last_for_inverse,
+            [dict_edit, global_edit],
+            reverse_order_for_inverse=False,
         )
         # TODO: work out extra _is_valid conditions
-
         self._callback_args = self._undo_callback_args = [(
             task_item,
             task_item,

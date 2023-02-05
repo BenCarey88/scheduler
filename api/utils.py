@@ -227,9 +227,10 @@ class OrderedStringEnum(str, Enum):
         if (not issubclass(self.__class__, other.__class__)
                 or not issubclass(other.__class__, self.__class__)):
             raise Exception(
-                "Cannot compare enum values of different classes "
-                "{0} and {1}".format(
+                "Cannot compare enum values {0} ({1}) and {2} ({3})".format(
+                    str(self),
                     self.__class__.__name__,
+                    str(other),
                     other.__class__.__name__,
                 )
             )

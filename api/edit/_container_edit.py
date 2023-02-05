@@ -54,6 +54,19 @@ class ContainerOp(OrderedStringEnum):
 
 class InsertTuple(tuple):
     """Custom tuple used to indicate that an edit is an insert one."""
+    def __new__(cls, *args):
+        """Create tuple from args.
+
+        Note that because 'tuple' is immutable, we need to define __new__
+        as opposed to __init__.
+
+        Args:
+            args (list): list of arbitrary arguments to add into tuple.
+                This means we create a tuple like InsertTuple(a, b, c),
+                as opposed to the standard method for tuple types, which
+                is tuple([a, b, c]).
+        """
+        return tuple.__new__(cls, args)
 
 
 class ContainerEditFlag(OrderedStringEnum):

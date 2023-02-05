@@ -352,6 +352,7 @@ class Task(BaseTaskItem):
         return task
 
 
+# TODO: fix serialization, and maybe add some value caching for date vals?
 class TaskHistory(object):
     """Simple wrapper around an OrderedDict to represent task history.
 
@@ -489,7 +490,7 @@ class TaskHistory(object):
         """
         times_dict = self.get_dict_at_date(date).get(self.TIMES_KEY, {})
         for time, time_subdict in times_dict.items():
-            if influencer in time_subdict.get(self.INFLUENCERS_KEY):
+            if influencer in time_subdict.get(self.INFLUENCERS_KEY, {}):
                 return time
 
     # def get_status_at_date(self, date, end=False):
@@ -518,72 +519,61 @@ class TaskHistory(object):
     #                 return subdict[self.STATUS_KEY]
     #     return ItemStatus.UNSTARTED
 
-    def get_status_at_end_of_date(self, date):
-        """Get task status by end of given date.
+    def get_status_at_date(self, date, start=False):
+        """Get task status at given date.
 
-        This will just return the status specified by the STATUS key at the
-        given date if it exists, as this represents the latest status at
-        that date. If it doesn't exist, this will return the status at the
-        start of the date, as determined by the function below.
+        This searches through for the most complete status set since a status
+        override before (optionally including) this date, stopping at the
+        start of the date if its a routine, and defaulting to unstarted.
 
-        Note that this DOESN'T attempt to look at the time subdictionary.
-        It is the responsibility of any edit that alters the time subdict
-        to also propagate any status changes up to the current date.
-        Crucially this means that we CAN'T use this function as part of
-        the logic for the _update_date_dict_from_time method.
+        Note that this DOESN'T attempt to look at the time subdictionary or
+        influencers subdicts. It is the responsibility of any edit that alters
+        the status influencers to also propagate any status changes up to the
+        current date.
 
         Args:
             date (Date): date to query.
+            start (bool): if True, get status at start of date, otherwise get
+                status at end of date.
 
         Returns:
-            (ItemStatus): task status at given date.
+            (ItemStatus): task status at start of given date.
         """
-        status = self.get_dict_at_date(date).get(self.STATUS_KEY)
-        if status:
+        status = None
+        status_override = False
+        if not start:
+            date_dict = self.get_dict_at_date(date)
+            status = date_dict.get(self.STATUS_KEY)
+        if status is not None:
+            status_override = date_dict.get(self.STATUS_OVERRIDE_KEY, False)
+        status = status or ItemStatus.UNSTARTED
+        # if status is overridden, or item is routine, don't check prev days
+        if (status_override
+                or status == ItemStatus.COMPLETE
+                or self._task.type == TaskType.ROUTINE):
             return status
-        return self.get_status_at_start_of_date(date)
 
-    def get_status_at_start_of_date(self, date):
-        """Get task status at the start of given date.
-
-        For routines this will always be unstarted. For non-routines,
-        this is just the most recent status before the current date
-        (defaulting to unstarted).
-
-        Args:
-            date (Date): date to query.
-
-        Returns:
-            (ItemStatus): task status at start of given date.
-        """
-        if self._task.type != TaskType.ROUTINE:
-            # if task isn't routine, default to last recorded status
-            for recorded_date in reversed(self._dict):
+        # otherwise find the most complete status since an override
+        for recorded_date in reversed(self._dict):
+            if recorded_date < date:
                 subdict = self._dict[recorded_date]
-                if recorded_date < date and self.STATUS_KEY in subdict:
-                    return subdict[self.STATUS_KEY]
-        return ItemStatus.UNSTARTED
+                new_status = subdict.get(self.STATUS_KEY, status)
+                if new_status > status:
+                    status = new_status
+                status_override = subdict.get(
+                    self.STATUS_OVERRIDE_KEY,
+                    status_override,
+                )
+                if status_override or status == ItemStatus.COMPLETE:
+                    break
+        return status
 
-    def get_status_at_date(self, date):
-        """Get task status at the end of given date.
-
-        TODO: This is here for backwards compatibility. It should be removed
-        soon once all its uses are replaced with get_status_at_end_of_date.
-        OR: we should keep? I don't know. Maybe want to go back to being
-        able to set directly at dates and just interpreting it as end of
-        dates?
-
-        Args:
-            date (Date): date to query.
-
-        Returns:
-            (ItemStatus): task status at start of given date.
-        """
-        return self.get_status_at_end_of_date(date)
-
-    # TODO: make this match the corresponding status methods?
     def get_value_at_date(self, date):
         """Get task value at given date.
+
+        This just searches for any value set at the current date. Currently,
+        since values are linked to routines and task tracking they're
+        always assumed to reset at each date.
 
         Args:
             date (Date): date to query.
@@ -596,11 +586,13 @@ class TaskHistory(object):
     def get_status_at_datetime(self, date_time):
         """Get task status at given datetime.
 
-        Currently this works by the following logic: if there are statuses
-        set at or before this time in the date, pick the most recent one.
-        Otherwise, find the status set at the date of the previous day.
-        Statuses on the current day are considered to be completed at the
-        very end of the day, so won't apply to a datetime within the day.
+        This searches through for the most complete status set since a status
+        override up to this date, stopping at the start of the date if it's
+        a routine, and defaulting to unstarted.
+
+        Note that this DOESN'T attempt to look at the influencers subdicts.
+        It is the responsibility of any edit that alters the status influencers
+        to also propagate any status changes up to the time.
 
         Args:
             date_time (DateTime): datetime to query.
@@ -610,11 +602,26 @@ class TaskHistory(object):
         """
         date_dict = self.get_dict_at_date(date_time.date())
         times_dict = date_dict.get(self.TIMES_KEY, {})
+        status = ItemStatus.UNSTARTED
+        status_override = False
         for time in reversed(times_dict):
-            subdict = times_dict.get(time)
-            if self.STATUS_KEY in subdict and time <= date_time.time():
-                return subdict[self.STATUS_KEY]
-        return self.get_status_at_start_of_date(date_time.date())
+            if time <= date_time.time():
+                subdict = times_dict[time]
+                new_status = subdict.get(self.STATUS_KEY, status)
+                if new_status > status:
+                    status = new_status
+                status_override = subdict.get(
+                    self.STATUS_OVERRIDE_KEY,
+                    status_override,
+                )
+                if status_override or status == ItemStatus.COMPLETE:
+                    return status
+        if self._task.type == TaskType.ROUTINE:
+            return status
+        prev_status = self.get_status_at_date(date_time.date(), start=True)
+        if prev_status > status:
+            return prev_status
+        return status
 
     def get_value_at_datetime(self, date_time):
         """Get task value at given datetime.
@@ -637,9 +644,7 @@ class TaskHistory(object):
             subdict = times_dict.get(time)
             if self.VALUE_KEY in subdict and time <= date_time.time():
                 return subdict[self.VALUE_KEY]
-        return self.get_value_at_date(
-            date_time.date() - TimeDelta(days=1)
-        )
+        return self.get_value_at_date(date_time.date() - TimeDelta(days=1))
 
     # TODO: this doesn't work for undos - use gets instead and then implement
     # as an edit
@@ -707,14 +712,13 @@ class TaskHistory(object):
         Returns:
             (HostedDataDict): influencers dict.
         """
-        if isinstance(date_time, Date):
-            datetime_dict = self.get_dict_at_date(date_time)
-        elif isinstance(date_time, DateTime):
+        datetime_dict = {}
+        if isinstance(date_time, DateTime):
             datetime_dict = self.get_dict_at_datetime(date_time)
-        else:
-            raise ValueError("date_time arg must be date or date_time")
+        elif isinstance(date_time, Date):
+            datetime_dict = self.get_dict_at_date(date_time)
         return datetime_dict.get(self.INFLUENCERS_KEY, {})
-    
+
     def get_influencer_dict(self, date_time, influencer):
         """Get influencer dict for given date or datetime and influencer.
 
@@ -790,7 +794,6 @@ class TaskHistory(object):
 
         # diff dict to remove influencer at old date time, and update
         self.__populate_diff_dict(
-            self,
             diff_dict,
             influencer,
             old_datetime,
@@ -800,7 +803,6 @@ class TaskHistory(object):
         )
         # diff dict to add influencer at new date time, and update
         self.__populate_diff_dict(
-            self,
             diff_dict,
             influencer,
             old_datetime,
@@ -841,11 +843,11 @@ class TaskHistory(object):
         if use_old:
             date_time = old_datetime
             date = old_date
-            influencer_dict_method = self.__get_old_influencer_diff_dict
+            influencer_dict_method = self.__get_old_influencers_diff_dict
         else:
             date_time = new_datetime
             date = new_date
-            influencer_dict_method = self.__get_new_influencer_diff_dict
+            influencer_dict_method = self.__get_new_influencers_diff_dict
 
         # get influencer diff dict
         influencer_diff_dict = influencer_dict_method(
@@ -862,6 +864,7 @@ class TaskHistory(object):
             date_time,
             influencer_diff_dict,
             diff_dict,
+            influencer,
         )
 
         # propagate edits up to dates level
@@ -869,10 +872,13 @@ class TaskHistory(object):
             # wait til the new date diff dict has been done to update
             return
         date_dict = self.get_dict_at_date(date)
+        if date_dict is None:
+            # if date_dict is None, whole date is removed, so we're done.
+            return
         core_fields_dict = self.__find_core_fields_dict(
             date_dict.get(self.INFLUENCERS_KEY, {}),
             diff_dict=date_diff_dict.get(self.INFLUENCERS_KEY),
-            fallback_dict=date_dict.get(self.TIMES_KEY),
+            fallback_dict=date_dict.get(self.TIMES_KEY, {}),
             fallback_diff_dict=date_diff_dict.get(self.TIMES_KEY),
         )
         for key in self.CORE_FIELD_KEYS:
@@ -894,13 +900,13 @@ class TaskHistory(object):
             return date_time
         return None
 
-    def __get_old_influencer_diff_dict(
+    def __get_old_influencers_diff_dict(
             self,
             influencer,
             old_datetime=None,
             new_datetime=None,
             core_field_updates=None):
-        """Get UpdateTaskHistoryEdit diff dict for influencer at old datetime.
+        """Get UpdateTaskHistoryEdit diff dict for influencers at old datetime.
 
         Args:
             influencer (variant): the object that is influencing the update.
@@ -914,27 +920,30 @@ class TaskHistory(object):
                 but not actually used.
 
         Returns:
-            (dict or None): diff dict to be used to remove data from the old
-                datetime, if needed.
+            (dict or None): diff dict to be used to remove influencer data
+                from the old datetime, if needed.
         """
         if old_datetime is None:
             return None
-        influencer_dict = self.get_influencer_dict(old_datetime, influencer)
-        if not influencer_dict:
+        influencers_dict = self.get_influencers_dict(old_datetime)
+        if influencer not in influencers_dict:
             return None
         if old_datetime == new_datetime:
             # if datetimes are same, just use new influencer diff dict
             return None
-        # otherwise remove the entire influencer dict
-        return HostedDataDict({influencer: None})
+        if len(influencers_dict) == 1:
+            # if this is the only influencer remove entire influencers dict
+            return {self.INFLUENCERS_KEY: None}
+        # otherwise remove this influencer dict
+        return {self.INFLUENCERS_KEY: HostedDataDict({influencer: None})}
 
-    def __get_new_influencer_diff_dict(
+    def __get_new_influencers_diff_dict(
             self,
             influencer,
             old_datetime=None,
             new_datetime=None,
             core_field_updates=None):
-        """Get UpdateTaskHistoryEdit diff dict for influencer at new datetime.
+        """Get UpdateTaskHistoryEdit diff dict for influencers at new datetime.
 
         Args:
             influencer (variant): the object that is influencing the update.
@@ -948,8 +957,8 @@ class TaskHistory(object):
                 the new date or time.
 
         Returns:
-            (dict or None): diff dict to be used to add data to the new
-                datetime, if needed.
+            (dict or None): diff dict to be used to add influencer data to the
+                new datetime, if needed.
         """
         if new_datetime is None:
             return None
@@ -973,47 +982,71 @@ class TaskHistory(object):
                 diff_dict[key] = old_influencer_dict.get(key, None)
         if not diff_dict:
             return None
-        return HostedDataDict({influencer: diff_dict})
+        return {self.INFLUENCERS_KEY: HostedDataDict({influencer: diff_dict})}
 
+    # TODO: to make things clearer, we should call these args date_time_obj,
+    # or just use separate date and time args.
     def __add_influencer_diff_dict_at_date_time(
             self,
             date_time,
             influencer_diff_dict,
-            diff_dict):
+            diff_dict,
+            influencer):
         """Add influencer diff subdict to larger diff dict at date_time.
 
         Args:
             date_time (Date or DateTime): the date_time object we're adding at.
             influencer_diff_dict (dict): the diff dict for the influencer.
             diff_dict (dict): the larger diff dict that we're adding to.
+            influencer (HostedData): the influencer being updated.
 
         Returns:
-            (dict): for conenience this returns the diff dict at the date.
+            (dict or None): for convenience this returns the diff dict at the
+                date. If None, this means the diff dict is telling us to
+                remove that date.
         """
-        if isinstance(date_time, Date):
-            date = date_time
-            date_diff_dict = {self.INFLUENCERS_KEY: influencer_diff_dict}
-            diff_dict[date] = date_diff_dict
-        else:
+        if isinstance(date_time, DateTime):
+            # add influencer diff to time influencers
             date = date_time.date()
-            time_diff_dict = {self.INFLUENCERS_KEY: influencer_diff_dict}
-            date_diff_dict = {
-                self.TIMES_KEY: TimelineDict({
-                    date_time.time(): time_diff_dict
-                })
-            }
-            diff_dict[date] = date_diff_dict
-
-            # propagate edits up to times level
-            time_dict = self.get_dict_at_datetime(date_time.time())
-            core_fields_dict = self.__find_core_fields_dict(
-                time_dict.get(self.INFLUENCERS_KEY),
-                diff_dict=influencer_diff_dict,
-            )
-            for key in self.CORE_FIELD_KEYS:
-                if core_fields_dict.get(key) != time_dict.get(key):
-                    time_diff_dict[key] = core_fields_dict[key]
-        return diff_dict.get(date, {})
+            time = date_time.time()
+            date_diff_dict = diff_dict.setdefault(date, {})
+            time_diff_dict = date_diff_dict.setdefault(
+                self.TIMES_KEY,
+                TimelineDict(),
+            ).setdefault(time, {})
+            time_diff_dict[self.INFLUENCERS_KEY] = influencer_diff_dict[
+                self.INFLUENCERS_KEY
+            ]
+            if influencer_diff_dict[self.INFLUENCERS_KEY] == None:
+                # removing all influencers at the given time, delete whole dict
+                date_diff_dict[self.TIMES_KEY][time] = None
+            
+            else:
+                # propagate edits up to times level
+                time_dict = self.get_dict_at_datetime(date_time)
+                # Note changed diff dict arg below in case where it's None
+                # so that we know to remove the whole influencer dict
+                core_fields_dict = self.__find_core_fields_dict(
+                    time_dict.get(self.INFLUENCERS_KEY, {}),
+                    diff_dict=fallback_value(
+                        influencer_diff_dict.get(self.INFLUENCERS_KEY),
+                        HostedDataDict({influencer: None}),
+                    ),
+                )
+                for key in self.CORE_FIELD_KEYS:
+                    if core_fields_dict.get(key) != time_dict.get(key):
+                        time_diff_dict[key] = core_fields_dict[key]
+        else:
+            date = date_time
+            date_diff_dict = diff_dict.setdefault(date, {})
+            date_diff_dict[self.INFLUENCERS_KEY] = influencer_diff_dict[
+                self.INFLUENCERS_KEY
+            ]
+            if (influencer_diff_dict[self.INFLUENCERS_KEY] == None and
+                    not self.get_dict_at_date(date).get(self.TIMES_KEY)):
+                # removing all influencers at date dict without times 
+                date_diff_dict[date] = None
+        return diff_dict[date]
 
     def __find_core_fields_dict(
             self,
@@ -1045,21 +1078,21 @@ class TaskHistory(object):
         starting_values = starting_values or {}
         status = starting_values.get(self.STATUS_KEY, None)
         value = starting_values.get(self.VALUE_KEY, None)
-        status_override = starting_values.get(self.STATUS_OVERRIDE_KEY, False)
+        status_override = starting_values.get(self.STATUS_OVERRIDE_KEY, None)
         if diff_dict is not None:
             dict_ = copy(dict_)
-            for new_key, diff_dict in diff_dict.items():
-                if diff_dict is None:
+            for new_key, diff_subdict in diff_dict.items():
+                if diff_subdict is None:
                     # when new subdict is None, delete from dict
-                    if new_key in dict:
+                    if new_key in dict_:
                         del dict_[new_key]
                 else:
                     # otherwise just add/modify keys in subdict
                     orig_subdict = dict_.get(new_key, {})
                     copied_subdict = copy(orig_subdict)
                     for key in self.CORE_FIELD_KEYS:
-                        if key in diff_dict:
-                            new_value = diff_dict[key]
+                        if key in diff_subdict:
+                            new_value = diff_subdict[key]
                             if new_value is None:
                                 del copied_subdict[key]
                             else:
@@ -1090,7 +1123,6 @@ class TaskHistory(object):
         }
         if (fallback_dict is not None and
                 (status is None or value is None or not status_override)):
-            
             return self.__find_core_fields_dict(
                 fallback_dict,
                 starting_values=core_fields_dict,
@@ -1275,6 +1307,7 @@ class TaskHistory(object):
     #         return {self.STATUS_KEY: new_status}
     #     return None
 
+    # TODO: make these work with status overrides, influencers etc.
     def to_dict(self):
         """Convert class to serialized json dict.
 
@@ -1319,7 +1352,9 @@ class TaskHistory(object):
             class_subdict = {}
             class_dict[Date.from_string(date)] = class_subdict
             if cls.STATUS_KEY in subdict:
-                class_subdict[cls.STATUS_KEY] = subdict[cls.STATUS_KEY]
+                class_subdict[cls.STATUS_KEY] = ItemStatus(
+                    subdict[cls.STATUS_KEY]
+                )
             if cls.VALUE_KEY in subdict:
                 class_subdict[cls.VALUE_KEY] = subdict[cls.VALUE_KEY]
             if cls.COMMENT_KEY in subdict:
@@ -1328,8 +1363,21 @@ class TaskHistory(object):
                 class_times_subdict = TimelineDict()
                 class_subdict[cls.TIMES_KEY] = class_times_subdict
                 for time, time_subdict in subdict[cls.TIMES_KEY].items():
-                    class_times_subdict[Time.from_string(time)] = OrderedDict(
-                        time_subdict
+                    class_time_subdict = {}
+                    if cls.STATUS_KEY in time_subdict:
+                        class_time_subdict[cls.STATUS_KEY] = ItemStatus(
+                            time_subdict[cls.STATUS_KEY]
+                        )
+                    if cls.VALUE_KEY in time_subdict:
+                        class_time_subdict[cls.VALUE_KEY] = (
+                            time_subdict[cls.VALUE_KEY]
+                        )
+                    if cls.COMMENT_KEY in time_subdict:
+                        class_time_subdict[cls.COMMENT_KEY] = (
+                            time_subdict[cls.COMMENT_KEY]
+                        )
+                    class_times_subdict[Time.from_string(time)] = (
+                        class_time_subdict
                     )
         task_history = cls(task)
         task_history._dict = class_dict

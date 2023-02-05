@@ -361,8 +361,7 @@ class TreeEditManager(BaseTreeManager):
     def update_task(
             self,
             task_item,
-            date=None,
-            time=None,
+            date_time=None,
             status=None,
             value=None,
             status_override=None,
@@ -372,8 +371,8 @@ class TreeEditManager(BaseTreeManager):
 
         Args:
             task_item (Task): task item to edit.
-            date (Date or None): date to update task history with. If None,
-                we use current date.
+            date (Date, DateTime or None): date or datetime to update task
+                history with. If None, we use current date.
             time (Time or None): time to update task history with, if used.
             status (ItemStatus or None): status to update task with. If None
                 given, we calculate the next one.
@@ -389,11 +388,8 @@ class TreeEditManager(BaseTreeManager):
         Returns:
             (bool): whether or not edit was successful.
         """
-        if date is None:
-            date = Date.now()
-        date_time = date
-        if time is not None:
-            date_time = DateTime.from_date_and_time(date, time)
+        if date_time is None:
+            date_time = DateTime.now()
 
         if status is None:
             current_status = task_item.get_status_at_date(date_time.date())
@@ -410,11 +406,13 @@ class TreeEditManager(BaseTreeManager):
         # remove task from previous time on same day to avoid clogging up
         old_datetime = None
         if remove_from_prev_time:
-            if time is not None:
+            if isinstance(date_time, DateTime):
                 history = task_item.history
+                date = date_time.date()
                 old_time = history.find_influencer_at_date(date, task_item)
                 if old_time is not None:
                     old_datetime = DateTime.from_date_and_time(date, old_time)
+        print ("DICT ", task_item.history._dict)
         return UpdateTaskHistoryEdit.create_and_run(
             task_item=task_item,
             influencer=task_item,

@@ -404,12 +404,14 @@ class UpdateScheduledItemStatusEdit(CompositeEdit):
             )
             new_task_status = scheduled_item.get_new_task_status(new_status)
             if prev_task_status != new_task_status:
+                remove_status = True if new_task_status is None else False
                 task_edit = UpdateTaskHistoryEdit.create_unregistered(
                     task_item,
                     influencer=scheduled_item,
                     old_datetime=date_time,
                     new_datetime=date_time,
                     new_status=new_task_status,
+                    remove_status=remove_status,
                 )
                 subedits.append(task_edit)
 

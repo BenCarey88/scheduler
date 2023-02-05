@@ -345,11 +345,17 @@ class UpdateTaskHistoryEdit(CompositeEdit):
         )
 
         # add to root history data dict too
+        dates = []
+        for date_time_obj in (old_datetime, new_datetime):
+            if isinstance(date_time_obj, DateTime):
+                dates.append(date_time_obj.date())
+            elif isinstance(date_time_obj, Date):
+                dates.append(date_time_obj)
         global_edit = SelfInverseSimpleEdit.create_unregistered(
             partial(
-                task_item.root._history_data._update_for_task,
+                task_item.root._history_data._update_for_task_at_dates,
                 task_item,
-                [old_datetime.date(), new_datetime.date()]
+                dates,
             )
         )
 

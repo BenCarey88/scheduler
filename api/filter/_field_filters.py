@@ -3,7 +3,7 @@
 import fnmatch
 
 from scheduler.api.common import BaseDateTimeWrapper
-from scheduler.api.utils import OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum
 from ._base_filter import BaseFilter
 
 

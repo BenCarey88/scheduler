@@ -4,7 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.constants import ItemImportance, ItemSize
+from scheduler.api.enums import ItemImportance, ItemSize
 
 from scheduler.ui.widgets.base_tree_view import BaseTreeView
 from scheduler.ui.models.tree import TaskTreeModel

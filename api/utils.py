@@ -2,7 +2,6 @@
 
 from contextlib import contextmanager
 import datetime
-from enum import Enum
 import sys
 
 
@@ -104,6 +103,25 @@ def add_key_at_start(ordered_dict, key, value):
             ordered_dict[k] = v
 
 
+def setdefault_not_none(dict_, key, default):
+    """Return dict value at key, setting as default if not set or None.
+
+    This is the same as the setdefault method on dicts, but also guarantees
+    the return value won't be None (unless the default is None).
+
+    Args:
+        dict_ (dict): dict to get value from (and set value if needed).
+        key (variant): key of dict to get value at (and set if needed).
+        default (variant): default value to set if dict is None at key.
+
+    Returns:
+        (variant): value at that key.
+    """
+    if dict_.get(key) is None:
+        dict_[key] = default
+    return dict_[key]
+
+
 def get_class_name_from_method(method):
     """Get name of class that a given class method belongs to.
 
@@ -173,166 +191,6 @@ def backup_git_repo(repo_path, commit_message="backup"):
         )
 
     return None
-
-
-class OrderedStringEnum(str, Enum):
-    """Base ordered enumerator with string values.
-
-    All string enum classes should inherit from this. It defines an
-    ordering on the values based on the order they're written in the
-    class definitions, with the first values the smallest.
-
-    If you want to manually define the ordering, you can use tuples
-    to define the order values, eg.
-
-    class Color(OrderedStringEnum):
-        RED = ("Red", 0)
-        BLUE = ("Blue", 1)
-        GREEN = ("Green", 2)
-    """
-    def __new__(cls, *args):
-        if len(args) == 1:
-            number = len(cls.__members__)
-            obj = str.__new__(cls, args[0])
-            obj._key_ = number
-            return obj
-        elif len(args) == 2:
-            value, number = args
-            obj = str.__new__(cls, value)
-            obj._key_ = number
-            return obj
-        raise Exception(
-            "Invalid args to pass to OrderedStringEnum: {0}".format(str(args))
-        )
-
-    @classmethod
-    def get_values(cls):
-        """Get all values for enum."""
-        return list(cls.__members__)
-
-    @property
-    def key(self):
-        """Get key for ordering comparisons."""
-        return self._key_
-
-    def key_function(self):
-        """Get key for ordering comparisons.
-
-        This is the same as the above but no longer implemented as a property.
-        """
-        return self._key_
-
-    def _assert_comparable(self, other):
-        """Assert that the given values are comparable."""
-        if (not issubclass(self.__class__, other.__class__)
-                or not issubclass(other.__class__, self.__class__)):
-            raise Exception(
-                "Cannot compare enum values {0} ({1}) and {2} ({3})".format(
-                    str(self),
-                    self.__class__.__name__,
-                    str(other),
-                    other.__class__.__name__,
-                )
-            )
-
-    def __gt__(self, other):
-        """Check if this is greater than another enum."""
-        self._assert_comparable(other)
-        return self.key > other.key
-
-    def __ge__(self, other):
-        """Check if this is greater than or equal to another enum."""
-        self._assert_comparable(other)
-        return self.key >= other.key
-
-    def __lt__(self, other):
-        """Check if this is less than another enum."""
-        self._assert_comparable(other)
-        return self.key < other.key
-    
-    def __le__(self, other):
-        """Check if this is less than or equal to another enum."""
-        self._assert_comparable(other)
-        return self.key <= other.key
-
-    def __repr__(self):
-        """Get string representation of enum."""
-        return self.value
-
-    def __str__(self):
-        """Get string representation of enum."""
-        return self.value
-
-    def next(self, cycle=True):
-        """Get the next enum in the class.
-
-        Args:
-            cycle (bool): if True, cycle round to start after end.
-
-        Returns:
-            (OrderedStringEnum or None): next enum, if found.
-        """
-        cls = self.__class__
-        members = list(cls)
-        index = members.index(self) + 1
-        if index >= len(members):
-            if not cycle:
-                return None
-            index = 0
-        return members[index]
-
-    def prev(self, cycle=True):
-        """Get the previous enum in the class.
-
-        Args:
-            cycle (bool): if True, cycle round to end after start.
-
-        Returns:
-            (OrderedStringEnum or None): previous enum, if found.
-        """
-        cls = self.__class__
-        members = list(cls)
-        index = members.index(self) - 1
-        if index < 0:
-            if not cycle:
-                return None
-            index = len(members) - 1
-        return members[index]
-
-
-# TODO: USE ACTUAL ENUMS (see my test under
-# ~/OneDrive/Documents/Coding/Python/Other/Tests/enums.py)
-# will need updating of all derived classes, and crucially
-# will also require changes to serialization as I assume enums can't
-# be automatically json-serialized? Maybe worth writing my own json
-# encoder in this class too and then using that in the serializable
-# module instead of the standard json one
-# TBH, this needs to be combined with whatever's going on in the
-# serializer classes too. It's a bit unneat atm.
-# class OrderedStringEnum(object):
-#     """Base ordered enumerator struct with string values.
-
-#     Enumerators with an ordering should inherit from this and
-#     fill in the values list to define the ordering.
-#     """
-#     VALUES = []
-#     @classmethod
-#     def key(cls, value):
-#         """Get key, used to order values."""
-#         i = 0
-#         for i, val in enumerate(cls.VALUES):
-#             if val == value:
-#                 return i
-#         return i + 1
-
-#     @classmethod
-#     def filter_key(cls, value):
-#         """Key, but returns None if value not found."""
-#         i = 0
-#         for i, val in enumerate(cls.VALUES):
-#             if val == value:
-#                 return i
-#         return None
 
 
 """Id registry to store floating items by temporary ids."""

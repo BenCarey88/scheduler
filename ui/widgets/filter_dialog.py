@@ -12,7 +12,7 @@ from scheduler.api.common.date_time import (
     DateTime,
     Time,
 )
-from scheduler.api.constants import ItemImportance, ItemSize, ItemStatus
+from scheduler.api.enums import ItemImportance, ItemSize, ItemStatus
 from scheduler.api.filter import FieldFilter, FilterOperator
 from scheduler.api.filter.tree_filters import (
     NoFilter,
@@ -24,7 +24,8 @@ from scheduler.api.filter.tree_filters import (
     TaskTypeFilter,
 )
 from scheduler.api.tree.task import TaskType
-from scheduler.api.utils import fallback_value, OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum
+from scheduler.api.utils import fallback_value
 
 from scheduler.ui.utils import (
     set_style,

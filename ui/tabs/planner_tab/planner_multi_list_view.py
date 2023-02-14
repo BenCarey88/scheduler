@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore
 
-from scheduler.api.constants import TimePeriod
+from scheduler.api.enums import TimePeriod
 from scheduler.api.calendar.planned_item import PlannedItem
 from scheduler.api.edit.edit_callbacks import CallbackType
 from scheduler.ui.tabs.base_calendar_view import (

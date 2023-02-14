@@ -10,8 +10,8 @@ from scheduler.api.common.object_wrappers import (
 )
 from scheduler.api.common.timeline import TimelineDict
 from scheduler.api.serialization.serializable import SaveType
-from scheduler.api.constants import ItemStatus
-from scheduler.api.utils import fallback_value, OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum, ItemStatus
+from scheduler.api.utils import fallback_value, setdefault_not_none
 
 from .base_task_item import BaseTaskItem
 
@@ -871,10 +871,10 @@ class TaskHistory(object):
         if use_old and old_date == new_date:
             # wait til the new date diff dict has been done to update
             return
-        date_dict = self.get_dict_at_date(date)
-        if date_dict is None:
-            # if date_dict is None, whole date is removed, so we're done.
+        if date_diff_dict is None:
+            # if date_diff_dict is None, whole date is removed, so we're done.
             return
+        date_dict = self.get_dict_at_date(date)
         core_fields_dict = self.__find_core_fields_dict(
             date_dict.get(self.INFLUENCERS_KEY, {}),
             diff_dict=date_diff_dict.get(self.INFLUENCERS_KEY),
@@ -924,12 +924,13 @@ class TaskHistory(object):
                 from the old datetime, if needed.
         """
         if old_datetime is None:
-            return None
-        influencers_dict = self.get_influencers_dict(old_datetime)
-        if influencer not in influencers_dict:
+            # if no old_datetime given then no need to remove
             return None
         if old_datetime == new_datetime:
             # if datetimes are same, just use new influencer diff dict
+            return None
+        influencers_dict = self.get_influencers_dict(old_datetime)
+        if influencer not in influencers_dict:
             return None
         if len(influencers_dict) == 1:
             # if this is the only influencer remove entire influencers dict
@@ -973,15 +974,29 @@ class TaskHistory(object):
             influencer,
         )
         diff_dict = copy(core_field_updates)
+        remove_all = True
         for key in self.CORE_FIELD_KEYS:
             if key in diff_dict:
+                if remove_all and diff_dict[key] is not None:
+                    remove_all = False
                 if influencer_dict_to_overwrite.get(key) == diff_dict[key]:
                     del diff_dict[key]
-            elif (key in old_influencer_dict
-                    or key in influencer_dict_to_overwrite):
-                diff_dict[key] = old_influencer_dict.get(key, None)
+            elif key in old_influencer_dict:
+                remove_all = False
+                diff_dict[key] = old_influencer_dict[key]
+            elif key in influencer_dict_to_overwrite:
+                diff_dict[key] = None
         if not diff_dict:
             return None
+        if remove_all:
+            # if we've removed all the properties, then remove the dict
+            influencers_dict = self.get_influencers_dict(new_datetime)
+            if len(influencers_dict) == 1:
+                # if this is the only influencer remove entire influencers dict
+                return {self.INFLUENCERS_KEY: None}
+            # otherwise just remove this specific influencer dict
+            return {self.INFLUENCERS_KEY: HostedDataDict({influencer: None})}
+        # otherwise, return diff dict as usual
         return {self.INFLUENCERS_KEY: HostedDataDict({influencer: diff_dict})}
 
     # TODO: to make things clearer, we should call these args date_time_obj,
@@ -1009,22 +1024,38 @@ class TaskHistory(object):
             # add influencer diff to time influencers
             date = date_time.date()
             time = date_time.time()
-            date_diff_dict = diff_dict.setdefault(date, {})
-            time_diff_dict = date_diff_dict.setdefault(
+            date_diff_dict = setdefault_not_none(diff_dict, date, {})
+            times_diff_dict = setdefault_not_none(
+                date_diff_dict,
                 self.TIMES_KEY,
                 TimelineDict(),
-            ).setdefault(time, {})
+            )
+            time_diff_dict = setdefault_not_none(times_diff_dict, time, {})
             time_diff_dict[self.INFLUENCERS_KEY] = influencer_diff_dict[
                 self.INFLUENCERS_KEY
             ]
-            if influencer_diff_dict[self.INFLUENCERS_KEY] == None:
-                # removing all influencers at the given time, delete whole dict
-                date_diff_dict[self.TIMES_KEY][time] = None
-            
+            if influencer_diff_dict[self.INFLUENCERS_KEY] is None:
+                # if removing all influencers at given time, propagate removal
+                times_dict = self.get_dict_at_date(date).get(
+                    self.TIMES_KEY, {}
+                )
+                if len(times_dict) == 1:
+                    date_dict = self.get_dict_at_date(date)
+                    if not date_dict.get(self.INFLUENCERS_KEY):
+                        # case 1: removed all times and no influencers exist
+                        # at date level, so we delete the whole date dict
+                        diff_dict[date] = None
+                    else:
+                        # case 2: just removed all times, so delete times dict
+                        date_diff_dict[self.TIMES_KEY] = None
+                else:
+                    # case 3: just removed a specific time, so delete that dict
+                    date_diff_dict[self.TIMES_KEY][time] = None
+
             else:
-                # propagate edits up to times level
+                # otherwise propagate edits up to times level
                 time_dict = self.get_dict_at_datetime(date_time)
-                # Note changed diff dict arg below in case where it's None
+                # Note we changed diff dict arg below in case where it's None
                 # so that we know to remove the whole influencer dict
                 core_fields_dict = self.__find_core_fields_dict(
                     time_dict.get(self.INFLUENCERS_KEY, {}),
@@ -1038,14 +1069,14 @@ class TaskHistory(object):
                         time_diff_dict[key] = core_fields_dict[key]
         else:
             date = date_time
-            date_diff_dict = diff_dict.setdefault(date, {})
+            date_diff_dict = setdefault_not_none(diff_dict, date, {})
             date_diff_dict[self.INFLUENCERS_KEY] = influencer_diff_dict[
                 self.INFLUENCERS_KEY
             ]
-            if (influencer_diff_dict[self.INFLUENCERS_KEY] == None and
+            if (influencer_diff_dict[self.INFLUENCERS_KEY] is None and
                     not self.get_dict_at_date(date).get(self.TIMES_KEY)):
                 # removing all influencers at date dict without times 
-                date_diff_dict[date] = None
+                diff_dict[date] = None
         return diff_dict[date]
 
     def __find_core_fields_dict(

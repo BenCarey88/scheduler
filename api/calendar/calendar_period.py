@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from contextlib import contextmanager
 
-from scheduler.api.constants import TimePeriod
+from scheduler.api.enums import TimePeriod
 from scheduler.api.common.date_time import (
     Date,
     DateTimeError,

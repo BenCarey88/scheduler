@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from scheduler.api.utils import OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum
 
 from . import edit_log
 from .filter_edit import (
@@ -41,7 +41,7 @@ from .schedule_edit import (
     ModifyRepeatScheduledItemEdit,
     ModifyRepeatScheduledItemInstanceEdit,
     ReplaceScheduledItemEdit,
-    UpdateScheduledItemStatusEdit,
+    # UpdateScheduledItemStatusEdit,
 )
 
 
@@ -188,7 +188,7 @@ class CallbackType(object):
             ModifyRepeatScheduledItemEdit,
             ModifyRepeatScheduledItemInstanceEdit,
             ReplaceScheduledItemEdit,
-            UpdateScheduledItemStatusEdit,
+            # UpdateScheduledItemStatusEdit,
         ],
         PLANNER_ADD: [AddPlannedItemEdit, AddPlannedItemAsChildEdit],
         PLANNER_REMOVE: [RemovePlannedItemEdit],

@@ -5,7 +5,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime, Time
-from scheduler.api.constants import ItemStatus
+from scheduler.api.enums import ItemStatus
 from scheduler.api.tree import TaskType, TaskHistory
 from scheduler.ui import constants, utils
 

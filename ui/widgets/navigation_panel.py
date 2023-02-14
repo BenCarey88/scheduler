@@ -3,7 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date
-from scheduler.api.utils import OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum
 from scheduler.api.calendar import (
     BaseCalendarPeriod,
     CalendarDay,

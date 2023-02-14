@@ -4,7 +4,7 @@ from collections import OrderedDict
 import unittest
 
 from scheduler.api.common.date_time import DateTime
-from scheduler.api.constants import ItemStatus
+from scheduler.api.enums import ItemStatus
 
 from api.edit.tree_edit import RenameChildrenEdit
 from api.edit.task_edit import UpdateTaskHistoryEdit

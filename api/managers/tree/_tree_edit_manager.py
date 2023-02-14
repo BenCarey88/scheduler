@@ -1,7 +1,7 @@
 """Tree edit manager for managing edits on tree items."""
 
 from scheduler.api.common.date_time import Date, DateTime
-from scheduler.api.constants import ItemStatus
+from scheduler.api.enums import ItemStatus
 from scheduler.api.edit.tree_edit import (
     ArchiveTreeItemEdit,
     InsertChildrenEdit,
@@ -412,7 +412,6 @@ class TreeEditManager(BaseTreeManager):
                 old_time = history.find_influencer_at_date(date, task_item)
                 if old_time is not None:
                     old_datetime = DateTime.from_date_and_time(date, old_time)
-        print ("DICT ", task_item.history._dict)
         return UpdateTaskHistoryEdit.create_and_run(
             task_item=task_item,
             influencer=task_item,

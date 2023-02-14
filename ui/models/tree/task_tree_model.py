@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.constants import ItemStatus
+from scheduler.api.enums import ItemStatus
 from scheduler.api.tree.task import TaskType
 
 from scheduler.ui import constants
@@ -144,7 +144,11 @@ class TaskTreeModel(BaseTreeModel):
             task_item = index.internalPointer()
             if not task_item:
                 return False
-            return self.tree_manager.update_task(task_item)
+            return self.tree_manager.update_task(
+                task_item,
+                # TODO: start adding in the status overrides
+                # status_override=True,
+            )
         if role == QtCore.Qt.ItemDataRole.EditRole:
             if column_name == self.IMPORTANCE_COLUMN:
                 task_item = index.internalPointer()

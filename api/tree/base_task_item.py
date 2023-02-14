@@ -3,7 +3,7 @@
 from collections import OrderedDict
 
 from scheduler.api import constants
-from scheduler.api.constants import TimePeriod
+from scheduler.api.enums import TimePeriod
 
 from scheduler.api.common.object_wrappers import (
     HostedDataList,

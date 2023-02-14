@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from scheduler.api.constants import TimePeriod as TP
+from scheduler.api.enums import TimePeriod as TP
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.tabs.planner_tab.planner_hybrid_view import (
     OverlayedPlannerHybridView

@@ -24,7 +24,9 @@ from scheduler.api.serialization.serializable import (
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api import constants
-from scheduler.api.utils import fallback_value, OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum, ItemStatus, ItemUpdatePolicy
+from scheduler.api.utils import fallback_value
+
 
 #TODO standardize exceptions
 class ScheduledItemError(Exception):
@@ -35,24 +37,6 @@ class ScheduledItemType(OrderedStringEnum):
     """Struct defining types of scheduled items."""
     TASK = "task"
     EVENT = "event"
-
-
-class ScheduledItemUpdatePolicy(OrderedStringEnum):
-    """Struct defining policies for updating tasks status from scheduled items.
-
-    Policies:
-        No_Update: scheduled item update has no effect on linked task.
-        Mark_In_Progress: when scheduled item is marked as in progress or
-            complete, its linked task will be updated to in progress. This
-            is the default behaviour.
-        Mark_Complete: when scheduled item is marked as in progress or
-            complete, its linked task will be updated to match it.
-        Mirror: task status mirrors scheduled item status directly.
-    """
-    NO_UPDATE = "No_Update"
-    MARK_IN_PROGRESS = "Mark_In_Progress"
-    MARK_COMPLETE = "Mark_Complete"
-    MIRROR = "Mirror"
 
 
 class ScheduledItemRepeatPattern(NestedSerializable):
@@ -89,7 +73,7 @@ class ScheduledItemRepeatPattern(NestedSerializable):
         self._initial_date_pattern = inital_date_pattern
         if inital_date_pattern[0] + timedelta_gap <= inital_date_pattern[-1]:
             raise ScheduledItemError(
-                "ScheduledItemRepeat timedelta_gap is too small for given range"
+                "RepeatPattern timedelta_gap is too small for given range"
             )
         self._pattern_size = len(inital_date_pattern)
         self._gap = timedelta_gap
@@ -500,11 +484,11 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
         self._status = MutableAttribute(
-            constants.ItemStatus.UNSTARTED,
+            ItemStatus.UNSTARTED,
             "status",
         )
         self._update_policy = MutableAttribute(
-            ScheduledItemUpdatePolicy.MARK_IN_PROGRESS,
+            ItemUpdatePolicy.IN_PROGRESS,
             "update policy",
         )
         self._planned_items = HostedDataList(
@@ -692,7 +676,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         """Get update policy for item.
 
         Returns:
-            (ScheduledItemUpdatePolicy): update policy of item.
+            (ItemUpdatePolicy): update policy of item.
         """
         return self._update_policy.value
 
@@ -784,17 +768,31 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         if not isinstance(task, Task):
             return None
         status = fallback_value(new_status, self.status)
-        # task_status = task.history.get_status_at_datetime(self.start_datetime)
+        return self.update_policy.get_new_status(status)
+    
+    def _get_task_to_update(self, new_type=None, new_tree_item=None):
+        """Utility method to return the linked task item if it needs updating.
 
-        if self.update_policy == ScheduledItemUpdatePolicy.MARK_IN_PROGRESS:
-            if status >= constants.ItemStatus.IN_PROGRESS:
-                return constants.ItemStatus.IN_PROGRESS
-        elif self.update_policy == ScheduledItemUpdatePolicy.MARK_COMPLETE:
-            if status >= constants.ItemStatus.IN_PROGRESS:
-                return status
-        elif self.update_policy == ScheduledItemUpdatePolicy.MIRROR:
-            return status
-        return None
+        This is used only by edit classes that update the task history based
+        on updates to this scheduled item.
+
+        Args:
+            new_type (TaskType or None): new type that the scheduled item will
+                have, if needed.
+            tree_item (BaseTaskItem or None): new linked tree item the
+                scheduled item will have, if needed.
+
+        Returns:
+            (Task or None): linked tree item, if it's a task, and the scheduled
+                item is a task.
+        """
+        type_ = fallback_value(new_type, self.type)
+        task_item = fallback_value(new_tree_item, self.tree_item)
+        if type_ != ScheduledItemType.TASK:
+            return None
+        if not isinstance(task_item, Task):
+            return None
+        return task_item
 
     def _get_id(self):
         """Generate unique id for object.
@@ -1153,8 +1151,12 @@ class RepeatScheduledItem(BaseScheduledItem):
                 self._instances[_date] = RepeatScheduledItemInstance(
                     self._calendar,
                     self,
-                    _date
+                    _date,
                 )
+                # since repeat instances aren't added directly as edits, we
+                # need to activate them to make the hosted data stuff work
+                # TODO: look over this, it's a bit unnerving and messy
+                self._instances[_date]._activate()
 
         # now find the instances at the current date (scheduled or overridden)
         instances_at_date = []
@@ -1187,6 +1189,11 @@ class RepeatScheduledItem(BaseScheduledItem):
 
         This should be called after repeat pattern is changed, to recalculate.
         """
+        # since repeat instances aren't removed directly as edits, we
+        # need to deactivate them to make the hosted data stuff work
+        # TODO: look over this, it's a bit unnerving and messy
+        for instance in self._instances.values():
+            instance._deactivate()
         self._instances = OrderedDict()
         self._clean_overrides()
 

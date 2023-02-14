@@ -4,7 +4,7 @@ from tabnanny import check
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import DateTime
-from scheduler.api.constants import ItemStatus
+from scheduler.api.enums import ItemStatus
 from scheduler.api.utils import fallback_value
 from scheduler.ui import constants, utils
 

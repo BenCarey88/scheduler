@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 from scheduler.api.serialization.serializable import BaseSerializable
-from scheduler.api.utils import OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum
 
 from ._base_filter import filter_from_dict, FilterError
 

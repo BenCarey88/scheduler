@@ -3,7 +3,7 @@
 from collections import OrderedDict
 
 from scheduler.api.tree.task import Task
-from scheduler.api.constants import ItemSize, ItemImportance, ItemStatus
+from scheduler.api.enums import ItemSize, ItemImportance, ItemStatus
 from ._base_filter import (
     BaseFilter,
     CompositeFilter,

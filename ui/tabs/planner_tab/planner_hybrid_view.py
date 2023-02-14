@@ -3,7 +3,7 @@
 from operator import contains
 from PyQt5 import QtWidgets, QtCore, QtGui
 
-from scheduler.api.constants import TimePeriod
+from scheduler.api.enums import TimePeriod
 from scheduler.ui import constants
 from scheduler.ui.tabs.base_calendar_view import (
     BaseHybridView,

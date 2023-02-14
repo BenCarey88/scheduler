@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.constants import ItemImportance, ItemStatus
+from scheduler.api.enums import ItemImportance, ItemStatus
 
 
 # General

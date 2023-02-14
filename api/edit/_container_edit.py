@@ -7,14 +7,15 @@ from scheduler.api.common.object_wrappers import (
     HostedDataList,
 )
 from scheduler.api.common.timeline import TimelineDict
-from scheduler.api.utils import add_key_at_start, OrderedStringEnum
+from scheduler.api.enums import OrderedStringEnum
+from scheduler.api.utils import add_key_at_start
+
 from ._base_edit import BaseEdit, EditError
-# from ._core_edits import CompositeEdit
 
 
 LIST_TYPES = (list, HostedDataList)
 DICT_TYPES = (dict, HostedDataDict, TimelineDict)
-# don't include timeline dicts in below as they take care of own order
+# don't include timeline dicts in below as they take care of their own order
 ORDERED_DICT_TYPES = (OrderedDict, HostedDataDict)
 HOSTED_CONTAINER_TYPES = (HostedDataDict, HostedDataList)
 CONTAINER_TYPES = (*LIST_TYPES, *DICT_TYPES)

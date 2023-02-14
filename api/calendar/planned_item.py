@@ -15,7 +15,7 @@ from scheduler.api.serialization.serializable import (
     SaveType,
 )
 from scheduler.api import constants
-from scheduler.api.constants import TimePeriod as TP
+from scheduler.api.enums import ItemStatus, TimePeriod as TP
 from scheduler.api.utils import fallback_value
 
 
@@ -71,7 +71,7 @@ class PlannedItem(Hosted, NestedSerializable):
             driver=True,
         )
         self._status = MutableAttribute(
-            constants.ItemStatus.UNSTARTED,
+            ItemStatus.UNSTARTED,
             "status"
         )
         self._planned_children = HostedDataList(

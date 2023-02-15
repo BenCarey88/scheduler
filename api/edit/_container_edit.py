@@ -633,8 +633,6 @@ class BaseContainerEdit(BaseEdit):
             return True
         return False
 
-    # TODO: REMOVE has INSERT as reverse, so this doesn't work as inverse for
-    # REMOVE_OR_MODIFY
     # TODO: add some tests for these composite ones, haven't considered all
     # cases so I don't know if could hit some issues with the inverses for
     # certain recursive scenarios - but seems to work for task history :)
@@ -691,7 +689,7 @@ class BaseContainerEdit(BaseEdit):
             dict_,
             inverse_diff_dict=None,
             as_validity_check=False):
-        """Add, remove or modify existing key in dict.
+        """Remove existing key from dict if value is None, else modify key.
 
         Args:
             key (variant): key to add in modify.
@@ -729,7 +727,7 @@ class BaseContainerEdit(BaseEdit):
             dict_,
             inverse_diff_dict=None,
             as_validity_check=False):
-        """Remove existing key from dict if value is None, else modify key.
+        """Add, remove or modify existing key in dict.
 
         Args:
             key (variant): key to add in modify.
@@ -768,7 +766,7 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_dict,
                 as_validity_check,
             )
-        else:
+        elif value is not None:
             return self._dict_add(
                 key,
                 value,
@@ -776,6 +774,7 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_dict,
                 as_validity_check,
             )
+        return False
 
     ### OrderedDict Operation Methods ###
     def _ordered_dict_move(

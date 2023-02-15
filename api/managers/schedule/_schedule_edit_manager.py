@@ -2,13 +2,11 @@
 
 from scheduler.api.edit.schedule_edit import (
     AddScheduledItemEdit,
-    AddScheduledItemAsChildEdit,
     RemoveScheduledItemEdit,
     ModifyScheduledItemEdit,
     ModifyRepeatScheduledItemEdit,
     ModifyRepeatScheduledItemInstanceEdit,
     ReplaceScheduledItemEdit,
-    # UpdateScheduledItemStatusEdit,
 )
 from scheduler.api.calendar.scheduled_item import(
     BaseScheduledItem,
@@ -62,12 +60,7 @@ class ScheduleEditManager(BaseScheduleManager):
             (bool): whether or not edit was successful.
         """
         item = item_class(*args, **kwargs)
-        if planned_item is not None:
-            return AddScheduledItemAsChildEdit.create_and_run(
-                item,
-                planned_item,
-            )
-        return AddScheduledItemEdit.create_and_run(item)
+        return AddScheduledItemEdit.create_and_run(item, parent=planned_item)
 
     def create_scheduled_item(self, *args, planned_item=None, **kwargs):
         """Create single scheduled item and add to calendar.

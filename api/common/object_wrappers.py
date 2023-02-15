@@ -194,7 +194,7 @@ class Hosted(object):
         Returns:
             (bool): whether or not hosted data is defunct.
         """
-        return (self._host is None or self._host.data is None)
+        return (self._host is None or self._host.data != self)
 
     def _iter_paired_data_containers(self):
         """Iterate through all paired data containers in this class.
@@ -213,7 +213,15 @@ class Hosted(object):
         """Activate hosted object.
 
         This needs to be done before the hosted data can be accessed by
-        other classes.
+        other classes. It is used to assign a host to the data, as well
+        as apply the pairing framework.
+
+        This can't be done until end of __init__ because it requires paired
+        container attributes to have already been created. In practice, this
+        should be being called either during from_dict methods, when objects
+        are constructed from the saved files during application startup, or
+        during edits which create new hosted data objects/transfer one hosted
+        data to another.
 
         Args:
             host (_HostObject or None): host to activate with. This is
@@ -247,11 +255,16 @@ class Hosted(object):
         """Deactivate hosted object.
 
         This makes the hosted data defunct so it can no longer be accessed by
-        other classes.
+        other classes. This removes the data from its host, and from any paired
+        objects.
         """
         if self.defunct:
             raise HostError("Cannot deactivate already inactive object.")
         self._host.set_data(None)
+        # TODO: keep an eye on the line below, I added it and think it's good
+        # but realise it was glaringly absent before and not sure if that
+        # was deliberate.
+        self._host = None
         for container in self._iter_paired_data_containers():
             container._unapply_pairing()
 

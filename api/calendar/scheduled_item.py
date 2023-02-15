@@ -663,6 +663,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         return self._is_background.value
 
     @property
+    @_template_item_decorator
     def status(self):
         """Get check status of item.
 
@@ -672,6 +673,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         return self._status.value
 
     @property
+    @_template_item_decorator
     def update_policy(self):
         """Get update policy for item.
 
@@ -718,6 +720,14 @@ class BaseScheduledItem(Hosted, NestedSerializable):
 
         Returns:
             (bool): whether or not this is a repeat item.
+        """
+        return False
+
+    def is_repeat_instance(self):
+        """Check if this item is a repeat instance.
+
+        Returns:
+            (bool): whether or not this is a repeat item instance.
         """
         return False
 
@@ -769,8 +779,13 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             return None
         status = fallback_value(new_status, self.status)
         return self.update_policy.get_new_status(status)
-    
-    def _get_task_to_update(self, new_type=None, new_tree_item=None):
+
+    def _get_task_to_update(
+            self,
+            new_type=None,
+            new_tree_item=None,
+            new_template_type=None,
+            new_template_tree_item=None):
         """Utility method to return the linked task item if it needs updating.
 
         This is used only by edit classes that update the task history based
@@ -781,18 +796,57 @@ class BaseScheduledItem(Hosted, NestedSerializable):
                 have, if needed.
             tree_item (BaseTaskItem or None): new linked tree item the
                 scheduled item will have, if needed.
+            new_template_type (TaskType or None): new type that the scheduled
+                item's template item will have, if needed.
+            new_template_tree_item (BaseTaskItem or None): new linked tree item
+                that the scheduled item's template item will have, if needed.
 
         Returns:
             (Task or None): linked tree item, if it's a task, and the scheduled
                 item is a task.
         """
-        type_ = fallback_value(new_type, self.type)
-        task_item = fallback_value(new_tree_item, self.tree_item)
+        type_fallbacks = [new_type, self.type]
+        task_fallbacks = [new_tree_item, self.tree_item]
+        if self._template_item is not None:
+            type_fallbacks[1:1] = [self._type.value, new_template_type]
+            task_fallbacks[1:1] = [
+                self._tree_item.value, new_template_tree_item
+            ]
+        type_ = fallback_value(*type_fallbacks)
+        task_item = fallback_value(*task_fallbacks)
         if type_ != ScheduledItemType.TASK:
             return None
         if not isinstance(task_item, Task):
             return None
         return task_item
+
+    def _iter_influences(self):
+        """Get tasks influenced at datetimes by this item or its instances.
+
+        - for a normal scheduled item, or a scheduled item instance, this should
+            return max one task at one time.
+        - for a repeat scheduled item, this should return all tasks influenced
+            by any instance of the repeat item (and hence we need to
+            reimplement this method in that class)
+
+        Yields:
+            (BaseScheduledItem): the scheduled item (or repeat item instance)
+                that's doing the influencing - will be this item or an instance
+                of it.
+            (Task): the influenced task.
+            (Date or DateTime): the date or datetime it influences at.
+        """
+        task = self._get_task_to_update()
+        if task is not None:
+            # TODO: if/when we implement scheduled items over whole dates
+            # include the logic here to allow date influencers
+            date_time = self.end_datetime
+            influencer_dict = task.history.get_influencer_dict(
+                date_time,
+                self,
+            )
+            if influencer_dict:
+                yield (self, task, date_time)
 
     def _get_id(self):
         """Generate unique id for object.
@@ -1048,10 +1102,13 @@ class RepeatScheduledItem(BaseScheduledItem):
                 the date key remains unchanged.
             _overridden_instances (dict(Date, RepeatScheduledItemInstance)):
                 dictionary of all instances that have overrides on their time/
-                date. These are the only ones that need to be saved during
-                serialization. Again, these are still keyed by the original
-                date they were scheduled for, for easy comparison to the the
-                instances dict.
+                date/status etc. These are the only ones that need to be saved
+                during serialization. Again, these are still keyed by the
+                original date they were scheduled for, for easy comparison to
+                the instances dict.
+            _task_influences (dict(DateTime, RepeatScheduledItemInstance)):
+                dict of datetimes that instances of this item influence tasks
+                at.
         """
         super(RepeatScheduledItem, self).__init__(
             calendar,
@@ -1062,10 +1119,11 @@ class RepeatScheduledItem(BaseScheduledItem):
             tree_item=tree_item,
             event_category=event_category,
             event_name=event_name,
-            is_background=is_background
+            is_background=is_background,
         )
         self._instances = OrderedDict()
         self._overridden_instances = {}
+        self._task_influences = OrderedDict()
 
     @property
     def start_date(self):
@@ -1103,7 +1161,7 @@ class RepeatScheduledItem(BaseScheduledItem):
         Returns:
             (bool): whether or not this is a repeat item.
         """
-        return False
+        return True
 
     def get_item_container(self, date=None):
         """Get the list that this item should be contained in.
@@ -1174,7 +1232,7 @@ class RepeatScheduledItem(BaseScheduledItem):
         This should be called after the repeat pattern or times are changed,
         to remove ghost overrides. Overrides should be removed if they meet
         one of the following criteria:
-            - their time values no longer override the scheduled time.
+            - their attributes no longer override the templated attributes.
             - their initial scheduled date no longer falls in the repeat
                 pattern.
         """
@@ -1182,6 +1240,9 @@ class RepeatScheduledItem(BaseScheduledItem):
         for scheduled_date, instance in override_tuples:
             if (not self.repeat_pattern.check_date(scheduled_date)
                     or not instance.is_override()):
+                # TODO: look over this, it's a bit unnerving and messy
+                # to be manually deactivating so often
+                self._overridden_instances[scheduled_date]._deactivate()
                 del self._overridden_instances[scheduled_date]
 
     def _clear_instances(self):
@@ -1192,10 +1253,41 @@ class RepeatScheduledItem(BaseScheduledItem):
         # since repeat instances aren't removed directly as edits, we
         # need to deactivate them to make the hosted data stuff work
         # TODO: look over this, it's a bit unnerving and messy
-        for instance in self._instances.values():
-            instance._deactivate()
+        for key, instance in self._instances.items():
+            if key not in self._overridden_instances:
+                instance._deactivate()
         self._instances = OrderedDict()
         self._clean_overrides()
+
+    def _iter_overrides(self):
+        """Iterate through overridden instances.
+
+        Yields:
+            (RepeatScheduledItemInstance): the next instance.
+        """
+        for instance in self._overridden_instances.values():
+            yield instance
+
+    def _iter_influences(self):
+        """Get tasks influenced at datetimes by this item or its instances.
+
+        This is reimplemented from the base definition to return all tasks
+        influenced by any instance of this item.
+
+        Yields:
+            (BaseScheduledItem): the repeat item instance that's doing the
+                influencing.
+            (Task): the influenced task.
+            (Date or DateTime): the date or datetime it influences at.
+        """
+        # NOTE this assumes that only overrides can be influencers. IF
+        # we allow the OVERRIDE update policy then this may not be the case
+        # as an instance with UNSTARTED status (which will therefore not
+        # override the status of its template and not be counted as an
+        # override) would still influence its linked task
+        for item_instance in self._iter_overrides():
+            for return_tuple in item_instance._iter_influences():
+                yield return_tuple
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -1451,12 +1543,30 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             "be used."
         )
 
+    def is_repeat_instance(self):
+        """Check if this item is a repeat instance.
+
+        Returns:
+            (bool): whether or not this is a repeat item instance.
+        """
+        return True
+
     def is_override(self):
         """Check whether the given instance overrides the repeat template.
+
+        An item is an override if one of the following is true:
+            - its start or end datetime is overridden from the template
+            - its status is overridden from the template
 
         Returns:
             (bool): whether this instance is an override.
         """
+        # NOTE: any update to this function needs to also be reflected in
+        # conditions for triggering the _clean_overrides subedit in the
+        # ModifyRepeatScheduledItemEdit, and the _compute_override subedit
+        # in the ModifyRepeatScheduledItemInstanceEdit.
+        if self.status != self.repeat_scheduled_item.status:
+            return True
         override_start_datetime = self.override_start_datetime
         override_end_datetime = self.override_end_datetime
         if override_start_datetime is not None:
@@ -1474,6 +1584,9 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             overrides[self.scheduled_date] = self
         else:
             if self.scheduled_date in overrides:
+                # TODO: look over this, it's a bit unnerving and messy to
+                # be doing so many activates / deactivates
+                self._deactivate()
                 del overrides[self.scheduled_date]
 
     def to_dict(self):

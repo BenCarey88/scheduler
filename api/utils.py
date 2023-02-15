@@ -5,6 +5,10 @@ import datetime
 import sys
 
 
+"""Global dictionary for dumping simple debugging info."""
+_GLOBAL_DEBUG_DICT = {}
+
+
 @contextmanager
 def indent_print(bookend=None, indent=1, time_it=False):
     """Context manager to indent all prints, used for debugging.
@@ -57,17 +61,21 @@ def catch_exceptions(exceptions=None):
     return decorator
 
 
-def fallback_value(value, fallback):
-    """Simple function to return value or fallback if value is None.
+def fallback_value(*fallbacks):
+    """Simple function to return first non-None value in a list of fallbacks.
 
     Args:
-        value (variant or None): value to return if it's not None.
-        fallback (variant): fallback to return if value is None.
+        *fallbacks (variant): values to loop through to find the first one
+            that isn't None.
 
     Returns:
-        (variant): value if value isn't None, else fallback.
+        (variant or None): first non-None value in a list of fallbacks, if
+            one exists.
     """
-    return (value if value is not None else fallback)
+    for v in fallbacks:
+        if v is not None:
+            return v
+    return None
 
 
 def clamp(value, min_, max_):

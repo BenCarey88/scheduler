@@ -19,121 +19,16 @@ from .planner_edit import AddScheduledItemChildRelationshipEdit
 from .task_edit import UpdateTaskHistoryEdit
 
 
-def _get_task_status_update_edits(
-        old_scheduled_item,
-        new_scheduled_item=None,
-        remove_scheduled_item=False,
-        new_tree_item=None,
-        new_type=None,
-        new_date=None,
-        new_end_time=None,
-        new_update_policy=None,
-        new_status=None):
-    """Get edits to update the status of the scheduled item's linked task.
-
-    Args:
-        old_scheduled_item (BaseScheduledItem): scheduled item we're editing.
-        new_scheduled_item (BaseScheduledItem or None): scheduled item after
-            editing. If None, use old scheduled item.
-        remove_scheduled_item (bool): if True, this edit is removing the
-            scheduled item.
-        new_tree_item (BaseTaskItem or None): the tree item of the scheduled
-            item after editing, if being edited.
-        new_date (Date or None): the date of the scheduled item after editing,
-            if being edited.
-        new_end_time (Time or None): the end time of the scheduled item after
-            editing, if being edited.
-        new_update_policy (ItemUpdatePolicy or None): the update policy of the
-            scheduled item after editing, if being edited.
-        new_status (ItemStatus or None): the status of the scheduled item after
-            editing, if being edited.
-
-    Returns:
-        (list(BaseEdit)): list of edits to update the histories of the linked
-            tasks in accordance with the updates to the scheduled items.
-    """
-    edits = []
-    new_scheduled_item = fallback_value(new_scheduled_item, old_scheduled_item)
-    old_task = old_scheduled_item._get_task_to_update()
-    new_task = new_scheduled_item._get_task_to_update(
-        new_type=new_type,
-        new_tree_item=new_tree_item,
-    )
-    if old_task is not None or new_task is not None:
-        old_end_datetime = old_scheduled_item.end_datetime
-        old_task_status = None
-        if old_task is not None:
-            old_task_status = old_task.history.get_influenced_status(
-                old_end_datetime,
-                old_scheduled_item,
-            )
-        # case 1: remove task history at old date time
-        if remove_scheduled_item and old_task_status is not None:
-            task_edit = UpdateTaskHistoryEdit.create_unregistered(
-                old_task,
-                influencer=old_scheduled_item,
-                old_datetime=old_end_datetime,
-            )
-            return [task_edit]
-
-        new_update_policy = fallback_value(
-            new_update_policy,
-            new_scheduled_item.update_policy,
-        )
-        new_status = fallback_value(new_status, new_scheduled_item.status)
-        new_end_datetime = DateTime.from_date_and_time(
-            fallback_value(new_date, new_scheduled_item.date),
-            fallback_value(new_end_time, new_scheduled_item.end_time)
-        )
-        new_task_status = new_update_policy.get_new_status(new_status)
-
-        # case 2: remove from old task history and add to new task history
-        if old_task != new_task:
-            if old_task_status is not None:
-                remove_edit = UpdateTaskHistoryEdit.create_unregistered(
-                    old_task,
-                    influencer=old_scheduled_item,
-                    old_datetime=old_end_datetime,
-                )
-                edits.append(remove_edit)
-            if new_task_status is not None:
-                add_edit = UpdateTaskHistoryEdit.create_unregistered(
-                    new_task,
-                    influencer=new_scheduled_item,
-                    new_datetime=new_end_datetime,
-                    new_status=new_task_status,
-                )
-                edits.append(add_edit)
-            return edits
-
-        # case 3: update current task history
-        elif (new_task_status != old_task_status or
-                (new_task_status is not None and
-                    old_end_datetime != new_end_datetime)):
-            remove = True if new_task_status is None else False
-            # note that since task histories use HostedDataDicts, it doesn't
-            # matter whether we use old or new scheduled item for the update
-            task_edit = UpdateTaskHistoryEdit.create_unregistered(
-                old_task,
-                influencer=old_scheduled_item,
-                old_datetime=old_end_datetime,
-                new_datetime=new_end_datetime,
-                new_status=new_task_status,
-                remove_status=remove,
-            )
-            edits.append(task_edit)
-
-    return edits
-
-
 class AddScheduledItemEdit(CompositeEdit):
     """Add scheduled item to calendar."""
-    def __init__(self, scheduled_item, activate=True):
+    def __init__(self, scheduled_item, parent=None, activate=True):
         """Initialise edit.
 
         Args:
             scheduled_item (BaseScheduledItem): the scheduled item to add. Can
                 be a single scheduled item instance or a repeating item.
+            parent (PlannedItem or None): planned item parent of scheduled
+                item, if given.
             activate (bool): if True, activate hosted data as part of edit.
         """
         subedits = []
@@ -147,52 +42,29 @@ class AddScheduledItemEdit(CompositeEdit):
             ContainerOp.ADD,
         )
         subedits.append(add_edit)
+        if parent is not None:
+            parent_edit = (
+                AddScheduledItemChildRelationshipEdit.create_unregistered(
+                    scheduled_item,
+                    parent,
+                )
+            )
+            if not parent_edit._is_valid:
+                super(AddScheduledItemEdit, self).__init__([])
+                return
+            subedits.append(parent_edit)
         super(AddScheduledItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [scheduled_item]
         self._name = "AddScheduledItem ({0})".format(scheduled_item.name)
         self._description = (
-            "Add {0} {1} at {2}".format(
+            "Add {0} {1} at {2}{3}".format(
                 scheduled_item.__class__.__name__,
                 scheduled_item.name,
                 scheduled_item.datetime_string(),
-            )
-        )
-
-
-# TODO: couldn't we just add a parent arg to the AddScheduledItem edit?
-# and similar for the planned item ones
-class AddScheduledItemAsChildEdit(CompositeEdit):
-    """Add scheduled item and make it a child of the given planned item."""
-    def __init__(self, scheduled_item, planned_item, index=None):
-        """Initialise edit.
-
-        Args:
-            scheduled_item (BaseScheduledItem): the scheduled item to add.
-            planned_item (PlannedItem): the planned item to set as its parent.
-        """
-        child_edit = AddScheduledItemChildRelationshipEdit.create_unregistered(
-            scheduled_item,
-            planned_item,
-        )
-        if not child_edit._is_valid:
-            super(AddScheduledItemAsChildEdit, self).__init__([])
-            self._is_valid = False
-            return
-        add_edit = AddScheduledItemEdit.create_unregistered(scheduled_item)
-        super(AddScheduledItemAsChildEdit, self).__init__(
-            [add_edit, child_edit]
-        )
-        self._callback_args = self._undo_callback_args = [scheduled_item]
-        self._name = "AddScheduledItemAsChildEdit ({0})".format(
-            planned_item.name
-        )
-        self._description = (
-            "Add {0} {1} at {2} and make it a child of {2} {3}".format(
-                scheduled_item.__class__.__name__,
-                scheduled_item.name,
-                scheduled_item.datetime_string(),
-                planned_item.__class__.__name__,
-                planned_item.name,
+                " and make it a child of {0} {1}".format(
+                    parent.__class__.__name__,
+                    parent.name,
+                ) if parent is not None else "",
             )
         )
 
@@ -214,11 +86,14 @@ class RemoveScheduledItemEdit(CompositeEdit):
             edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
         )
         subedits = [remove_edit]
-        task_edits = _get_task_status_update_edits(
-            scheduled_item,
-            remove_scheduled_item=True,
-        )
-        subedits.extend(task_edits)
+        # task history update - remove all influences
+        for item, task, date_time in scheduled_item._iter_influences():
+            history_removal_edit = UpdateTaskHistoryEdit.create_unregistered(
+                task,
+                item,
+                old_datetime=date_time,
+            )
+            subedits.append(history_removal_edit)
         if deactivate:
             subedits.append(
                 DeactivateHostedDataEdit.create_unregistered(scheduled_item)
@@ -258,35 +133,18 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             keep_last_for_inverse (list(BaseEdit) or None): list of edits to
                 keep last during inverse, if needed.
         """
-        # updateable_attrs = [
-        #     scheduled_item._start_time,
-        #     scheduled_item._end_time,
-        #     scheduled_item._date,
-        # ]
-        # TODO: ^ I think this bit may be left over from continuous edit
-        # paradigm, so can probably be removed?
         self._scheduled_item = scheduled_item
         self._attr_dict = attr_dict
         self._original_attrs = {}
-        for attr in list(attr_dict.keys()): # + updateable_attrs:
-            # note we need to record updateable attrs here for update to work
+        for attr in list(attr_dict.keys()):
             self._original_attrs[attr] = attr.value
-
-        self._attribute_edit = AttributeEdit.create_unregistered(attr_dict)
         subedits = subedits or []
-        subedits.insert(0, self._attribute_edit)
 
-        # task history update
-        task_history_edits = _get_task_status_update_edits(
-            scheduled_item,
-            new_tree_item=attr_dict.get(scheduled_item._tree_item),
-            new_type=attr_dict.get(scheduled_item._type),
-            new_date=attr_dict.get(scheduled_item._date),
-            new_end_time=attr_dict.get(scheduled_item._end_time),
-            new_update_policy=attr_dict.get(scheduled_item._update_policy),
-            new_status=attr_dict.get(scheduled_item._status),
-        )
-        subedits[1:1] = task_history_edits
+        # attribute edit
+        self._attribute_edit = AttributeEdit.create_unregistered(attr_dict)
+        subedits.insert(0, self._attribute_edit)
+        # task history update edit
+        subedits[1:1] = self._get_task_history_edits()
 
         super(BaseModifyScheduledItemEdit, self).__init__(
             subedits,
@@ -298,6 +156,10 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
         ]
         self._is_valid = bool(self._modified_attrs())
         self._name = "ModifyScheduledItem ({0})".format(scheduled_item.name)
+        self._description = self._attribute_edit.get_description(
+            self._scheduled_item,
+            self._scheduled_item.name
+        )
 
     def _modified_attrs(self):
         """Get set of all attributes that are modified by edit.
@@ -309,22 +171,78 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             attr for attr, value in self._attr_dict.items()
             if self._original_attrs.get(attr) != value
         ])
+    
+    def _get_task_history_edits(self):
+        """Get edits to update linked task history.
 
-    # TODO: no need to keep this a property now, since continuous edit
-    # updates are no longer a thing
-    @property
-    def description(self):
-        """Get description of item.
-
-        Implemented as property so it stays updated.
+        This needs to be reimplemented for repeat items since the linked
+        history there is actually dependent on its instances.
 
         Returns:
-            (str): description.
+            (list(UpdateTaskHistoryEdit)): list of edits to update task
+                history.
         """
-        return self._attribute_edit.get_description(
-            self._scheduled_item,
-            self._scheduled_item.name
+        edits = []
+        ad = self._attr_dict
+        si = self._scheduled_item
+
+        # get old and new datetime, task and task status variables
+        old_datetime = si.end_datetime
+        old_task = si._get_task_to_update()
+        old_task_status = None
+        if old_task is not None:
+            old_task_status = old_task.history.get_influenced_status(
+                old_datetime,
+                si,
+            )
+        new_datetime = DateTime.from_date_and_time(
+            fallback_value(ad.get(si._date), si.date),
+            fallback_value(ad.get(si._end_time), si.end_time),
         )
+        new_task = si._get_task_to_update(
+            new_type=ad.get(si._type),
+            new_tree_item=ad.get(si._tree_item),
+        )
+        _new_status = fallback_value(ad.get(si._status), si.status)
+        _new_update_policy = fallback_value(
+            ad.get(si._update_policy),
+            si.update_policy,
+        )
+        new_task_status = _new_update_policy.get_new_status(_new_status)
+
+        # case 1: remove from old task history and add to new task history
+        if old_task != new_task:
+            if old_task_status is not None:
+                remove_edit = UpdateTaskHistoryEdit.create_unregistered(
+                    old_task,
+                    influencer=si,
+                    old_datetime=old_datetime,
+                )
+                edits.append(remove_edit)
+            if new_task_status is not None:
+                add_edit = UpdateTaskHistoryEdit.create_unregistered(
+                    new_task,
+                    influencer=si,
+                    new_datetime=new_datetime,
+                    new_status=new_task_status,
+                )
+                edits.append(add_edit)
+
+        # case 2: update current task history
+        elif (new_task_status != old_task_status or
+                (new_task_status is not None and
+                    old_datetime != new_datetime)):
+            remove = True if new_task_status is None else False
+            task_edit = UpdateTaskHistoryEdit.create_unregistered(
+                old_task,
+                influencer=si,
+                old_datetime=old_datetime,
+                new_datetime=new_datetime,
+                new_status=new_task_status,
+                remove_status=remove,
+            )
+            edits.append(task_edit)
+        return edits
 
 
 class ModifyScheduledItemEdit(BaseModifyScheduledItemEdit):
@@ -379,8 +297,9 @@ class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
             )
             subedits.append(clear_instances)
             keep_last_for_inverse.append(clear_instances)
-        if (scheduled_item._start_time in attr_dict
-                or scheduled_item._end_time in attr_dict):
+        elif (scheduled_item._start_time in attr_dict
+                or scheduled_item._end_time in attr_dict
+                or scheduled_item._status in attr_dict):
             clean_overrides = SelfInverseSimpleEdit.create_unregistered(
                 scheduled_item._clean_overrides,
             )
@@ -392,6 +311,64 @@ class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
             subedits=subedits,
             keep_last_for_inverse=keep_last_for_inverse,
         )
+
+    def _get_task_history_edits(self):
+        """Reimplement task history update edits.
+
+        Since a repeat item can't influence statuses directly, and only
+        does it through its instances, this just checks to see if any
+        instances will be deleted by the edit and removes their linked
+        histories.
+
+        Returns:
+            (list(BaseEdit)): list of edits to update task history.
+        """
+        edits = []
+        removed_instances = []
+        si = self._scheduled_item
+        ad = self._attr_dict
+        # if item no longer exists after edit, remove its history
+        if si._repeat_pattern in ad:
+            repeat_pattern = ad[si._repeat_pattern]
+            for item, task, date_time in si._iter_influences():
+                if not repeat_pattern.check_date(item.scheduled_end_datetime):
+                    history_removal_edit = (
+                        UpdateTaskHistoryEdit.create_unregistered(
+                            task,
+                            item,
+                            old_datetime=date_time,
+                        )
+                    )
+                    edits.append(history_removal_edit)
+        # if item does exist after edit and its influence changes, edit it
+        if si._update_policy in ad:
+            update_policy = ad[si._update_policy]
+            # NOTE we cannot use ItemUpdatePolicy.OVERRIDE for scheduled
+            # item instances, as iter_overrides only looks at instances that
+            # don't have an unstarted status
+            for instance in si._iter_overrides():
+                if instance in removed_instances:
+                    continue
+                date_time = instance.end_datetime
+                task = instance._get_task_to_update(
+                    new_template_type=ad.get(si._type),
+                    new_template_tree_item=ad.get(si._tree_item),
+                )
+                old_task_status = task.history.get_influenced_status(
+                    instance,
+                    date_time,
+                )
+                new_task_status = update_policy.get_new_status(instance.status)
+                if old_task_status != new_task_status:
+                    history_edit = UpdateTaskHistoryEdit.create_unregistered(
+                        task,
+                        item,
+                        old_datetime=date_time,
+                        new_datetime=date_time,
+                        new_status=new_task_status,
+                    )
+                    edits.append(history_edit)
+        return edits
 
 
 class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
@@ -411,7 +388,8 @@ class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
         keep_last_for_inverse=[]
         if (scheduled_item._date in attr_dict
                 or scheduled_item._start_time in attr_dict
-                or scheduled_item._end_time in attr_dict):
+                or scheduled_item._end_time in attr_dict
+                or scheduled_item._status in attr_dict):
             compute_override = SelfInverseSimpleEdit.create_unregistered(
                 scheduled_item._compute_override,
             )
@@ -486,15 +464,14 @@ class ReplaceScheduledItemEdit(CompositeEdit):
             activate=False,
         )
         subedits = [remove_edit, switch_host_edit, add_edit]
-        # task history update
-        task_history_edits = _get_task_status_update_edits(
-            old_scheduled_item=old_scheduled_item,
-            new_scheduled_item=new_scheduled_item,
-        )
-        # TODO: is this ordering ok? or will the remove stuff not work
-        # because the old one has been deactivated now?
-        # and do we need to switch order for inverse?
-        subedits.extend(task_history_edits)
+        # task history update - remove all influences
+        for item, task, date_time in old_scheduled_item._iter_influences():
+            history_removal_edit = UpdateTaskHistoryEdit.create_unregistered(
+                task,
+                item,
+                old_datetime=date_time,
+            )
+            subedits.insert(1, history_removal_edit)
         super(ReplaceScheduledItemEdit, self).__init__(subedits)
         self._is_valid = (old_scheduled_item != new_scheduled_item)
 
@@ -513,64 +490,3 @@ class ReplaceScheduledItemEdit(CompositeEdit):
             old_scheduled_item.name,
             new_scheduled_item.name,
         )
-
-
-# TODO: delete this and all instances of it - now doing it all in modify edits
-# class UpdateScheduledItemStatusEdit(CompositeEdit):
-#     """Update check status of scheduled edit."""
-#     def __init__(self, scheduled_item, new_status):
-#         """Initialise edit.
-
-#         Args:
-#             scheduled_item (BaseScheduledItem): scheduled item whose check
-#                 status we should edit.
-#             new_status (int): new status to change to.
-#         """
-#         subedits = []
-#         attribute_edit = AttributeEdit.create_unregistered(
-#             {scheduled_item._status: new_status}
-#         )
-#         subedits.append(attribute_edit)
-#         for planned_item in scheduled_item.planned_items:
-#             # TODO: make this method below
-#             # planned_item_edit = SelfInverseSimpleEdit(
-#             #     planned_item._update_status_from_scheduled_items
-#             # )
-#             # subedits.append(planned_item_edit)
-#             pass
-#         task_item = scheduled_item._get_task_to_update_at_datetime()
-#         if task_item is not None:
-#             date_time = scheduled_item.end_datetime
-#             prev_task_status = task_item.history.get_influenced_status(
-#                 date_time,
-#                 scheduled_item,
-#             )
-#             new_task_status = scheduled_item.get_new_task_status(new_status)
-#             if prev_task_status != new_task_status:
-#                 remove_status = True if new_task_status is None else False
-#                 task_edit = UpdateTaskHistoryEdit.create_unregistered(
-#                     task_item,
-#                     influencer=scheduled_item,
-#                     old_datetime=date_time,
-#                     new_datetime=date_time,
-#                     new_status=new_task_status,
-#                     remove_status=remove_status,
-#                 )
-#                 subedits.append(task_edit)
-
-#         super(UpdateScheduledItemStatusEdit, self).__init__(subedits)
-#         self._is_valid = (new_status != scheduled_item.status)
-#         self._callback_args = self._undo_callback_args = [
-#             scheduled_item,
-#             scheduled_item,
-#         ]
-#         self._name = "UpdateScheduledItemStatusEdit ({0})".format(
-#             scheduled_item.name
-#         )
-#         self._description = (
-#             "Update check status of scheduled item {0} ({1} --> {2})".format(
-#                 scheduled_item.name,
-#                 scheduled_item.status,
-#                 new_status,
-#             )
-#         )

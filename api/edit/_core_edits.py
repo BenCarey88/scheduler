@@ -77,7 +77,8 @@ class CompositeEdit(BaseEdit):
             edits_list,
             reverse_order_for_inverse=True,
             keep_last_for_inverse=None,
-            validity_check_edits=None):
+            validity_check_edits=None,
+            require_all_edits_valid=False):
         """Initialize composite edit.
 
         The edits passed to the edits_list must have their register flag
@@ -91,6 +92,11 @@ class CompositeEdit(BaseEdit):
                 these edits last for the inverse.
             validity_check_edits (list(BaseEdit) or None): if given,
                 determine validity based just on this sublist of edits.
+            require_all_subedits_valid (bool): if True, the edit is valid
+                only if all its subedits are (or all subedits in the
+                validity_check_edits arg, if given). Otherwise, it is valid
+                if any one of those subedits is valid. Either way, validity
+                requires the existence of at least one subedit.
         """
         for edit in edits_list:
             if edit._register_edit or edit._registered or edit._has_been_done:
@@ -107,7 +113,10 @@ class CompositeEdit(BaseEdit):
         # NOTE: this is_valid check is a bit dodgy, can fail since the starting
         # conditions of later edits in the edit list will be effected by the
         # earlier edits. Will often need to use custom logic in subclasses.
-        self._is_valid = bool(self._edits_list) and any(
+        boolean_operator = any
+        if require_all_edits_valid:
+            boolean_operator = all
+        self._is_valid = bool(self._edits_list) and boolean_operator(
             [edit._is_valid for edit in validity_edits]
         )
 
@@ -119,7 +128,7 @@ class CompositeEdit(BaseEdit):
     def _inverse_run(self):
         """Run each inverse edit in reverse order of edits_list."""
         if self._reverse_order_for_inverse:
-            inverse_edits_list = reversed(self._edits_list)
+            inverse_edits_list = list(reversed(self._edits_list))
         else:
             inverse_edits_list = self._edits_list
         for edit in self._keep_last_for_inverse:
@@ -278,8 +287,11 @@ class ReplaceHostedDataEdit(SimpleEdit):
             )
         super(ReplaceHostedDataEdit, self).__init__(
             run_func=partial(new_data._activate, old_data.host),
-            inverse_run_func=partial(old_data._activate, new_data.host),
+            inverse_run_func=partial(old_data._activate, old_data.host),
         )
+        from scheduler.api.utils import _GLOBAL_DEBUG_DICT
+        _GLOBAL_DEBUG_DICT["old"] = (old_data, old_data.host)
+        _GLOBAL_DEBUG_DICT["new"] = (new_data, new_data.host)
         self._is_valid = (old_data != new_data)
 
 

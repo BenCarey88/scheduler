@@ -171,7 +171,7 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             attr for attr, value in self._attr_dict.items()
             if self._original_attrs.get(attr) != value
         ])
-    
+
     def _get_task_history_edits(self):
         """Get edits to update linked task history.
 
@@ -205,8 +205,8 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
         )
         _new_status = fallback_value(ad.get(si._status), si.status)
         _new_update_policy = fallback_value(
-            ad.get(si._update_policy),
-            si.update_policy,
+            ad.get(si._task_update_policy),
+            si.task_update_policy,
         )
         new_task_status = _new_update_policy.get_new_status(_new_status)
 
@@ -340,9 +340,10 @@ class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
                         )
                     )
                     edits.append(history_removal_edit)
+                    removed_instances.append(item)
         # if item does exist after edit and its influence changes, edit it
-        if si._update_policy in ad:
-            update_policy = ad[si._update_policy]
+        if si._task_update_policy in ad:
+            update_policy = ad[si._task_update_policy]
             # NOTE we cannot use ItemUpdatePolicy.OVERRIDE for scheduled
             # item instances, as iter_overrides only looks at instances that
             # don't have an unstarted status

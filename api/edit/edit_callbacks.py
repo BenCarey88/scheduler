@@ -27,7 +27,6 @@ from .task_edit import (
 )
 from .planner_edit import (
     AddPlannedItemEdit,
-    AddPlannedItemAsChildEdit,
     ModifyPlannedItemEdit,
     MovePlannedItemEdit,
     RemovePlannedItemEdit,
@@ -125,7 +124,7 @@ class CallbackType(object):
     Planner:
         PLANNER_ADD:
             Args:   (planned_item, calendar_period, row)
-            Edits:  [AddPlannedItemEdit, AddPlannedItemAsChildEdit]
+            Edits:  [AddPlannedItemEdit]
         PLANNER_REMOVE:
             Args:   (planned_item, calendar_period, row)
             Edits:  [RemovePlannedItemEdit]
@@ -186,7 +185,7 @@ class CallbackType(object):
             ModifyRepeatScheduledItemInstanceEdit,
             ReplaceScheduledItemEdit,
         ],
-        PLANNER_ADD: [AddPlannedItemEdit, AddPlannedItemAsChildEdit],
+        PLANNER_ADD: [AddPlannedItemEdit],
         PLANNER_REMOVE: [RemovePlannedItemEdit],
         PLANNER_MODIFY: [ModifyPlannedItemEdit],
         PLANNER_MOVE: [MovePlannedItemEdit],

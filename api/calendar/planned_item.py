@@ -14,8 +14,9 @@ from scheduler.api.serialization.serializable import (
     NestedSerializable,
     SaveType,
 )
+from scheduler.api.tree import Task
 from scheduler.api import constants
-from scheduler.api.enums import ItemStatus, TimePeriod as TP
+from scheduler.api.enums import ItemStatus, ItemUpdatePolicy, TimePeriod as TP
 from scheduler.api.utils import fallback_value
 
 
@@ -73,6 +74,18 @@ class PlannedItem(Hosted, NestedSerializable):
         self._status = MutableAttribute(
             ItemStatus.UNSTARTED,
             "status"
+        )
+        self._task_update_policy = MutableAttribute(
+            ItemUpdatePolicy.IN_PROGRESS,
+            "task_update_policy",
+        )
+        self._child_update_policy = MutableAttribute(
+            ItemUpdatePolicy.NO_UPDATE,
+            "child_update_policy",
+        )
+        self._parent_update_policy = MutableAttribute(
+            ItemUpdatePolicy.IN_PROGRESS,
+            "parent_update_policy",
         )
         self._planned_children = HostedDataList(
             pairing_id=constants.PLANNER_PARENT_CHILD_PAIRING,
@@ -150,6 +163,24 @@ class PlannedItem(Hosted, NestedSerializable):
         return ""
 
     @property
+    def start_date(self):
+        """Get start date for planned item.
+
+        Returns:
+            (Date): start date.
+        """
+        return self.calendar_period.start_date
+
+    @property
+    def end_date(self):
+        """Get end date for planned item.
+
+        Returns:
+            (Date): end date.
+        """
+        return self.calendar_period.end_date
+
+    @property
     def status(self):
         """Get status of item.
 
@@ -159,16 +190,31 @@ class PlannedItem(Hosted, NestedSerializable):
         return self._status.value
 
     @property
-    def end_date(self):
-        """Get end date for planned item.
+    def task_update_policy(self):
+        """Get update policy for linked tasks.
 
         Returns:
-            (Date): end date.
+            (ItemUpdatePolicy): update policy for linked tasks.
         """
-        if self.time_period == TP.DAY:
-            return self.calendar_period.date
-        else:
-            return self.calendar_period.end_date
+        return self._task_update_policy.value
+    
+    @property
+    def child_update_policy(self):
+        """Get update policy for child planned items and scheduled items.
+
+        Returns:
+            (ItemUpdatePolicy): update policy for children.
+        """
+        return self._child_update_policy.value
+
+    @property
+    def parent_update_policy(self):
+        """Get update policy for parent planned items.
+
+        Returns:
+            (ItemUpdatePolicy): update policy for parents.
+        """
+        return self._parent_update_policy.value
 
     @property
     def scheduled_items(self):
@@ -370,6 +416,46 @@ class PlannedItem(Hosted, NestedSerializable):
         """
         if planned_item not in self._planned_children:
             self._planned_children.append(planned_item)
+
+    def _get_task_to_update(self, new_tree_item=None):
+        """Utility method to return the linked task item if it needs updating.
+
+        This is used only by edit classes that update the task history based
+        on updates to this planned item.
+
+        Args:
+            new_tree_item (BaseTaskItem or None): new linked tree item the
+                planned item will have, if needed.
+
+        Returns:
+            (Task or None): linked tree item, if it's a task, and the scheduled
+                item is a task.
+        """
+        task_item = fallback_value(new_tree_item, self.tree_item)
+        if not isinstance(task_item, Task):
+            return None
+        return task_item
+
+    def _iter_influences(self):
+        """Get tasks influenced at dates by this item.
+
+        - currently this should yield either one influence at the end date of
+            the item or no influence. However, in theory we could have items
+            planned over time periods of longer than one day influencing on
+            multiple days, so may need to update this method to reflect that.
+
+        Yields:
+            (Task): the influenced task.
+            (Date): the date it's influenced at.
+        """
+        task = self._get_task_to_update()
+        if task is not None:
+            influencer_dict = task.history.get_influencer_dict(
+                self.end_date,
+                self,
+            )
+            if influencer_dict:
+                yield (task, self.date)
 
     # TODO: I think there's a problem here with autosaves: the assumption
     # with this _get_id method (and same for the ones in scheduled item class)

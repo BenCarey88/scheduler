@@ -487,9 +487,9 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             ItemStatus.UNSTARTED,
             "status",
         )
-        self._update_policy = MutableAttribute(
+        self._task_update_policy = MutableAttribute(
             ItemUpdatePolicy.IN_PROGRESS,
-            "update policy",
+            "task_update_policy",
         )
         self._planned_items = HostedDataList(
             pairing_id=constants.PLANNER_SCHEDULER_PAIRING,
@@ -674,13 +674,13 @@ class BaseScheduledItem(Hosted, NestedSerializable):
 
     @property
     @_template_item_decorator
-    def update_policy(self):
-        """Get update policy for item.
+    def task_update_policy(self):
+        """Get update policy for linked tasks.
 
         Returns:
-            (ItemUpdatePolicy): update policy of item.
+            (ItemUpdatePolicy): update policy linked tasks.
         """
-        return self._update_policy.value
+        return self._task_update_policy.value
 
     @property
     def defunct(self):
@@ -762,23 +762,6 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         raise NotImplementedError(
             "get_item_container is implemented in scheduled item subclasses."
         )
-
-    def get_new_task_status(self, new_status=None):
-        """Get new status to give the task, based on status and update policy.
-
-        Args:
-            new_status (ItemStatus or None): new status for scheduled item to
-                override current one. If not given, base it on the current one.
-
-        Returns:
-            (ItemStatus or None): new status for task, based on status of this
-                item and its update policy (if one should be set).
-        """
-        task = self.tree_item
-        if not isinstance(task, Task):
-            return None
-        status = fallback_value(new_status, self.status)
-        return self.update_policy.get_new_status(status)
 
     def _get_task_to_update(
             self,

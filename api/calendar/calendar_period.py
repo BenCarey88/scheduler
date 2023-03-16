@@ -187,6 +187,24 @@ class CalendarDay(BaseCalendarPeriod):
             (Date): date of this day.
         """
         return self._date
+    
+    @property
+    def start_date(self):
+        """Get start date of day, used for comparison with other classes.
+
+        Returns:
+            (Date): start date.
+        """
+        return self.date
+
+    @property
+    def end_date(self):
+        """Get end date of day, used for comparison with other classes.
+
+        Returns:
+            (Date): end date.
+        """
+        return self.date
 
     @property
     def name(self):

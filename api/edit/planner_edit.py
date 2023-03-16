@@ -11,16 +11,85 @@ from ._core_edits import (
     DeactivateHostedDataEdit,
     CompositeEdit,
 )
+from .task_edit import UpdateTaskHistoryEdit
+
+
+def _get_task_history_edits(pi, ad):
+    """Get edits to update linked task history of edited planned item.
+
+    Args:
+        pi (PlannedItem): planned item that we're editing.
+        ad (dict): attribute dict, representing edits to attributes of the
+            planned item.
+
+    Returns:
+        (list(UpdateTaskHistoryEdit)): list of edits to update task
+            history.
+    """
+    edits = []
+
+    # get old and new datetime, task and task status variables
+    old_date = pi.end_date
+    old_task = pi._get_task_to_update()
+    old_task_status = None
+    if old_task is not None:
+        old_task_status = old_task.history.get_influenced_status(
+            old_date,
+            pi,
+        )
+    _new_period = (ad.get(pi._calendar_period), pi.calendar_period)
+    new_date = _new_period.end_date
+    new_task = pi._get_task_to_update(new_tree_item=ad.get(pi._tree_item))
+    _new_status = fallback_value(ad.get(pi._status), pi.status)
+    _new_task_update_policy = fallback_value(
+        ad.get(pi._task_update_policy),
+        pi.task_update_policy,
+    )
+    new_task_status = _new_task_update_policy.get_new_status(_new_status)
+
+    # case 1: remove from old task history and add to new task history
+    if old_task != new_task:
+        if old_task_status is not None:
+            remove_edit = UpdateTaskHistoryEdit.create_unregistered(
+                old_task,
+                influencer=pi,
+                old_datetime=old_date,
+            )
+            edits.append(remove_edit)
+        if new_task_status is not None:
+            add_edit = UpdateTaskHistoryEdit.create_unregistered(
+                new_task,
+                influencer=pi,
+                new_datetime=new_date,
+                new_status=new_task_status,
+            )
+            edits.append(add_edit)
+
+    # case 2: update current task history
+    elif (new_task_status != old_task_status or
+            (new_task_status is not None and old_date != new_date)):
+        remove = True if new_task_status is None else False
+        task_edit = UpdateTaskHistoryEdit.create_unregistered(
+            old_task,
+            influencer=pi,
+            old_datetime=old_date,
+            new_datetime=new_date,
+            new_status=new_task_status,
+            remove_status=remove,
+        )
+        edits.append(task_edit)
+    return edits
 
 
 class AddPlannedItemEdit(CompositeEdit):
     """Add planned item to calendar."""
-    def __init__(self, planned_item, index=None, activate=True):
+    def __init__(self, planned_item, index=None, parent=None, activate=True):
         """Initialise edit.
 
         Args:
             planned_item (PlannedItem): the planned item to add.
             index (int or None): index to insert at.
+            parent (PlannedItem or None): parent planned item, if given.
             activate (bool): if True, activate hosted data as part of edit.
         """
         item_container = planned_item.get_item_container()
@@ -37,24 +106,39 @@ class AddPlannedItemEdit(CompositeEdit):
             ContainerOp.INSERT,
         )
         subedits.append(add_edit)
+        if parent is not None:
+            parent_edit = (
+                AddPlannedItemChildRelationshipEdit.create_unregistered(
+                    parent,
+                    planned_item,
+                )
+            )
+            if not parent_edit._is_valid:
+                super(AddPlannedItemEdit, self).__init__([])
+                return
+            subedits.append(parent_edit)
         super(AddPlannedItemEdit, self).__init__(subedits)
+
         for item in item_container:
             if item.tree_item == planned_item.tree_item:
                 self._is_valid = False
                 return
-
         self._callback_args = self._undo_callback_args = [
             planned_item,
             planned_item.calendar_period,
-            index,
+            fallback_value(index, len(planned_item.get_item_container())),
         ]
         self._name = "AddPlannedItem ({0})".format(planned_item.name)
         self._description = (
-            "Add {0} {1} to {2} at index {3}".format(
+            "Add {0} {1} to {2} at index {3}{4}".format(
                 planned_item.__class__.__name__,
                 planned_item.name,
                 planned_item.calendar_period.name,
                 str(index),
+                " and make it a child of {0} {1}".format(
+                    parent.__class__.__name__,
+                    parent.name,
+                ) if parent is not None else ""
             )
         )
 
@@ -79,6 +163,14 @@ class RemovePlannedItemEdit(CompositeEdit):
             subedits.append(
                 DeactivateHostedDataEdit.create_unregistered(planned_item)
             )
+        # task history update - remove all influences
+        for task, date in planned_item._iter_influences():
+            history_removal_edit = UpdateTaskHistoryEdit.create_unregistered(
+                task,
+                planned_item,
+                old_datetime=date,
+            )
+            subedits.append(history_removal_edit)
         super(RemovePlannedItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [
             planned_item,
@@ -115,9 +207,8 @@ class MovePlannedItemEdit(CompositeEdit):
         subedits = []
         container = planned_item.get_item_container(calendar_period)
         if calendar_period is not None:
-            attr_edit = AttributeEdit.create_unregistered(
-                {planned_item._calendar_period: calendar_period}
-            )
+            attr_dict = {planned_item._calendar_period: calendar_period}
+            attr_edit = AttributeEdit.create_unregistered(attr_dict)
             remove_edit = RemovePlannedItemEdit.create_unregistered(
                 planned_item,
                 deactivate=False,
@@ -130,6 +221,8 @@ class MovePlannedItemEdit(CompositeEdit):
                 ContainerOp.INSERT,
             )
             subedits = [attr_edit, remove_edit, insert_edit]
+            for edit in _get_task_history_edits(planned_item, attr_dict):
+                subedits.append(edit)
         else:
             move_edit = ListEdit.create_unregistered(
                 container,
@@ -206,26 +299,9 @@ class ModifyPlannedItemEdit(CompositeEdit):
             )
             subedits.extend([remove_edit, add_edit])
 
-        # new_tree_item = attr_dict.get(
-        #     planned_item._tree_item,
-        #     planned_item.tree_item
-        # )
-        # if new_tree_item != planned_item.tree_item:
-        #     # change old and new tree item's planned_item args
-        #     old_container = planned_item.get_tree_item_container()
-        #     new_container = planned_item.get_tree_item_container(new_tree_item)
-        #     tree_remove_edit = ListEdit.create_unregistered(
-        #         old_container,
-        #         [planned_item],
-        #         ContainerOp.REMOVE,
-        #         edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
-        #     )
-        #     tree_add_edit = ListEdit.create_unregistered(
-        #         new_container,
-        #         [],
-        #         ContainerOp.ADD,
-        #     )
-        #     subedits.extend([tree_remove_edit, tree_add_edit])
+        # task history edits
+        for edit in _get_task_history_edits(planned_item, attr_dict):
+            subedits.append(edit)
 
         super(ModifyPlannedItemEdit, self).__init__(subedits)
         self._callback_args = [
@@ -398,44 +474,5 @@ class RemovePlannedItemChildRelationshipEdit(ListEdit):
                 planned_item_child.name,
                 planned_item.__class__.__name__,
                 planned_item.name,
-            )
-        )
-
-
-class AddPlannedItemAsChildEdit(CompositeEdit):
-    """Create planned item and make it a child of the given parent."""
-    def __init__(self, planned_item, planned_item_parent, index=None):
-        """Initialise edit.
-
-        Args:
-            planned_item (PlannedItem): the planned item to add.
-            planned_item_parent (PlannedItem): the planned item to set as
-                its parent.
-        """
-        child_edit = AddPlannedItemChildRelationshipEdit.create_unregistered(
-            planned_item_parent,
-            planned_item,
-        )
-        if not child_edit._is_valid:
-            super(AddPlannedItemAsChildEdit, self).__init__([])
-            self._is_valid = False
-            return
-        add_edit = AddPlannedItemEdit.create_unregistered(
-            planned_item,
-            index=index,
-        )
-        super(AddPlannedItemAsChildEdit, self).__init__([add_edit, child_edit])
-        self._callback_args = self._undo_callback_args = [
-            planned_item,
-            planned_item.calendar_period,
-            fallback_value(index, len(planned_item.get_item_container())),
-        ]
-        self._name = "AddPlannedItemAsChild ({0})".format(planned_item.name)
-        self._description = (
-            "Add {0} {1} and make it a child of {2} {3}".format(
-                planned_item.__class__.__name__,
-                planned_item.name,
-                planned_item_parent.__class__.__name__,
-                planned_item_parent.name,
             )
         )

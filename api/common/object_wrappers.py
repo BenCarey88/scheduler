@@ -180,6 +180,12 @@ class Hosted(object):
         Returns:
             (_HostObject): host object.
         """
+        # TODO: should this check if the data is defunct before accessing?
+        # I'd like to do that so that a deactivated item doesn't allow you
+        # to access its old host as this might give the wrong impression
+        # that the host still holds this data. Just want to make sure that
+        # doesn't screw any existing logic first (think it should be fine
+        # as most editing logic should access by the _host attribute anyway)
         return self._host
 
     @property
@@ -190,6 +196,9 @@ class Hosted(object):
         specifically for cases where they're referencing currently defunct
         hosts, eg. we can specify a planned item is defunct if the tree
         item it references is defunct.
+
+        In its base form, a Hosted object is defunct if its host no longer
+        references it, or if it has no host at all.
 
         Returns:
             (bool): whether or not hosted data is defunct.
@@ -261,10 +270,8 @@ class Hosted(object):
         if self.defunct:
             raise HostError("Cannot deactivate already inactive object.")
         self._host.set_data(None)
-        # TODO: keep an eye on the line below, I added it and think it's good
-        # but realise it was glaringly absent before and not sure if that
-        # was deliberate.
-        self._host = None
+        # NOTE that we do not delete the _host attribute, as this way the
+        # data can be reactivated later if needed with the same host
         for container in self._iter_paired_data_containers():
             container._unapply_pairing()
 
@@ -427,7 +434,7 @@ class _BaseHostedContainer():
             (_HostObject): corresponding host object.
         """
         if isinstance(value, Hosted):
-            if value.host is None:
+            if value.defunct:
                 raise HostError("Inactive hosted data cannot be accessed.")
             return value.host
         if isinstance(value, _HostObject):

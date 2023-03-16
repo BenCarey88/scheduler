@@ -2,7 +2,6 @@
 
 from scheduler.api.edit.planner_edit import (
     AddPlannedItemEdit,
-    AddPlannedItemAsChildEdit,
     ModifyPlannedItemEdit,
     MovePlannedItemEdit,
     RemovePlannedItemEdit,
@@ -53,13 +52,7 @@ class PlannerEditManager(BasePlannerManager):
             (bool): whether or not edit was successful.
         """
         item = PlannedItem(*args, **kwargs)
-        if parent is not None:
-            return AddPlannedItemAsChildEdit.create_and_run(
-                item,
-                parent,
-                index,
-            )
-        return AddPlannedItemEdit.create_and_run(item, index)
+        return AddPlannedItemEdit.create_and_run(item, index, parent)
 
     @require_class(PlannedItem, True)
     def remove_planned_item(self, planned_item):

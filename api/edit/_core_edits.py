@@ -207,7 +207,7 @@ class AttributeEdit(BaseEdit):
         Args:
             object_ (variant or None): the object we're editing attributes of,
                 if given.
-            object_name (str or None): the name of the object, if given. 
+            object_name (str or None): the name of the object, if given.
 
         Returns:
             (str): description.
@@ -242,8 +242,7 @@ class ActivateHostedDataEdit(SimpleEdit):
         """
         if not isinstance(hosted_data, Hosted):
             raise EditError(
-                "args passed to ActivateHostedDataEdit must "
-                "be Hosted objects."
+                "args passed to ActivateHostedDataEdit must be Hosted objects."
             )
         super(ActivateHostedDataEdit, self).__init__(
             run_func=hosted_data._activate,
@@ -277,8 +276,10 @@ class ReplaceHostedDataEdit(SimpleEdit):
         """Initiailize edit.
 
         Args:
-            old_data (Hosted): old hosted data.
-            new_data (Hosted): new data to replace it with.
+            old_data (Hosted): old hosted data. This is expected to be
+                activated already.
+            new_data (Hosted): new data to replace it with. This is expected
+                to be inactive.
         """
         if (not isinstance(old_data, Hosted)
                 or not isinstance(new_data, Hosted)):
@@ -287,11 +288,10 @@ class ReplaceHostedDataEdit(SimpleEdit):
             )
         super(ReplaceHostedDataEdit, self).__init__(
             run_func=partial(new_data._activate, old_data.host),
-            inverse_run_func=partial(old_data._activate, old_data.host),
+            inverse_run_func=old_data._activate,
         )
-        from scheduler.api.utils import _GLOBAL_DEBUG_DICT
-        _GLOBAL_DEBUG_DICT["old"] = (old_data, old_data.host)
-        _GLOBAL_DEBUG_DICT["new"] = (new_data, new_data.host)
+        # NOTE that the inverse func just reactivates the old data which will
+        # automatically steal the old host back and deactivate the new data
         self._is_valid = (old_data != new_data)
 
 

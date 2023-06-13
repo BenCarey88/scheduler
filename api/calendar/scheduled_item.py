@@ -413,6 +413,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
     CATEGORY_KEY = "category"
     BACKGROUND_KEY = "background"
     ID_KEY = "id"
+    STATUS_KEY = "status"
 
     def __init__(
             self,
@@ -426,7 +427,8 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             event_category=None,
             event_name=None,
             is_background=None,
-            template_item=None):
+            template_item=None,
+            status=None):
         """Initialise item.
 
         Args:
@@ -450,6 +452,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             template_item (BaseScheduledItem or None): template item to inherit
                 properties from, if they're not overridden. This is used by
                 RepeatScheduledItemInstances.
+            status (ItemStatus or None): status of item.
         """
         super(BaseScheduledItem, self).__init__()
         self._calendar = calendar
@@ -484,7 +487,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
         self._status = MutableAttribute(
-            ItemStatus.UNSTARTED,
+            fallback_value(status, ItemStatus.UNSTARTED),
             "status",
         )
         self._task_update_policy = MutableAttribute(
@@ -868,6 +871,8 @@ class BaseScheduledItem(Hosted, NestedSerializable):
                 dict_repr[self.NAME_KEY] = self._event_name.value
         if self._is_background:
             dict_repr[self.BACKGROUND_KEY] = self._is_background.value
+        if self.status != ItemStatus.UNSTARTED:
+            dict_repr[self.STATUS_KEY] = self.status
         dict_repr[self.ID_KEY] = self._get_id()
         return dict_repr
 
@@ -893,6 +898,9 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         category = dict_repr.get(cls.CATEGORY_KEY)
         name = dict_repr.get(cls.NAME_KEY)
         is_background = dict_repr.get(cls.BACKGROUND_KEY, False)
+        status = dict_repr.get(cls.STATUS_KEY)
+        if status is not None:
+            status = ItemStatus(status)
 
         scheduled_item = cls(
             calendar,
@@ -902,6 +910,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             event_category=category,
             event_name=name,
             is_background=is_background,
+            status=status,
         )
         scheduled_item._activate()
         id = dict_repr.get(cls.ID_KEY, None)
@@ -930,6 +939,7 @@ class ScheduledItem(BaseScheduledItem):
             event_category=None,
             event_name=None,
             is_background=None,
+            status=None,
             repeat_pattern=None):
         """Initialise item.
 
@@ -947,6 +957,7 @@ class ScheduledItem(BaseScheduledItem):
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
+            status (ItemStatus or None): status of item.
             repeat_pattern (RepeatPattern or None): repeat pattern - unused but
                 can be saved in this class so it can be copied over to the new
                 one.
@@ -962,6 +973,7 @@ class ScheduledItem(BaseScheduledItem):
             event_category=event_category,
             event_name=event_name,
             is_background=is_background,
+            status=status,
         )
 
     def datetime_string(self):
@@ -1059,7 +1071,8 @@ class RepeatScheduledItem(BaseScheduledItem):
             tree_item=None,
             event_category=None,
             event_name=None,
-            is_background=None):
+            is_background=None,
+            status=None):
         """Initialise item.
 
         Args:
@@ -1077,6 +1090,7 @@ class RepeatScheduledItem(BaseScheduledItem):
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
+            status (ItemStatus or None): status of item.
 
         Attributes:
             _instances (dict(Date, RepeatScheduledItemInstance)): dictionary of
@@ -1103,6 +1117,7 @@ class RepeatScheduledItem(BaseScheduledItem):
             event_category=event_category,
             event_name=event_name,
             is_background=is_background,
+            status=status,
         )
         self._instances = OrderedDict()
         self._overridden_instances = {}
@@ -1345,7 +1360,8 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             repeat_scheduled_item,
             scheduled_date,
             override_start_datetime=None,
-            override_end_datetime=None):
+            override_end_datetime=None,
+            status=None):
         """Initialise class.
 
         Args:
@@ -1357,6 +1373,7 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
                 override from repeat_item template.
             override_end_datetime (DateTime): start date time to override from
                 repeat_item template.
+            status (ItemStatus or None): status of item.
         """
         start_time = None
         end_time = None
@@ -1373,6 +1390,7 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             end_time=end_time,
             date=date,
             template_item=repeat_scheduled_item,
+            status=status,
         )
         self._scheduled_date = scheduled_date
 
@@ -1587,6 +1605,8 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             dict_repr[self.OVERRIDE_END_DATETIME_KEY] = (
                 self.override_end_datetime.string()
             )
+        if self.status != ItemStatus.UNSTARTED:
+            dict_repr[self.STATUS_KEY] = self.status
         return dict_repr
 
     @classmethod
@@ -1619,12 +1639,16 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         # TODO: these from_dict excepts need loggers to explain what's happened
         except DateTimeError:
             return None
+        status = dict_repr.get(cls.STATUS_KEY)
+        if status is not None:
+            status = ItemStatus(status)
         repeat_scheduled_item_instance = cls(
             calendar,
             repeat_scheduled_item,
             scheduled_date,
             override_start_datetime,
             override_end_datetime,
+            status=status,
         )
         # repeat_scheduled_item_instance._activate()
         return repeat_scheduled_item_instance

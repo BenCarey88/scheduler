@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 from copy import copy
+from functools import partial
 
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.common.object_wrappers import (
@@ -9,6 +10,7 @@ from scheduler.api.common.object_wrappers import (
     MutableAttribute,
 )
 from scheduler.api.common.timeline import TimelineDict
+from scheduler.api.serialization import item_registry
 from scheduler.api.serialization.serializable import SaveType
 from scheduler.api.enums import OrderedStringEnum, ItemStatus
 from scheduler.api.utils import fallback_value, setdefault_not_none
@@ -67,6 +69,7 @@ class Task(BaseTaskItem):
     VALUE_TYPE_KEY = "value_type"
     SIZE_KEY = "size"
     IMPORTANCE_KEY = "importance"
+    ID_KEY = "id"
 
     DEFAULT_NAME = "task"
 
@@ -148,9 +151,9 @@ class Task(BaseTaskItem):
         # needs to update as the time changes.
         # TODO: keep an eye on if this seems to slow stuff down considerably.
         # there's definitely stuff I can do with caching to speed it up
-        # TODO: delete below when I'm more confident, and delete the
-        # _status attribute, plus its corresponding logic in the to_dict
-        # and from_dict methods
+        # TODO: delete below and notes above when I'm more confident, and
+        # delete the _status attribute, plus its corresponding logic in the
+        # to_dict and from_dict methods
         if (self.type == TaskType.ROUTINE
                 and self._status.value == ItemStatus.COMPLETE):
             last_completed = self.history.last_completed
@@ -286,6 +289,7 @@ class Task(BaseTaskItem):
         json_dict = {
             self.STATUS_KEY: self.status,
             self.TYPE_KEY: self.type,
+            self.ID_KEY: self._get_id(),
         }
         if self.history:
             json_dict[self.HISTORY_KEY] = self.history.to_dict()
@@ -336,6 +340,13 @@ class Task(BaseTaskItem):
             importance,
         )
         task._activate()
+        id = json_dict.get(cls.ID_KEY, None)
+        if id is not None:
+            # TODO: this bit means tasks are now added to the item registry.
+            # This was done to make deserialization of task history dicts
+            # work. Keep an eye on this, I want to make sure it doesn't slow
+            # down loading too much.
+            item_registry.register_item(id, task)
         if history_data:
             for date, subdict in task._history.iter_date_dicts():
                 history_data._add_data(date, task, subdict)
@@ -361,9 +372,9 @@ class TaskHistory(object):
         date_1: {
             status: task_status,
             value: task_value,
-            latest_time: time_n,
             status_override: True,
             comment: comment,
+            influencers: {...},
             times: {
                 time_1: {
                     status: status_1,
@@ -444,6 +455,42 @@ class TaskHistory(object):
                 return date
         return None
 
+    def print(self):
+        """Print history dict to terminal, for debugging."""
+        print ("{0} History:\n-----------".format(self._task.name))
+        for date, date_dict in self._dict.items():
+            print ("{0}:".format(date))
+            self._print_subdict(date_dict, 1)
+            if self.INFLUENCERS_KEY in date_dict:
+                print ("\t{0}:".format(self.INFLUENCERS_KEY))
+                for inf, inf_dict in date_dict[self.INFLUENCERS_KEY].items():
+                    print ("\t\t{0}:".format(inf))
+                    self._print_subdict(inf_dict, 3)
+            if self.TIMES_KEY in date_dict:
+                print ("\t{0}:".format(self.TIMES_KEY))
+                for time, time_dict in date_dict[self.TIMES_KEY].items():
+                    print ("\t\t{0}:".format(time))
+                    self._print_subdict(time_dict, 3)
+                    if self.INFLUENCERS_KEY in time_dict:
+                        print ("\t\t\t{0}:".format(self.INFLUENCERS_KEY))
+                        influencers_dict = time_dict[self.INFLUENCERS_KEY]
+                        for inf, inf_dict in influencers_dict.items():
+                            print ("\t\t\t\t{0}:".format(inf))
+                            self._print_subdict(inf_dict, 5)
+        print ("\n")
+
+    def _print_subdict(self, subdict, tabs):
+        """Print core keys in subdict. Used by print method.
+
+        Args:
+            subdict (dict): subdict to print.
+            tabs (int): number of spaces to tab.
+        """
+        keys = self.CORE_FIELD_KEYS + [self.COMMENT_KEY]
+        for key in keys:
+            if key in subdict:
+                print ("{0}{1}: {2}".format("\t"*tabs, key, subdict[key]))
+
     def get_dict_at_date(self, date):
         """Get dict describing task history at given date.
 
@@ -497,7 +544,7 @@ class TaskHistory(object):
         """Get task status at given date.
 
         This searches through for the most complete status set since a status
-        override before (optionally including) this date, stopping at the
+        override before (or optionally including) this date, stopping at the
         start of the date if its a routine, and defaulting to unstarted.
 
         Note that this DOESN'T attempt to look at the time subdictionary or
@@ -1077,6 +1124,131 @@ class TaskHistory(object):
                 diff_dict=fallback_diff_dict,
             )
         return core_fields_dict
+    
+    def _subdict_to_json_dict(self, subdict, include_influencers_key=False):
+        """Utility to turn a date, time or influencer subdict to json dict.
+
+        Args:
+            subdict (dict): subdict to turn.
+            include_influencers_key (bool): if True, also search for
+                influencers key in subdict.
+
+        Returns:
+            (dict): json-formatted subdict.
+        """
+        json_subdict = {}
+        # TODO: if we have any value that need converting, use
+        # this to do so - atm time values are saved as strings, but
+        # should probably save them as Times and create a converter
+        # function to sort this
+        keys_and_converters = [
+            (self.STATUS_KEY, None),
+            (self.STATUS_OVERRIDE_KEY, None),
+            (self.VALUE_KEY, None),
+            (self.COMMENT_KEY, None),
+        ]
+        for key, converter in keys_and_converters:
+            if key in subdict:
+                if converter is None:
+                    json_subdict[key] = subdict[key]
+                else:
+                    json_subdict[key] = converter(subdict[key])
+
+        if include_influencers_key and self.INFLUENCERS_KEY in subdict:
+            json_inf_subdict = OrderedDict()
+            for inf, inf_subdict in subdict[self.INFLUENCERS_KEY].items():
+                # TODO: this currently assumes only tasks, planned items and
+                # scheduled items can be influencers. May need updating?
+                inf_key = inf._get_id()
+                json_inf_subdict[inf_key] = self._subdict_to_json_dict(
+                    inf_subdict
+                )
+            json_subdict[self.INFLUENCERS_KEY] = json_inf_subdict
+        return json_subdict
+
+    @classmethod
+    def _subdict_from_json_dict(
+            cls,
+            json_dict,
+            include_influencers_key=False,
+            task_history_item=None,
+            date_time_obj=None):
+        """Utility to get a date, time or influencer subdict from a json dict.
+
+        Args:
+            json_dict (dict): json subdict to turn.
+            include_influencers_key (bool): if True, also search for
+                influencers key in subdict.
+            task_history_item (TaskHistory): the history item being
+                created.
+            date_time_obj (Date or DateTime)
+
+        Returns:
+            (dict): subdict for use in class instance.
+        """
+        subdict = {}
+        keys_and_converters = [
+            (cls.STATUS_KEY, ItemStatus),
+            (cls.STATUS_OVERRIDE_KEY, None),
+            (cls.VALUE_KEY, None),
+            (cls.COMMENT_KEY, None),
+        ]
+        for key, converter in keys_and_converters:
+            if key in json_dict:
+                if converter is None:
+                    subdict[key] = json_dict[key]
+                else:
+                    subdict[key] = converter(json_dict[key])
+
+        if include_influencers_key and cls.INFLUENCERS_KEY in json_dict:
+            if date_time_obj is None or task_history_item is None:
+                raise Exception(
+                    "Need date_time_obj and task_history_item args"
+                )
+            for id, json_inf_subdict in json_dict[cls.INFLUENCERS_KEY].items():
+                # TODO this currently assumes only tasks, planned items
+                # and scheduled items can be influencers. May need updating?
+                # ALSO TODO: will this crash if the task influences itself
+                # because it tries to add an inactive hosted data item to
+                # a hosted data dict? I think it's safe based on the order
+                # of things done in the task from_dict method, but should
+                # keep an eye out
+                item_registry.register_callback(
+                    id,
+                    partial(
+                        task_history_item.__add_influencer,
+                        date_time_obj,
+                        cls._subdict_from_json_dict(json_inf_subdict),
+                    ),
+                )
+        return subdict
+
+    def __add_influencer(self, date_time_obj, influence_dict, influencer):
+        """Add influencer (to be used during deserialization).
+
+        Args:
+            influencer (HostedData): the influencing item to add.
+            date_time_obj (Date or DateTime): datetime to add at.
+            influence_dict (dict): dictionary of status and values set by
+                this influencer.
+        """
+        date = date_time_obj
+        time = None
+        if isinstance(date_time_obj, DateTime):
+            date = date_time_obj.date()
+            time = date_time_obj.time()
+        date_or_time_dict = self._dict.setdefault(date, {})
+        if time is not None:
+            times_dict = date_or_time_dict.setdefault(
+                self.TIMES_KEY,
+                TimelineDict(),
+            )
+            date_or_time_dict = times_dict.setdefault(time, {})
+        influencers_dict = date_or_time_dict.setdefault(
+            self.INFLUENCERS_KEY,
+            HostedDataDict(),
+        )
+        influencers_dict[influencer] = influence_dict
 
     # TODO: make these work with status overrides, influencers etc.
     def to_dict(self):
@@ -1089,20 +1261,16 @@ class TaskHistory(object):
         """
         json_dict = OrderedDict()
         for date, subdict in self._dict.items():
-            json_subdict = {}
-            if self.STATUS_KEY in subdict:
-                json_subdict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
-            if self.VALUE_KEY in subdict:
-                json_subdict[self.VALUE_KEY] = subdict[self.VALUE_KEY]
-            if self.COMMENT_KEY in subdict:
-                json_subdict[self.COMMENT_KEY] = subdict[self.COMMENT_KEY]
+            json_subdict = self._subdict_to_json_dict(subdict, True)
             if self.TIMES_KEY in subdict:
                 json_times_subdict = OrderedDict()
                 json_subdict[self.TIMES_KEY] = json_times_subdict
                 for time, time_subdict in subdict[self.TIMES_KEY].items():
-                    json_times_subdict[time.string()] = OrderedDict(
-                        time_subdict
+                    json_time_subdict = self._subdict_to_json_dict(
+                        time_subdict,
+                        include_influencers_key=True,
                     )
+                    json_times_subdict[time.string()] = json_time_subdict
             if json_subdict:
                 json_dict[date.string()] = json_subdict
         return json_dict
@@ -1118,38 +1286,28 @@ class TaskHistory(object):
         Returns:
             (TaskHistory): task history class with given dict.
         """
+        task_history = cls(task)
         class_dict = TimelineDict()
-        for date, subdict in json_dict.items():
-            class_subdict = {}
-            class_dict[Date.from_string(date)] = class_subdict
-            if cls.STATUS_KEY in subdict:
-                class_subdict[cls.STATUS_KEY] = ItemStatus(
-                    subdict[cls.STATUS_KEY]
-                )
-            if cls.VALUE_KEY in subdict:
-                class_subdict[cls.VALUE_KEY] = subdict[cls.VALUE_KEY]
-            if cls.COMMENT_KEY in subdict:
-                class_subdict[cls.COMMENT_KEY] = subdict[cls.COMMENT_KEY]
+        task_history._dict = class_dict
+        for date_str, subdict in json_dict.items():
+            date = Date.from_string(date_str)
+            class_subdict = cls._subdict_from_json_dict(
+                subdict,
+                include_influencers_key=True,
+                task_history_item=task_history,
+                date_time_obj=date,
+            )
+            class_dict[date] = class_subdict
             if cls.TIMES_KEY in subdict:
                 class_times_subdict = TimelineDict()
                 class_subdict[cls.TIMES_KEY] = class_times_subdict
-                for time, time_subdict in subdict[cls.TIMES_KEY].items():
-                    class_time_subdict = {}
-                    if cls.STATUS_KEY in time_subdict:
-                        class_time_subdict[cls.STATUS_KEY] = ItemStatus(
-                            time_subdict[cls.STATUS_KEY]
-                        )
-                    if cls.VALUE_KEY in time_subdict:
-                        class_time_subdict[cls.VALUE_KEY] = (
-                            time_subdict[cls.VALUE_KEY]
-                        )
-                    if cls.COMMENT_KEY in time_subdict:
-                        class_time_subdict[cls.COMMENT_KEY] = (
-                            time_subdict[cls.COMMENT_KEY]
-                        )
-                    class_times_subdict[Time.from_string(time)] = (
-                        class_time_subdict
+                for time_str, time_subdict in subdict[cls.TIMES_KEY].items():
+                    time = Time.from_string(time_str)
+                    class_time_subdict = cls._subdict_from_json_dict(
+                        time_subdict,
+                        include_influencers_key=True,
+                        task_history_item=task_history,
+                        date_time_obj=DateTime.from_date_and_time(date, time),
                     )
-        task_history = cls(task)
-        task_history._dict = class_dict
+                    class_times_subdict[time] = class_time_subdict
         return task_history

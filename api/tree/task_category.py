@@ -6,6 +6,7 @@ from scheduler.api.serialization.serializable import (
     SaveType,
     SerializableFileTypes,
 )
+from scheduler.api.serialization import item_registry
 from .exceptions import DuplicateChildNameError
 from .base_task_item import BaseTaskItem
 from .task import Task
@@ -18,6 +19,7 @@ class TaskCategory(BaseTaskItem):
     """
     _SAVE_TYPE = SaveType.DIRECTORY
     _ORDER_FILE = "category{0}".format(SerializableFileTypes.ORDER)
+    _INFO_FILE = "category{0}".format(SerializableFileTypes.INFO)
     _MARKER_FILE = _ORDER_FILE
 
     _SUBDIR_KEY = "subcategories"
@@ -28,6 +30,7 @@ class TaskCategory(BaseTaskItem):
 
     CATEGORIES_KEY = _SUBDIR_KEY
     TASKS_KEY = "tasks"
+    ID_KEY = "id"    
 
     DEFAULT_NAME = "category"
 
@@ -120,7 +123,7 @@ class TaskCategory(BaseTaskItem):
         Returns:
             (OrderedDict): dictionary representation.
         """
-        json_dict = {}
+        json_dict = {self.ID_KEY: self._get_id()}
         if self._subcategories:
             subcategories_dict = OrderedDict()
             for subcategory_name, subcategory in self._subcategories.items():
@@ -153,6 +156,13 @@ class TaskCategory(BaseTaskItem):
         """
         category = cls(name, parent)
         category._activate()
+        id = json_dict.get(cls.ID_KEY, None)
+        if id is not None:
+            # TODO: this bit means categories are now added to item registry.
+            # This was done to make deserialization of task history dicts
+            # work. Keep an eye on this, I want to make sure it doesn't slow
+            # down loading too much.
+            item_registry.register_item(id, category)
         subcategories = json_dict.get(cls.CATEGORIES_KEY, {})
         for subcategory_name, subcategory_dict in subcategories.items():
             subcategory = TaskCategory.from_dict(

@@ -278,6 +278,8 @@ class ModifyTaskEdit(AttributeEdit):
 # we can remove the propagate_updates kwaarg because we always want it
 # but we will need to add the value logic in order to do this
 
+# ^^^ I THINK THIS CAN BE IGNORED AND ALL THE ABOVE CAN BE DELETED NOW
+
 
 class UpdateTaskHistoryEdit(CompositeEdit):
     """Edit to update history for a task."""

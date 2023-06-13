@@ -175,7 +175,7 @@ class ItemUpdatePolicy(OrderedStringEnum):
 
     Policies:
         NO_UPDATE: diving item(s) update has no effect on driven item(s).
-        IN_PROGRESS: when diving item(s) is marked as in progress or
+        IN_PROGRESS: when driving item(s) is marked as in progress or
             complete, the driven item(s) will be updated to in progress. This
             is the default behaviour.
         COMPLETE: when driving item(s) is marked as in progress or complete,
@@ -185,7 +185,7 @@ class ItemUpdatePolicy(OrderedStringEnum):
         OVERRIDE: linked item status mirrors original item(s) status directly.
             In this case, all statuses set on the linked item as a result of
             this policy will override any previously set statuses on the item.
-            This can only be used when there is only one item driving item.
+            This can only be used when there is only one driving item.
     """
     NO_UPDATE = "No_Update"
     IN_PROGRESS = "In_Progress"

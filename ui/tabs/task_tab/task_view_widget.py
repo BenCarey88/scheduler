@@ -105,6 +105,46 @@ class TaskViewWidget(BaseTreeView):
         size = super(TaskViewWidget, self).sizeHint()
         return QtCore.QSize(size.width(), size.height() + self.HEIGHT_BUFFER)
 
+    def _build_right_click_menu(self, item=None):
+        """Build right click menu for given item.
+
+        This is used to add task history printing to right click menu.
+        TODO: should this be available in outliner too? If so just add
+        to base treevieew, but need to make sure that it checks if it's
+        a category or not first.
+
+        Args:
+            item (BaseTaskItem or None): item to build menu for.
+
+        Returns:
+            (QtWidgets.QMenu): the right click menu.
+        """
+        right_click_menu = super(TaskViewWidget, self)._build_right_click_menu(
+            item=item
+        )
+        right_click_menu.addSeparator()
+        action = right_click_menu.addAction("Print History")
+        self._connect_action_to_func(
+            action,
+            partial(self.print_task_history, item=item),
+        )
+
+        return right_click_menu
+    
+    def print_task_history(self, item, *args):
+        """Print task history of given item.
+        
+        Args:
+            item (BaseTreeItem or None): item to add sibling to.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        if item is None:
+            return False
+        item.history.print()
+        return True
+
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for task widget tree."""

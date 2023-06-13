@@ -1,7 +1,5 @@
 """Planned item class."""
 
-from functools import partial
-
 from scheduler.api.common.object_wrappers import (
     Hosted,
     HostedDataDict,
@@ -30,15 +28,18 @@ class PlannedItem(Hosted, NestedSerializable):
 
     TREE_ITEM_KEY = "tree_item"
     TIME_PERIOD_KEY = "time_period"
+    STATUS_KEY = "status"
     SCHEDULED_ITEMS_KEY = "scheduled_items"
     PLANNED_CHILDREN_KEY = "planned_children"
+    INFLUENCERS_KEY = "influencers"
     ID_KEY = "id"
 
     def __init__(
             self,
             calendar,
             calendar_period,
-            tree_item):
+            tree_item,
+            status=None):
         """Initialize class.
 
         Args:
@@ -46,6 +47,7 @@ class PlannedItem(Hosted, NestedSerializable):
             calendar_period (BaseCalendarPeriod): calendar period this is
                 associated to.
             tree_item (BaseTaskItem): the task that this item represents.
+            status (ItemStatus): status of item.
 
         Attrs:
             _planned_children (PlannedItem): associated items planned for
@@ -72,7 +74,7 @@ class PlannedItem(Hosted, NestedSerializable):
             driver=True,
         )
         self._status = MutableAttribute(
-            ItemStatus.UNSTARTED,
+            fallback_value(status, ItemStatus.UNSTARTED),
             "status"
         )
         self._task_update_policy = MutableAttribute(
@@ -102,6 +104,7 @@ class PlannedItem(Hosted, NestedSerializable):
             parent=self,
             driver=True,
         )
+        self._influencers = HostedDataDict()
         self._id = None
 
     @property
@@ -428,8 +431,7 @@ class PlannedItem(Hosted, NestedSerializable):
                 planned item will have, if needed.
 
         Returns:
-            (Task or None): linked tree item, if it's a task, and the scheduled
-                item is a task.
+            (Task or None): linked tree item, if it's a task.
         """
         task_item = fallback_value(new_tree_item, self.tree_item)
         if not isinstance(task_item, Task):
@@ -464,7 +466,7 @@ class PlannedItem(Hosted, NestedSerializable):
     # may be dodgy, but everything else should work afaik.
     # To fix, I think we need to check if item currently exists in registry
     # rather than check if self._id is set, and then we can make autosaves
-    # clear the id registry after each cache.
+    # and saves both clear the id registry after each cache.
     def _get_id(self):
         """Generate unique id for object.
 
@@ -500,10 +502,14 @@ class PlannedItem(Hosted, NestedSerializable):
             dict_repr.get(cls.TREE_ITEM_KEY),
             search_archive=True,
         )
+        status = dict_repr.get(cls.STATUS_KEY)
+        if status is not None:
+            status = ItemStatus(status)
         planned_item = cls(
             calendar,
             calendar_period,
             tree_item,
+            status=status,
         )
         planned_item._activate()
 
@@ -532,6 +538,8 @@ class PlannedItem(Hosted, NestedSerializable):
             self.TIME_PERIOD_KEY: self.time_period,
             self.ID_KEY: self._get_id(),
         }
+        if self.status != ItemStatus.UNSTARTED:
+            dict_repr[self.STATUS_KEY] = self.status
         if self.tree_item:
             dict_repr[self.TREE_ITEM_KEY] = self.tree_item.path
         if self._scheduled_items:

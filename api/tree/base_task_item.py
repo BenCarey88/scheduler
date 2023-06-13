@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 from scheduler.api import constants
 from scheduler.api.enums import TimePeriod
+from scheduler.api.serialization import item_registry
 
 from scheduler.api.common.object_wrappers import (
     HostedDataList,
@@ -36,6 +37,7 @@ class BaseTaskItem(BaseTreeItem):
             filter=(lambda item: item.is_task()),
             driven=True,
         )
+        self._id = None
 
     @property
     def color(self):
@@ -117,3 +119,19 @@ class BaseTaskItem(BaseTreeItem):
             item for item in self._planned_items
             if item.time_period == TimePeriod.YEAR
         ]
+
+    def _get_id(self):
+        """Generate unique id for object.
+
+        This should be used only during the serialization process, so that
+        the data used for the id string is up to date. Note that once this
+        is run the id string is fixed, allowing it to be referenced by other
+        classes during serialization (see the item_registry module for
+        more information on how this is done).
+
+        Returns:
+            (str): unique id.
+        """
+        if self._id is None:
+            self._id = item_registry.generate_unique_id(self.path)
+        return self._id

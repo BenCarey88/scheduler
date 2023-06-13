@@ -424,28 +424,64 @@ class _BaseHostedContainer():
         if self._locked:
             raise HostError("Cannot mutate locked data container.")
 
-    def _get_host_object(self, value):
-        """Get host object for given value.
+    # TODO: switch raise_error to False by default and then change all
+    # methods that use this function to just return early if host object
+    # is None? - I don't think there's any reason to hard fail when trying
+    # to insert inactive data. The only reason I'm waiting before doing
+    # this is that it feels like a potentially big change and I don't
+    # want to mess anything. At the moment, the potential problem points
+    # I can think of that relate to this are:
+    #   1) when data is saved badly - eg. a planned item references a task
+    #       but the task is saved badly/missing, so the planned item becomes
+    #       inactive - then adding that planned item to eg. a calendar period's
+    #       planned item list will cause an error. This would be an argument
+    #       for not erroring at this point. Although arguably, the dodgy
+    #       save is the problem there, as when things are working, any
+    #       defunct item should not be saved in the first place
+    #   2) ui updates - maybe we don't want to allow attempting to insert
+    #       an item to a list in cases where the list may not update as this
+    #       could cause issues with the qt models - if we use BeginInsertRows
+    #       and then don't insert any rows, I think that could cause things to
+    #       display badly, or maybe even crash. So there's an argument for
+    #       hard-erroring here to avoid any soft errors seeping through
+    #       unnoticed to the ui
+    def _get_host_object(self, value, raise_error=True):
+        """Get host object for given value, to be added to container.
 
         Args:
             value (Hosted, _HostObject or None): value to find host object for.
+            raise_error (bool): if True, raise an error if value is not hosted
+                or defunct. Otherwise, return None.
+
+        Raises:
+            (HostError): if raise_error is true and either:
+                - value is not hosted data, a host, or None
+                - value is defunct hosted data
 
         Returns:
-            (_HostObject): corresponding host object.
+            (_HostObject or None): corresponding host object, if found.
         """
         if isinstance(value, Hosted):
             if value.defunct:
-                raise HostError("Inactive hosted data cannot be accessed.")
+                if raise_error:
+                    raise HostError(
+                        "Inactive hosted data {0} cannot be accessed.".format(
+                            str(value)
+                        )
+                    )
+                return None
             return value.host
         if isinstance(value, _HostObject):
             return value
         elif value is None:
             return _HostObject(None)
-        raise HostError(
-            "Cannot add unhosted class {0} to HostedDataList".format(
-                value.__class__.__name__
+        if raise_error:
+            raise HostError(
+                "Cannot add unhosted class {0} to HostedDataContainer".format(
+                    value.__class__.__name__
+                )
             )
-        )
+        return None
 
     def _add_to_paired_container(self, host):
         """Add this class instance to paired container.

@@ -4,7 +4,6 @@ from collections import OrderedDict
 from collections.abc import MutableMapping
 from copy import deepcopy
 
-from scheduler.api.utils import fallback_value
 from scheduler.api.common.date_time import Date, DateTime, Time
 
 

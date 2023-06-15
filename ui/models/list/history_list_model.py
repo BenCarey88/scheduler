@@ -4,7 +4,6 @@ from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import DateTime, Time
 from scheduler.api.enums import ItemStatus
 from scheduler.api.tree import TaskType, TaskHistory
 from scheduler.ui import constants, utils
@@ -213,12 +212,9 @@ class HistoryListModel(QtCore.QAbstractItemModel):
             if tree_item is None:
                 return False
 
-            date_time = DateTime.from_date_and_time(
-                self.date,
-                Time.now(),
-            )
             success = self.tree_manager.update_task(
                 tree_item,
-                date_time=date_time
+                date_time=self.date,
+                status_override=True,
             )
             return bool(success)

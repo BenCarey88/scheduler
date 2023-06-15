@@ -13,7 +13,7 @@ from scheduler.api.common.timeline import TimelineDict
 from scheduler.api.serialization import item_registry
 from scheduler.api.serialization.serializable import SaveType
 from scheduler.api.enums import OrderedStringEnum, ItemStatus
-from scheduler.api.utils import fallback_value, setdefault_not_none
+from scheduler.api.utils import fallback_value, print_dict, setdefault_not_none
 
 from .base_task_item import BaseTaskItem
 
@@ -145,7 +145,9 @@ class Task(BaseTaskItem):
         Returns:
             (ItemStatus): current status.
         """
-        return self.history.get_status_at_datetime(DateTime.now())
+        return self.history.get_status_at_date(Date.now())
+        # TODO: keep an eye that it's fine to use date not datetime
+        # return self.history.get_status_at_datetime(DateTime.now())
 
         # I'm changing this to just find status at the current datetime, as it
         # needs to update as the time changes.
@@ -455,41 +457,21 @@ class TaskHistory(object):
                 return date
         return None
 
+    # TODO: replace with utils.print_dict? May need to add in a key ordering
+    # arg to that.
     def print(self):
-        """Print history dict to terminal, for debugging."""
-        print ("{0} History:\n-----------".format(self._task.name))
-        for date, date_dict in self._dict.items():
-            print ("{0}:".format(date))
-            self._print_subdict(date_dict, 1)
-            if self.INFLUENCERS_KEY in date_dict:
-                print ("\t{0}:".format(self.INFLUENCERS_KEY))
-                for inf, inf_dict in date_dict[self.INFLUENCERS_KEY].items():
-                    print ("\t\t{0}:".format(inf))
-                    self._print_subdict(inf_dict, 3)
-            if self.TIMES_KEY in date_dict:
-                print ("\t{0}:".format(self.TIMES_KEY))
-                for time, time_dict in date_dict[self.TIMES_KEY].items():
-                    print ("\t\t{0}:".format(time))
-                    self._print_subdict(time_dict, 3)
-                    if self.INFLUENCERS_KEY in time_dict:
-                        print ("\t\t\t{0}:".format(self.INFLUENCERS_KEY))
-                        influencers_dict = time_dict[self.INFLUENCERS_KEY]
-                        for inf, inf_dict in influencers_dict.items():
-                            print ("\t\t\t\t{0}:".format(inf))
-                            self._print_subdict(inf_dict, 5)
-        print ("\n")
-
-    def _print_subdict(self, subdict, tabs):
-        """Print core keys in subdict. Used by print method.
-
-        Args:
-            subdict (dict): subdict to print.
-            tabs (int): number of spaces to tab.
-        """
-        keys = self.CORE_FIELD_KEYS + [self.COMMENT_KEY]
-        for key in keys:
-            if key in subdict:
-                print ("{0}{1}: {2}".format("\t"*tabs, key, subdict[key]))
+        """Print history dict to terminal."""
+        print_dict(
+            self._dict,
+            key_ordering=self.CORE_FIELD_KEYS+[
+                self.COMMENT_KEY,
+                self.INFLUENCERS_KEY,
+                self.TIMES_KEY,
+            ],
+            start_message="{0} History:\n-----------".format(
+                self._task.name,
+            ),
+        )
 
     def get_dict_at_date(self, date):
         """Get dict describing task history at given date.
@@ -732,7 +714,7 @@ class TaskHistory(object):
         """Get diff dicts for UpdateTaskHistoryEdit.
 
         Args:
-            influencer (variant): the object that is influencing the update.
+            influencer (Hosted): the object that is influencing the update.
             old_datetime (Date, DateTime or None): the date or datetime that
                 this influencer was previously influencing at. If not given,
                 the edit will add it as a new influencer instead.
@@ -1056,10 +1038,17 @@ class TaskHistory(object):
         after a status override, if one exists (or the most complete status
         in the dict otherwise).
 
+        The dict being searched through will be either an influencers dict or
+        a times dict, so the keys are either influencers or times, and the
+        values are subdicts defining core fields (status, value, override).
+        This is true of all the args, except for starting_values, which is
+        just a core_fields dictionary.
+
         Args:
             dict_ (dict): ordered dict to search through.
             starting_values (dict or None): if given, use this dict to define
-                the initial values of the fields.
+                the initial values of the fields - used for recursive use of
+                this method only.
             diff_dict (dict(variant, dict/None) or None): diff_dict defining
                 updates to core values in subdicts, to include in search.
             fallback_dict (dict or None): dict to search through if some
@@ -1100,7 +1089,9 @@ class TaskHistory(object):
             new_value = subdict.get(self.VALUE_KEY)
             new_override = subdict.get(self.STATUS_OVERRIDE_KEY)
             if (status is None or
-                    (new_status is not None and new_status > status)):
+                    (not status_override and 
+                     new_status is not None and
+                     new_status > status)):
                 status = new_status
             if value is None and new_value is not None:
                 value = new_value

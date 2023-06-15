@@ -299,7 +299,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
 
         Args:
             task_item (Task): the task which is being updated.
-            influencer (variant): the object that is influencing the update.
+            influencer (Hosted): the object that is influencing the update.
             old_datetime (Date, DateTime or None): the date or datetime that
                 this influencer was previously influencing at. If not given,
                 the edit will add it as a new influencer instead.

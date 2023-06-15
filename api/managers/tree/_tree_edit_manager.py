@@ -366,13 +366,14 @@ class TreeEditManager(BaseTreeManager):
             value=None,
             status_override=None,
             comment=None,
-            remove_from_prev_time=True):
+            remove_from_prev_time=True,
+            ignore_time=False):
         """Update task history and status.
 
         Args:
             task_item (Task): task item to edit.
-            date (Date, DateTime or None): date or datetime to update task
-                history with. If None, we use current date.
+            date_time (Date, DateTime or None): date or datetime to update
+                task history with. If None, we use current date and time.
             time (Time or None): time to update task history with, if used.
             status (ItemStatus or None): status to update task with. If None
                 given, we calculate the next one.
@@ -384,15 +385,30 @@ class TreeEditManager(BaseTreeManager):
             comment (str): comment to add to history if needed.
             remove_from_prev_time (bool): if True, remove task from previous
                 times on same day to avoid clogging up.
+            ignore_time (bool): only used if no date_time arg is given. In
+                this case, if True, we update at the current date, otherwise
+                we update at the current date and time.
 
         Returns:
             (bool): whether or not edit was successful.
         """
         if date_time is None:
-            date_time = DateTime.now()
+            if ignore_time:
+                date_time = Date.now()
+            else:
+                date_time = DateTime.now()
+
+        if isinstance(date_time, DateTime):
+            date = date_time.date()
+        elif isinstance(date_time, Date):
+            date = date_time
+        else:
+            raise Exception(
+                "date_time must be Date or DateTime, not {0}".format(date_time)
+            )
 
         if status is None:
-            current_status = task_item.get_status_at_date(date_time.date())
+            current_status = task_item.get_status_at_date(date)
             if current_status == ItemStatus.UNSTARTED:
                 if task_item.type == TaskType.ROUTINE:
                     status = ItemStatus.COMPLETE
@@ -405,13 +421,11 @@ class TreeEditManager(BaseTreeManager):
 
         # remove task from previous time on same day to avoid clogging up
         old_datetime = None
-        if remove_from_prev_time:
-            if isinstance(date_time, DateTime):
-                history = task_item.history
-                date = date_time.date()
-                old_time = history.find_influencer_at_date(date, task_item)
-                if old_time is not None:
-                    old_datetime = DateTime.from_date_and_time(date, old_time)
+        if remove_from_prev_time and isinstance(date_time, DateTime):
+            history = task_item.history
+            old_time = history.find_influencer_at_date(date, task_item)
+            if old_time is not None:
+                old_datetime = DateTime.from_date_and_time(date, old_time)
         return UpdateTaskHistoryEdit.create_and_run(
             task_item=task_item,
             influencer=task_item,

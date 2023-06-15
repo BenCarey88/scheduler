@@ -327,7 +327,7 @@ class Project(CustomSerializable):
         return self._tree_managers.get(name)
 
     def get_planner_manager(self, name):
-        """Get calendar manager for this project.
+        """Get planner manager for this project.
 
         Args:
             name (str): name of manager object.

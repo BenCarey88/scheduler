@@ -1,5 +1,6 @@
 """Utility functions for scheduler api."""
 
+from collections.abc import MutableMapping
 from contextlib import contextmanager
 import datetime
 import sys
@@ -36,6 +37,47 @@ def indent_print(bookend=None, indent=1, time_it=False):
             print ("[END]:", bookend)
     elif time_it:
         print ("[TIME]:", duration)
+
+
+from .common.timeline import TimelineDict
+
+def print_dict(dict_, indent=0, key_ordering=None, start_message=None):
+    """A nice way of printing a nested dictionary.
+
+    Args:
+        dict_ (dict): dict to print.
+        indent (int): number of tabs to indent with.
+        key_ordering (list or None): list of keys in a given order, if wanted.
+        start_message (str or None): string to print before dict.
+        additional_dict_types (tuple, list, type or None): if given, this
+            defines which other things will be considered dicts for the purpose
+            of this printing.
+    """
+    if start_message is not None:
+        print (start_message)
+
+    if key_ordering is not None:
+        for key in key_ordering:
+            if key in dict_:
+                value = dict_[key]
+                if isinstance(value, MutableMapping):
+                    print("{0}{1}:".format("\t"*indent, key))
+                    print_dict(
+                        value,
+                        indent=indent+1,
+                        key_ordering=key_ordering,
+                    )
+                else:
+                    print("{0}{1}: {2}".format("\t"*indent, key, value))
+
+    for key, value in dict_.items():
+        if key_ordering is not None and key in key_ordering:
+            continue
+        if isinstance(value, MutableMapping):
+            print("{0}{1}:".format("\t"*indent, key))
+            print_dict(value, indent=indent+1, key_ordering=key_ordering)
+        else:
+            print("{0}{1}: {2}".format("\t"*indent, key, value))
 
 
 def catch_exceptions(exceptions=None):
@@ -199,41 +241,3 @@ def backup_git_repo(repo_path, commit_message="backup"):
         )
 
     return None
-
-
-"""Id registry to store floating items by temporary ids."""
-_TEMPORARY_ID_REGISTRY = {}
-_GLOBAL_COUNT = 0
-
-
-def generate_temporary_id(item):
-    """Generate temporary id for item.
-
-    Args:
-        item (variant): item to generate id for.
-
-    Returns:
-        (str): id of item.
-    """
-    global _GLOBAL_COUNT
-    id = str(_GLOBAL_COUNT)
-    _GLOBAL_COUNT += 1
-    _TEMPORARY_ID_REGISTRY[id] = item
-    return id
-
-
-def get_item_by_id(id, remove_from_registry=False):
-    """Get item by id and remove from registry.
-
-    Args:
-        id (str): id of item to get.
-        remove_from_registry (bool): if True, remove the item from
-            the registry after returning it.
-
-    Returns:
-        (variant or None): item, if found.
-    """
-    item = _TEMPORARY_ID_REGISTRY.get(id, None)
-    if remove_from_registry and item is not None:
-        del _TEMPORARY_ID_REGISTRY[id]
-    return item

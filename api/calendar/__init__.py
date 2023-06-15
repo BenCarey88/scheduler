@@ -8,9 +8,9 @@ from .calendar_period import (
     CalendarMonth,
     CalendarYear,
 )
+from .repeat_pattern import RepeatPattern
 from .scheduled_item import (
     ScheduledItem,
-    ScheduledItemRepeatPattern,
     RepeatScheduledItem,
     RepeatScheduledItemInstance,
     ScheduledItemType,

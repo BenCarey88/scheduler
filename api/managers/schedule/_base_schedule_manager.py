@@ -105,7 +105,7 @@ class BaseScheduleManager(BaseCalendarManager):
                 to check.
 
         Returns:
-            (ScheduledItemRepeatPattern or None): repeat pattern.
+            (RepeatPattern or None): repeat pattern.
         """
         if isinstance(scheduled_item, RepeatScheduledItem):
             return scheduled_item.repeat_pattern

@@ -144,10 +144,13 @@ class TaskTreeModel(BaseTreeModel):
             task_item = index.internalPointer()
             if not task_item:
                 return False
+            # TODO: keep an eye on this, check everything works fine now
+            # that I'm setting this at a date rather than a datetime and
+            # using status_override
             return self.tree_manager.update_task(
                 task_item,
-                # TODO: start adding in the status overrides
-                # status_override=True,
+                status_override=True,
+                ignore_time=True,
             )
         if role == QtCore.Qt.ItemDataRole.EditRole:
             if column_name == self.IMPORTANCE_COLUMN:

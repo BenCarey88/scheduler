@@ -7,6 +7,10 @@ from scheduler.api.serialization.serializable import (
 )
 
 
+class RepeatPatternError(Exception):
+    """Generic exception for repeat pattern errors."""
+
+
 class RepeatPattern(NestedSerializable):
     """Class to determine the dates of a repeating scheduled item."""
     _SAVE_TYPE = SaveType.NESTED
@@ -40,7 +44,7 @@ class RepeatPattern(NestedSerializable):
         super(RepeatPattern, self).__init__()
         self._initial_date_pattern = inital_date_pattern
         if inital_date_pattern[0] + timedelta_gap <= inital_date_pattern[-1]:
-            raise ScheduledItemError(
+            raise RepeatPatternError(
                 "RepeatPattern timedelta_gap is too small for given range"
             )
         self._pattern_size = len(inital_date_pattern)

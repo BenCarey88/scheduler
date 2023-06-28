@@ -16,10 +16,8 @@ USER_PREFS_FILE = os.path.join(SCHEDULER_PKG_DIR, "user_prefs.json")
 
 
 # Hosted Data Container Pairing
-PLANNER_TREE_PAIRING = "Planner_Tree_Pairing"
-SCHEDULER_TREE_PAIRING = "Scheduler_Tree_Pairing"
-PLANNER_SCHEDULER_PAIRING = "Planner_Scheduler_Pairing"
-PLANNER_PARENT_CHILD_PAIRING = "Planner_Parent_Child_Pairing"
+CALENDAR_ITEM_TREE_PAIRING = "Calendar_Item_Tree_Pairing"
+CALENDAR_ITEM_PARENT_CHILD_PAIRING = "Calendar_Item_Parent_Child_Pairing"
 
 
 # TODO: this should DEFINITELY be set by user, as task attribute,

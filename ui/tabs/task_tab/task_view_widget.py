@@ -128,6 +128,11 @@ class TaskViewWidget(BaseTreeView):
             action,
             partial(self.print_task_history, item=item),
         )
+        action = right_click_menu.addAction("Clear History")
+        self._connect_action_to_func(
+            action,
+            partial(self.clear_task_history, item=item),
+        )
 
         return right_click_menu
     
@@ -135,7 +140,7 @@ class TaskViewWidget(BaseTreeView):
         """Print task history of given item.
         
         Args:
-            item (BaseTreeItem or None): item to add sibling to.
+            item (BaseTreeItem or None): item to print history for.
 
         Returns:
             (bool): whether or not action was successful.
@@ -144,6 +149,19 @@ class TaskViewWidget(BaseTreeView):
             return False
         item.history.print()
         return True
+    
+    def clear_task_history(self, item, *args):
+        """Clear task history of given item.
+        
+        Args:
+            item (BaseTreeItem or None): item to clear history for.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        if item is None:
+            return False
+        return self.tree_manager.clear_task_history(item)
 
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):

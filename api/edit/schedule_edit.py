@@ -15,7 +15,7 @@ from ._core_edits import (
     ReplaceHostedDataEdit,
     SelfInverseSimpleEdit,
 )
-from .planner_edit import AddScheduledItemChildRelationshipEdit
+from ._base_calendar_item_edit import AddCalendarItemChildRelationshipEdit
 from .task_edit import UpdateTaskHistoryEdit
 
 
@@ -44,15 +44,18 @@ class AddScheduledItemEdit(CompositeEdit):
         subedits.append(add_edit)
         if parent is not None:
             parent_edit = (
-                AddScheduledItemChildRelationshipEdit.create_unregistered(
-                    scheduled_item,
+                AddCalendarItemChildRelationshipEdit.create_unregistered(
                     parent,
+                    scheduled_item,
                 )
             )
             if not parent_edit._is_valid:
                 super(AddScheduledItemEdit, self).__init__([])
                 return
-            subedits.append(parent_edit)
+            parent_status_edit = SelfInverseSimpleEdit.create_unregistered(
+                parent._update_status_from_children
+            )
+            subedits.extend([parent_edit, parent_status_edit])
         super(AddScheduledItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [scheduled_item]
         self._name = "AddScheduledItem ({0})".format(scheduled_item.name)
@@ -94,6 +97,12 @@ class RemoveScheduledItemEdit(CompositeEdit):
                 old_datetime=date_time,
             )
             subedits.append(history_removal_edit)
+        # update parent status from children
+        for parent in scheduled_item._parents:
+            parent_status_edit = SelfInverseSimpleEdit.create_unregistered(
+                parent._update_status_from_children
+            )
+            subedits.append(parent_status_edit)
         if deactivate:
             subedits.append(
                 DeactivateHostedDataEdit.create_unregistered(scheduled_item)
@@ -145,6 +154,15 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
         subedits.insert(0, self._attribute_edit)
         # task history update edit
         subedits[1:1] = self._get_task_history_edits()
+
+        # update statuses from children if needed
+        if scheduled_item._status in attr_dict:
+            for parent in scheduled_item._parents:
+                subedits[1:1] = [
+                    SelfInverseSimpleEdit.create_unregistered(
+                        parent._update_status_from_children
+                    )
+                ]
 
         super(BaseModifyScheduledItemEdit, self).__init__(
             subedits,

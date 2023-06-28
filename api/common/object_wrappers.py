@@ -173,6 +173,21 @@ class Hosted(object):
         self._driver_paired_data_containers = {}
         self._driven_paired_data_containers = {}
 
+    @classmethod
+    def init_and_activate(cls, *args, **kwargs):
+        """Initialize class and then activate it.
+
+        When a hosted data instance isn't initialized from a dict, or made
+        as part of an edit which activates it, it should be initialized
+        through this method.
+
+        Returns:
+            (Hosted): class instance.
+        """
+        class_instance = cls(*args, **kwargs)
+        class_instance._activate()
+        return class_instance
+
     @property
     def host(self):
         """Get host attribute.
@@ -416,7 +431,10 @@ class _BaseHostedContainer():
             container_dict = host.data._paired_data_containers
         container = container_dict.get(self._pairing_id)
         if not isinstance(container, _BaseHostedContainer):
-            raise HostError("No valid paired data container found.")
+            raise HostError(
+                "No valid paired data container found for pairing id "
+                "{0}".format(self._pairing_id)
+            )
         return container
 
     def _assert_not_locked(self):

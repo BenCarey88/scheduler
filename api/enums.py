@@ -174,7 +174,7 @@ class ItemUpdatePolicy(OrderedStringEnum):
         PlannedItem -> PlannedItems (children)
 
     Policies:
-        NO_UPDATE: diving item(s) update has no effect on driven item(s).
+        NO_UPDATE: driving item(s) update has no effect on driven item(s).
         IN_PROGRESS: when driving item(s) is marked as in progress or
             complete, the driven item(s) will be updated to in progress. This
             is the default behaviour.
@@ -182,7 +182,7 @@ class ItemUpdatePolicy(OrderedStringEnum):
             driven item(s) will be updated to match. If multiple driving items
             exist, the driven item(s) are marked as complete only if ALL of the
             drivers are complete.
-        OVERRIDE: linked item status mirrors original item(s) status directly.
+        OVERRIDE: linked item status mirrors original item status directly.
             In this case, all statuses set on the linked item as a result of
             this policy will override any previously set statuses on the item.
             This can only be used when there is only one driving item.

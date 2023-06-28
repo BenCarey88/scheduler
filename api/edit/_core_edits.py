@@ -130,7 +130,7 @@ class CompositeEdit(BaseEdit):
         if self._reverse_order_for_inverse:
             inverse_edits_list = list(reversed(self._edits_list))
         else:
-            inverse_edits_list = self._edits_list
+            inverse_edits_list = self._edits_list[:]
         for edit in self._keep_last_for_inverse:
             if edit in inverse_edits_list:
                 index = inverse_edits_list.index(edit)

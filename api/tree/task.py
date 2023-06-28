@@ -1196,7 +1196,9 @@ class TaskHistory(object):
                 raise Exception(
                     "Need date_time_obj and task_history_item args"
                 )
-            for id, json_inf_subdict in json_dict[cls.INFLUENCERS_KEY].items():
+            prev_ids = []
+            inf_dict_items = json_dict[cls.INFLUENCERS_KEY].items()
+            for i, (id_, json_inf_subdict) in enumerate(inf_dict_items):
                 # TODO this currently assumes only tasks, planned items
                 # and scheduled items can be influencers. May need updating?
                 # ALSO TODO: will this crash if the task influences itself
@@ -1204,13 +1206,16 @@ class TaskHistory(object):
                 # a hosted data dict? I think it's safe based on the order
                 # of things done in the task from_dict method, but should
                 # keep an eye out
+                prev_ids.append(id_)
                 item_registry.register_callback(
-                    id,
+                    id_,
                     partial(
                         task_history_item.__add_influencer,
                         date_time_obj,
                         cls._subdict_from_json_dict(json_inf_subdict),
                     ),
+                    required_ids=prev_ids[:],
+                    order=i,
                 )
         return subdict
 

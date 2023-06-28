@@ -158,7 +158,7 @@ class FieldFilter(BaseFilter):
 
     @classmethod
     def _from_dict(cls, dict_repr):
-        """Get dict representation (excluding the class key).
+        """Initialize class from dict representation.
 
         This assumes the subclass __init__ just requires a field operator and
         field value arg, and that the field value arg is json-serializable.

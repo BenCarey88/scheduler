@@ -10,7 +10,9 @@ from ._core_edits import (
     AttributeEdit,
     DeactivateHostedDataEdit,
     CompositeEdit,
+    SelfInverseSimpleEdit
 )
+from ._base_calendar_item_edit import AddCalendarItemChildRelationshipEdit
 from .task_edit import UpdateTaskHistoryEdit
 
 
@@ -37,7 +39,10 @@ def _get_task_history_edits(pi, ad):
             old_date,
             pi,
         )
-    _new_period = (ad.get(pi._calendar_period), pi.calendar_period)
+    _new_period = fallback_value(
+        ad.get(pi._calendar_period),
+        pi.calendar_period,
+    )
     new_date = _new_period.end_date
     new_task = pi._get_task_to_update(new_tree_item=ad.get(pi._tree_item))
     _new_status = fallback_value(ad.get(pi._status), pi.status)
@@ -108,7 +113,7 @@ class AddPlannedItemEdit(CompositeEdit):
         subedits.append(add_edit)
         if parent is not None:
             parent_edit = (
-                AddPlannedItemChildRelationshipEdit.create_unregistered(
+                AddCalendarItemChildRelationshipEdit.create_unregistered(
                     parent,
                     planned_item,
                 )
@@ -116,7 +121,10 @@ class AddPlannedItemEdit(CompositeEdit):
             if not parent_edit._is_valid:
                 super(AddPlannedItemEdit, self).__init__([])
                 return
-            subedits.append(parent_edit)
+            parent_status_edit = SelfInverseSimpleEdit.create_unregistered(
+                parent._update_status_from_children
+            )
+            subedits.extend([parent_edit, parent_status_edit])
         super(AddPlannedItemEdit, self).__init__(subedits)
 
         for item in item_container:
@@ -171,6 +179,12 @@ class RemovePlannedItemEdit(CompositeEdit):
                 old_datetime=date,
             )
             subedits.append(history_removal_edit)
+        # update parent status from children
+        for parent in planned_item._parents:
+            parent_status_edit = SelfInverseSimpleEdit.create_unregistered(
+                parent._update_status_from_children
+            )
+            subedits.append(parent_status_edit)
         super(RemovePlannedItemEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [
             planned_item,
@@ -303,6 +317,21 @@ class ModifyPlannedItemEdit(CompositeEdit):
         for edit in _get_task_history_edits(planned_item, attr_dict):
             subedits.append(edit)
 
+        # update statuses from children if needed
+        if planned_item._status in attr_dict:
+            for parent in planned_item._parents:
+                subedits.append(
+                    SelfInverseSimpleEdit.create_unregistered(
+                        parent._update_status_from_children
+                    )
+                )
+        if planned_item._from_children_update_policy in attr_dict:
+            subedits.append(
+                SelfInverseSimpleEdit.create_unregistered(
+                    planned_item._update_status_from_children
+                )
+            )
+
         super(ModifyPlannedItemEdit, self).__init__(subedits)
         self._callback_args = [
             planned_item,
@@ -365,114 +394,3 @@ class SortPlannedItemsEdit(ListEdit):
                 False.
         """
         return isinstance(edit, SortPlannedItemsEdit)
-
-
-class AddScheduledItemChildRelationshipEdit(ListEdit):
-    """Add an associated scheduled item to a planned item."""
-    def __init__(self, scheduled_item, planned_item):
-        """Initialise edit.
-
-        Args:
-            scheduled_item (ScheduledItem): the scheduled item to associate.
-            planned_item (PlannedItem): the planned item to associate to.
-        """
-        super(AddScheduledItemChildRelationshipEdit, self).__init__(
-            planned_item._scheduled_items,
-            [scheduled_item],
-            ContainerOp.ADD,
-        )
-        self._name = "AddScheduledItemChildRelationshipEdit ({0})".format(
-            scheduled_item.name
-        )
-        self._description = (
-            "Associate {0} {1} to {2} {3}".format(
-                scheduled_item.__class__.__name__,
-                scheduled_item.name,
-                planned_item.__class__.__name__,
-                planned_item.name,
-            )
-        )
-
-
-class RemoveScheduledItemChildRelationshipEdit(ListEdit):
-    """Remove an associated scheduled item from a planned item."""
-    def __init__(self, scheduled_item, planned_item):
-        """Initialise edit.
-
-        Args:
-            planned_item (PlannedItem): the planned item to remove from.
-            scheduled_item (ScheduledItem): the scheduled item to remove.
-        """
-        super(RemoveScheduledItemChildRelationshipEdit, self).__init__(
-            planned_item._scheduled_items,
-            [scheduled_item],
-            ContainerOp.REMOVE,
-            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
-        )
-        self._name = "RemoveScheduledItemChildRelationshipEdit ({0})".format(
-            planned_item.name
-        )
-        self._description = (
-            "Unassociate {0} {1} from {2} {3}".format(
-                scheduled_item.__class__.__name__,
-                scheduled_item.name,
-                planned_item.__class__.__name__,
-                planned_item.name,
-            )
-        )
-
-
-class AddPlannedItemChildRelationshipEdit(ListEdit):
-    """Add an associated planned item child to a planned item."""
-    def __init__(self, planned_item, planned_item_child):
-        """Initialise edit.
-
-        Args:
-            planned_item (PlannedItem): the planned item to add to.
-            planned_item_child (PlannedItem): the planned item child to add.
-        """
-        super(AddPlannedItemChildRelationshipEdit, self).__init__(
-            planned_item._planned_children,
-            [planned_item_child],
-            ContainerOp.ADD,
-        )
-        self._is_valid = (planned_item_child < planned_item)
-        self._name = "AddPlannedItemChildRelationship ({0})".format(
-            planned_item.name
-        )
-        self._description = (
-            "Make {0} {1} a child to {2} {3}".format(
-                planned_item_child.__class__.__name__,
-                planned_item_child.name,
-                planned_item.__class__.__name__,
-                planned_item.name,
-            )
-        )
-
-
-class RemovePlannedItemChildRelationshipEdit(ListEdit):
-    """Remove an associated planned item child from a planned item."""
-    def __init__(self, planned_item, planned_item_child):
-        """Initialise edit.
-
-        Args:
-            planned_item (PlannedItem): the planned item to remove from.
-            planned_item_child (PlannedItem): the planned item child to remove.
-        """
-        super(RemovePlannedItemChildRelationshipEdit, self).__init__(
-            planned_item._planned_children,
-            planned_item,
-            ContainerOp.REMOVE,
-            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
-        )
-        self._name = "RemovePlannedItemChildRelationship from ({0})".format(
-            planned_item.name
-        )
-        self._description = (
-            "Remove {0} {1} as child of {2} {3}".format(
-                planned_item_child.__class__.__name__,
-                planned_item_child.name,
-                planned_item.__class__.__name__,
-                planned_item.name,
-            )
-        )

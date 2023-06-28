@@ -63,9 +63,9 @@ class InsertTuple(tuple):
 
         Args:
             args (list): list of arbitrary arguments to add into tuple.
-                This means we create a tuple like InsertTuple(a, b, c),
+                This means we create a tuple like InsertTuple(a, b),
                 as opposed to the standard method for tuple types, which
-                is tuple([a, b, c]).
+                is tuple([a, b]).
         """
         return tuple.__new__(cls, args)
 

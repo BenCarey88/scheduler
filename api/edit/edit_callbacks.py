@@ -22,6 +22,7 @@ from .tree_edit import (
     UnarchiveTreeItemEdit,
 )
 from .task_edit import (
+    ClearTaskHistoryEdit,
     ModifyTaskEdit,
     UpdateTaskHistoryEdit,
 )
@@ -175,6 +176,7 @@ class CallbackType(object):
             ReplaceTreeItemEdit,
             ModifyTaskEdit,
             UpdateTaskHistoryEdit,
+            ClearTaskHistoryEdit,
         ],
         TREE_MOVE: [MoveChildrenEdit, MoveTreeItemEdit],
         SCHEDULER_ADD: [AddScheduledItemEdit],

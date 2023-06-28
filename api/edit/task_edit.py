@@ -380,3 +380,28 @@ class UpdateTaskHistoryEdit(CompositeEdit):
                 new_value,
             )
         )
+
+
+class ClearTaskHistoryEdit(DictEdit):
+    """Clear task history dict."""
+    def __init__(self, task_item):
+        """Initialize edit.
+
+        Args:
+            task_item (Task): task to clear history of.
+        """
+        history_dict = task_item.history._dict
+        diff_dict = {date: None for date in history_dict}
+        super(ClearTaskHistoryEdit, self).__init__(
+            history_dict,
+            diff_dict,
+            ContainerOp.REMOVE,
+        )
+        self._callback_args = self._undo_callback_args = [(
+            task_item,
+            task_item,
+        )]
+        self._name = "ClearTaskHistory ({0})".format(task_item.name)
+        self._description = (
+            "Clear task history for {0}".format(task_item.path)
+        )

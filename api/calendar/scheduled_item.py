@@ -1,6 +1,7 @@
 """Scheduled item class."""
 
 from collections import OrderedDict
+from functools import partial
 
 from scheduler.api.common.date_time import (
     Date,
@@ -27,6 +28,7 @@ from scheduler.api import constants
 from scheduler.api.enums import OrderedStringEnum, ItemStatus, ItemUpdatePolicy
 from scheduler.api.utils import fallback_value
 from .repeat_pattern import RepeatPattern
+from ._base_calendar_item import BaseCalendarItem
 
 
 #TODO standardize exceptions
@@ -40,22 +42,18 @@ class ScheduledItemType(OrderedStringEnum):
     EVENT = "event"
 
 
-class BaseScheduledItem(Hosted, NestedSerializable):
+class BaseScheduledItem(BaseCalendarItem):
     """Base scheduled item class representing a scheduled task or event.
 
     This class doesn't include any datetime information as the way this data
     is used and serialized varies depending on whether the item repeats or not,
     so this is implemented in the subclasses.
     """
-    _SAVE_TYPE = SaveType.NESTED
-
     TYPE_KEY = "type"
     TREE_ITEM_KEY = "tree_item"
     NAME_KEY = "name"
     CATEGORY_KEY = "category"
     BACKGROUND_KEY = "background"
-    ID_KEY = "id"
-    STATUS_KEY = "status"
 
     def __init__(
             self,
@@ -96,8 +94,8 @@ class BaseScheduledItem(Hosted, NestedSerializable):
                 RepeatScheduledItemInstances.
             status (ItemStatus or None): status of item.
         """
-        super(BaseScheduledItem, self).__init__()
-        self._calendar = calendar
+        super(BaseScheduledItem, self).__init__(calendar, tree_item, status)
+        self._is_scheduled_item = True
         self._task_root = calendar.task_root
         self._template_item = template_item
         if template_item is None:
@@ -115,36 +113,20 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             "repeat_pattern",
         )
         self._type = MutableAttribute(item_type, "type")
-        self._tree_item = MutableHostedAttribute(
-            tree_item,
-            "tree_item",
-            pairing_id=self._get_tree_item_pairing_id(),
-            parent=self,
-            driver=True,
-        )
         self._event_category = MutableAttribute(
             event_category,
             "event_category",
         )
         self._event_name = MutableAttribute(event_name, "event_name")
         self._is_background = MutableAttribute(is_background, "is_background")
-        self._status = MutableAttribute(
-            fallback_value(status, ItemStatus.UNSTARTED),
-            "status",
-        )
-        self._task_update_policy = MutableAttribute(
-            ItemUpdatePolicy.IN_PROGRESS,
-            "task_update_policy",
-        )
-        self._planned_items = HostedDataList(
-            pairing_id=constants.PLANNER_SCHEDULER_PAIRING,
-            parent=self,
-            driven=True,
-        )
-        self._id = None
 
     class _Decorators(object):
         """Internal decorators class."""
+        # TODO: make this a method that returns a decorator instead,
+        # with an arg allowing you to specify the default return value
+        # - currently it only searches the template item if the value
+        # comes out as None, but in some cases False or "" may be the
+        # default
         @staticmethod
         def template_item_decorator(property_func):
             """Decorator for property method.
@@ -169,15 +151,6 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             return decorated_func
 
     _template_item_decorator = _Decorators.template_item_decorator
-
-    @property
-    def calendar(self):
-        """Get calendar object.
-
-        Returns:
-            (Calendar): the calendar object.
-        """
-        return self._calendar
 
     @property
     @_template_item_decorator
@@ -256,6 +229,8 @@ class BaseScheduledItem(Hosted, NestedSerializable):
     def tree_item(self):
         """Get tree item representing task.
 
+        This is reimplimented from base class to add the template decorator.
+
         Returns:
             (BaseTaskItem or None): task or task category tree item, if one
                 exists.
@@ -312,20 +287,12 @@ class BaseScheduledItem(Hosted, NestedSerializable):
     def status(self):
         """Get check status of item.
 
+        This is reimplimented from base class to add the template decorator.
+
         Returns:
             (ItemStatus): status of item.
         """
-        return self._status.value
-
-    @property
-    @_template_item_decorator
-    def task_update_policy(self):
-        """Get update policy for linked tasks.
-
-        Returns:
-            (ItemUpdatePolicy): update policy linked tasks.
-        """
-        return self._task_update_policy.value
+        return max(self._status.value, self._status_from_children.value)
 
     @property
     def defunct(self):
@@ -341,7 +308,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
 
     @property
     def planned_items(self):
-        """Get planned items associated to this one.
+        """Get planned item parents associated to this one.
 
         Usually there would just be the one, but we want to allow multiple,
         eg. you plan /writing/planning and /writing/first_draft and then
@@ -350,7 +317,7 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         Returns:
             (list(PlannedItem)): list of planned items.
         """
-        return self._planned_items
+        return self._parents
 
     def is_task(self):
         """Check if this item has task type.
@@ -375,14 +342,6 @@ class BaseScheduledItem(Hosted, NestedSerializable):
             (bool): whether or not this is a repeat item instance.
         """
         return False
-
-    def _get_tree_item_pairing_id(self):
-        """Get pairing id for tree item attribute.
-
-        Returns:
-            (str or None): pairing id, if found.
-        """
-        return None
 
     def datetime_string(self):
         """Get string representing start and end date/time of item.
@@ -500,64 +459,64 @@ class BaseScheduledItem(Hosted, NestedSerializable):
         Returns:
             (dict): dictionary representation.
         """
-        dict_repr = {}
-        if self._type:
-            dict_repr[self.TYPE_KEY] = self._type.value
-        if self.type == ScheduledItemType.TASK:
-            if self._tree_item:
-                dict_repr[self.TREE_ITEM_KEY] = self._tree_item.value.path
-        else:
-            if self._event_category:
-                dict_repr[self.CATEGORY_KEY] = self._event_category.value
-            if self._event_name:
-                dict_repr[self.NAME_KEY] = self._event_name.value
-        if self._is_background:
-            dict_repr[self.BACKGROUND_KEY] = self._is_background.value
-        if self.status != ItemStatus.UNSTARTED:
-            dict_repr[self.STATUS_KEY] = self.status
-        dict_repr[self.ID_KEY] = self._get_id()
+        dict_repr = super(BaseScheduledItem, self).to_dict()
+        if not self.is_repeat_instance():
+            # don't need to save this stuff for repeat instances
+            if self._type:
+                dict_repr[self.TYPE_KEY] = self._type.value
+            if self.type == ScheduledItemType.EVENT:
+                if self._event_category:
+                    dict_repr[self.CATEGORY_KEY] = self._event_category.value
+                if self._event_name:
+                    dict_repr[self.NAME_KEY] = self._event_name.value
+            if self._is_background:
+                dict_repr[self.BACKGROUND_KEY] = self._is_background.value
         return dict_repr
 
     @classmethod
-    def from_dict(cls, dict_repr, calendar, *date_args):
+    def from_dict(
+            cls,
+            dict_repr,
+            calendar,
+            *init_args,
+            is_instance=False,
+            **init_kwargs):
         """Initialise class from dict.
 
         Args:
             dict_repr (dict): dictionary representing class.
             calendar (Calendar): root calendar object.
-            args (list): additional args to pass to __init__. These will all
-                be to do with date and time, and get passed to the start of
-                the __init__ function.
+            date_args (list): additional args to pass to __init__. These will
+                all be passed to the start of the init __function__.
+            is_instance (bool): if True, this is a repeat instance and so
+                we can skip a large proportion of the init args, since these
+                don't get saved and are just inherited from the template item.
 
         Returns:
             (BaseScheduledItem or None): scheduled item, if can be initialised.
         """
-        item_type = dict_repr.get(cls.TYPE_KEY)
-        tree_item = calendar.task_root.get_item_at_path(
-            dict_repr.get(cls.TREE_ITEM_KEY),
-            search_archive=True,
-        )
-        category = dict_repr.get(cls.CATEGORY_KEY)
-        name = dict_repr.get(cls.NAME_KEY)
-        is_background = dict_repr.get(cls.BACKGROUND_KEY, False)
-        status = dict_repr.get(cls.STATUS_KEY)
-        if status is not None:
-            status = ItemStatus(status)
-
-        scheduled_item = cls(
-            calendar,
-            *date_args,
-            item_type=item_type,
-            tree_item=tree_item,
-            event_category=category,
-            event_name=name,
-            is_background=is_background,
-            status=status,
-        )
-        scheduled_item._activate()
-        id = dict_repr.get(cls.ID_KEY, None)
-        if id is not None:
-            item_registry.register_item(id, scheduled_item)
+        if is_instance:
+            scheduled_item = super(BaseScheduledItem, cls).from_dict(
+                dict_repr,
+                calendar,
+                *init_args,
+                **init_kwargs,
+            )
+        else:
+            item_type = dict_repr.get(cls.TYPE_KEY)
+            category = dict_repr.get(cls.CATEGORY_KEY)
+            name = dict_repr.get(cls.NAME_KEY)
+            is_background = dict_repr.get(cls.BACKGROUND_KEY, False)
+            scheduled_item = super(BaseScheduledItem, cls).from_dict(
+                dict_repr,
+                calendar,
+                *init_args,
+                item_type=item_type,
+                event_category=category,
+                event_name=name,
+                is_background=is_background,
+                **init_kwargs,
+            )
         return scheduled_item
 
 
@@ -644,14 +603,6 @@ class ScheduledItem(BaseScheduledItem):
             date = self.date
         calendar_day = self._calendar.get_day(date)
         return calendar_day._scheduled_items
-
-    def _get_tree_item_pairing_id(self):
-        """Get pairing id for tree item attribute.
-
-        Returns:
-            (str or None): pairing id, if found.
-        """
-        return constants.SCHEDULER_TREE_PAIRING
 
     def to_dict(self):
         """Return dictionary representation of class.
@@ -814,14 +765,6 @@ class RepeatScheduledItem(BaseScheduledItem):
             (list): list that scheduled item should be contained in.
         """
         return self._calendar._repeat_items
-
-    def _get_tree_item_pairing_id(self):
-        """Get pairing id for tree item attribute.
-
-        Returns:
-            (str or None): pairing id, if found.
-        """
-        return constants.SCHEDULER_TREE_PAIRING
 
     def instances_at_date(self, date):
         """Get instances at given date, if some exist.
@@ -998,6 +941,8 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
     OVERRIDE_START_DATETIME_KEY = "start_datetime_override"
     OVERRIDE_END_DATETIME_KEY = "end_datetime_override"
 
+    _SERIALIZE_TREE_ITEM = False
+
     def __init__(
             self,
             calendar,
@@ -1005,6 +950,7 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             scheduled_date,
             override_start_datetime=None,
             override_end_datetime=None,
+            tree_item=None,
             status=None):
         """Initialise class.
 
@@ -1171,6 +1117,17 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             self.end_time.string()
         )
 
+    def _get_tree_item_pairing_id(self):
+        """Override pairing id to opt out of pairing framework.
+
+        Returns:
+            (None): None - this means that there is no pairing, so the
+                tree item doesn't keep a list of all scheduled instances
+                associated to it. Instead it just keeps a list of all
+                repeat items associated to it.
+        """
+        return None
+
     def get_item_container(self, date=None):
         """Get the list that this item should be contained in.
 
@@ -1237,7 +1194,7 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         Returns:
             (dict): dictionary representation.
         """
-        dict_repr = {}
+        dict_repr = super(RepeatScheduledItemInstance, self).to_dict()
         if self.override_start_datetime:
             dict_repr[self.OVERRIDE_START_DATETIME_KEY] = (
                 self.override_start_datetime.string()
@@ -1246,8 +1203,6 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             dict_repr[self.OVERRIDE_END_DATETIME_KEY] = (
                 self.override_end_datetime.string()
             )
-        if self.status != ItemStatus.UNSTARTED:
-            dict_repr[self.STATUS_KEY] = self.status
         return dict_repr
 
     @classmethod
@@ -1261,8 +1216,8 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
 
         Args:
             dict_repr (dict): dictionary representing class.
-            repeat_scheduled_item (RepeatScheduledItem): the repeat scheduled item
-                that this is an instance of.
+            repeat_scheduled_item (RepeatScheduledItem): the repeat scheduled
+                item that this is an instance of.
             scheduled_date (Date): original scheduled date of item.
 
         Returns:
@@ -1280,17 +1235,15 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         # TODO: these from_dict excepts need loggers to explain what's happened
         except DateTimeError:
             return None
-        status = dict_repr.get(cls.STATUS_KEY)
-        if status is not None:
-            status = ItemStatus(status)
-        repeat_scheduled_item_instance = cls(
+        repeat_scheduled_item_instance = super(
+            RepeatScheduledItemInstance, cls
+        ).from_dict(
+            dict_repr,
             calendar,
             repeat_scheduled_item,
             scheduled_date,
             override_start_datetime,
             override_end_datetime,
-            status=status,
+            is_instance=True,
         )
-        # NOTE that we don't use super here, so need to explicitly activate
-        repeat_scheduled_item_instance._activate()
         return repeat_scheduled_item_instance

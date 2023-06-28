@@ -12,6 +12,7 @@ from scheduler.api.edit.tree_edit import (
     ReplaceTreeItemEdit,
 )
 from scheduler.api.edit.task_edit import (
+    ClearTaskHistoryEdit,
     ModifyTaskEdit,
     UpdateTaskHistoryEdit,
 )
@@ -435,6 +436,18 @@ class TreeEditManager(BaseTreeManager):
             new_value=value,
             new_status_override=status_override,
         )
+
+    @require_class(Task, raise_error=False)
+    def clear_task_history(self, task_item):
+        """Clear task history.
+
+        Args:
+            task_item (Task): task item to edit.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        return ClearTaskHistoryEdit.create_and_run(task_item)
 
     @require_class(Task, raise_error=False)
     def change_task_type(self, task_item, new_type=None):

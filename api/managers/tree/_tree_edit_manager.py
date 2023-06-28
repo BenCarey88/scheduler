@@ -14,6 +14,8 @@ from scheduler.api.edit.tree_edit import (
 from scheduler.api.edit.task_edit import (
     ClearTaskHistoryEdit,
     ModifyTaskEdit,
+    TrackTaskEdit,
+    UntrackTaskEdit,
     UpdateTaskHistoryEdit,
 )
 from scheduler.api.tree.exceptions import UnallowedChildType
@@ -27,7 +29,7 @@ from ._base_tree_manager import BaseTreeManager
 
 class TreeEditManager(BaseTreeManager):
     """Tree edit manager to apply edits to tree items."""
-    def __init__(self, name, user_prefs, tree_root, filterer):
+    def __init__(self, name, user_prefs, tree_root, filterer, tracker):
         """Initialise class.
 
         Args:
@@ -35,12 +37,14 @@ class TreeEditManager(BaseTreeManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
             filterer (Filterer): filterer class for storing filters.
+            tracker (Tracker): tracker to track tasks with.
         """
         super(TreeEditManager, self).__init__(
             name,
             user_prefs,
             tree_root,
             filterer,
+            tracker,
         )
 
     @require_class(BaseTaskItem, raise_error=True)
@@ -509,7 +513,7 @@ class TreeEditManager(BaseTreeManager):
             recursive=True):
         """Archive tree item.
 
-        tree_item (BaseTreeItem): item to archive.
+            tree_item (BaseTreeItem): item to archive.
             archive_root (BaseTreeItem): root of archive tree.
             rename (str): if given, rename the item to this if it already
                 exists in the archive. This cannot be given if merge is True.
@@ -534,3 +538,17 @@ class TreeEditManager(BaseTreeManager):
             override=override,
             recursive=recursive,
         )
+
+    @require_class(Task, raise_error=False)
+    def toggle_task_tracking(self, task_item):
+        """Add/remove task item to/from tracker.
+
+        Args:
+            task_item (Task): task item to add/remove.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        if task_item.is_tracked:
+            return UntrackTaskEdit.create_and_run(task_item, self._tracker)
+        return TrackTaskEdit.create_and_run(task_item, self._tracker)

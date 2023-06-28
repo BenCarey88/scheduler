@@ -122,6 +122,19 @@ class TaskViewWidget(BaseTreeView):
         right_click_menu = super(TaskViewWidget, self)._build_right_click_menu(
             item=item
         )
+    
+        # Tracker Actions
+        right_click_menu.addSeparator()
+        action_name = "Track Task"
+        if item is not None and self.tree_manager.is_tracked_task(item):
+            action_name = "Untrack Task"
+        action = right_click_menu.addAction(action_name)
+        self._connect_action_to_func(
+            action,
+            partial(self.toggle_task_tracking, item=item),
+        )
+
+        # History Actions
         right_click_menu.addSeparator()
         action = right_click_menu.addAction("Print History")
         self._connect_action_to_func(
@@ -140,7 +153,7 @@ class TaskViewWidget(BaseTreeView):
         """Print task history of given item.
         
         Args:
-            item (BaseTreeItem or None): item to print history for.
+            item (Task or None): item to print history for.
 
         Returns:
             (bool): whether or not action was successful.
@@ -154,7 +167,7 @@ class TaskViewWidget(BaseTreeView):
         """Clear task history of given item.
         
         Args:
-            item (BaseTreeItem or None): item to clear history for.
+            item (Task or None): item to clear history for.
 
         Returns:
             (bool): whether or not action was successful.
@@ -162,6 +175,19 @@ class TaskViewWidget(BaseTreeView):
         if item is None:
             return False
         return self.tree_manager.clear_task_history(item)
+
+    def toggle_task_tracking(self, item, *args):
+        """Clear task history of given item.
+
+        Args:
+            item (Task or None): task to toggle tracking for.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        if item is None:
+            return False
+        return self.tree_manager.toggle_task_tracking(item)
 
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):

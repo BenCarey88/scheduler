@@ -16,4 +16,3 @@ from .scheduled_item import (
     ScheduledItemType,
 )
 from .planned_item import PlannedItem
-from .tracker import Tracker

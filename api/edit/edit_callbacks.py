@@ -48,6 +48,7 @@ class CallbackItemType(OrderedStringEnum):
     TREE = "Tree"
     SCHEDULER = "Scheduler"
     PLANNER = "Planner"
+    TRACKER = "Tracker"
     FILTER = "Filter"
 
 
@@ -101,6 +102,7 @@ class CallbackType(object):
                 ReplaceTreeItemEdit,
                 ModifyTaskEdit,
                 UpdateTaskHistoryEdit,
+                ClearTaskHistoryEdit,
             ]
         TREE_MOVE:
             Args:   (tree_item, old_parent, old_row, new_parent, new_row)

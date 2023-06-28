@@ -25,7 +25,7 @@ class BaseTaskItem(BaseTreeItem):
         """
         super(BaseTaskItem, self).__init__(name, parent)
         self._color = MutableAttribute(color)
-        # TODO: make all of these lists into HostedDataTimelines?
+        # TODO: make this list into HostedDataTimeline?
         self._calendar_items = HostedDataList(
             pairing_id=constants.CALENDAR_ITEM_TREE_PAIRING,
             parent=self,

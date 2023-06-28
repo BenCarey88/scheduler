@@ -8,7 +8,7 @@ from scheduler.api.common.object_wrappers import HostedDataDict, HostedDataList
 from scheduler.api.common.timeline import TimelineDict
 from ._base_edit import EditError
 from ._core_edits import AttributeEdit, CompositeEdit, SelfInverseSimpleEdit
-from ._container_edit import DictEdit, ContainerEditFlag, ContainerOp
+from ._container_edit import DictEdit, ContainerEditFlag, ContainerOp, ListEdit
 
 
 class ModifyTaskEdit(AttributeEdit):
@@ -404,4 +404,64 @@ class ClearTaskHistoryEdit(DictEdit):
         self._name = "ClearTaskHistory ({0})".format(task_item.name)
         self._description = (
             "Clear task history for {0}".format(task_item.path)
+        )
+
+
+class TrackTaskEdit(CompositeEdit):
+    """Edit to add task to tracker."""
+    def __init__(self, task_item, tracker):
+        """Initialize edit.
+
+        Args:
+            task_item (Task): task to add to tracker.
+            tracker (Tracker): the tracker object to add to.
+        """
+        add_task_edit = ListEdit.create_unregistered(
+            tracker._tracked_tasks,
+            [task_item],
+            ContainerOp.ADD,
+            edit_flags=[ContainerEditFlag.LIST_IGNORE_DUPLICATES],
+        )
+        attr_edit = AttributeEdit.create_unregistered(
+            {task_item._is_tracked: True}
+        )
+        super(TrackTaskEdit, self).__init__([add_task_edit, attr_edit])
+        #TODO: create tracker modify callback and add this edit to it
+        self._callback_args = self._undo_callback_args = [(
+            task_item,
+            task_item,
+        )]
+        self._name = "TrackTaskEdit ({0})".format(task_item.name)
+        self._description = (
+            "Add task {0} to tracker".format(task_item.path)
+        )
+
+
+class UntrackTaskEdit(CompositeEdit):
+    """Edit to add task to tracker."""
+    def __init__(self, task_item, tracker):
+        """Initialize edit.
+
+        Args:
+            task_item (Task): task to add to tracker.
+            tracker (Tracker): the tracker object to add to.
+        """
+        remove_task_edit = ListEdit.create_unregistered(
+            tracker._tracked_tasks,
+            [task_item],
+            ContainerOp.REMOVE,
+            edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
+        )
+        attr_edit = AttributeEdit.create_unregistered(
+            {task_item._is_tracked: True}
+        )
+        super(UntrackTaskEdit, self).__init__([remove_task_edit, attr_edit])
+        #TODO: create tracker modify callback and add this edit to it
+        self._callback_args = self._undo_callback_args = [(
+            task_item,
+            task_item,
+        )]
+        self._name = "UntrackTaskEdit ({0})".format(task_item.name)
+        self._description = (
+            "Remove task {0} from tracker".format(task_item.path)
         )

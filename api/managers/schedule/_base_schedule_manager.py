@@ -51,17 +51,24 @@ class BaseScheduleManager(BaseCalendarManager):
             return scheduled_item.repeat_scheduled_item
 
     @require_class(BaseScheduledItem, True)
-    def has_task_type(self, scheduled_item):
+    def has_task_type(self, scheduled_item, strict=False):
         """Check if item is a task item.
 
         Args:
             scheduled_item (ScheduledItem or RepeatScheduledItem): scheduled
                 item to check.
+            strict (bool): if True, don't include task categories.
 
         Returns:
             (bool): whether or not item is task item.
         """
-        return scheduled_item.type == ScheduledItemType.TASK
+        if not strict:
+            return scheduled_item.type == ScheduledItemType.TASK
+        return (
+            scheduled_item.type == ScheduledItemType.TASK and
+            scheduled_item.tree_item is not None and
+            self._tree_manager.is_task(scheduled_item.tree_item)
+        )
 
     @require_class(BaseScheduledItem, True)
     def has_event_type(self, scheduled_item):
@@ -98,7 +105,7 @@ class BaseScheduleManager(BaseCalendarManager):
                 to check.
 
         Returns:
-            (ScheduledItemRepeatPattern or None): repeat pattern.
+            (RepeatPattern or None): repeat pattern.
         """
         if isinstance(scheduled_item, RepeatScheduledItem):
             return scheduled_item.repeat_pattern

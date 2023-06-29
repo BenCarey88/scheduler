@@ -57,6 +57,7 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.schedule_manager = project.get_schedule_manager(name)
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
+        self.display_widget_buttons = True
         self.refresh_scheduled_items_list()
 
         self.setItemDelegate(SchedulerDelegate(self))
@@ -417,6 +418,7 @@ class SchedulerTimetableView(BaseWeekTableView):
         """
         if event.timerId() == self.timer_id:
             self.viewport().update()
+        super(SchedulerTimetableView, self).timerEvent(event)
 
     def paintEvent(self, event):
         """Override paint event to draw item rects and selection rect.
@@ -475,14 +477,22 @@ class SchedulerTimetableView(BaseWeekTableView):
 
         pos = event.pos()
         modifiers = QtWidgets.QApplication.keyboardModifiers()
-        # ctrl modifier used to create new selection rect
-        if modifiers != QtCore.Qt.KeyboardModifier.ControlModifier:
+        # shift modifier used to create new selection rect
+        if modifiers != QtCore.Qt.KeyboardModifier.ShiftModifier:
             # item rects drawn last are the ones we should click first
             for item_widget in reversed(self.scheduled_item_widgets):
                 if item_widget.contains(pos):
+                    self.selected_scheduled_item = item_widget
+                    if self.display_widget_buttons:
+                        # if widget buttons are displayed, check them first
+                        if item_widget.over_delete_button(pos):
+                            item_widget.delete_pressed = True
+                            return
+                        if item_widget.over_checkbox(pos):
+                            item_widget.checkbox_pressed = True
+                            return
                     time = self.time_from_y_pos(pos.y())
                     item_widget.set_mouse_pos_start_time(time)
-                    self.selected_scheduled_item = item_widget
                     if item_widget.at_top(event.pos()):
                         item_widget.is_being_resized_top = True
                     elif item_widget.at_bottom(event.pos()):
@@ -513,19 +523,27 @@ class SchedulerTimetableView(BaseWeekTableView):
             self.viewport().update()
 
         elif self.selected_scheduled_item:
-            mouse_col = self.column_from_mouse_pos(event.pos())
-            if mouse_col is not None:
-                date = self.date_from_column(mouse_col)
-            else:
-                date = self.selected_scheduled_item.date
-            y_pos = self.round_height_to_time_step(event.pos().y())
-            orig_y_pos = self.y_pos_from_time(
-                self.selected_scheduled_item.mouse_pos_start_time
-            )
-            y_pos_change = self.round_height_to_time_step(y_pos - orig_y_pos)
-            timedelta = self.time_range_from_height(y_pos_change)
-            if self.selected_scheduled_item.apply_time_change(timedelta, date):
-                self.viewport().update()
+            if (not self.selected_scheduled_item.delete_pressed
+                    and not self.selected_scheduled_item.checkbox_pressed):
+                mouse_col = self.column_from_mouse_pos(event.pos())
+                if mouse_col is not None:
+                    date = self.date_from_column(mouse_col)
+                else:
+                    date = self.selected_scheduled_item.date
+                y_pos = self.round_height_to_time_step(event.pos().y())
+                orig_y_pos = self.y_pos_from_time(
+                    self.selected_scheduled_item.mouse_pos_start_time
+                )
+                y_pos_change = self.round_height_to_time_step(
+                    y_pos - orig_y_pos
+                )
+                timedelta = self.time_range_from_height(y_pos_change)
+                success = self.selected_scheduled_item.apply_time_change(
+                    timedelta,
+                    date,
+                )
+                if success:
+                    self.viewport().update()
 
         else:
             for scheduled_item_widget in reversed(self.scheduled_item_widgets):
@@ -566,14 +584,29 @@ class SchedulerTimetableView(BaseWeekTableView):
             self.selection_rect = None
 
         elif self.selected_scheduled_item:
-            if (self.selected_scheduled_item.is_being_moved
-                    or self.selected_scheduled_item.is_being_resized_top
-                    or self.selected_scheduled_item.is_being_resized_bottom):
-                # if being moved or resized, deselect the item to trigger edit
-                self.selected_scheduled_item.deselect()
+            item_widget = self.selected_scheduled_item
+            # if delete pressed and still over button, delete item
+            if item_widget.delete_pressed:
+                if item_widget.over_delete_button(event.pos()):
+                    modifiers = QtWidgets.QApplication.keyboardModifiers()
+                    force = (
+                        modifiers == QtCore.Qt.KeyboardModifier.ControlModifier
+                    )
+                    item_widget.delete(force=force)
+                item_widget.delete_pressed = False
+            # if checkbox pressed and still over button, check item
+            elif item_widget.checkbox_pressed:
+                if item_widget.over_checkbox(event.pos()):
+                    item_widget.toggle_checkbox()
+                item_widget.checkbox_pressed = False
+            # if being moved or resized, deselect the item to trigger edit
+            elif (item_widget.is_being_moved
+                    or item_widget.is_being_resized_top
+                    or item_widget.is_being_resized_bottom):
+                item_widget.deselect()
+            # otherwise, we want to open the editor
             else:
-                # otherwise, we want to open the editor
-                item = self.selected_scheduled_item.get_item_to_modify()
+                item = item_widget.get_item_to_modify()
                 item_editor = ScheduledItemDialog(
                     self.tree_manager,
                     self.schedule_manager,

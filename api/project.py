@@ -2,7 +2,7 @@
 
 import os
 
-from .calendar import Calendar, Tracker
+from .calendar import Calendar
 from .common.user_prefs import ProjectUserPrefs
 from .filter import Filterer
 from .managers import (
@@ -19,7 +19,7 @@ from .serialization.serializable import (
     SerializationError,
 )
 from .serialization import file_utils
-from .tree import TaskRoot
+from .tree import TaskRoot, Tracker
 from .utils import backup_git_repo
 
 
@@ -323,11 +323,12 @@ class Project(CustomSerializable):
                 self.user_prefs,
                 self.task_root,
                 self.filterer,
+                self.tracker,
             )
         return self._tree_managers.get(name)
 
     def get_planner_manager(self, name):
-        """Get calendar manager for this project.
+        """Get planner manager for this project.
 
         Args:
             name (str): name of manager object.

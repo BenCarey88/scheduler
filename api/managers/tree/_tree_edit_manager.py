@@ -1,6 +1,7 @@
 """Tree edit manager for managing edits on tree items."""
 
-from scheduler.api.common.date_time import DateTime
+from scheduler.api.common.date_time import Date, DateTime
+from scheduler.api.enums import ItemStatus
 from scheduler.api.edit.tree_edit import (
     ArchiveTreeItemEdit,
     InsertChildrenEdit,
@@ -11,11 +12,14 @@ from scheduler.api.edit.tree_edit import (
     ReplaceTreeItemEdit,
 )
 from scheduler.api.edit.task_edit import (
+    ClearTaskHistoryEdit,
     ModifyTaskEdit,
+    TrackTaskEdit,
+    UntrackTaskEdit,
     UpdateTaskHistoryEdit,
 )
 from scheduler.api.tree.exceptions import UnallowedChildType
-from scheduler.api.tree.task import Task, TaskStatus, TaskType
+from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.base_task_item import BaseTaskItem
 
@@ -25,7 +29,7 @@ from ._base_tree_manager import BaseTreeManager
 
 class TreeEditManager(BaseTreeManager):
     """Tree edit manager to apply edits to tree items."""
-    def __init__(self, name, user_prefs, tree_root, filterer):
+    def __init__(self, name, user_prefs, tree_root, filterer, tracker):
         """Initialise class.
 
         Args:
@@ -33,12 +37,14 @@ class TreeEditManager(BaseTreeManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
             filterer (Filterer): filterer class for storing filters.
+            tracker (Tracker): tracker to track tasks with.
         """
         super(TreeEditManager, self).__init__(
             name,
             user_prefs,
             tree_root,
             filterer,
+            tracker,
         )
 
     @require_class(BaseTaskItem, raise_error=True)
@@ -363,44 +369,89 @@ class TreeEditManager(BaseTreeManager):
             date_time=None,
             status=None,
             value=None,
-            comment=None):
+            status_override=None,
+            comment=None,
+            remove_from_prev_time=True,
+            ignore_time=False):
         """Update task history and status.
 
         Args:
             task_item (Task): task item to edit.
-            date (DateTime or None): datetime object to update task history
-                with. If None, we use current.
-            status (TaskStatus or None): status to update task with. If None
+            date_time (Date, DateTime or None): date or datetime to update
+                task history with. If None, we use current date and time.
+            time (Time or None): time to update task history with, if used.
+            status (ItemStatus or None): status to update task with. If None
                 given, we calculate the next one.
             value (variant or None): value to set for task at given time. If
                 None, we ignore.
+            status_override (bool or None): if True, this sets the status as
+                an override, so it's used even if it's less complete than
+                earlier statuses.
             comment (str): comment to add to history if needed.
+            remove_from_prev_time (bool): if True, remove task from previous
+                times on same day to avoid clogging up.
+            ignore_time (bool): only used if no date_time arg is given. In
+                this case, if True, we update at the current date, otherwise
+                we update at the current date and time.
 
         Returns:
             (bool): whether or not edit was successful.
         """
         if date_time is None:
-            date_time = DateTime.now()
+            if ignore_time:
+                date_time = Date.now()
+            else:
+                date_time = DateTime.now()
+
+        if isinstance(date_time, DateTime):
+            date = date_time.date()
+        elif isinstance(date_time, Date):
+            date = date_time
+        else:
+            raise Exception(
+                "date_time must be Date or DateTime, not {0}".format(date_time)
+            )
 
         if status is None:
-            current_status = task_item.get_status_at_date(date_time.date())
-            if current_status == TaskStatus.UNSTARTED:
+            current_status = task_item.get_status_at_date(date)
+            if current_status == ItemStatus.UNSTARTED:
                 if task_item.type == TaskType.ROUTINE:
-                    status = TaskStatus.COMPLETE
+                    status = ItemStatus.COMPLETE
                 else:
-                    status = TaskStatus.IN_PROGRESS
-            elif current_status == TaskStatus.IN_PROGRESS:
-                status = TaskStatus.COMPLETE
-            elif current_status == TaskStatus.COMPLETE:
-                status = TaskStatus.UNSTARTED
+                    status = ItemStatus.IN_PROGRESS
+            elif current_status == ItemStatus.IN_PROGRESS:
+                status = ItemStatus.COMPLETE
+            elif current_status == ItemStatus.COMPLETE:
+                status = ItemStatus.UNSTARTED
 
+        # remove task from previous time on same day to avoid clogging up
+        old_datetime = None
+        if remove_from_prev_time and isinstance(date_time, DateTime):
+            history = task_item.history
+            old_time = history.find_influencer_at_date(date, task_item)
+            if old_time is not None:
+                old_datetime = DateTime.from_date_and_time(date, old_time)
         return UpdateTaskHistoryEdit.create_and_run(
-            task_item,
-            date_time,
-            status,
-            value,
-            comment=comment,
+            task_item=task_item,
+            influencer=task_item,
+            old_datetime=old_datetime,
+            new_datetime=date_time,
+            new_status=status,
+            new_value=value,
+            new_status_override=status_override,
         )
+
+    @require_class(Task, raise_error=False)
+    def clear_task_history(self, task_item):
+        """Clear task history.
+
+        Args:
+            task_item (Task): task item to edit.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        return ClearTaskHistoryEdit.create_and_run(task_item)
 
     @require_class(Task, raise_error=False)
     def change_task_type(self, task_item, new_type=None):
@@ -436,8 +487,8 @@ class TreeEditManager(BaseTreeManager):
 
         Args:
             task_item (Task): task to modify.
-            size (TaskSize or None): new size to change to, if given.
-            importance (TaskImportance): new importance, if given.
+            size (ItemSize or None): new size to change to, if given.
+            importance (ItemImportance): new importance, if given.
 
         Returns:
             (bool): whether or not edit was successful.
@@ -462,7 +513,7 @@ class TreeEditManager(BaseTreeManager):
             recursive=True):
         """Archive tree item.
 
-        tree_item (BaseTreeItem): item to archive.
+            tree_item (BaseTreeItem): item to archive.
             archive_root (BaseTreeItem): root of archive tree.
             rename (str): if given, rename the item to this if it already
                 exists in the archive. This cannot be given if merge is True.
@@ -487,3 +538,17 @@ class TreeEditManager(BaseTreeManager):
             override=override,
             recursive=recursive,
         )
+
+    @require_class(Task, raise_error=False)
+    def toggle_task_tracking(self, task_item):
+        """Add/remove task item to/from tracker.
+
+        Args:
+            task_item (Task): task item to add/remove.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        if task_item.is_tracked:
+            return UntrackTaskEdit.create_and_run(task_item, self._tracker)
+        return TrackTaskEdit.create_and_run(task_item, self._tracker)

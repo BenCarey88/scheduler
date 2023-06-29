@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from contextlib import contextmanager
 
-from scheduler.api.constants import TimePeriod
+from scheduler.api.enums import TimePeriod
 from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.common.object_wrappers import HostedDataList
 from scheduler.api.serialization.serializable import (
@@ -232,7 +232,7 @@ class Calendar(NestedSerializable):
         """Get current calendar period of given type.
 
         Args:
-            period_type (class or constants.TimePeriod): calendar period to
+            period_type (class or TimePeriod): calendar period to
                 check for. For convenience, can also use the TimePeriod enum.
             weekday_start (int or str): integer or string representing starting
                 day for weeks. By default we start weeks on monday.

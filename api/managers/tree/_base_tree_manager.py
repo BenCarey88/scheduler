@@ -9,7 +9,7 @@ from .._base_manager import BaseManager, require_class
 
 class BaseTreeManager(BaseManager):
     """Base tree manager class to build tree manager classes from."""
-    def __init__(self, name, user_prefs, tree_root, filterer):
+    def __init__(self, name, user_prefs, tree_root, filterer, tracker):
         """Initialize class.
 
         Args:
@@ -17,9 +17,11 @@ class BaseTreeManager(BaseManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
             filterer (Filterer): filterer class for storing filters.
+            tracker (Tracker): tracker to track tasks with.
         """
         self._tree_root = tree_root
         self._archive_tree_root = tree_root.archive_root
+        self._tracker = tracker
         super(BaseTreeManager, self).__init__(
             user_prefs,
             filterer=filterer,
@@ -60,30 +62,6 @@ class BaseTreeManager(BaseManager):
             yield descendant
 
     @require_class(BaseTaskItem, raise_error=True)
-    def is_task(self, item):
-        """Check if tree item is task.
-
-        Args:
-            item (BaseTaskItem): tree item to check.
-
-        Return:
-            (bool): whether or not item is task.
-        """
-        return isinstance(item, Task)
-
-    @require_class(BaseTaskItem, raise_error=True)
-    def is_task_category(self, item):
-        """Check if tree item is task category.
-
-        Args:
-            item (BaseTaskItem): tree item to check.
-
-        Return:
-            (bool): whether or not item is task category.
-        """
-        return isinstance(item, TaskCategory)
-
-    @require_class(BaseTaskItem, raise_error=True)
     def is_top_level_task(self, item):
         """Check if tree item is a top level task.
 
@@ -106,6 +84,18 @@ class BaseTreeManager(BaseManager):
             (bool): whether or not item is task category or top level task.
         """
         return (self.is_task_category(item) or self.is_top_level_task(item))
+    
+    @require_class(BaseTaskItem, raise_error=True)
+    def is_tracked_task(self, item):
+        """Check if tree item is a tracked task.
+
+        Args:
+            item (BaseTaskItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is a tracked task.
+        """
+        return (isinstance(item, Task) and item.is_tracked)
 
     @require_class((Task, TaskCategory), raise_error=True)
     def get_task_category_or_top_level_task(self, item):

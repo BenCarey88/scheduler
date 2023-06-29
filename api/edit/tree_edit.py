@@ -309,11 +309,11 @@ class MoveChildrenEdit(BaseTreeEdit):
             (
                 tree_item.get_child(name),
                 tree_item,
-                index,
+                children_to_move[name],
                 tree_item,
                 tree_item.get_child(name).index(),
             )
-            for name, index in reversed(children_to_move.items())
+            for name in reversed(children_to_move)
             if tree_item.get_child(name) is not None
             and tree_item.get_child(name).index() is not None
         ]

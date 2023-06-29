@@ -3,11 +3,11 @@
 import fnmatch
 
 from scheduler.api.common import BaseDateTimeWrapper
-from scheduler.api.utils import OrderedEnum
+from scheduler.api.enums import OrderedStringEnum
 from ._base_filter import BaseFilter
 
 
-class FilterOperator(OrderedEnum):
+class FilterOperator(OrderedStringEnum):
     """Filter operators."""
     EQUALS = "Is"
     NOT_EQUAL = "Is Not"
@@ -21,15 +21,31 @@ class FilterOperator(OrderedEnum):
     GREATER_THAN = "Greater Than"
     GREATER_THAN_EQ = "Greater or Equal"
 
-    BASE_OPS = [EQUALS, NOT_EQUAL]  # IN not implemented yet
-    STRING_OPS = [MATCHES, DOESNT_MATCH, STARTS_WITH, ENDS_WITH]
-    MATH_OPS = [
-        LESS_THAN,
-        LESS_THAN_EQ,
-        GREATER_THAN,
-        GREATER_THAN_EQ,
-    ]
-    VALUES = BASE_OPS + STRING_OPS + MATH_OPS
+    @classmethod
+    def get_base_ops(cls):
+        return [cls.EQUALS, cls.NOT_EQUAL]  # IN not implemented yet
+
+    @classmethod
+    def get_string_ops(cls):
+        return [
+            cls.MATCHES,
+            cls.DOESNT_MATCH,
+            cls.STARTS_WITH,
+            cls.ENDS_WITH,
+        ]
+
+    @classmethod
+    def get_maths_ops(cls):
+        return [
+            cls.LESS_THAN,
+            cls.LESS_THAN_EQ,
+            cls.GREATER_THAN,
+            cls.GREATER_THAN_EQ,
+        ]
+
+    @classmethod
+    def get_all_ops(cls):
+        return cls.get_base_ops() + cls.get_string_ops() + cls.get_maths_ops()
 
 
 class FieldFilter(BaseFilter):
@@ -63,7 +79,7 @@ class FieldFilter(BaseFilter):
         self._field_maths_value = field_value
         self._math_ops_key = math_ops_key
         if (math_ops_key is not None and
-                field_operator in FilterOperator.MATH_OPS):
+                field_operator in FilterOperator.get_maths_ops()):
             self._field_maths_value = math_ops_key(field_value)
 
     def _filter_function(self, *args, **kwargs):
@@ -142,7 +158,7 @@ class FieldFilter(BaseFilter):
 
     @classmethod
     def _from_dict(cls, dict_repr):
-        """Get dict representation (excluding the class key).
+        """Initialize class from dict representation.
 
         This assumes the subclass __init__ just requires a field operator and
         field value arg, and that the field value arg is json-serializable.

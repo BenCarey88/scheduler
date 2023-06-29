@@ -28,7 +28,7 @@ Hence, I think if a task is deleted and is being used elsewhere (at least
 in planner/scheduler/tracker - maybe history is different), we should get
 a dialog saying where it's used and offering (some of?) the following options:
     - delete all items referencing this task, and all history of task
-    - delete task+history and switch all referncing items to events
+    - delete task+history and switch all referencing items to events
         - would need event equivalent for planned item in that case 
     - archive this task (so can still be referenced and see history)
     - archive this task and all items referencing it

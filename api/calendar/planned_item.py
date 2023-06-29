@@ -1,42 +1,27 @@
 """Planned item class."""
 
-from functools import partial
-
-from scheduler.api.common.object_wrappers import (
-    Hosted,
-    HostedDataList,
-    MutableAttribute,
-    MutableHostedAttribute,
-)
+from scheduler.api.common.object_wrappers import MutableAttribute
 from scheduler.api.serialization import item_registry
-from scheduler.api.serialization.serializable import (
-    NestedSerializable,
-    SaveType,
-)
-from scheduler.api import constants
-from scheduler.api.constants import TimePeriod as TP
-from scheduler.api.utils import fallback_value, OrderedEnum
+from scheduler.api.tree import Task
+from scheduler.api.utils import fallback_value
+from ._base_calendar_item import BaseCalendarItem
 
 
 class PlannedItemError(Exception):
     """Generic exception for planned item errors."""
 
 
-class PlannedItem(Hosted, NestedSerializable):
+class PlannedItem(BaseCalendarItem):
     """Class for items in planner tab."""
-    _SAVE_TYPE = SaveType.NESTED
-
     TREE_ITEM_KEY = "tree_item"
     TIME_PERIOD_KEY = "time_period"
-    SCHEDULED_ITEMS_KEY = "scheduled_items"
-    PLANNED_CHILDREN_KEY = "planned_children"
-    ID_KEY = "id"
 
     def __init__(
             self,
             calendar,
             calendar_period,
-            tree_item):
+            tree_item=None,
+            status=None):
         """Initialize class.
 
         Args:
@@ -44,47 +29,14 @@ class PlannedItem(Hosted, NestedSerializable):
             calendar_period (BaseCalendarPeriod): calendar period this is
                 associated to.
             tree_item (BaseTaskItem): the task that this item represents.
-
-        Attrs:
-            _planned_children (PlannedItem): associated items planned for
-                shorter time periods. Generally these will be other instances
-                of the same tree item or of its children.
-            _scheduled_items (ScheduledItem): associated scheduled items for
-                this planned item. In general, this should normally be blank
-                for anything except a day planned item - the expectation is
-                that if you plan an item for over a week, say, then you would
-                add a day planned child item which is associated to the
-                scheduled item.
+            status (ItemStatus): the status of the item.
         """
-        super(PlannedItem, self).__init__()
-        self._calendar = calendar
+        super(PlannedItem, self).__init__(calendar, tree_item, status)
+        self._is_planned_item = True
         self._calendar_period = MutableAttribute(
             calendar_period,
             "calendar_period",
         )
-        self._tree_item = MutableHostedAttribute(
-            tree_item,
-            "tree_item",
-            pairing_id=constants.PLANNER_TREE_PAIRING,
-            parent=self,
-            driver=True,
-        )
-        self._planned_children = HostedDataList(
-            pairing_id=constants.PLANNER_PARENT_CHILD_PAIRING,
-            parent=self,
-            driver=True,
-        )
-        self._planned_parents = HostedDataList(
-            pairing_id=constants.PLANNER_PARENT_CHILD_PAIRING,
-            parent=self,
-            driven=True,
-        )
-        self._scheduled_items = HostedDataList(
-            pairing_id=constants.PLANNER_SCHEDULER_PAIRING,
-            parent=self,
-            driver=True,
-        )
-        self._id = None
 
     @property
     def calendar(self):
@@ -114,15 +66,6 @@ class PlannedItem(Hosted, NestedSerializable):
         return self.calendar_period.get_time_period_type()
 
     @property
-    def tree_item(self):
-        """Get task this item is planning.
-
-        Returns:
-            (BaseTaskItem): task that this item is using.
-        """
-        return self._tree_item.value
-
-    @property
     def name(self):
         """Get name of item.
 
@@ -145,31 +88,31 @@ class PlannedItem(Hosted, NestedSerializable):
         return ""
 
     @property
-    def scheduled_items(self):
-        """Get scheduled items associated to this one.
+    def start_date(self):
+        """Get start date for planned item.
 
         Returns:
-            (list(BaseScheduledItem)): associated scheduled items.
+            (Date): start date.
         """
-        return self._scheduled_items
+        return self.calendar_period.start_date
 
     @property
-    def planned_children(self):
-        """Get child items associated to this one.
+    def end_date(self):
+        """Get end date for planned item.
 
         Returns:
-            (list(PlannedItem))): associated child items.
+            (Date): end date.
         """
-        return self._planned_children
+        return self.calendar_period.end_date
 
     @property
-    def planned_parents(self):
-        """Get parent items associated to this one.
+    def status(self):
+        """Get status of item.
 
         Returns:
-            (list(PlannedItem))): associated parent items.
+            (ItemStatus): status of item.
         """
-        return self._planned_parents
+        return self._status.value
 
     @property
     def defunct(self):
@@ -179,6 +122,40 @@ class PlannedItem(Hosted, NestedSerializable):
             (bool): whether or not item should be considered deleted.
         """
         return super(PlannedItem, self).defunct or (self.tree_item is None)
+
+    @property
+    def scheduled_items(self):
+        """Get scheduled items associated to this one.
+
+        Returns:
+            (list(BaseScheduledItem)): associated scheduled items.
+        """
+        return [
+            child for child in self._children if child.is_scheduled_item
+        ]
+
+    @property
+    def planned_children(self):
+        """Get child planned items associated to this one.
+
+        Returns:
+            (list(PlannedItem))): associated child items.
+        """
+        return [
+            child for child in self._children if child.is_planned_item
+        ]
+
+    @property
+    def planned_parents(self):
+        """Get parent items associated to this one.
+
+        For now, all parents must be planned items, so this doesn't bother
+        with filtering.
+
+        Returns:
+            (list(PlannedItem))): associated parent items.
+        """
+        return self._parents
 
     def __lt__(self, item):
         """Check if self is over a smaller period than other item.
@@ -193,7 +170,7 @@ class PlannedItem(Hosted, NestedSerializable):
                 )
             )
         return (
-            TP.key(self.time_period) < TP.key(item.time_period)
+            self.time_period < item.time_period
         )
 
     def __le__(self, item):
@@ -208,9 +185,7 @@ class PlannedItem(Hosted, NestedSerializable):
                     item.__class__.__name__
                 )
             )
-        return (
-            TP.key(self.time_period) <= TP.key(item.time_period)
-        )
+        return self.time_period <= item.time_period
 
     def __gt__(self, item):
         """Check if self is over a greater period than other item.
@@ -224,9 +199,7 @@ class PlannedItem(Hosted, NestedSerializable):
                     item.__class__.__name__
                 )
             )
-        return (
-            TP.key(self.time_period) > TP.key(item.time_period)
-        )
+        return self.time_period > item.time_period
 
     def __ge__(self, item):
         """Check if self is over a greater or equal time period to other item.
@@ -240,9 +213,7 @@ class PlannedItem(Hosted, NestedSerializable):
                     item.__class__.__name__
                 )
             )
-        return (
-            TP.key(self.time_period) >= TP.key(item.time_period)
-        )
+        return self.time_period >= item.time_period
 
     def get_item_container(self, calendar_period=None):
         """Get the list that this item should be contained in.
@@ -260,27 +231,6 @@ class PlannedItem(Hosted, NestedSerializable):
         )
         return calendar_period.get_planned_items_container()
 
-    def get_tree_item_container(self, tree_item=None):
-        """Get the tree item attr that this item should be contained in.
-
-        Args:
-            tree_item (BaseTaskItem or None): tree item to use, if not given
-                we use self._tree_item
-
-        Returns:
-            (list or None): list that this planned item should be contained in
-                within its tree item, if found.
-        """
-        tree_item = fallback_value(tree_item, self.tree_item)
-        if tree_item is None:
-            return None
-        return {
-            TP.DAY: tree_item._planned_day_items,
-            TP.WEEK: tree_item._planned_week_items,
-            TP.MONTH: tree_item._planned_month_items,
-            TP.YEAR: tree_item._planned_year_items,
-        }.get(self.time_period)
-
     def index(self):
         """Get index of item in its container.
 
@@ -295,70 +245,48 @@ class PlannedItem(Hosted, NestedSerializable):
         except ValueError:
             return None
 
-    def child_index(self, planned_parent):
-        """Get index of this item as a child of the given parent.
+    def _get_task_to_update(self, new_tree_item=None, **kwargs):
+        """Utility method to return the linked task item if it needs updating.
+
+        This is used only by edit classes that update the task history based
+        on updates to this planned item.
 
         Args:
-            planned_parent (PlannedItem): planned item to check against.
+            new_tree_item (BaseTaskItem or None): new linked tree item the
+                planned item will have, if needed.
+            **kwargs (dict): ignored, used for convenience so we can accept
+                the same args for this and for the equivalent scheduled item
+                method.
 
         Returns:
-            (int or None): index, if found.
+            (Task or None): linked tree item, if it's a task.
         """
-        container = planned_parent._planned_children(self)
-        if container is None:
+        task_item = fallback_value(new_tree_item, self.tree_item)
+        if not isinstance(task_item, Task):
             return None
-        try:
-            return container.index(self)
-        except ValueError:
-            return None
+        return task_item
 
-    def parent_index(self, planned_child):
-        """Get index of this item as a parent of the given child.
+    def _iter_influences(self):
+        """Get tasks influenced at dates by this item.
 
-        Args:
-            planned_parent (PlannedItem): planned item to check against.
+        - currently this should yield either one influence at the end date of
+            the item or no influence. However, in theory we could have items
+            planned over time periods of longer than one day influencing on
+            multiple days, so may need to update this method to reflect that.
 
-        Returns:
-            (int or None): index, if found.
+        Yields:
+            (Task): the influenced task.
+            (Date): the date it's influenced at.
         """
-        container = planned_child._planned_parents(self)
-        if container is None:
-            return None
-        try:
-            return container.index(self)
-        except ValueError:
-            return None
+        task = self._get_task_to_update()
+        if task is not None:
+            influencer_dict = task.history.get_influencer_dict(
+                self.end_date,
+                self,
+            )
+            if influencer_dict:
+                yield (task, self.date)
 
-    def _add_scheduled_item(self, scheduled_item):
-        """Add scheduled item (to be used during deserialization).
-
-        This method also associates the scheduled item to this class.
-
-        Args:
-            scheduled_item (BaseScheduledItem): scheduled item to associate
-                to this planned item.
-        """
-        if scheduled_item not in self.scheduled_items:
-            self._scheduled_items.append(scheduled_item)
-
-    def _add_planned_child(self, planned_item):
-        """Add planned item child (to be used during deserialization).
-
-        Args:
-            planned_item (PlannedItem): planned item to associate as child
-                of this planned item.
-        """
-        if planned_item not in self._planned_children:
-            self._planned_children.append(planned_item)
-
-    # TODO: I think there's a problem here with autosaves: the assumption
-    # with this _get_id method (and same for the ones in scheduled item class)
-    # was that it will only be called once, as the program is being closed,
-    # but because of autosaves, this isn't true. This just means the id name
-    # may be dodgy, but everything else should work afaik.
-    # To fix, I think we need to check if item currently exists in registry
-    # rather than check if self._id is set, and then we can make autosaves
-    # clear the id registry after each cache.
     def _get_id(self):
         """Generate unique id for object.
 
@@ -390,30 +318,10 @@ class PlannedItem(Hosted, NestedSerializable):
         Returns:
             (PlannedItem): planned item.
         """
-        tree_item = calendar.task_root.get_item_at_path(
-            dict_repr.get(cls.TREE_ITEM_KEY),
-            search_archive=True,
-        )
-        planned_item = cls(
+        planned_item = super(BaseCalendarItem, cls).from_dict(
             calendar,
-            calendar_period,
-            tree_item,
+            calendar_period=calendar_period,
         )
-        planned_item._activate()
-
-        for scheduled_item_id in dict_repr.get(cls.SCHEDULED_ITEMS_KEY, []):
-            item_registry.register_callback(
-                scheduled_item_id,
-                planned_item._add_scheduled_item,
-            )
-        for planned_item_id in dict_repr.get(cls.PLANNED_CHILDREN_KEY, []):
-            item_registry.register_callback(
-                planned_item_id,
-                planned_item._add_planned_child,
-            )
-        id = dict_repr.get(cls.ID_KEY, None)
-        if id is not None:
-            item_registry.register_item(id, planned_item)
         return planned_item
 
     def to_dict(self):
@@ -422,20 +330,6 @@ class PlannedItem(Hosted, NestedSerializable):
         Returns:
             (dict): dictionary representation.
         """
-        dict_repr = {
-            self.TIME_PERIOD_KEY: self.time_period,
-            self.ID_KEY: self._get_id(),
-        }
-        if self.tree_item:
-            dict_repr[self.TREE_ITEM_KEY] = self.tree_item.path
-        if self._scheduled_items:
-            dict_repr[self.SCHEDULED_ITEMS_KEY] = [
-                scheduled_item._get_id()
-                for scheduled_item in self.scheduled_items
-            ]
-        if self._planned_children:
-            dict_repr[self.PLANNED_CHILDREN_KEY] = [
-                planned_item._get_id()
-                for planned_item in self.planned_children
-            ]
+        dict_repr = super(BaseCalendarItem, self).to_dict()
+        dict_repr[self.TIME_PERIOD_KEY] = self.time_period
         return dict_repr

@@ -15,6 +15,41 @@ from .file_utils import (
 )
 
 
+def _print_erroring_directory(method):
+    """Decorator to determine which file/directory an error occurred in.
+
+    Args:
+        method (function): the function to decorate.
+
+    Returns:
+        (function): the decorated function.
+    """
+    def decorated_method(class_obj, file_path, *args, **kwargs):
+        try:
+            return method(class_obj, file_path, *args, **kwargs)
+        except Exception as e:
+            print ("[Error] at {0}".format(file_path))
+            raise e
+    return decorated_method
+
+def _print_erroring_directory_static(method):
+    """Decorator to determine which file/directory an error occurred in.
+
+    Args:
+        method (function): the static function to decorate.
+
+    Returns:
+        (function): the decorated function.
+    """
+    def decorated_method(file_path, *args, **kwargs):
+        try:
+            return method(file_path, *args, **kwargs)
+        except Exception as e:
+            print ("[Error] at {0}".format(file_path))
+            raise e
+    return decorated_method
+
+
 class SaveType():
     """Struct for types of save available for serialized classes.
 
@@ -140,6 +175,7 @@ class BaseSerializable(ABC):
 
     ### File Read/Write ###
     @staticmethod
+    @_print_erroring_directory_static
     def _read_json_file(file_path, as_ordered_dict=False):
         """Read json dict from file_path.
 
@@ -170,6 +206,7 @@ class BaseSerializable(ABC):
             )
 
     @classmethod
+    @_print_erroring_directory
     def from_file(cls, file_path, *args, **kwargs):
         """Initialise class from json file.
 
@@ -491,6 +528,7 @@ class NestedSerializable(BaseSerializable):
 
     ### Directory Read/Write ###
     @classmethod
+    @_print_erroring_directory
     def _read_directory(cls, directory_path):
         """Get dict from directory path.
 
@@ -576,6 +614,7 @@ class NestedSerializable(BaseSerializable):
         return return_dict
 
     @classmethod
+    @_print_erroring_directory
     def from_directory(cls, directory_path, *args, **kwargs):
         """Initialise class from directory.
 

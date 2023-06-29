@@ -4,11 +4,12 @@ from collections import OrderedDict
 import unittest
 
 from scheduler.api.common.date_time import DateTime
+from scheduler.api.enums import ItemStatus
 
 from api.edit.tree_edit import RenameChildrenEdit
 from api.edit.task_edit import UpdateTaskHistoryEdit
 from api.tree._base_tree_item import BaseTreeItem
-from api.tree.task import Task, TaskStatus
+from api.tree.task import Task
 
 from .utils import create_ordered_dict_from_tuples
 
@@ -81,7 +82,7 @@ class TaskEditTest(unittest.TestCase):
         history_edit = UpdateTaskHistoryEdit(
             self.task_item,
             date_time,
-            TaskStatus.IN_PROGRESS,
+            ItemStatus.IN_PROGRESS,
             comment="TESTING",
         )
         history_edit.run()
@@ -91,13 +92,13 @@ class TaskEditTest(unittest.TestCase):
         # # part of test:
         # self.assertEqual(
         #     self.task_item.status,
-        #     TaskStatus.IN_PROGRESS,
+        #     ItemStatus.IN_PROGRESS,
         # )
         self.assertEqual(
             self.task_item.history._dict,
             create_ordered_dict_from_tuples([
                 (date_time.date(), [
-                    ("status", TaskStatus.IN_PROGRESS),
+                    ("status", ItemStatus.IN_PROGRESS),
                     ("comments", [
                         (date_time.time(), "TESTING")
                     ])
@@ -107,7 +108,7 @@ class TaskEditTest(unittest.TestCase):
         history_edit._inverse_run()
         self.assertEqual(
             self.task_item.status,
-            TaskStatus.UNSTARTED,
+            ItemStatus.UNSTARTED,
         )
         self.assertEqual(
             self.task_item.history._dict,

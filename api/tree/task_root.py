@@ -92,7 +92,7 @@ class TaskRoot(TaskCategory):
             return None
         tree_item = self
         if path_list[0] != self.name:
-            if (search_archive 
+            if (search_archive
                     and self.archive_root is not None
                     and path_list[0] == self.ARCHIVE_ROOT_NAME):
                 tree_item = self.archive_root
@@ -149,6 +149,7 @@ class TaskRoot(TaskCategory):
             if missing_ancestors:
                 child = missing_ancestors[0]
                 new_ancestor._children[child.name] = child
+                # TODO: do we need to add a parent attribute to child here too?
             missing_ancestors.insert(0, new_ancestor)
             tree_item = tree_item.parent
         return missing_ancestors
@@ -190,7 +191,6 @@ class TaskRoot(TaskCategory):
         return task_root
 
 
-# TODO: work out what should happen to history when items are deleted
 class HistoryData(object):
     """Struct to store history data for tasks by day, to add to calendar.
 
@@ -243,13 +243,16 @@ class HistoryData(object):
         """
         return self._dict.setdefault(date, HostedDataDict())
 
-    def _update_for_task(self, date, task):
+    def _update_for_task_at_dates(self, task, dates):
         """Update dict to get history for task at given date.
 
         Args:
-            date (Date): date to update at.
             task (Task): task to get history for.
+            dates (list(Date)): dates to update at.
         """
-        history_dict = task.history.get_dict_at_date(date)
-        if history_dict != self._dict.get(date, {}).get(task):
-            self._dict.setdefault(date, HostedDataDict())[task] = history_dict
+        for date in dates:
+            history_dict = task.history.get_dict_at_date(date)
+            if history_dict != self._dict.get(date, {}).get(task):
+                self._dict.setdefault(date, HostedDataDict())[task] = (
+                    history_dict
+                )

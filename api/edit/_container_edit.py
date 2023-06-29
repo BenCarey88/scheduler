@@ -6,19 +6,22 @@ from scheduler.api.common.object_wrappers import (
     HostedDataDict,
     HostedDataList,
 )
-from scheduler.api import utils
+from scheduler.api.common.timeline import TimelineDict
+from scheduler.api.enums import OrderedStringEnum
+from scheduler.api.utils import add_key_at_start
+
 from ._base_edit import BaseEdit, EditError
-from ._core_edits import CompositeEdit
 
 
 LIST_TYPES = (list, HostedDataList)
-DICT_TYPES = (dict, HostedDataDict)
+DICT_TYPES = (dict, HostedDataDict, TimelineDict)
+# don't include timeline dicts in below as they take care of their own order
 ORDERED_DICT_TYPES = (OrderedDict, HostedDataDict)
 HOSTED_CONTAINER_TYPES = (HostedDataDict, HostedDataList)
 CONTAINER_TYPES = (*LIST_TYPES, *DICT_TYPES)
 
 
-class ContainerOp(object):
+class ContainerOp(OrderedStringEnum):
     """Enum representing an edit operation on a container."""
     ADD = "Add"
     INSERT = "Insert"
@@ -29,18 +32,7 @@ class ContainerOp(object):
     SORT = "Sort"
     ADD_OR_MODIFY = "Add_Or_Modify"
     REMOVE_OR_MODIFY = "Remove_Or_Modify"
-
-    _INVERSES = {
-        ADD: REMOVE,
-        INSERT: REMOVE,
-        REMOVE: INSERT,
-        RENAME: RENAME,
-        MODIFY: MODIFY,
-        MOVE: MOVE,
-        SORT: SORT,
-        ADD_OR_MODIFY: REMOVE_OR_MODIFY,
-        REMOVE_OR_MODIFY: ADD_OR_MODIFY,
-    }
+    ADD_REMOVE_OR_MODIFY = "Add_Remove_Or_Modify"
 
     @classmethod
     def get_inverse_op(cls, op_type):
@@ -52,10 +44,33 @@ class ContainerOp(object):
         Returns:
             (ContainerOp): inverse operation type.
         """
-        return cls._INVERSES.get(op_type)
+        return {
+            cls.ADD: cls.REMOVE,
+            cls.INSERT: cls.REMOVE,
+            cls.REMOVE: cls.INSERT,
+            cls.ADD_OR_MODIFY: cls.REMOVE_OR_MODIFY,
+            cls.REMOVE_OR_MODIFY: cls.ADD_OR_MODIFY,
+        }.get(op_type, op_type)
 
 
-class ContainerEditFlag(object):
+class InsertTuple(tuple):
+    """Custom tuple used to indicate that an edit is an insert one."""
+    def __new__(cls, *args):
+        """Create tuple from args.
+
+        Note that because 'tuple' is immutable, we need to define __new__
+        as opposed to __init__.
+
+        Args:
+            args (list): list of arbitrary arguments to add into tuple.
+                This means we create a tuple like InsertTuple(a, b),
+                as opposed to the standard method for tuple types, which
+                is tuple([a, b]).
+        """
+        return tuple.__new__(cls, args)
+
+
+class ContainerEditFlag(OrderedStringEnum):
     """Enum representing flags for container edits.
 
     Flag types:
@@ -65,11 +80,11 @@ class ContainerEditFlag(object):
             apply the edit to the first instance of that value they find
             in the list (so if there are any repeats of a value in the list,
             the edit will only be applied once to that value).
-        IGNORE_DUPLICATES: only add items to a container if they're not
-            already there.
+        LIST_IGNORE_DUPLICATES: only add items to a list container if they're
+            not already there.
     """
     LIST_FIND_BY_VALUE = "List_Find_By_Value"
-    IGNORE_DUPLICATES = "List_Ignore_Duplicates"
+    LIST_IGNORE_DUPLICATES = "List_Ignore_Duplicates"
 
 
 class BaseContainerEdit(BaseEdit):
@@ -109,6 +124,7 @@ class BaseContainerEdit(BaseEdit):
 
             ADD_OR_MODIFY    {key: value}         - add/change value at keys
             REMOVE_OR_MODIFY {key: value or None} - remove/change value at keys
+            ADD_REMOVE_OR_MODIFY {key: value or None} - add/remove/change
 
         diff_list formats:
             ADD:    [new_item]               - append new item
@@ -134,10 +150,18 @@ class BaseContainerEdit(BaseEdit):
             Not really tested yet, be cautious with this.
         """
         if isinstance(diff_container, HOSTED_CONTAINER_TYPES):
+            # can't remember exactly why this is but I think it's to do
+            # with making sure that we can still add/remove defunct objects
+            # from a hosted data container?
             raise EditError(
                 "For hosted data container edits, diff container should "
                 "still be unhosted."
             )
+            # ^note that I currently am allowing hosted data containers as
+            # a lower level of a recursive diff dict, which is being used
+            # in UpdateTaskHistoryEdit (and maybe others) - not sure
+            # if this should be allowed or not, keep an eye out to see
+            # if it causes issues
         self._container = container
         self._diff_container = diff_container
         self._diff_container_type = type(diff_container)
@@ -193,8 +217,10 @@ class BaseContainerEdit(BaseEdit):
                 return self._dict_add_or_modify
             if operation_type == ContainerOp.REMOVE_OR_MODIFY:
                 return self._dict_remove_or_modify
+            if operation_type == ContainerOp.ADD_REMOVE_OR_MODIFY:
+                return self._dict_add_remove_or_modify
 
-            if isinstance(container, DICT_TYPES):
+            if isinstance(container, ORDERED_DICT_TYPES):
                 if operation_type == ContainerOp.MOVE:
                     return self._ordered_dict_move
 
@@ -270,6 +296,13 @@ class BaseContainerEdit(BaseEdit):
                 return False
 
         elif isinstance(container, LIST_TYPES):
+            return False
+            # I don't think there's ever a need to recurse within a list
+            # so I'm removing this for now
+            # Note that this still allows recursion UP TO a list, ie. a
+            # nested dict with a list at bottom level, and we want to add
+            # an item to that list
+
             if len(diff_container) != len(container):
                 return False
             if (len(container) < key_or_index
@@ -314,7 +347,7 @@ class BaseContainerEdit(BaseEdit):
             value (variant): value to add at key.
         """
         if isinstance(inverse_diff_dict, ORDERED_DICT_TYPES):
-            utils.add_key_at_start(inverse_diff_dict, key, value)
+            add_key_at_start(inverse_diff_dict, key, value)
         else:
             inverse_diff_dict[key] = value
 
@@ -357,13 +390,13 @@ class BaseContainerEdit(BaseEdit):
                     if isinstance(value, LIST_TYPES):
                         inverse_diff_container.insert(
                             0,
-                            inverse_diff_subcontainer
+                            inverse_diff_subcontainer,
                         )
                     elif isinstance(value, DICT_TYPES):
                         self._add_inverse_diff_dict_key(
                             inverse_diff_container,
                             key,
-                            inverse_diff_subcontainer
+                            inverse_diff_subcontainer,
                         )
                 is_valid = self._run_operation(
                     container[key],
@@ -419,9 +452,16 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
-                and value in dict_.values()):
-            return False
+        # add edits with InsertTuple values are interpreted as insert edits
+        if isinstance(value, InsertTuple):
+            return self._dict_insert(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
+
         if key not in dict_:
             if inverse_diff_dict is not None:
                 self._add_inverse_diff_dict_key(inverse_diff_dict, key, None)
@@ -461,13 +501,11 @@ class BaseContainerEdit(BaseEdit):
                 key,
                 value_tuple[1],
                 dict_,
-                inverse_diff_dict
+                inverse_diff_dict,
+                as_validity_check,
             )
 
         index, new_value = value_tuple
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
-                and new_value in dict_.values()):
-            return False
         if key not in dict_:
             if index < 0 or index > len(dict_):
                 return False
@@ -513,7 +551,7 @@ class BaseContainerEdit(BaseEdit):
                 self._add_inverse_diff_dict_key(
                     inverse_diff_dict,
                     key,
-                    (index, dict_[key])
+                    InsertTuple(index, dict_[key])
                 )
             if not as_validity_check:
                 del dict_[key]
@@ -541,7 +579,7 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        if key in dict_:
+        if key in dict_ and new_key not in dict_:
             if not as_validity_check:
                 if isinstance(dict_, ORDERED_DICT_TYPES):
                     for i in range(len(dict_)):
@@ -627,6 +665,14 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_dict,
                 as_validity_check,
             )
+        elif isinstance(value, InsertTuple):
+            return self._dict_insert(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
         else:
             return self._dict_add(
                 key,
@@ -673,6 +719,62 @@ class BaseContainerEdit(BaseEdit):
                 inverse_diff_dict,
                 as_validity_check,
             )
+
+    def _dict_add_remove_or_modify(
+            self,
+            key,
+            value,
+            dict_,
+            inverse_diff_dict=None,
+            as_validity_check=False):
+        """Add, remove or modify existing key in dict.
+
+        Args:
+            key (variant): key to add in modify.
+            value (variant): value for key.
+            dict_ (dict): ordered dict we're editing.
+            inverse_diff_dict (dict or None): if given, add to this to define
+                inverse operation.
+            as_validity_check (bool): if True, don't actually run, just
+                simulate a run to check if operation is valid.
+
+        Returns:
+            (bool): whether or not container is modified.
+        """
+        if key in dict_:
+            if value is None:
+                return self._dict_remove(
+                    key,
+                    value,
+                    dict_,
+                    inverse_diff_dict,
+                    as_validity_check,
+                )
+            else:
+                return self._dict_modify(
+                    key,
+                    value,
+                    dict_,
+                    inverse_diff_dict,
+                    as_validity_check,
+                )
+        elif isinstance(value, InsertTuple):
+            return self._dict_insert(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
+        elif value is not None:
+            return self._dict_add(
+                key,
+                value,
+                dict_,
+                inverse_diff_dict,
+                as_validity_check,
+            )
+        return False
 
     ### OrderedDict Operation Methods ###
     def _ordered_dict_move(
@@ -742,7 +844,16 @@ class BaseContainerEdit(BaseEdit):
         Returns:
             (bool): whether or not container is modified.
         """
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+        # add edits with InsertTuple values are interpreted as insert edits
+        if isinstance(value, InsertTuple):
+            return self._list_insert(
+                value,
+                list_,
+                inverse_diff_list,
+                as_validity_check,
+            )
+
+        if (ContainerEditFlag.LIST_IGNORE_DUPLICATES in self._edit_flags
                 and value in list_):
             return False
         if inverse_diff_list is not None:
@@ -778,7 +889,7 @@ class BaseContainerEdit(BaseEdit):
         if not isinstance(value_tuple, tuple) or len(value_tuple) != 2:
             raise EditError("diff list for INSERT op needs 2-tuple values")
         index, new_value = value_tuple
-        if (ContainerEditFlag.IGNORE_DUPLICATES in self._edit_flags
+        if (ContainerEditFlag.LIST_IGNORE_DUPLICATES in self._edit_flags
                 and new_value in list_):
             return False
         if index < 0 or index > len(list_):
@@ -826,9 +937,9 @@ class BaseContainerEdit(BaseEdit):
             index = index_or_value
             if not isinstance(index, int):
                 raise EditError(
-                    "List remove edits need index diff_list inputs. If you "
-                    "wish to remove items by value, use the LIST_FIND_BY_VALUE "
-                    "ContainerEditFlag."
+                    "List remove edits need index diff_list inputs. "
+                    "If you want to remove items by value, use the "
+                    "LIST_FIND_BY_VALUE ContainerEditFlag."
                 )
             if index < 0 or index >= len(list_):
                 return False
@@ -836,7 +947,7 @@ class BaseContainerEdit(BaseEdit):
                 value = list_.pop(index)
 
         if inverse_diff_list is not None:
-            inverse_diff_list.insert(0, (index, value))
+            inverse_diff_list.insert(0, InsertTuple(index, value))
         return True
 
     def _list_modify(
@@ -933,7 +1044,7 @@ class BaseContainerEdit(BaseEdit):
             (bool): whether or not container is modified.
         """
         if not isinstance(sort_func_tuple, tuple) or len(sort_func_tuple) != 2:
-            raise EditError("diff list for MOVE op needs 2-tuple values")
+            raise EditError("diff list for SORT op needs 2-tuple values")
         key, reverse = sort_func_tuple
         # Hack for sorting with HostedDataLists:
         HOSTED_DATA_INVERSE = "hosted_data_inverse"
@@ -1013,6 +1124,7 @@ class DictEdit(BaseContainerEdit):
 
             ADD_OR_MODIFY    {key: value}         - add/change value at keys
             REMOVE_OR_MODIFY {key: value or None} - remove/change value at keys
+            ADD_REMOVE_OR_MODIFY {key: value or None} - add/remove/change
 
         recursive diff_dicts:
             ADD:    if key already exists, check next level and retry
@@ -1073,7 +1185,7 @@ class ListEdit(BaseContainerEdit):
             SORT:   [(key, reverse)]         - sort list by given key, reverse
 
         recursive diff_list:
-            Not really tested yet, be cautious with this.
+            Not used.
         """
         if (not isinstance(list_, LIST_TYPES)
                 or not isinstance(diff_list, LIST_TYPES)):
@@ -1087,86 +1199,86 @@ class ListEdit(BaseContainerEdit):
         )
 
 
-class TimelineEdit(CompositeEdit):
-    """Edit on a Timeline object."""
-    def __init__(
-            self,
-            timeline,
-            diff_dict,
-            op_type):
-        """Initialise edit item.
+# class TimelineEdit(CompositeEdit):
+#     """Edit on a Timeline object."""
+#     def __init__(
+#             self,
+#             timeline,
+#             diff_dict,
+#             op_type):
+#         """Initialise edit item.
 
-        Args:
-            timeline (Timeline): the timeline that this edit is being run on.
-            diff_dict (dict): a dict representing modifications to the timeline
-                object. How to interpret this list depends on the operation
-                type.
-            operation_type (ContainerOp): The type of edit operation to do.
+#         Args:
+#             timeline (Timeline): the timeline that this edit is being run on.
+#             diff_dict (dict): a dict representing modifications to the timeline
+#                 object. How to interpret this list depends on the operation
+#                 type.
+#             operation_type (ContainerOp): The type of edit operation to do.
 
-        diff_dict formats:
-            ADD:    {time: [item]}             - add item at time
-            INSERT: {time: [item]}             - insert item at time
-            REMOVE: {time: [item]}             - remove item from time
-            MODIFY: {time: [(item, new_item)]} - change item to new_item
-            MOVE:   {time: [(item, new_time)]} - move item to new time
+#         diff_dict formats:
+#             ADD:    {time: [item]}             - add item at time
+#             INSERT: {time: [item]}             - insert item at time
+#             REMOVE: {time: [item]}             - remove item from time
+#             MODIFY: {time: [(item, new_item)]} - change item to new_item
+#             MOVE:   {time: [(item, new_time)]} - move item to new time
 
-        Note that because Timeline containers can't have duplicate items at the
-        same time then REMOVE, MODIFY, MOVE can all use item instead of index.
-        """
-        if op_type in (
-                ContainerOp.ADD, ContainerOp.INSERT, ContainerOp.REMOVE):
-            edit = BaseContainerEdit.create_unregistered(
-                timeline._dict,
-                diff_dict,
-                op_type,
-                recursive=True,
-                edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
-            )
-            super(TimelineEdit, self).__init__([edit])
+#         Note that because Timeline containers can't have duplicate items at the
+#         same time then REMOVE, MODIFY, MOVE can all use item instead of index.
+#         """
+#         if op_type in (
+#                 ContainerOp.ADD, ContainerOp.INSERT, ContainerOp.REMOVE):
+#             edit = BaseContainerEdit.create_unregistered(
+#                 timeline._dict,
+#                 diff_dict,
+#                 op_type,
+#                 recursive=True,
+#                 edit_flags=[ContainerEditFlag.LIST_FIND_BY_VALUE],
+#             )
+#             super(TimelineEdit, self).__init__([edit])
 
-        elif op_type == ContainerOp.MODIFY:
-            # convert diff list to use indexes instead of items
-            modify_edit = BaseContainerEdit.create_unregistered(
-                timeline._dict,
-                OrderedDict([
-                    (time, [(item_list.index(i1), i2) for i1, i2 in item_list])
-                    for time, item_list in diff_dict.items()
-                ]),
-                op_type,
-                recursive=True,
-            )
-            super(TimelineEdit, self).__init__([modify_edit])
+#         elif op_type == ContainerOp.MODIFY:
+#             # convert diff list to use indexes instead of items
+#             modify_edit = BaseContainerEdit.create_unregistered(
+#                 timeline._dict,
+#                 OrderedDict([
+#                     (time, [(item_list.index(i1), i2) for i1, i2 in item_list])
+#                     for time, item_list in diff_dict.items()
+#                 ]),
+#                 op_type,
+#                 recursive=True,
+#             )
+#             super(TimelineEdit, self).__init__([modify_edit])
 
-        elif op_type == ContainerOp.MOVE:
-            # remove anything that tries to move to same time
-            diff_dict = OrderedDict([
-                (time, [(i, t) for i, t in item_list if t != time])
-                for time, item_list in diff_dict.items()
-            ]),
-            # remove items from current time
-            remove_edit = TimelineEdit.create_unregistered(
-                timeline,
-                OrderedDict([
-                    (time, [item for item, _ in item_list])
-                    for time, item_list in diff_dict.items()
-                ]),
-                ContainerOp.REMOVE,
-            )
-            # add items to new time
-            add_diff_dict = OrderedDict()
-            for item_list in diff_dict.values():
-                for item, time in item_list:
-                    if item in timeline.get(time):
-                        continue
-                    diff_list = add_diff_dict[time].setdefault([])
-                    if item in diff_list:
-                        continue
-                    diff_list.append(item)
-            add_edit = TimelineEdit.create_unregistered(
-                timeline,
-                add_diff_dict,
-                ContainerOp.ADD,
-            )
-            super(TimelineEdit, self).__init__(
-                [remove_edit, add_edit],
-            )
+#         elif op_type == ContainerOp.MOVE:
+#             # remove anything that tries to move to same time
+#             diff_dict = OrderedDict([
+#                 (time, [(i, t) for i, t in item_list if t != time])
+#                 for time, item_list in diff_dict.items()
+#             ]),
+#             # remove items from current time
+#             remove_edit = TimelineEdit.create_unregistered(
+#                 timeline,
+#                 OrderedDict([
+#                     (time, [item for item, _ in item_list])
+#                     for time, item_list in diff_dict.items()
+#                 ]),
+#                 ContainerOp.REMOVE,
+#             )
+#             # add items to new time
+#             add_diff_dict = OrderedDict()
+#             for item_list in diff_dict.values():
+#                 for item, time in item_list:
+#                     if item in timeline.get(time):
+#                         continue
+#                     diff_list = add_diff_dict[time].setdefault([])
+#                     if item in diff_list:
+#                         continue
+#                     diff_list.append(item)
+#             add_edit = TimelineEdit.create_unregistered(
+#                 timeline,
+#                 add_diff_dict,
+#                 ContainerOp.ADD,
+#             )
+#             super(TimelineEdit, self).__init__(
+#                 [remove_edit, add_edit],
+#             )

@@ -2,57 +2,27 @@
 
 from collections import OrderedDict
 
-from scheduler.api.common.date_time import Date, Time
-from scheduler.api.common.object_wrappers import MutableAttribute
+from scheduler.api.common.date_time import Date
+from scheduler.api.common.object_wrappers import (
+    HostedDataDict,
+    MutableAttribute,
+)
+from scheduler.api.serialization import item_registry
 from scheduler.api.serialization.serializable import SaveType
-from scheduler.api.utils import OrderedEnum
+from scheduler.api.enums import ItemStatus, OrderedStringEnum
 
 from .base_task_item import BaseTaskItem
+from .task_history import TaskHistory, TaskType
 
 
-class TaskType(OrderedEnum):
-    """Enumeration for task types."""
-    ROUTINE = "Routine"
-    GENERAL = "General"
-    VALUES = [ROUTINE, GENERAL]
-
-
-class TaskStatus(OrderedEnum):
-    """Enumeration for task statuses."""
-    UNSTARTED = "Unstarted"
-    IN_PROGRESS = "In Progress"
-    COMPLETE = "Complete"
-    VALUES = [UNSTARTED, IN_PROGRESS, COMPLETE]
-
-
-class TaskValueType(OrderedEnum):
+class TaskValueType(OrderedStringEnum):
     """Enumeration for task value types."""
-    NONE = None
+    NONE = ""
     TIME = "Time"
     STRING = "String"
     INT = "Int"
     FLOAT = "Float"
     MULTI = "Multi"
-    VALUES = [NONE, TIME, STRING, INT, FLOAT, MULTI]
-
-
-class TaskSize(OrderedEnum):
-    """Struct to store size types of task."""
-    NONE = ""
-    BIG = "big"
-    MEDIUM = "medium"
-    SMALL = "small"
-    VALUES = [NONE, SMALL, MEDIUM, BIG]
-
-
-class TaskImportance(OrderedEnum):
-    """Struct to store levels of importance for task."""
-    NONE = ""
-    CRITICAL = "critical"
-    MAJOR = "major"
-    MODERATE = "moderate"
-    MINOR = "minor"
-    VALUES = [NONE, MINOR, MODERATE, MAJOR, CRITICAL]
 
 
 class Task(BaseTaskItem):
@@ -66,6 +36,7 @@ class Task(BaseTaskItem):
     VALUE_TYPE_KEY = "value_type"
     SIZE_KEY = "size"
     IMPORTANCE_KEY = "importance"
+    ID_KEY = "id"
 
     DEFAULT_NAME = "task"
 
@@ -86,13 +57,13 @@ class Task(BaseTaskItem):
             parent (Task or None): parent of current task, if task is subtask.
             task_type (TaskType or None): type of task (routine or general).
                 if None, we default to general.
-            status (TaskStatus or None): status of current task. If None,
+            status (ItemStatus or None): status of current task. If None,
                 we default to unstarted.
             history_dict (OrderedDict or None): serialized task history dict,
                 if exists.
             value_type (TaskValueType or None): task value type, if not None.
-            size (TaskSize or None): task size, if given.
-            importance (TaskImportance or None): task importance, if given.
+            size (ItemSize or None): task size, if given.
+            importance (ItemImportance or None): task importance, if given.
         """
         super(Task, self).__init__(name, parent)
         self._type = MutableAttribute(
@@ -100,7 +71,7 @@ class Task(BaseTaskItem):
             "type"
         )
         self._status = MutableAttribute(
-            status or TaskStatus.UNSTARTED,
+            status or ItemStatus.UNSTARTED,
             "status",
         )
         self._history = (
@@ -111,6 +82,7 @@ class Task(BaseTaskItem):
         self.value_type = value_type or TaskValueType.NONE
         self._size = MutableAttribute(size, "size")
         self._importance = MutableAttribute(importance, "importance")
+        self._is_tracked = MutableAttribute(False, "is_tracked")
         self._allowed_child_types = [Task]
 
     @property
@@ -138,10 +110,21 @@ class Task(BaseTaskItem):
         routines, which are time based.
 
         Returns:
-            (TaskStatus): current status.
+            (ItemStatus): current status.
         """
+        return self.history.get_status_at_date(Date.now())
+        # TODO: keep an eye that it's fine to use date not datetime
+        # return self.history.get_status_at_datetime(DateTime.now())
+
+        # I'm changing this to just find status at the current datetime, as it
+        # needs to update as the time changes.
+        # TODO: keep an eye on if this seems to slow stuff down considerably.
+        # there's definitely stuff I can do with caching to speed it up
+        # TODO: delete below and notes above when I'm more confident, and
+        # delete the _status attribute, plus its corresponding logic in the
+        # to_dict and from_dict methods
         if (self.type == TaskType.ROUTINE
-                and self._status.value == TaskStatus.COMPLETE):
+                and self._status.value == ItemStatus.COMPLETE):
             last_completed = self.history.last_completed
             if last_completed and last_completed != Date.now():
                 # date_completed = self.history.last_completed
@@ -151,7 +134,7 @@ class Task(BaseTaskItem):
                     # probably not but really these statuses are not ideal
                     # for routines. Ultimately I do think routines need their
                     # own subclass, which may mean TaskTypes become unneeded.
-                self._status.set_value(TaskStatus.UNSTARTED)
+                self._status.set_value(ItemStatus.UNSTARTED)
         return self._status.value
 
     @property
@@ -168,7 +151,7 @@ class Task(BaseTaskItem):
         """Get task size.
 
         Returns:
-            (TaskSize): task size.
+            (ItemSize): task size.
         """
         return self._size.value
 
@@ -177,9 +160,18 @@ class Task(BaseTaskItem):
         """Get task size.
 
         Returns:
-            (TaskImportance): task importance.
+            (ItemImportance): task importance.
         """
         return self._importance.value
+
+    @property
+    def is_tracked(self):
+        """Find out if task is tracked or not.
+
+        Returns:
+            (Bool): whether or not task is tracked.
+        """
+        return self._is_tracked.value
 
     @property
     def history(self):
@@ -220,7 +212,7 @@ class Task(BaseTaskItem):
             date (Date): date to query.
 
         Returns:
-            (TaskStatus): task status at given date.
+            (ItemStatus): task status at given date.
         """
         return self.history.get_status_at_date(date)
 
@@ -275,6 +267,7 @@ class Task(BaseTaskItem):
         json_dict = {
             self.STATUS_KEY: self.status,
             self.TYPE_KEY: self.type,
+            self.ID_KEY: self._get_id(),
         }
         if self.history:
             json_dict[self.HISTORY_KEY] = self.history.to_dict()
@@ -325,6 +318,13 @@ class Task(BaseTaskItem):
             importance,
         )
         task._activate()
+        id = json_dict.get(cls.ID_KEY, None)
+        if id is not None:
+            # TODO: this bit means tasks are now added to the item registry.
+            # This was done to make deserialization of task history dicts
+            # work. Keep an eye on this, I want to make sure it doesn't slow
+            # down loading too much.
+            item_registry.register_item(id, task)
         if history_data:
             for date, subdict in task._history.iter_date_dicts():
                 history_data._add_data(date, task, subdict)
@@ -339,182 +339,3 @@ class Task(BaseTaskItem):
             )
             task._children[subtask_name] = subtask
         return task
-
-
-class TaskHistory(object):
-    """Simple wrapper around an OrderedDict to represent task history.
-
-    The structure of a task history dict is like this:
-    {
-        date_1: {
-            status: task_status,
-            value: task_value,
-            comments: {
-                time_1: comment_1,
-                time_2: comment_2,
-                ...
-            }
-        },
-        ...
-    }
-    """
-    STATUS_KEY = "status"
-    VALUE_KEY = "value"
-    COMMENTS_KEY = "comments"
-
-    def __init__(self, task):
-        """Initialise task history object.
-
-        Args:
-            task (Task): task this is describing the history of.
-        """
-        self._task = task
-        self._dict = OrderedDict()
-
-    def __bool__(self):
-        """Override bool operator to indicate whether dictionary is filled.
-
-        Returns:
-            (bool): False if dictionary is empty, else True.
-        """
-        return bool(self._dict)
-
-    def __nonzero__(self):
-        """Override bool operator (python 2.x).
-
-        Returns:
-            (bool): False if dictionary is empty, else True.
-        """
-        return bool(self._dict)
-
-    @property
-    def last_completed(self):
-        """Get date that this task was last completed.
-
-        This is used in the case of routines.
-
-        Returns:
-            (Date or None): date of last completion, if exists.
-        """
-        for date, subdict in reversed(self._dict.items()):
-            if subdict.get(self.STATUS_KEY) == TaskStatus.COMPLETE:
-                return date
-        return None
-
-    def get_dict_at_date(self, date):
-        """Get dict describing task history at given date.
-
-        Args:
-            date (Date): date to query.
-
-        Returns:
-            (dict): subdict of internal dict for given date.
-        """
-        return self._dict.get(date, {})
-
-    def iter_date_dicts(self):
-        """iterate through task history dicts for each recorded date.
-        
-        Yields:
-            (Date): date of history.
-            (dict): subdict of internal dict for that date.
-        """
-        for date, subdict in self._dict.items():
-            yield date, subdict
-
-    def get_status_at_date(self, date):
-        """Get task status at given date.
-
-        Args:
-            date (Date): date to query.
-
-        Returns:
-            (TaskStatus): task status at given date.
-        """
-        status = self.get_dict_at_date(date).get(self.STATUS_KEY)
-        if status:
-            return status
-        if self._task.type != TaskType.ROUTINE:
-            # if task isn't routine, default to last recorded status
-            for recorded_date, subdict in reversed(self._dict.items()):
-                if recorded_date < date and self.STATUS_KEY in subdict:
-                    return subdict[self.STATUS_KEY]
-        return TaskStatus.UNSTARTED
-
-    def get_value_at_date(self, date):
-        """Get task value at given date.
-
-        Args:
-            date (Date): date to query.
-
-        Returns:
-            (variant or None): task value at given date, if set.
-        """
-        return self.get_dict_at_date(date).get(self.VALUE_KEY, None)
-
-    def _update_task_status(self):
-        """Update task status to reflect today's date history.
-
-        This is intended to be used by edit classes only, as it modifies the
-        value of the task status mutable attribute.
-
-        Returns:
-            (bool): whether or not status was changed.
-        """
-        status = self.get_status_at_date(Date.now())
-        if status != self._task.status:
-            self._task._status.set_value(status)
-            return True
-        return False
-
-    def to_dict(self):
-        """Convert class to serialized json dict.
-
-        In practice, this just converts the Date and Time objects to strings.
-
-        Returns:
-            (OrderedDict): json dict.
-        """
-        json_dict = OrderedDict()
-        for date, subdict in self._dict.items():
-            json_subdict = {}
-            if self.STATUS_KEY in subdict:
-                json_subdict[self.STATUS_KEY] = subdict[self.STATUS_KEY]
-            if self.VALUE_KEY in subdict:
-                json_subdict[self.VALUE_KEY] = subdict[self.VALUE_KEY]
-            if self.COMMENTS_KEY in subdict:
-                json_comments_subdict = OrderedDict()
-                json_subdict[self.COMMENTS_KEY] = json_comments_subdict
-                for time, comment in subdict[self.COMMENTS_KEY].items():
-                    json_comments_subdict[time.string()] = comment
-            if json_subdict:
-                json_dict[date.string()] = json_subdict
-        return json_dict
-
-    @classmethod
-    def from_dict(cls, json_dict, task):
-        """Initialise class from dictionary representation.
-
-        Args:
-            json_dict (OrderedDict): dictionary representation.
-            task (Task): task this is describing the history of.
-
-        Returns:
-            (TaskHistory): task history class with given dict.
-        """
-        class_dict = OrderedDict()
-        for date, subdict in json_dict.items():
-            class_subdict = {}
-            class_dict[Date.from_string(date)] = class_subdict
-            if cls.STATUS_KEY in subdict:
-                class_subdict[cls.STATUS_KEY] = subdict[cls.STATUS_KEY]
-            if cls.VALUE_KEY in subdict:
-                class_subdict[cls.VALUE_KEY] = subdict[cls.VALUE_KEY]
-            if cls.COMMENTS_KEY in subdict:
-                class_comments_subdict = OrderedDict()
-                class_subdict[cls.COMMENTS_KEY] = class_comments_subdict
-                for time, comment in subdict[cls.COMMENTS_KEY].items():
-                    class_comments_subdict[Time.from_string(time)] = comment
-        task_history = cls(task)
-        task_history._dict = class_dict
-        return task_history

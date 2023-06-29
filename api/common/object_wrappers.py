@@ -1,7 +1,9 @@
 """Structs to wrap around objects allowing us to edit them."""
 
+from collections import OrderedDict
 from collections.abc import Iterable, MutableMapping, MutableSequence
 from contextlib import contextmanager
+from copy import deepcopy
 
 from scheduler.api.filter import BaseFilter, CustomFilter
 from scheduler.api.utils import fallback_value
@@ -163,13 +165,28 @@ class Hosted(object):
                 pair.
             _driven_paried_data_containers (dict(str,BaseHostedDataContainer)):
                 dictionary of paired data containers that must be driven by
-                their pair. 
+                their pair.
         """
         super(Hosted, self).__init__(*args, **kwargs)
         self._host = None
         self._paired_data_containers = {}
         self._driver_paired_data_containers = {}
         self._driven_paired_data_containers = {}
+
+    @classmethod
+    def init_and_activate(cls, *args, **kwargs):
+        """Initialize class and then activate it.
+
+        When a hosted data instance isn't initialized from a dict, or made
+        as part of an edit which activates it, it should be initialized
+        through this method.
+
+        Returns:
+            (Hosted): class instance.
+        """
+        class_instance = cls(*args, **kwargs)
+        class_instance._activate()
+        return class_instance
 
     @property
     def host(self):
@@ -178,6 +195,12 @@ class Hosted(object):
         Returns:
             (_HostObject): host object.
         """
+        # TODO: should this check if the data is defunct before accessing?
+        # I'd like to do that so that a deactivated item doesn't allow you
+        # to access its old host as this might give the wrong impression
+        # that the host still holds this data. Just want to make sure that
+        # doesn't screw any existing logic first (think it should be fine
+        # as most editing logic should access by the _host attribute anyway)
         return self._host
 
     @property
@@ -189,10 +212,13 @@ class Hosted(object):
         hosts, eg. we can specify a planned item is defunct if the tree
         item it references is defunct.
 
+        In its base form, a Hosted object is defunct if its host no longer
+        references it, or if it has no host at all.
+
         Returns:
             (bool): whether or not hosted data is defunct.
         """
-        return (self._host is None or self._host.data is None)
+        return (self._host is None or self._host.data != self)
 
     def _iter_paired_data_containers(self):
         """Iterate through all paired data containers in this class.
@@ -211,7 +237,15 @@ class Hosted(object):
         """Activate hosted object.
 
         This needs to be done before the hosted data can be accessed by
-        other classes.
+        other classes. It is used to assign a host to the data, as well
+        as apply the pairing framework.
+
+        This can't be done until end of __init__ because it requires paired
+        container attributes to have already been created. In practice, this
+        should be being called either during from_dict methods, when objects
+        are constructed from the saved files during application startup, or
+        during edits which create new hosted data objects/transfer one hosted
+        data to another.
 
         Args:
             host (_HostObject or None): host to activate with. This is
@@ -245,11 +279,14 @@ class Hosted(object):
         """Deactivate hosted object.
 
         This makes the hosted data defunct so it can no longer be accessed by
-        other classes.
+        other classes. This removes the data from its host, and from any paired
+        objects.
         """
         if self.defunct:
             raise HostError("Cannot deactivate already inactive object.")
         self._host.set_data(None)
+        # NOTE that we do not delete the _host attribute, as this way the
+        # data can be reactivated later if needed with the same host
         for container in self._iter_paired_data_containers():
             container._unapply_pairing()
 
@@ -279,7 +316,7 @@ class Hosted(object):
 class _BaseHostedContainer():
     """Base class for classes that hold a hosted object.
 
-    These are for mutable attributes, or list or dict attributes in a Hosted
+    These are for mutable attributes or list or dict attributes in a Hosted
     class that reference instances of other Hosted classes.
 
     This base class provides the base implementation for the pairing
@@ -394,36 +431,75 @@ class _BaseHostedContainer():
             container_dict = host.data._paired_data_containers
         container = container_dict.get(self._pairing_id)
         if not isinstance(container, _BaseHostedContainer):
-            raise HostError("No valid paired data container found.")
+            raise HostError(
+                "No valid paired data container found for pairing id "
+                "{0}".format(self._pairing_id)
+            )
         return container
 
-    def _check_not_locked(self):
+    def _assert_not_locked(self):
         """Check if container is locked, and raise an error if so."""
         if self._locked:
             raise HostError("Cannot mutate locked data container.")
 
-    def _get_host_object(self, value):
-        """Get host object for given value.
+    # TODO: switch raise_error to False by default and then change all
+    # methods that use this function to just return early if host object
+    # is None? - I don't think there's any reason to hard fail when trying
+    # to insert inactive data. The only reason I'm waiting before doing
+    # this is that it feels like a potentially big change and I don't
+    # want to mess anything. At the moment, the potential problem points
+    # I can think of that relate to this are:
+    #   1) when data is saved badly - eg. a planned item references a task
+    #       but the task is saved badly/missing, so the planned item becomes
+    #       inactive - then adding that planned item to eg. a calendar period's
+    #       planned item list will cause an error. This would be an argument
+    #       for not erroring at this point. Although arguably, the dodgy
+    #       save is the problem there, as when things are working, any
+    #       defunct item should not be saved in the first place
+    #   2) ui updates - maybe we don't want to allow attempting to insert
+    #       an item to a list in cases where the list may not update as this
+    #       could cause issues with the qt models - if we use BeginInsertRows
+    #       and then don't insert any rows, I think that could cause things to
+    #       display badly, or maybe even crash. So there's an argument for
+    #       hard-erroring here to avoid any soft errors seeping through
+    #       unnoticed to the ui
+    def _get_host_object(self, value, raise_error=True):
+        """Get host object for given value, to be added to container.
 
         Args:
             value (Hosted, _HostObject or None): value to find host object for.
+            raise_error (bool): if True, raise an error if value is not hosted
+                or defunct. Otherwise, return None.
+
+        Raises:
+            (HostError): if raise_error is true and either:
+                - value is not hosted data, a host, or None
+                - value is defunct hosted data
 
         Returns:
-            (_HostObject): corresponding host object.
+            (_HostObject or None): corresponding host object, if found.
         """
         if isinstance(value, Hosted):
-            if value.host is None:
-                raise HostError("Inactive hosted data cannot be accessed.")
+            if value.defunct:
+                if raise_error:
+                    raise HostError(
+                        "Inactive hosted data {0} cannot be accessed.".format(
+                            str(value)
+                        )
+                    )
+                return None
             return value.host
         if isinstance(value, _HostObject):
             return value
         elif value is None:
             return _HostObject(None)
-        raise HostError(
-            "Cannot add unhosted class {0} to HostedDataList".format(
-                value.__class__.__name__
+        if raise_error:
+            raise HostError(
+                "Cannot add unhosted class {0} to HostedDataContainer".format(
+                    value.__class__.__name__
+                )
             )
-        )
+        return None
 
     def _add_to_paired_container(self, host):
         """Add this class instance to paired container.
@@ -446,7 +522,7 @@ class _BaseHostedContainer():
             container._remove_paired_object(self._parent)
 
     def _apply_pairing(self):
-        """Remove this container's class instance from its paired containers.
+        """Add this container's class instance to its paired containers.
 
         This only should be run during activation of the class instance.
         """
@@ -565,7 +641,7 @@ class MutableHostedAttribute(_BaseHostedContainer, BaseObjectWrapper):
         Returns:
             (bool): True if value was changed, else False.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         value = self._get_host_object(value)
         if self._value != value:
             if self.is_paired:
@@ -612,6 +688,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
     """
     def __init__(
             self,
+            internal_list=None,
             pairing_id=None,
             parent=None,
             filter=None,
@@ -620,10 +697,12 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         """Initialize.
 
         Args:
-            parent (Hosted or None): the class this is an attribute
-                of. This is only required for paired containers.
+            internal_list (list or None): if given, use this to populate the
+                internal list.
             pairing_id (str or None): if given, this id defines the pairing
                 of this container to another container with the same id.
+            parent (Hosted or None): the class this is an attribute
+                of. This is only required for paired containers.
             filter (function): additional filter applied to list to ignore
                 data in specific cases.
             driver (bool): whether or not this container drives its pair.
@@ -641,6 +720,11 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         if not isinstance(filter, BaseFilter):
             self._filter = CustomFilter(filter)
         self._iter_hosts = self._iter_filtered
+
+        # populate internal list
+        if internal_list is not None:
+            for item in internal_list:
+                self.append(item)
 
     @contextmanager
     def apply_filter(self, filter=None):
@@ -757,7 +841,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         Args:
             index (int or slice): index or slice to delete.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         if isinstance(index, slice):
             indexes_and_values = list(self._iter_filtered_with_old_index())
             for old_index, value in indexes_and_values[index]:
@@ -787,7 +871,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
             value (Hosted, _HostObject, None or list): value to set, or list
                 of values if index is a slice.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         if isinstance(index, slice):
             if not isinstance(value, Iterable):
                 raise TypeError("Can only assign an iterable with a slice")
@@ -849,6 +933,14 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         """
         return str(self._list)
 
+    def __str__(self):
+        """Get string representation of list.
+
+        Returns:
+            (str): string repr.
+        """
+        return "HostedDataList(" + str(self._list) + ")"
+
     def insert(self, index, value):
         """Insert given value at given index into list.
 
@@ -856,7 +948,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
             index (int): value to insert at.
             value (Hosted, _HostObject or None): value to set):
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         value = self._get_host_object(value)
         iterable = enumerate(
             self._iter_filtered_with_old_index(reverse=(index < 0))
@@ -930,6 +1022,38 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         if hosted_data in self:
             self.remove(hosted_data)
 
+    def __copy__(self):
+        """Return shallow copy of object.
+
+        Returns:
+            (HostedDataList): shallow copy of self.
+        """
+        return HostedDataList(
+            self._list,
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )
+
+    def __deepcopy__(self):
+        """Return deep copy of object.
+
+        Returns:
+            (HostedDataList): deep copy of self.
+        """
+        # NOTE: not sure how deepcopys will work with hosted objects
+        # so will need to test if I ever use this
+        return HostedDataList(
+            [deepcopy(item) for item in self._list],
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )
+
 
 class HostedDataDict(_BaseHostedContainer, MutableMapping):
     """Dict class for keying data by _HostObjects.
@@ -940,6 +1064,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
     """
     def __init__(
             self,
+            internal_dict=None,
             host_keys=True,
             host_values=False,
             pairing_id=None,
@@ -951,6 +1076,8 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         """Initialize.
 
         Args:
+            internal_dict (dict or None): if given, use this to populate the
+                internal dict.
             host_keys (bool): if True, keys are hosted.
             host_values (bool): if True, values are hosted.
             pairing_id (str or None): if given, this id defines the pairing
@@ -969,6 +1096,10 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             raise HostError(
                 "HostedDataDict must use hosted data for keys or values"
             )
+        if pairing_id is not None and self._key_value_func is None:
+            raise HostError(
+                "Paired HostedDataDicts must have a key_value_func"
+            )
         super(HostedDataDict, self).__init__(
             pairing_id=pairing_id,
             parent=parent,
@@ -983,6 +1114,11 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         self._filter = filter
         if not isinstance(filter, BaseFilter):
             self._filter = CustomFilter(filter)
+
+        # populate internal dict
+        if internal_dict is not None:
+            for key, value in internal_dict.items():
+                self[key] = value
 
     @contextmanager
     def apply_filter(self, filter=None):
@@ -1030,14 +1166,22 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             filter = CustomFilter(filter)
         self._filter &= filter
 
-    def _iter_filtered(self):
+    def _iter_filtered(self, reverse=False):
         """Iterate through filtered dict.
+
+        Args:
+            reverse (bool): if True, iterate in reverse.
 
         Yields:
             (variant or _HostObject): the valid keys.
             (variant or _HostObject): the valid values.
         """
-        for key, value in zip(self._key_list, self._value_list):
+        key_list = self._key_list
+        value_list = self._value_list
+        if reverse:
+            key_list = reversed(key_list)
+            value_list = reversed(value_list)
+        for key, value in zip(key_list, value_list):
             if ((self._values_are_hosted and value.defunct)
                     or (self._keys_are_hosted and key.defunct)):
                 continue
@@ -1078,6 +1222,18 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             else:
                 yield k
 
+    def __reversed__(self):
+        """Iterate backwards through filtered keys.
+
+        Yields:
+            (BaseDateTimeWrapper): the keys.
+        """
+        for k, _ in self._iter_filtered(reverse=True):
+            if self._keys_are_hosted:
+                yield k.data
+            else:
+                yield k
+
     def __len__(self):
         """Get length of filtered dict.
 
@@ -1109,7 +1265,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         Args:
             key (variant or _Hosted): key to delete.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         for i, k, v in self._iter_filtered_with_old_index():
             if ((self._keys_are_hosted and k.data == key)
                     or (not self._keys_are_hosted and k == key)):
@@ -1132,7 +1288,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             key (variant or _Hosted): key to set.
             value (Hosted, _HostObject or None): value to set.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         if self._values_are_hosted:
             value = self._get_host_object(value)
         for i, k, v in self._iter_filtered_with_old_index():
@@ -1160,7 +1316,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
                 self._add_to_paired_container(value)
 
     def __str__(self):
-        """Get string representation of list.
+        """Get string representation of dict.
 
         Returns:
             (str): string repr.
@@ -1170,6 +1326,18 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             for key, value in zip(self._key_list, self._value_list)
         ])
         return "{" + string + "}"
+
+    def __repr__(self):
+        """Get string representation of dict.
+
+        Returns:
+            (str): string repr.
+        """
+        string = ", ".join([
+            "{0}:{1}".format(key, value)
+            for key, value in zip(self._key_list, self._value_list)
+        ])
+        return "HostedDataDict({" + string + "})"
 
     def _iter_hosts(self):
         """Iterate through all hosts in this container.
@@ -1211,7 +1379,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
             last (bool): if true, move to last element of dict, otherwise
                 move to start of dict.
         """
-        self._check_not_locked()
+        self._assert_not_locked()
         for i, k, _ in self._iter_filtered_with_old_index():
             if ((self._keys_are_hosted and k.data == key)
                     or (not self._keys_are_hosted and k == key)):
@@ -1226,3 +1394,47 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         else:
             self._key_list.insert(0, self._key_list.pop(i))
             self._value_list.insert(0, self._value_list.pop(i))
+
+    def __copy__(self):
+        """Return shallow copy of object.
+
+        Returns:
+            (HostedDataList): shallow copy of self.
+        """
+        return HostedDataDict(
+            OrderedDict(zip(self._key_list, self._value_list)),
+            host_keys=self._keys_are_hosted,
+            host_values=self._values_are_hosted,
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            key_value_func=self._key_value_func,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )
+
+    def __deepcopy__(self):
+        """Return deep copy of object.
+
+        Returns:
+            (HostedDataList): deep copy of self.
+        """
+        # NOTE: not sure how deepcopys will work with hosted objects
+        # so will need to test if I ever use this
+        internal_dict = OrderedDict(
+            zip(
+                [deepcopy(key) for key in self._key_list],
+                [deepcopy(value) for value in self._value_list],
+            )
+        )
+        return HostedDataDict(
+            internal_dict,
+            host_keys=self._keys_are_hosted,
+            host_values=self._values_are_hosted,
+            pairing_id=self._pairing_id,
+            parent=self._parent,
+            key_value_func=self._key_value_func,
+            filter=self._filter,
+            driver=self._driver,
+            driven=self._driven,
+        )

@@ -1,6 +1,7 @@
 """Default framework for serializing/deserialing various types."""
 
 from collections import OrderedDict
+from collections.abc import MutableMapping, MutableSequence
 
 from scheduler.api.common.date_time import BaseDateTimeWrapper, TimeDelta
 from scheduler.api.filter import BaseFilter
@@ -234,7 +235,7 @@ def serialize_dict(dictionary, tree_root=None, delete_empty_containers=False):
             as_key=True,
             tree_root=tree_root
         ).serialize()
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             value = serialize_dict(
                 value,
                 tree_root=tree_root,
@@ -242,7 +243,7 @@ def serialize_dict(dictionary, tree_root=None, delete_empty_containers=False):
             )
             if delete_empty_containers and not value:
                 continue
-        elif isinstance(value, list):
+        elif isinstance(value, MutableSequence):
             value = serialize_list(
                 value,
                 tree_root=tree_root,
@@ -275,7 +276,7 @@ def serialize_list(list_, tree_root=None, delete_empty_containers=False):
     """
     return_list = type(list_)()
     for value in list_:
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             value = serialize_dict(
                 value,
                 tree_root=tree_root,
@@ -283,7 +284,7 @@ def serialize_list(list_, tree_root=None, delete_empty_containers=False):
             )
             if delete_empty_containers and not value:
                 continue
-        elif isinstance(value, list):
+        elif isinstance(value, MutableSequence):
             value = serialize_list(
                 value,
                 tree_root=tree_root,
@@ -320,7 +321,7 @@ def deserialize_dict(dictionary, tree_root=None):
             as_key=True,
             tree_root=tree_root
         ).value
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             if SerializableValue.is_serialized_serializable_value(value):
                 value = SerializableValue.deserialize(
                     value,
@@ -328,7 +329,7 @@ def deserialize_dict(dictionary, tree_root=None):
                 ).value
             else:
                 value = deserialize_dict(value, tree_root=tree_root)
-        elif isinstance(value, list):
+        elif isinstance(value, MutableSequence):
             value = deserialize_list(value, tree_root=tree_root)
         else:
             value = SerializableValue.deserialize(
@@ -356,7 +357,7 @@ def deserialize_list(list_, tree_root=None):
     """
     return_list = type(list_)()
     for value in list_:
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             if SerializableValue.is_serialized_serializable_value(value):
                 value = SerializableValue.deserialize(
                     value,
@@ -364,7 +365,7 @@ def deserialize_list(list_, tree_root=None):
                 ).value
             else:
                 value = deserialize_dict(value, tree_root=tree_root)
-        elif isinstance(value, list):
+        elif isinstance(value, MutableSequence):
             value = deserialize_list(value, tree_root=tree_root)
         else:
             value = SerializableValue.deserialize(

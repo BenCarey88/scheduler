@@ -1,7 +1,7 @@
 """Filter dialog for creating new filters."""
 
-from ast import operator
 from collections import OrderedDict
+from enum import Enum
 from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -12,6 +12,7 @@ from scheduler.api.common.date_time import (
     DateTime,
     Time,
 )
+from scheduler.api.enums import ItemImportance, ItemSize, ItemStatus
 from scheduler.api.filter import FieldFilter, FilterOperator
 from scheduler.api.filter.tree_filters import (
     NoFilter,
@@ -22,13 +23,9 @@ from scheduler.api.filter.tree_filters import (
     TaskStatusFilter,
     TaskTypeFilter,
 )
-from scheduler.api.tree.task import (
-    TaskImportance,
-    TaskSize,
-    TaskStatus,
-    TaskType,
-)
-from scheduler.api.utils import fallback_value, OrderedEnum
+from scheduler.api.tree.task import TaskType
+from scheduler.api.enums import OrderedStringEnum
+from scheduler.api.utils import fallback_value
 
 from scheduler.ui.utils import (
     set_style,
@@ -82,11 +79,17 @@ class FilterFieldData(object):
             (list(FilterOperator)): list of allowed operators.
         """
         if issubclass(self.value_type, str):
-            return FilterOperator.BASE_OPS + FilterOperator.STRING_OPS
+            return (
+                FilterOperator.get_base_ops() + FilterOperator.get_string_ops()
+            )
         elif issubclass(self.value_type, (float, int, BaseDateTimeWrapper)):
-            return FilterOperator.BASE_OPS + FilterOperator.MATH_OPS
-        elif issubclass(self.value_type, OrderedEnum):
-            return FilterOperator.BASE_OPS + FilterOperator.MATH_OPS
+            return (
+                FilterOperator.get_base_ops() + FilterOperator.get_maths_ops()
+            )
+        elif issubclass(self.value_type, OrderedStringEnum):
+            return (
+                FilterOperator.get_base_ops() + FilterOperator.get_maths_ops()
+            )
         else:
             raise FilterDialogError(
                 "Value type {0} is not supported for filter fields".format(
@@ -103,7 +106,7 @@ class FilterFieldData(object):
         Returns:
             (ValueWidgetWrapper): widget to edit this field.
         """
-        if (operator in FilterOperator.STRING_OPS
+        if (operator in FilterOperator.get_string_ops()
                 and issubclass(self.value_type, str)):
             widget = QtWidgets.QLineEdit()
             return ValueWidgetWrapper(widget, widget.text, widget.setText)
@@ -138,30 +141,30 @@ class FilterFieldData(object):
         )
 
 
-class FilterField(OrderedEnum):
+class FilterField(Enum):
     """Filter fields"""
     STATUS = FilterFieldData(
         "Status",
         TaskStatusFilter,
-        TaskStatus.VALUES,
-        OrderedEnum,
+        ItemStatus.get_values(),
+        OrderedStringEnum,
     )
     TYPE = FilterFieldData(
         "Type",
         TaskTypeFilter,
-        TaskType.VALUES,
+        TaskType.get_values(),
     )
     SIZE = FilterFieldData(
         "Size",
         TaskSizeFilter,
-        TaskSize.VALUES,
-        OrderedEnum,
+        ItemSize.get_values(),
+        OrderedStringEnum,
     )
     IMPORTANCE = FilterFieldData(
         "Importance",
         TaskImportanceFilter,
-        TaskImportance.VALUES,
-        OrderedEnum,
+        ItemImportance.get_values(),
+        OrderedStringEnum,
     )
     PATH = FilterFieldData(
         "Path",

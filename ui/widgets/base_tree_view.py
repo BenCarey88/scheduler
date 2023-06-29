@@ -366,10 +366,10 @@ class BaseTreeView(QtWidgets.QTreeView):
                     action = right_click_menu.addAction("Make non-routine")
                 else:
                     action = right_click_menu.addAction("Make routine")
-                    self._connect_action_to_func(
-                        action,
-                        partial(self.toggle_task_type, item=item)
-                    )
+                self._connect_action_to_func(
+                    action,
+                    partial(self.toggle_task_type, item=item)
+                )
 
             action = right_click_menu.addAction("Archive")
             self._connect_action_to_func(

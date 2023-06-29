@@ -2,7 +2,6 @@
 
 from scheduler.api.edit.schedule_edit import (
     AddScheduledItemEdit,
-    AddScheduledItemAsChildEdit,
     RemoveScheduledItemEdit,
     ModifyScheduledItemEdit,
     ModifyRepeatScheduledItemEdit,
@@ -61,12 +60,7 @@ class ScheduleEditManager(BaseScheduleManager):
             (bool): whether or not edit was successful.
         """
         item = item_class(*args, **kwargs)
-        if planned_item is not None:
-            return AddScheduledItemAsChildEdit.create_and_run(
-                item,
-                planned_item,
-            )
-        return AddScheduledItemEdit.create_and_run(item)
+        return AddScheduledItemEdit.create_and_run(item, parent=planned_item)
 
     def create_scheduled_item(self, *args, planned_item=None, **kwargs):
         """Create single scheduled item and add to calendar.
@@ -272,3 +266,28 @@ class ScheduleEditManager(BaseScheduleManager):
                 )
             )
         return edit_class.create_and_run(scheduled_item, attr_dict)
+
+    @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
+    def update_check_status(self, scheduled_item, status=None):
+        """Update check status of scheduled item.
+
+        Args:
+            scheduled_item (BaseScheduledItem): item to edit.
+            status (ItemStatus or None): status to update item with. If None
+                given, we calculate the next one.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        if status is None:
+            status = scheduled_item.status.next()
+        edit_class = {
+            ScheduledItem: ModifyScheduledItemEdit,
+            RepeatScheduledItemInstance: ModifyRepeatScheduledItemInstanceEdit,
+        }.get(type(scheduled_item))
+        return edit_class.create_and_run(
+            scheduled_item,
+            {scheduled_item._status: status},
+        )
+        # TODO: find a way to trigger a task ui update after this too?
+        # so that this still updates properly if we're in the task tab

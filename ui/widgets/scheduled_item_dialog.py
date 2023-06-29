@@ -5,9 +5,9 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.common.date_time import Date, DateTime, Time
+from scheduler.api.calendar.repeat_pattern import RepeatPattern
 from scheduler.api.calendar.scheduled_item import (
     ScheduledItem,
-    ScheduledItemRepeatPattern,
     ScheduledItemType,
 )
 
@@ -260,7 +260,7 @@ class ScheduledItemDialog(ItemDialog):
         """Get repeat pattern of item, if this is a repeating item.
 
         Returns:
-            (ScheduledItemRepeatPattern or None): repeat pattern, or None if
+            (RepeatPattern or None): repeat pattern, or None if
                 this is not a repeat item, or if the pattern is invalid.
         """
         if self.is_repeat:
@@ -388,7 +388,7 @@ class RepeatPatternWidget(QtWidgets.QWidget):
         """Initialise widget.
 
         Args:
-            repeat_pattern (ScheduledItemRepeatPattern or None): repeat pattern
+            repeat_pattern (RepeatPattern or None): repeat pattern
                 to initialise, if one already exists.
             parent (QtWidgets.QWidget): parent widget, if one exists.
         """
@@ -468,7 +468,7 @@ class RepeatPatternWidget(QtWidgets.QWidget):
             date (Date): initial date for repeat pattern.
 
         Returns:
-            (ScheduledItemRepeatPattern or None): repeat pattern, or None
+            (RepeatPattern or None): repeat pattern, or None
                 if can't be made.
         """
         weekdays = [
@@ -477,4 +477,4 @@ class RepeatPatternWidget(QtWidgets.QWidget):
         ]
         if not weekdays:
             return None
-        return ScheduledItemRepeatPattern.week_repeat(date, weekdays)
+        return RepeatPattern.week_repeat(date, weekdays)

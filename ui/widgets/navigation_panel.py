@@ -1,10 +1,9 @@
 """Navigation panel for switching dates and view types on timetable views."""
 
-from calendar import weekday
-from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date, TimeDelta
+from scheduler.api.common.date_time import Date
+from scheduler.api.enums import OrderedStringEnum
 from scheduler.api.calendar import (
     BaseCalendarPeriod,
     CalendarDay,
@@ -16,8 +15,8 @@ from scheduler.api.calendar import (
 from scheduler.ui import utils
 
 
-class DateType(object):
-    """Struct representing the different possible date spans for a view."""
+class DateType(OrderedStringEnum):
+    """Enum representing the different possible date spans for a view."""
     DAY = "day"
     THREE_DAYS = "three days"
     WEEK = "week"
@@ -25,8 +24,8 @@ class DateType(object):
     YEAR = "year"
 
 
-class ViewType(object):
-    """Struct representing the different possible view types."""
+class ViewType(OrderedStringEnum):
+    """Enum representing the different possible view types."""
     LIST = "list"
     MULTILIST = "multi-list"
     TIMETABLE = "timetable"
@@ -413,7 +412,7 @@ class NavigationPanel(QtWidgets.QWidget):
                 )
             elif isinstance(period, (CalendarMonth, CalendarYear)):
                 self.calendar_period = period.get_start_week(
-                    self.cached_weekday_start
+                    self.cached_weekday_starts.get(DateType.WEEK),
                 )
 
         elif self.date_type == DateType.MONTH:

@@ -1,6 +1,7 @@
 """Tracker file reader."""
 # TODO: should this module live in another location?
 
+from scheduler.api import constants
 from scheduler.api.common.object_wrappers import HostedDataList
 from scheduler.api.serialization.serializable import BaseSerializable
 
@@ -46,6 +47,7 @@ class Tracker(BaseSerializable):
             task = task_root.get_item_at_path(task_path, search_archive=True)
             if task:
                 tracker._tracked_tasks.append(task)
+                task._is_tracked.set_value(True)
         return tracker
 
     def to_dict(self):

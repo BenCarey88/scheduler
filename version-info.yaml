@@ -1,4 +1,8 @@
 
+1.2.2:
+    - History influencers workflow and status updates for base calendar items
+    - Allow adding new tracked tasks
+
 1.2.1:
     Minor improvements and bugfixes to 1.2.0:
         - 1.2.0-dev3:

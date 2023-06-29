@@ -2,11 +2,12 @@
 
 from collections import OrderedDict
 from scheduler.api.serialization.serializable import BaseSerializable
+from scheduler.api.enums import OrderedStringEnum
 
 from ._base_filter import filter_from_dict, FilterError
 
 
-class FilterType(object):
+class FilterType(OrderedStringEnum):
     """Struct for different types of item to filter."""
     TREE = "tree_filters"
     PLANNER = "planner_filters"

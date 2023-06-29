@@ -76,7 +76,9 @@ class CompositeEdit(BaseEdit):
             self,
             edits_list,
             reverse_order_for_inverse=True,
-            validity_check_edits=None):
+            keep_last_for_inverse=None,
+            validity_check_edits=None,
+            require_all_edits_valid=False):
         """Initialize composite edit.
 
         The edits passed to the edits_list must have their register flag
@@ -86,8 +88,15 @@ class CompositeEdit(BaseEdit):
             edits_list (list(BaseEdit)): list of edits to compose.
             reverse_order_for_inverse (bool): if True, we reverse the order
                 of the edits for the inverse.
+            keep_last_for_inverse (list(BaseEdit) or None): if given, keep
+                these edits last for the inverse.
             validity_check_edits (list(BaseEdit) or None): if given,
                 determine validity based just on this sublist of edits.
+            require_all_subedits_valid (bool): if True, the edit is valid
+                only if all its subedits are (or all subedits in the
+                validity_check_edits arg, if given). Otherwise, it is valid
+                if any one of those subedits is valid. Either way, validity
+                requires the existence of at least one subedit.
         """
         for edit in edits_list:
             if edit._register_edit or edit._registered or edit._has_been_done:
@@ -98,12 +107,16 @@ class CompositeEdit(BaseEdit):
                 )
         self._edits_list = edits_list
         self._reverse_order_for_inverse = reverse_order_for_inverse
+        self._keep_last_for_inverse = keep_last_for_inverse or []
         super(CompositeEdit, self).__init__()
         validity_edits = fallback_value(validity_check_edits, self._edits_list)
         # NOTE: this is_valid check is a bit dodgy, can fail since the starting
         # conditions of later edits in the edit list will be effected by the
         # earlier edits. Will often need to use custom logic in subclasses.
-        self._is_valid = bool(self._edits_list) and any(
+        boolean_operator = any
+        if require_all_edits_valid:
+            boolean_operator = all
+        self._is_valid = bool(self._edits_list) and boolean_operator(
             [edit._is_valid for edit in validity_edits]
         )
 
@@ -115,9 +128,13 @@ class CompositeEdit(BaseEdit):
     def _inverse_run(self):
         """Run each inverse edit in reverse order of edits_list."""
         if self._reverse_order_for_inverse:
-            inverse_edits_list = reversed(self._edits_list)
+            inverse_edits_list = list(reversed(self._edits_list))
         else:
-            inverse_edits_list = self._edits_list
+            inverse_edits_list = self._edits_list[:]
+        for edit in self._keep_last_for_inverse:
+            if edit in inverse_edits_list:
+                index = inverse_edits_list.index(edit)
+                inverse_edits_list.append(inverse_edits_list.pop(index))
         for edit in inverse_edits_list:
             edit._inverse_run()
 
@@ -190,7 +207,7 @@ class AttributeEdit(BaseEdit):
         Args:
             object_ (variant or None): the object we're editing attributes of,
                 if given.
-            object_name (str or None): the name of the object, if given. 
+            object_name (str or None): the name of the object, if given.
 
         Returns:
             (str): description.
@@ -225,8 +242,7 @@ class ActivateHostedDataEdit(SimpleEdit):
         """
         if not isinstance(hosted_data, Hosted):
             raise EditError(
-                "args passed to ActivateHostedDataEdit must "
-                "be Hosted objects."
+                "args passed to ActivateHostedDataEdit must be Hosted objects."
             )
         super(ActivateHostedDataEdit, self).__init__(
             run_func=hosted_data._activate,
@@ -260,8 +276,10 @@ class ReplaceHostedDataEdit(SimpleEdit):
         """Initiailize edit.
 
         Args:
-            old_data (Hosted): old hosted data.
-            new_data (Hosted): new data to replace it with.
+            old_data (Hosted): old hosted data. This is expected to be
+                activated already.
+            new_data (Hosted): new data to replace it with. This is expected
+                to be inactive.
         """
         if (not isinstance(old_data, Hosted)
                 or not isinstance(new_data, Hosted)):
@@ -270,8 +288,10 @@ class ReplaceHostedDataEdit(SimpleEdit):
             )
         super(ReplaceHostedDataEdit, self).__init__(
             run_func=partial(new_data._activate, old_data.host),
-            inverse_run_func=partial(old_data._activate, new_data.host),
+            inverse_run_func=old_data._activate,
         )
+        # NOTE that the inverse func just reactivates the old data which will
+        # automatically steal the old host back and deactivate the new data
         self._is_valid = (old_data != new_data)
 
 

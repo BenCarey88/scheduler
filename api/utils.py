@@ -1,8 +1,13 @@
 """Utility functions for scheduler api."""
 
+from collections.abc import MutableMapping
 from contextlib import contextmanager
-import sys
 import datetime
+import sys
+
+
+"""Global dictionary for dumping simple debugging info."""
+_GLOBAL_DEBUG_DICT = {}
 
 
 @contextmanager
@@ -33,6 +38,48 @@ def indent_print(bookend=None, indent=1, time_it=False):
     elif time_it:
         print ("[TIME]:", duration)
 
+
+from .common.timeline import TimelineDict
+
+def print_dict(dict_, indent=0, key_ordering=None, start_message=None):
+    """A nice way of printing a nested dictionary.
+
+    Args:
+        dict_ (dict): dict to print.
+        indent (int): number of tabs to indent with.
+        key_ordering (list or None): list of keys in a given order, if wanted.
+        start_message (str or None): string to print before dict.
+        additional_dict_types (tuple, list, type or None): if given, this
+            defines which other things will be considered dicts for the purpose
+            of this printing.
+    """
+    if start_message is not None:
+        print (start_message)
+
+    if key_ordering is not None:
+        for key in key_ordering:
+            if key in dict_:
+                value = dict_[key]
+                if isinstance(value, MutableMapping):
+                    print("{0}{1}:".format("\t"*indent, key))
+                    print_dict(
+                        value,
+                        indent=indent+1,
+                        key_ordering=key_ordering,
+                    )
+                else:
+                    print("{0}{1}: {2}".format("\t"*indent, key, value))
+
+    for key, value in dict_.items():
+        if key_ordering is not None and key in key_ordering:
+            continue
+        if isinstance(value, MutableMapping):
+            print("{0}{1}:".format("\t"*indent, key))
+            print_dict(value, indent=indent+1, key_ordering=key_ordering)
+        else:
+            print("{0}{1}: {2}".format("\t"*indent, key, value))
+
+
 def catch_exceptions(exceptions=None):
     """Decorator factory to make a function safe from the given exceptions.
 
@@ -56,17 +103,21 @@ def catch_exceptions(exceptions=None):
     return decorator
 
 
-def fallback_value(value, fallback):
-    """Simple function to return value or fallback if value is None.
+def fallback_value(*fallbacks):
+    """Simple function to return first non-None value in a list of fallbacks.
 
     Args:
-        value (variant or None): value to return if it's not None.
-        fallback (variant): fallback to return if value is None.
+        *fallbacks (variant): values to loop through to find the first one
+            that isn't None.
 
     Returns:
-        (variant): value if value isn't None, else fallback.
+        (variant or None): first non-None value in a list of fallbacks, if
+            one exists.
     """
-    return (value if value is not None else fallback)
+    for v in fallbacks:
+        if v is not None:
+            return v
+    return None
 
 
 def clamp(value, min_, max_):
@@ -100,6 +151,25 @@ def add_key_at_start(ordered_dict, key, value):
         for i in range(len(ordered_dict) - 1):
             k, v = ordered_dict.popitem(last=False)
             ordered_dict[k] = v
+
+
+def setdefault_not_none(dict_, key, default):
+    """Return dict value at key, setting as default if not set or None.
+
+    This is the same as the setdefault method on dicts, but also guarantees
+    the return value won't be None (unless the default is None).
+
+    Args:
+        dict_ (dict): dict to get value from (and set value if needed).
+        key (variant): key of dict to get value at (and set if needed).
+        default (variant): default value to set if dict is None at key.
+
+    Returns:
+        (variant): value at that key.
+    """
+    if dict_.get(key) is None:
+        dict_[key] = default
+    return dict_[key]
 
 
 def get_class_name_from_method(method):
@@ -171,67 +241,3 @@ def backup_git_repo(repo_path, commit_message="backup"):
         )
 
     return None
-
-
-class OrderedEnum(object):
-    """Base ordered enumerator struct with string values.
-
-    Enumerators with an ordering should inherit from this and
-    fill in the values list to define the ordering.
-    """
-    VALUES = []
-    @classmethod
-    def key(cls, value):
-        """Get key, used to order values."""
-        i = 0
-        for i, val in enumerate(cls.VALUES):
-            if val == value:
-                return i
-        return i + 1
-
-    @classmethod
-    def filter_key(cls, value):
-        """Key, but returns None if value not found."""
-        i = 0
-        for i, val in enumerate(cls.VALUES):
-            if val == value:
-                return i
-        return None
-
-
-"""Id registry to store floating items by temporary ids."""
-_TEMPORARY_ID_REGISTRY = {}
-_GLOBAL_COUNT = 0
-
-
-def generate_temporary_id(item):
-    """Generate temporary id for item.
-
-    Args:
-        item (variant): item to generate id for.
-
-    Returns:
-        (str): id of item.
-    """
-    global _GLOBAL_COUNT
-    id = str(_GLOBAL_COUNT)
-    _GLOBAL_COUNT += 1
-    _TEMPORARY_ID_REGISTRY[id] = item
-    return id
-
-
-def get_item_by_id(id, remove_from_registry=False):
-    """Get item by id and remove from registry.
-
-    Args:
-        id (str): id of item to get.
-        remove_from_registry (bool): if True, remove the item from
-            the registry after returning it.
-
-    Returns:
-        (variant or None): item, if found.
-    """
-    item = _TEMPORARY_ID_REGISTRY.get(id, None)
-    if remove_from_registry and item is not None:
-        del _TEMPORARY_ID_REGISTRY[id]
-    return item

@@ -52,7 +52,7 @@ class TreeFilterManager(BaseTreeManager):
     FIELD_FILTERS_PREF = "field_filters"
     ACTIVE_FIELD_FILTER_PREF = "active_field_filter"
 
-    def __init__(self, name, user_prefs, tree_root, filterer):
+    def __init__(self, name, user_prefs, tree_root, filterer, tracker):
         """Initialise tree filter manager.
 
         Args:
@@ -60,6 +60,7 @@ class TreeFilterManager(BaseTreeManager):
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
             filterer (Filterer): filterer class for storing filters.
+            tracker (Tracker): tracker to track tasks with.
 
         Attributes:
             _tree_data (dict(str, dict)): additional tree data for each item.
@@ -73,6 +74,7 @@ class TreeFilterManager(BaseTreeManager):
             user_prefs,
             tree_root,
             filterer,
+            tracker,
         )
         self._tree_data = {}
         self._filtered_items = set()

@@ -58,7 +58,17 @@ class BaseFilter(object):
     _FILTER_CLASS_NAME = None
 
     def __init__(self):
-        """Initialize."""
+        """Initialize.
+
+        Attributes:
+            _composite_filter_class (class): the class used to build composite
+                filters with and/or operators.
+            _is_valid (bool): whether or not filter is valid.
+            _name (str): name of filter.
+            _filter_cache (dict(tuple, bool)): dictionary of items that have
+                already been run through this filter and the resulting value,
+                used to save recalculating.
+        """
         self._composite_filter_class = CompositeFilter
         self._is_valid = True
         self._name = None

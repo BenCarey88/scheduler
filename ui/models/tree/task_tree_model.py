@@ -2,7 +2,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import TaskStatus, TaskType
+from scheduler.api.enums import ItemStatus
+from scheduler.api.tree.task import TaskType
 
 from scheduler.ui import constants
 from ._base_tree_model import BaseTreeModel
@@ -78,8 +79,8 @@ class TaskTreeModel(BaseTreeModel):
                 item = index.internalPointer()
                 if item:
                     font = QtGui.QFont()
-                    if (item.status == TaskStatus.COMPLETE
-                            or item.status == TaskStatus.IN_PROGRESS):
+                    if (item.status == ItemStatus.COMPLETE
+                            or item.status == ItemStatus.IN_PROGRESS):
                         font.setBold(True)
                     if item.type == TaskType.ROUTINE:
                         font.setItalic(True)
@@ -143,7 +144,14 @@ class TaskTreeModel(BaseTreeModel):
             task_item = index.internalPointer()
             if not task_item:
                 return False
-            return self.tree_manager.update_task(task_item)
+            # TODO: keep an eye on this, check everything works fine now
+            # that I'm setting this at a date rather than a datetime and
+            # using status_override
+            return self.tree_manager.update_task(
+                task_item,
+                status_override=True,
+                ignore_time=True,
+            )
         if role == QtCore.Qt.ItemDataRole.EditRole:
             if column_name == self.IMPORTANCE_COLUMN:
                 task_item = index.internalPointer()

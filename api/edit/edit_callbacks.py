@@ -2,6 +2,8 @@
 
 from functools import partial
 
+from scheduler.api.enums import OrderedStringEnum
+
 from . import edit_log
 from .filter_edit import (
     AddFilterEdit,
@@ -20,12 +22,12 @@ from .tree_edit import (
     UnarchiveTreeItemEdit,
 )
 from .task_edit import (
+    ClearTaskHistoryEdit,
     ModifyTaskEdit,
     UpdateTaskHistoryEdit,
 )
 from .planner_edit import (
     AddPlannedItemEdit,
-    AddPlannedItemAsChildEdit,
     ModifyPlannedItemEdit,
     MovePlannedItemEdit,
     RemovePlannedItemEdit,
@@ -33,7 +35,6 @@ from .planner_edit import (
 )
 from .schedule_edit import (
     AddScheduledItemEdit,
-    AddScheduledItemAsChildEdit,
     RemoveScheduledItemEdit,
     ModifyScheduledItemEdit,
     ModifyRepeatScheduledItemEdit,
@@ -42,15 +43,16 @@ from .schedule_edit import (
 )
 
 
-class CallbackItemType(object):
+class CallbackItemType(OrderedStringEnum):
     """Struct representing callback item types."""
     TREE = "Tree"
     SCHEDULER = "Scheduler"
     PLANNER = "Planner"
+    TRACKER = "Tracker"
     FILTER = "Filter"
 
 
-class CallbackEditType(object):
+class CallbackEditType(OrderedStringEnum):
     """Struct representing callback edit types."""
     ADD = "add"
     REMOVE = "remove"
@@ -100,6 +102,7 @@ class CallbackType(object):
                 ReplaceTreeItemEdit,
                 ModifyTaskEdit,
                 UpdateTaskHistoryEdit,
+                ClearTaskHistoryEdit,
             ]
         TREE_MOVE:
             Args:   (tree_item, old_parent, old_row, new_parent, new_row)
@@ -108,7 +111,7 @@ class CallbackType(object):
     Scheduler:      
         SCHEDULER_ADD:
             Args:   (scheduled_item)
-            Edits:  [AddScheduledItemEdit, AddScheduledItemAsChildEdit]
+            Edits:  [AddScheduledItemEdit]
         SCHEDULER_REMOVE:
             Args:   (scheduled_item)
             Edits:  [RemoveScheduledItemEdit]
@@ -124,7 +127,7 @@ class CallbackType(object):
     Planner:
         PLANNER_ADD:
             Args:   (planned_item, calendar_period, row)
-            Edits:  [AddPlannedItemEdit, AddPlannedItemAsChildEdit]
+            Edits:  [AddPlannedItemEdit]
         PLANNER_REMOVE:
             Args:   (planned_item, calendar_period, row)
             Edits:  [RemovePlannedItemEdit]
@@ -175,9 +178,10 @@ class CallbackType(object):
             ReplaceTreeItemEdit,
             ModifyTaskEdit,
             UpdateTaskHistoryEdit,
+            ClearTaskHistoryEdit,
         ],
         TREE_MOVE: [MoveChildrenEdit, MoveTreeItemEdit],
-        SCHEDULER_ADD: [AddScheduledItemEdit, AddScheduledItemAsChildEdit],
+        SCHEDULER_ADD: [AddScheduledItemEdit],
         SCHEDULER_REMOVE: [RemoveScheduledItemEdit],
         SCHEDULER_MODIFY: [
             ModifyScheduledItemEdit,
@@ -185,7 +189,7 @@ class CallbackType(object):
             ModifyRepeatScheduledItemInstanceEdit,
             ReplaceScheduledItemEdit,
         ],
-        PLANNER_ADD: [AddPlannedItemEdit, AddPlannedItemAsChildEdit],
+        PLANNER_ADD: [AddPlannedItemEdit],
         PLANNER_REMOVE: [RemovePlannedItemEdit],
         PLANNER_MODIFY: [ModifyPlannedItemEdit],
         PLANNER_MOVE: [MovePlannedItemEdit],

@@ -4,7 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree import TaskSize, TaskImportance
+from scheduler.api.enums import ItemImportance, ItemSize
 
 from scheduler.ui.widgets.base_tree_view import BaseTreeView
 from scheduler.ui.models.tree import TaskTreeModel
@@ -105,6 +105,90 @@ class TaskViewWidget(BaseTreeView):
         size = super(TaskViewWidget, self).sizeHint()
         return QtCore.QSize(size.width(), size.height() + self.HEIGHT_BUFFER)
 
+    def _build_right_click_menu(self, item=None):
+        """Build right click menu for given item.
+
+        This is used to add task history printing to right click menu.
+        TODO: should this be available in outliner too? If so just add
+        to base treevieew, but need to make sure that it checks if it's
+        a category or not first.
+
+        Args:
+            item (BaseTaskItem or None): item to build menu for.
+
+        Returns:
+            (QtWidgets.QMenu): the right click menu.
+        """
+        right_click_menu = super(TaskViewWidget, self)._build_right_click_menu(
+            item=item
+        )
+    
+        # Tracker Actions
+        right_click_menu.addSeparator()
+        action_name = "Track Task"
+        if item is not None and self.tree_manager.is_tracked_task(item):
+            action_name = "Untrack Task"
+        action = right_click_menu.addAction(action_name)
+        self._connect_action_to_func(
+            action,
+            partial(self.toggle_task_tracking, item=item),
+        )
+
+        # History Actions
+        right_click_menu.addSeparator()
+        action = right_click_menu.addAction("Print History")
+        self._connect_action_to_func(
+            action,
+            partial(self.print_task_history, item=item),
+        )
+        action = right_click_menu.addAction("Clear History")
+        self._connect_action_to_func(
+            action,
+            partial(self.clear_task_history, item=item),
+        )
+
+        return right_click_menu
+    
+    def print_task_history(self, item, *args):
+        """Print task history of given item.
+        
+        Args:
+            item (Task or None): item to print history for.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        if item is None:
+            return False
+        item.history.print()
+        return True
+    
+    def clear_task_history(self, item, *args):
+        """Clear task history of given item.
+        
+        Args:
+            item (Task or None): item to clear history for.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        if item is None:
+            return False
+        return self.tree_manager.clear_task_history(item)
+
+    def toggle_task_tracking(self, item, *args):
+        """Clear task history of given item.
+
+        Args:
+            item (Task or None): task to toggle tracking for.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        if item is None:
+            return False
+        return self.tree_manager.toggle_task_tracking(item)
+
 
 class TaskDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for task widget tree."""
@@ -151,12 +235,12 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QComboBox(parent)
-                editor.addItems(TaskImportance.VALUES)
+                editor.addItems(ItemImportance.get_values())
                 return editor
         elif column_name == self._model.SIZE_COLUMN:
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QComboBox(parent)
-                editor.addItems(TaskSize.VALUES)
+                editor.addItems(ItemSize.get_values())
                 return editor
         return super().createEditor(parent, option, index)

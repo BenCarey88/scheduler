@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.tree.task import TaskStatus
+from scheduler.api.tree import TaskImportance, TaskStatus
 
 
 # General
@@ -31,6 +31,12 @@ TASK_STATUS_COLORS = {
     TaskStatus.UNSTARTED: BASE_TEXT_COLOR,
     TaskStatus.IN_PROGRESS: QtGui.QColor(175, 100, 255),
     TaskStatus.COMPLETE: QtGui.QColor(100, 160, 36),
+}
+TASK_IMPORTANCE_COLORS = {
+    TaskImportance.MINOR: QtGui.QColor(100, 160, 36),
+    TaskImportance.MODERATE: QtGui.QColor(234, 121, 0),
+    TaskImportance.MAJOR: QtGui.QColor(255, 38, 0),
+    TaskImportance.CRITICAL: QtGui.QColor(155, 23, 0),
 }
 BASE_SCHEDULED_EVENT_COLOR = QtGui.QColor(173, 216, 230)
 BASE_SCHEDULED_TASK_COLOR = QtGui.QColor(245, 245, 190)

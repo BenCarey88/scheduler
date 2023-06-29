@@ -1,5 +1,6 @@
 """Navigation panel for switching dates and view types on timetable views."""
 
+from calendar import weekday
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -51,7 +52,7 @@ class NavigationPanel(QtWidgets.QWidget):
             view_types_dict,
             start_view_type=None,
             default_mappings=None,
-            weekday_start=0,
+            weekday_starts=None,
             hide_day_change_buttons=False,
             use_full_period_names=False,
             use_week_for_day=False,
@@ -68,8 +69,8 @@ class NavigationPanel(QtWidgets.QWidget):
             start_view_type (ViewType or None): start view type, if given.
             default_mappings (dict or None): default mappings of date type
                 and view types, if given.
-            weekday_start (str or int): default starting weekday to use if date
-                type is week.
+            weekday_starts (dict(DateType, str or int)): default starting
+                weekday to use for each date type that uses calendar weeks.
             day_change_buttons_hidden (bool): if True, always hide the day
                 change buttons that switch the week views to start on a
                 different day.
@@ -101,9 +102,14 @@ class NavigationPanel(QtWidgets.QWidget):
             )
         self.cached_view_types_dict = default_mappings or {}
         self.cached_calendar_periods = {}
-        if isinstance(weekday_start, str):
-            weekday_start = Date.weekday_int_from_string(weekday_start)
-        self.cached_weekday_start = weekday_start
+        self.cached_weekday_starts = {}
+        if weekday_starts is None:
+            weekday_starts = {}
+        for date_type in (DateType.WEEK, DateType.THREE_DAYS):
+            weekday_start = weekday_starts.get(date_type, 0)
+            if isinstance(weekday_start, str):
+                weekday_start = Date.weekday_int_from_string(weekday_start)
+            self.cached_weekday_starts[date_type] = weekday_start
 
         self.setFixedHeight(30)
         layout = QtWidgets.QHBoxLayout()
@@ -197,15 +203,18 @@ class NavigationPanel(QtWidgets.QWidget):
             DateType.MONTH: CalendarMonth,
             DateType.YEAR: CalendarYear,
         }.get(date_type)
-        length = {
-            DateType.DAY: 1,
-            DateType.THREE_DAYS: 3,
-        }.get(date_type, 7)
         if not period_type:
             raise NotImplementedError(
                 "Can't run get_current_calendar_period with date_type {0}"
                 "".format(date_type)
             )
+        length = {
+            DateType.DAY: 1,
+            DateType.THREE_DAYS: 3,
+        }.get(date_type, 7)
+        starting_weekday = {
+            DateType.THREE_DAYS: Date.now().weekday,
+        }.get(date_type, starting_weekday)
         return calendar.get_current_period(
             period_type,
             starting_weekday,
@@ -354,17 +363,19 @@ class NavigationPanel(QtWidgets.QWidget):
             # use cached period if it's contained in current one
             self.calendar_period = cached_period
 
+        # TODO: this logic doesn't really work - the week containing date thing
+        # needs to be revisited for 1-day weeks.
         elif self.date_type == DateType.DAY:
             if self.use_week_for_day and isinstance(period, CalendarWeek):
                 self.calendar_period = self.calendar.get_week_containing_date(
                     period.start_date,
-                    self.cached_weekday_start,
+                    self.cached_weekday_starts.get(DateType.WEEK),
                     length=1,
                 )
             elif (self.use_week_for_day and
                         isinstance(period, (CalendarMonth, CalendarYear))):
                     self.calendar_period = period.get_start_week(
-                        self.cached_weekday_start,
+                        self.cached_weekday_starts.get(DateType.WEEK),
                         length=1,
                     )
             elif not isinstance(period, CalendarDay):
@@ -374,18 +385,18 @@ class NavigationPanel(QtWidgets.QWidget):
             if isinstance(period, CalendarDay):
                 self.calendar_period = self.calendar.get_week_containing_date(
                     period.date,
-                    self.cached_weekday_start,
+                    self.cached_weekday_starts.get(DateType.THREE_DAYS),
                     length=3,
                 )
             elif isinstance(period, CalendarWeek):
                 self.calendar_period = self.calendar.get_week_containing_date(
                     period.start_date,
-                    self.cached_weekday_start,
+                    self.cached_weekday_starts.get(DateType.THREE_DAYS),
                     length=3,
                 )
             elif isinstance(period, (CalendarMonth, CalendarYear)):
                 self.calendar_period = period.get_start_week(
-                    self.cached_weekday_start,
+                    self.cached_weekday_starts.get(DateType.THREE_DAYS),
                     length=3,
                 )
 
@@ -393,12 +404,12 @@ class NavigationPanel(QtWidgets.QWidget):
             if isinstance(period, CalendarDay):
                 self.calendar_period = self.calendar.get_week_containing_date(
                     period.date,
-                    self.cached_weekday_start,
+                    self.cached_weekday_starts.get(DateType.WEEK),
                 )
             if isinstance(period, CalendarWeek):
                 self.calendar_period = self.calendar.get_week_containing_date(
                     period.start_date,
-                    self.cached_weekday_start,
+                    self.cached_weekday_starts.get(DateType.WEEK),
                 )
             elif isinstance(period, (CalendarMonth, CalendarYear)):
                 self.calendar_period = period.get_start_week(
@@ -441,7 +452,7 @@ class NavigationPanel(QtWidgets.QWidget):
         if not isinstance(self.calendar_period, CalendarWeek):
             return
         self.calendar_period = self.calendar_period.week_starting_prev_day()
-        self.cached_weekday_start -= 1
+        self.cached_weekday_starts[self.date_type] -= 1
         self.update()
         self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
 
@@ -450,7 +461,7 @@ class NavigationPanel(QtWidgets.QWidget):
         if not isinstance(self.calendar_period, CalendarWeek):
             return
         self.calendar_period = self.calendar_period.week_starting_next_day()
-        self.cached_weekday_start += 1
+        self.cached_weekday_starts[self.date_type] += 1
         self.update()
         self.CALENDAR_PERIOD_CHANGED_SIGNAL.emit(self.calendar_period)
 
@@ -467,12 +478,12 @@ class NavigationPanel(QtWidgets.QWidget):
             self.view_type_dropdown.setModel(
                 QtCore.QStringListModel(allowed_view_types)
             )
-        if date_type in self.cached_view_types_dict:
-            self.view_type_dropdown.setCurrentText(
-                self.cached_view_types_dict[date_type]
-            )
-        elif self.view_type in allowed_view_types:
-            self.date_type_dropdown.setCurrentText(self.view_type)
+            if date_type in self.cached_view_types_dict:
+                self.view_type_dropdown.setCurrentText(
+                    self.cached_view_types_dict[date_type]
+                )
+            elif self.view_type in allowed_view_types:
+                self.view_type_dropdown.setCurrentText(self.view_type)
         self.view_type = self.view_type_dropdown.currentText()
         self.cached_view_types_dict[self.date_type] = self.view_type
         self.update()

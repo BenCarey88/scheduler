@@ -91,7 +91,6 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
             num_days=num_days,
             parent=parent,
         )
-        self.hide_day_change_buttons = (time_period == TimePeriod.WEEK)
         self.display_connections_on_hover = False
         self.display_all_connections = False
         self.time_period = time_period
@@ -100,6 +99,9 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
             project,
             self.hybrid_view,
             parent=parent,
+        )
+        self.hide_day_change_buttons = (
+            time_period == TimePeriod.WEEK and num_days == 7
         )
         self.planner_manager = project.get_planner_manager(name)
         self.left_view = self.hybrid_view.left_view

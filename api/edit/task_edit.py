@@ -5,37 +5,39 @@ from functools import partial
 
 from scheduler.api.common.date_time import Date
 from ._core_edits import AttributeEdit, CompositeEdit, SelfInverseSimpleEdit
-from ._container_edit import DictEdit, ContainerOp
+from ._container_edit import DictEdit, ContainerEditFlag, ContainerOp
 
 
-class ChangeTaskTypeEdit(AttributeEdit):
-    """Task edit to change type of a task."""
-
-    def __init__(self, task_item, new_type):
+class ModifyTaskEdit(AttributeEdit):
+    """Task edit to change attributes of a task."""
+    def __init__(self, task_item, attr_dict):
         """Initialise edit.
 
         Args:
             task_item (Task): the task item this edit is being run on.
+            attr_dict (dict(MutableAttribute, variant)): attributes to update.
             new_type (TaskType): new type to change to.
         """
-        super(ChangeTaskTypeEdit, self).__init__(
-            {item._type: new_type for item in task_item.get_family()},
-        )
+        # type edits apply to whole family
+        if task_item._type in attr_dict:
+            new_type = attr_dict[task_item._type]
+            attr_dict.update(
+                {item._type: new_type for item in task_item.get_family()}
+            )
+        super(ModifyTaskEdit, self).__init__(attr_dict)
         self._callback_args = self._undo_callback_args = [(
             task_item,
             task_item,
         )]
-        self._name = "ChangeTaskType ({0})".format(task_item.name)
-        self._description = "Change task type of {0} ({1} --> {2})".format(
-            task_item.path,
-            task_item.type,
-            new_type,
+        self._name = "ModifyTask ({0})".format(task_item.name)
+        self._description = self.get_description(
+            task_item,
+            task_item.name,
         )
 
 
 class UpdateTaskHistoryEdit(CompositeEdit):
     """Edit to update task history."""
-
     def __init__(
             self,
             task_item,

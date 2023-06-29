@@ -11,7 +11,7 @@ from scheduler.api.edit.tree_edit import (
     ReplaceTreeItemEdit,
 )
 from scheduler.api.edit.task_edit import (
-    ChangeTaskTypeEdit,
+    ModifyTaskEdit,
     UpdateTaskHistoryEdit,
 )
 from scheduler.api.tree.exceptions import UnallowedChildType
@@ -421,7 +421,36 @@ class TreeEditManager(BaseTreeManager):
             )
         if new_type == task_item.type:
             return False
-        return ChangeTaskTypeEdit.create_and_run(task_item, new_type)
+        return ModifyTaskEdit.create_and_run(
+            task_item,
+            {task_item._type: new_type},
+        )
+
+    @require_class(Task, raise_error=False)
+    def modify_task(
+            self,
+            task_item,
+            size=None,
+            importance=None):
+        """Modify attributes of task.
+
+        Args:
+            task_item (Task): task to modify.
+            size (TaskSize or None): new size to change to, if given.
+            importance (TaskImportance): new importance, if given.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        attr_dict = {
+            task_item._size: size,
+            task_item._importance: importance,
+        }
+        attr_dict = {
+            attr: value
+            for attr, value in attr_dict.items() if value is not None
+        }
+        return ModifyTaskEdit.create_and_run(task_item, attr_dict)
 
     @require_class(BaseTaskItem, raise_error=False)
     def archive_item(

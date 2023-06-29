@@ -88,7 +88,7 @@ class PlannerListView(BaseListView):
             time_period (TimePeriod): type of time period to view over.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        self.open_dialog_on_drop_event = False
+        self.open_dialog_on_drop_event = True
         self.planner_manager = project.get_planner_manager(name)
         model = PlannerListModel(
             project.get_tree_manager(name),

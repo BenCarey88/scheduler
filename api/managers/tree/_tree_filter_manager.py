@@ -76,8 +76,10 @@ class TreeFilterManager(BaseTreeManager):
         )
         self._tree_data = {}
         self._filtered_items = set()
-        self._active_field_filter = None
         self._current_item = None
+        self._active_field_filter = None
+        self._item_filter = None
+        self._combined_filter = None
         self._setup_from_user_prefs()
 
     def _setup_from_user_prefs(self):
@@ -260,6 +262,8 @@ class TreeFilterManager(BaseTreeManager):
             self.set_attribute(tree_item, self.IS_SELECTED_FOR_FILTERING, True)
         self.set_attribute(tree_item, self.IS_FILTERED_OUT, True)
         self._filtered_items.add(tree_item)
+        self._item_filter = None
+        self._combined_filter = None
         for child in tree_item.get_all_children():
             self.filter_item(child, from_user_selection=False)
 
@@ -286,6 +290,8 @@ class TreeFilterManager(BaseTreeManager):
 
         self.set_attribute(tree_item, self.IS_FILTERED_OUT, False)
         self._filtered_items.discard(tree_item)
+        self._item_filter = None
+        self._combined_filter = None
         for child in tree_item.get_all_children():
             self.unfilter_item(child, from_user_selection=False)
 
@@ -377,10 +383,19 @@ class TreeFilterManager(BaseTreeManager):
         Returns:
             (BaseFilter): filter to filter children with.
         """
+        if self._combined_filter is not None:
+            return self._combined_filter
         if self._filtered_items:
-            return FilterByItem(list(self._filtered_items)) & self.field_filter
+            if self._item_filter is None:
+                self._item_filter = FilterByItem(list(self._filtered_items))
+            self._combined_filter = self._item_filter & self.field_filter
+            return self._combined_filter
         return self.field_filter
 
+    # TODO: I don't know if here's the best place for this, but filtering
+    # children is still slower than I'd like, we should be able to reduce
+    # some calls/reduce number of times we recreate the filter function/
+    # add more caching/something
     @require_class(BaseTaskItem, raise_error=True)
     def get_filtered_children(self, tree_item):
         """Get filtered children of tree item.
@@ -410,6 +425,7 @@ class TreeFilterManager(BaseTreeManager):
                 If None, delete the filter.
         """
         self._active_field_filter = field_filter
+        self._combined_filter = None
         self._project_user_prefs.set_attribute(
             [self._name, self.ACTIVE_FIELD_FILTER_PREF],
             field_filter.name if field_filter is not None else None,
@@ -441,6 +457,10 @@ class TreeFilterManager(BaseTreeManager):
             old_name,
             field_filter,
         )
+        # ensure filter is set as active if the one it replaced was active
+        if (self._active_field_filter is not None and
+                self._active_field_filter.name == old_name):
+            self.set_active_field_filter(field_filter)
         # self._filterer.modify_filter(FilterType.TREE, old_name, field_filter)
 
     def remove_field_filter(self, name):

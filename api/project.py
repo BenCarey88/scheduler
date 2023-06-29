@@ -415,15 +415,15 @@ class Project(CustomSerializable):
             project_tree (ProjectTree): project tree to write to.
         """
         self._task_root.write(project_tree.tasks_directory)
-        # self._calendar.write(project_tree.calendar_directory)
-        # self._tracker.write(project_tree.tracker_file)
-        # self._filterer.write(project_tree.filterer_file)
-        # self._archive_task_root.write(
-        #     project_tree.archive_tree.tasks_directory
-        # )
-        # self._archive_calendar.write(
-        #     project_tree.archive_tree.calendar_directory
-        # )
+        self._calendar.write(project_tree.calendar_directory)
+        self._tracker.write(project_tree.tracker_file)
+        self._filterer.write(project_tree.filterer_file)
+        self._archive_task_root.write(
+            project_tree.archive_tree.tasks_directory
+        )
+        self._archive_calendar.write(
+            project_tree.archive_tree.calendar_directory
+        )
 
     @classmethod
     def from_directory(cls, project_root_path):

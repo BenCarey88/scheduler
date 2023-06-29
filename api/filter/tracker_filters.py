@@ -14,7 +14,6 @@ class BaseTrackerFilter(BaseFilter):
         """Initialize."""
         super(BaseTrackerFilter, self).__init__()
         self._composite_filter_class = CompositeTrackerFilter
-        self._get_cache_key = lambda item: item
 
 
 @register_serializable_filter("CompositeTrackerFilter")

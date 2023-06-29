@@ -38,18 +38,21 @@ class TaskValueType(OrderedEnum):
 
 class TaskSize(OrderedEnum):
     """Struct to store size types of task."""
+    NONE = ""
     BIG = "big"
     MEDIUM = "medium"
     SMALL = "small"
-    VALUES_LIST = [BIG, MEDIUM, SMALL]
+    VALUES = [NONE, SMALL, MEDIUM, BIG]
 
 
 class TaskImportance(OrderedEnum):
     """Struct to store levels of importance for task."""
+    NONE = ""
     CRITICAL = "critical"
+    MAJOR = "major"
     MODERATE = "moderate"
     MINOR = "minor"
-    VALUES_LIST = [CRITICAL, MODERATE, MINOR]
+    VALUES = [NONE, MINOR, MODERATE, MAJOR, CRITICAL]
 
 
 class Task(BaseTaskItem):
@@ -61,6 +64,8 @@ class Task(BaseTaskItem):
     STATUS_KEY = "status"
     TYPE_KEY = "type"
     VALUE_TYPE_KEY = "value_type"
+    SIZE_KEY = "size"
+    IMPORTANCE_KEY = "importance"
 
     DEFAULT_NAME = "task"
 
@@ -71,7 +76,9 @@ class Task(BaseTaskItem):
             task_type=None,
             status=None,
             history_dict=None,
-            value_type=None):
+            value_type=None,
+            size=None,
+            importance=None):
         """Initialise task class.
 
         Args:
@@ -84,16 +91,26 @@ class Task(BaseTaskItem):
             history_dict (OrderedDict or None): serialized task history dict,
                 if exists.
             value_type (TaskValueType or None): task value type, if not None.
+            size (TaskSize or None): task size, if given.
+            importance (TaskImportance or None): task importance, if given.
         """
         super(Task, self).__init__(name, parent)
-        self._type = MutableAttribute(task_type or TaskType.GENERAL)
-        self._status = MutableAttribute(status or TaskStatus.UNSTARTED)
+        self._type = MutableAttribute(
+            task_type or TaskType.GENERAL,
+            "type"
+        )
+        self._status = MutableAttribute(
+            status or TaskStatus.UNSTARTED,
+            "status",
+        )
         self._history = (
             TaskHistory.from_dict(history_dict, self)
             if history_dict is not None
             else TaskHistory(self)
         )
         self.value_type = value_type or TaskValueType.NONE
+        self._size = MutableAttribute(size, "size")
+        self._importance = MutableAttribute(importance, "importance")
         self._allowed_child_types = [Task]
 
     @property
@@ -145,6 +162,24 @@ class Task(BaseTaskItem):
             (TaskType): current status.
         """
         return self._type.value
+
+    @property
+    def size(self):
+        """Get task size.
+
+        Returns:
+            (TaskSize): task size.
+        """
+        return self._size.value
+
+    @property
+    def importance(self):
+        """Get task size.
+
+        Returns:
+            (TaskImportance): task importance.
+        """
+        return self._importance.value
 
     @property
     def history(self):
@@ -245,6 +280,10 @@ class Task(BaseTaskItem):
             json_dict[self.HISTORY_KEY] = self.history.to_dict()
         if self.value_type:
             json_dict[self.VALUE_TYPE_KEY] = self.value_type
+        if self.size:
+            json_dict[self.SIZE_KEY] = self.size
+        if self.importance:
+            json_dict[self.IMPORTANCE_KEY] = self.importance
         if self._subtasks:
             subtasks_dict = OrderedDict()
             for subtask_name, subtask in self._subtasks.items():
@@ -273,13 +312,17 @@ class Task(BaseTaskItem):
         task_status = json_dict.get(cls.STATUS_KEY, None)
         task_history = json_dict.get(cls.HISTORY_KEY, None)
         value_type = json_dict.get(cls.VALUE_TYPE_KEY, None)
+        size = json_dict.get(cls.SIZE_KEY, None)
+        importance = json_dict.get(cls.IMPORTANCE_KEY, None)
         task = cls(
             name,
             parent,
             task_type,
             task_status,
             task_history,
-            value_type
+            value_type,
+            size,
+            importance,
         )
         task._activate()
         if history_data:

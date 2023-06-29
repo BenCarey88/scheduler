@@ -1142,6 +1142,7 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
                 if self.is_paired and self._values_are_hosted:
                     self._remove_from_paired_container(v)
                     self._add_to_paired_container(value)
+                return
         # if key not in list, add new one
         if self._keys_are_hosted:
             key = self._get_host_object(key)

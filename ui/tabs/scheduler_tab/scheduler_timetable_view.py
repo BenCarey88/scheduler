@@ -96,6 +96,16 @@ class SchedulerTimetableView(BaseWeekTableView):
         )
         self.viewport().update()
 
+    # def on_view_changed(self):
+    #     """Callback for when this view is loaded."""
+    #     super(BaseWeekTableView, self).on_view_changed()
+    #     date_time = DateTime.now()
+    #     time = Time(10,0,0)
+    #     y_val = self.y_pos_from_time(time)
+    #     y_val -= (self.height() / 2)
+    #     y_val = max(y_val, self.rect().top())
+    #     self.verticalScrollBar().setValue(y_val)
+
     def on_outliner_filter_changed(self, *args):
         """Callback for what to do when filter is changed in outliner."""
         super(BaseWeekTableView, self).on_outliner_filter_changed(*args)

@@ -152,6 +152,7 @@ class OutlinerTreeModel(BaseTreeModel):
         """
         self._hide_filtered_items = hide
         self.update_filter()
+        return True
 
     def update_filter(self):
         """Update filter to match tree manager."""

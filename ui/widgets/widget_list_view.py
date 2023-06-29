@@ -267,7 +267,10 @@ class WidgetListView(QtWidgets.QListView):
         """
         super(WidgetListView, self).resizeEvent(event)
         # self.updateEditorGeometries()
-        self.update_view()
+
+        # NOTE: this was making resizing quite slow and I can't remember why
+        # it was there so I'm removing it for now. May need to add back in.
+        # self.update_view()
 
     def open_editor(self, row, update=True):
         """Open persistent editors on given row.

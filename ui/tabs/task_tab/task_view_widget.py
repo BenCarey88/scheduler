@@ -4,6 +4,8 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.tree import TaskSize, TaskImportance
+
 from scheduler.ui.widgets.base_tree_view import BaseTreeView
 from scheduler.ui.models.tree import TaskTreeModel
 from scheduler.ui import utils
@@ -139,9 +141,22 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
         Returns:
             (QtWidgets.QWidget): editor widget.
         """
-        if self._model.get_column_name(index) == self._model.NAME_COLUMN:
+        column_name = self._model.get_column_name(index)
+        if column_name == self._model.NAME_COLUMN:
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QLineEdit(parent)
+                return editor
+        elif column_name == self._model.IMPORTANCE_COLUMN:
+            item = index.internalPointer()
+            if item:
+                editor = QtWidgets.QComboBox(parent)
+                editor.addItems(TaskImportance.VALUES)
+                return editor
+        elif column_name == self._model.SIZE_COLUMN:
+            item = index.internalPointer()
+            if item:
+                editor = QtWidgets.QComboBox(parent)
+                editor.addItems(TaskSize.VALUES)
                 return editor
         return super().createEditor(parent, option, index)

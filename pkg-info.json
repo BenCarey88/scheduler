@@ -1,7 +1,7 @@
 {
     "owner": "Ben Carey",
     "name": "scheduler",
-    "version": "1.2.0-dev-3",
+    "version": "1.2.2",
     "dependencies": [
         "PyQt5"
     ],

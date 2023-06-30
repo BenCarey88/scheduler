@@ -12,7 +12,12 @@ from scheduler.api.common.date_time import (
     DateTime,
     Time,
 )
-from scheduler.api.enums import ItemImportance, ItemSize, ItemStatus
+from scheduler.api.enums import (
+    ItemImportance,
+    ItemSize,
+    ItemStatus,
+    OrderedStringEnum,
+)
 from scheduler.api.filter import FieldFilter, FilterOperator
 from scheduler.api.filter.tree_filters import (
     NoFilter,
@@ -24,7 +29,6 @@ from scheduler.api.filter.tree_filters import (
     TaskTypeFilter,
 )
 from scheduler.api.tree.task import TaskType
-from scheduler.api.enums import OrderedStringEnum
 from scheduler.api.utils import fallback_value
 
 from scheduler.ui.utils import (
@@ -171,9 +175,39 @@ class FilterField(Enum):
         TaskPathFilter,
     )
 
-    VALUES = [STATUS, TYPE, SIZE, IMPORTANCE, PATH]
-    VALUES_DICT = OrderedDict([(field.name, field) for field in VALUES])
-    FIELD_NAMES = list(VALUES_DICT.keys())
+    @classmethod
+    def iter_fields(cls):
+        """Iterate through fields in enum.
+
+        Yields:
+            (FilterFieldData): the filter fields.
+        """
+        for field in cls.__members__.values():
+            yield field.value
+
+    @classmethod
+    def get_field(cls, name):
+        """Get filter field with given name.
+
+        Args:
+            name (str): name of field.
+
+        Returns:
+            (FilterFieldData or None): the field with that name, if found.
+        """
+        for field in cls.__members__.values():
+            if field.value.name == name:
+                return field.value
+        return None
+
+    @classmethod
+    def field_names(cls):
+        """Get all field names.
+
+        Returns:
+            (list(str)): list of field names.
+        """
+        return [field.value.name for field in cls.__members__.values()]
 
 
 class FieldWidget(QtWidgets.QWidget):
@@ -205,7 +239,7 @@ class FieldWidget(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Policy.Expanding,
             QtWidgets.QSizePolicy.Policy.Fixed,
         )
-        self.field_combo_box.addItems([""] + FilterField.FIELD_NAMES)
+        self.field_combo_box.addItems([""] + FilterField.field_names())
         self.main_layout.addWidget(self.field_combo_box)
 
         self.operator_combo_box = QtWidgets.QComboBox()
@@ -264,7 +298,7 @@ class FieldWidget(QtWidgets.QWidget):
             field_name,
             self.field_combo_box.currentText()
         )
-        field = FilterField.VALUES_DICT.get(field_name)
+        field = FilterField.get_field(field_name)
         if field is None:
             self.operator_combo_box.setModel(
                 QtCore.QStringListModel([])
@@ -283,7 +317,7 @@ class FieldWidget(QtWidgets.QWidget):
         # self.main_layout.removeWidget(self.value_widget)
         # self.value_widget.deleteLater()
         field_name = self.field_combo_box.currentText()
-        field = FilterField.VALUES_DICT.get(field_name)
+        field = FilterField.get_field(field_name)
         if not field:
             self.value_widget_wrapper = self.value_widgets_cache[("", "")]
             # self.value_widget_wrapper = self._default_value_widget_wrapper()
@@ -335,7 +369,7 @@ class FieldWidget(QtWidgets.QWidget):
             (BaseFilter): filter that this dialog defines.
         """
         field_name = self.field_combo_box.currentText()
-        field = FilterField.VALUES_DICT.get(field_name)
+        field = FilterField.get_field(field_name)
         operator = self.operator_combo_box.currentText() or None
         value = self.value_widget_wrapper.get_value()
         if field is None or operator is None or value is None:
@@ -354,7 +388,7 @@ class FieldWidget(QtWidgets.QWidget):
         """
         if not isinstance(filter_, FieldFilter):
             return cls()
-        for field in FilterField.VALUES:
+        for field in FilterField.iter_fields():
             if isinstance(filter_, field.filter_class):
                 break
         else:

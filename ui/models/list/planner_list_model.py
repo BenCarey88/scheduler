@@ -4,7 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 from scheduler.ui import constants, utils
-from scheduler.ui.widgets.planned_item_dialog import PlannedItemDialog
+from scheduler.ui.dialogs import PlannedItemDialog
 
 
 class PlannerListModel(QtCore.QAbstractItemModel):

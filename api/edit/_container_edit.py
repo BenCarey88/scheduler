@@ -70,6 +70,7 @@ class InsertTuple(tuple):
         return tuple.__new__(cls, args)
 
 
+# TODO use enum.Flag instead of OrderedStringEnum here, can combine these
 class ContainerEditFlag(OrderedStringEnum):
     """Enum representing flags for container edits.
 

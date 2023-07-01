@@ -83,7 +83,7 @@ class ItemDialog(QtWidgets.QDialog):
         self.accept_button.setFocus(True)
 
         self.tree_view.selectionModel().currentChanged.connect(
-            self.update
+            self.on_tree_view_changed
         )
 
         edit_callbacks.register_general_purpose_pre_callback(
@@ -106,6 +106,13 @@ class ItemDialog(QtWidgets.QDialog):
         if index is not None:
             return index.internalPointer()
         return None
+
+    def on_tree_view_changed(self):
+        """Callback for when a new tree item is selected.
+
+        This should be reimplemented in subclasses.
+        """
+        pass
 
     def accept_and_close(self):
         """Create or modify item and close dialog.

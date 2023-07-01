@@ -129,6 +129,7 @@ class ScheduleEditManager(BaseScheduleManager):
             tree_item=None,
             event_category=None,
             event_name=None,
+            task_update_policy=None,
             is_background=None):
         """Modify scheduled item.
 
@@ -143,6 +144,7 @@ class ScheduleEditManager(BaseScheduleManager):
             tree_item (BaseTaskItem or None): new tree item.
             event_category (str or None): new category name.
             event_name (str or None): new event name.
+            task_update_policy (ItemUpdatePolicy or None): new update policy.
             is_background (bool or None): new background value.
 
         Returns:
@@ -159,6 +161,7 @@ class ScheduleEditManager(BaseScheduleManager):
                 scheduled_item._tree_item: tree_item,
                 scheduled_item._event_category: event_category,
                 scheduled_item._event_name: event_name,
+                scheduled_item._task_update_policy: task_update_policy,
                 scheduled_item._is_background: is_background,
             }
             attr_dict = {

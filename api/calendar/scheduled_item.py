@@ -66,6 +66,7 @@ class BaseScheduledItem(BaseCalendarItem):
             tree_item=None,
             event_category=None,
             event_name=None,
+            task_update_policy=None,
             is_background=None,
             template_item=None,
             status=None):
@@ -86,6 +87,8 @@ class BaseScheduledItem(BaseCalendarItem):
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
+            task_update_policy (ItemUpdatePolicy or None): update policy for
+                linked task.
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
@@ -94,7 +97,12 @@ class BaseScheduledItem(BaseCalendarItem):
                 RepeatScheduledItemInstances.
             status (ItemStatus or None): status of item.
         """
-        super(BaseScheduledItem, self).__init__(calendar, tree_item, status)
+        super(BaseScheduledItem, self).__init__(
+            calendar,
+            tree_item,
+            status,
+            task_update_policy=task_update_policy,
+        )
         self._is_scheduled_item = True
         self._task_root = calendar.task_root
         self._template_item = template_item
@@ -539,6 +547,7 @@ class ScheduledItem(BaseScheduledItem):
             tree_item=None,
             event_category=None,
             event_name=None,
+            task_update_policy=None,
             is_background=None,
             status=None,
             repeat_pattern=None):
@@ -555,6 +564,8 @@ class ScheduledItem(BaseScheduledItem):
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
+            task_update_policy (ItemUpdatePolicy or None): update policy for
+                linked task.
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
@@ -573,6 +584,7 @@ class ScheduledItem(BaseScheduledItem):
             tree_item=tree_item,
             event_category=event_category,
             event_name=event_name,
+            task_update_policy=task_update_policy,
             is_background=is_background,
             status=status,
         )
@@ -664,6 +676,7 @@ class RepeatScheduledItem(BaseScheduledItem):
             tree_item=None,
             event_category=None,
             event_name=None,
+            task_update_policy=None,
             is_background=None,
             status=None):
         """Initialise item.
@@ -680,6 +693,8 @@ class RepeatScheduledItem(BaseScheduledItem):
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
+            task_update_policy (ItemUpdatePolicy or None): update policy for
+                linked task.
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
@@ -709,11 +724,16 @@ class RepeatScheduledItem(BaseScheduledItem):
             tree_item=tree_item,
             event_category=event_category,
             event_name=event_name,
+            task_update_policy=task_update_policy,
             is_background=is_background,
             status=status,
         )
         self._instances = OrderedDict()
         self._overridden_instances = {}
+        # TODO: will the below be needed? might be required to make sure that
+        # we don't delete instances that are currently influencing a task? Or
+        # at least to flag up to the user that the edit they're about to do
+        # will cause the deletion of an influence
         self._task_influences = OrderedDict()
 
     @property
@@ -950,19 +970,25 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             scheduled_date,
             override_start_datetime=None,
             override_end_datetime=None,
+            task_update_policy=None,
             tree_item=None,
             status=None):
         """Initialise class.
 
         Args:
             calendar (Calendar): the scheduled item.
-            repeat_scheduled_item (RepeatScheduledItem): the repeat scheduled item
-                that this is an instance of.
+            repeat_scheduled_item (RepeatScheduledItem): the repeat scheduled
+                item that this is an instance of.
             scheduled_date (Date): date this instance is scheduled for.
             override_start_datetime (DateTime or None): start date time to
                 override from repeat_item template.
             override_end_datetime (DateTime): start date time to override from
                 repeat_item template.
+            task_update_policy (ItemUpdatePolicy or None): update policy for
+                linked task.
+            tree_item (BaseTaskItem or None): tree item to associate. Ignored
+                in this case because its inherited from the template item but
+                needs to be passed because of super class from_dict methods.
             status (ItemStatus or None): status of item.
         """
         start_time = None
@@ -980,6 +1006,7 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             end_time=end_time,
             date=date,
             template_item=repeat_scheduled_item,
+            task_update_policy=task_update_policy,
             status=status,
         )
         self._scheduled_date = scheduled_date

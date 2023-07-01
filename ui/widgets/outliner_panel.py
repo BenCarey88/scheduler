@@ -2,7 +2,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from .filter_dialog import FilterDialog
+from scheduler.ui.dialogs import FilterDialog
 from .filter_view import FilterView
 from .outliner import Outliner
 

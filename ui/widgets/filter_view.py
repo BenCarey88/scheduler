@@ -4,7 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.edit.edit_callbacks import CallbackItemType
 
-from .filter_dialog import FilterDialog
+from scheduler.ui.dialogs import FilterDialog
 
 
 class FilterView(QtWidgets.QListView):

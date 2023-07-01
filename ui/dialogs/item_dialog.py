@@ -6,7 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.edit import edit_callbacks
 from scheduler.ui.models.tree import ItemDialogTreeModel
-from .base_tree_view import BaseTreeView
+from scheduler.ui.widgets.base_tree_view import BaseTreeView
 
 
 class ItemDialog(QtWidgets.QDialog):

@@ -36,7 +36,9 @@ class OverlayedWidget(QtWidgets.QStackedWidget):
         Args:
             painter (QtGui.QPainter): the overlay painter.
         """
-        pass
+        raise NotImplementedError(
+            "paint_overlay method must be implemented in subclasses"
+        )
 
     def update(self):
         """Update overlay during update events."""

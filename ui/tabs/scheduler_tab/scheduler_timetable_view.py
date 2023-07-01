@@ -14,7 +14,7 @@ from scheduler.api.edit.edit_callbacks import (
 from scheduler.ui import constants, utils
 from scheduler.ui.models.table import SchedulerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
-from scheduler.ui.widgets.scheduled_item_dialog import ScheduledItemDialog
+from scheduler.ui.dialogs import ScheduledItemDialog
 from .scheduler_widgets import SelectionRect, ScheduledItemWidget
 
 

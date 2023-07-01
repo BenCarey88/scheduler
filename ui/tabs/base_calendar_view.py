@@ -597,7 +597,7 @@ class BaseOverlayedView(BaseCalendarView, OverlayedWidget):
             name,
             project,
             sub_view,
-            parent=parent
+            parent=parent,
         )
 
     def get_subviews(self):

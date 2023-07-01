@@ -10,6 +10,7 @@ from scheduler.api.calendar.scheduled_item import (
     ScheduledItem,
     ScheduledItemType,
 )
+from scheduler.api.enums import ItemUpdatePolicy
 
 from scheduler.ui import utils
 from .item_dialog import ItemDialog
@@ -83,6 +84,7 @@ class ScheduledItemDialog(ItemDialog):
         event_category = scheduled_item.category
         event_name = scheduled_item.name
         is_background = scheduled_item.is_background
+        task_update_policy = scheduled_item.task_update_policy
 
         self.setMinimumSize(900, 700)
         utils.set_style(self, "scheduled_item_dialog.qss")
@@ -137,6 +139,8 @@ class ScheduledItemDialog(ItemDialog):
             QtWidgets.QSizePolicy.Policy.Maximum,
         )
         self.main_layout.addWidget(self.tab_widget)
+
+        # Task Tab
         task_selection_tab = QtWidgets.QWidget()
         task_selection_layout = QtWidgets.QVBoxLayout()
         task_selection_tab.setLayout(task_selection_layout)
@@ -147,6 +151,19 @@ class ScheduledItemDialog(ItemDialog):
         task_selection_layout.addWidget(self.task_label)
         task_selection_layout.addStretch()
 
+        task_update_layout = QtWidgets.QHBoxLayout()
+        task_selection_layout.addLayout(task_update_layout)
+        task_update_label = QtWidgets.QLabel("Task Update Policy")
+        task_update_layout.addWidget(task_update_label)
+        self.cb_task_update_policy = QtWidgets.QComboBox()
+        self.cb_task_update_policy.addItems(
+            ItemUpdatePolicy.get_task_policies()
+        )
+        self.cb_task_update_policy.setCurrentText(task_update_policy)
+        task_update_layout.addWidget(self.cb_task_update_policy)
+        task_selection_layout.addStretch()
+
+        # Event Tab
         event_tab = QtWidgets.QWidget()
         event_layout = QtWidgets.QVBoxLayout()
         event_tab.setLayout(event_layout)
@@ -174,17 +191,21 @@ class ScheduledItemDialog(ItemDialog):
         if is_background:
             self.background_checkbox.setCheckState(2)
         self.main_layout.addWidget(self.background_checkbox)
+        self.background_checkbox.clicked.connect(
+            self._configure_task_update_policy
+        )
 
         self.tab_widget.currentChanged.connect(self.update)
         self.tree_view.selectionModel().currentChanged.connect(
-            self.update
+            self.on_tree_view_changed
         )
-        self.update()
+        self.on_tree_view_changed()
 
-    def update(self):
-        """Update dialog properties."""
+    def on_tree_view_changed(self):
+        """Callback for when a new tree item is selected."""
         if self.tree_item:
             self.task_label.setText(self.tree_item.path)
+        self._configure_task_update_policy()
 
     @property
     def scheduled_item(self):
@@ -308,6 +329,15 @@ class ScheduledItemDialog(ItemDialog):
             return self.event_name_line_edit.text()
 
     @property
+    def task_update_policy(self):
+        """Get task update policy.
+
+        Returns:
+            (ItemUpdatePolicy): task update policy.
+        """
+        return ItemUpdatePolicy(self.cb_task_update_policy.currentText())
+
+    @property
     def is_background(self):
         """Return whether or not this item is a background item.
 
@@ -315,6 +345,14 @@ class ScheduledItemDialog(ItemDialog):
             (bool): whether or not this item is a background item.
         """
         return bool(self.background_checkbox.checkState())
+
+    def _configure_task_update_policy(self):
+        """Configure enabled/disabled state of task update policy combobox."""
+        if (self.is_background or
+                self._tree_manager.is_task_category(self.tree_item)):
+            self.cb_task_update_policy.setEnabled(False)
+        else:
+            self.cb_task_update_policy.setEnabled(True)
 
     def accept_and_close(self):
         """Run add or modify scheduled item edit.
@@ -339,6 +377,7 @@ class ScheduledItemDialog(ItemDialog):
                 tree_item=self.tree_item,
                 event_category=self.category,
                 event_name=self.name,
+                task_update_policy=self.task_update_policy,
                 is_background=self.is_background,
             )
         else:
@@ -352,6 +391,7 @@ class ScheduledItemDialog(ItemDialog):
                     tree_item=self.tree_item,
                     event_category=self.category,
                     event_name=self.name,
+                    task_update_policy=self.task_update_policy,
                     is_background=self.is_background,
                     planned_item=self._planned_item,
                 )
@@ -365,6 +405,7 @@ class ScheduledItemDialog(ItemDialog):
                     tree_item=self.tree_item,
                     event_category=self.category,
                     event_name=self.name,
+                    task_update_policy=self.task_update_policy,
                     is_background=self.is_background,
                     repeat_pattern=self.repeat_pattern,
                     planned_item=self._planned_item,

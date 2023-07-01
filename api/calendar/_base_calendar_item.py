@@ -27,17 +27,25 @@ class BaseCalendarItem(Hosted, NestedSerializable):
     CHILDREN_KEY = "children"
     TREE_ITEM_KEY = "tree_item"
     STATUS_KEY = "status"
+    TASK_UPDATE_POLICY_KEY = "task_update_policy"
     ID_KEY = "id"
 
     _SERIALIZE_TREE_ITEM = True
 
-    def __init__(self, calendar, tree_item=None, status=None):
+    def __init__(
+            self,
+            calendar,
+            tree_item=None,
+            status=None,
+            task_update_policy=None):
         """Initialize class.
 
         Args:
             calendar (Calendar): the calendar object.
             tree_item (BaseTaskItem or None): tree item to associate, if used.
             status (ItemStatus or None): status of item, if given.
+            task_update_policy (ItemUpdatePolicy or None): update policy for
+                linked task.
         """
         super(BaseCalendarItem, self).__init__()
         self._calendar = calendar
@@ -57,7 +65,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             "status_from_children",
         )
         self._task_update_policy = MutableAttribute(
-            ItemUpdatePolicy.IN_PROGRESS,
+            task_update_policy or ItemUpdatePolicy.IN_PROGRESS,
             "task_update_policy",
         )
         self._from_children_update_policy = MutableAttribute(
@@ -105,7 +113,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             (ItemStatus): status of item.
         """
         return max(self._status.value, self._status_from_children.value)
-        # NOTE: just noting this here so I don't forget. There's a very
+        # TODO: just noting this here so I don't forget. There's a very
         # minor issue with this setup in that the _status value no longer
         # always accurately represents the status value. This means that
         # when we edit planned items' or scheduled items' statuses and
@@ -118,6 +126,12 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         # influenced as unstarted. This shouldn't be an issue in most cases
         # because the child item should still be influencing the task as
         # in_progress but it's slightly inaccurate all the same.
+        #
+        # it also means that edits don't propagate through, ie. if we update
+        # status of child and that updates the parent to complete, this won't
+        # influence the task from the parent. Again, this is only an issue
+        # if the child has a different ItemUpdatePolicy to the parent, but
+        # it does still lead to some potential confusion.
         #
         # If do decide it's an issue, we can fix it with some logic in
         # the _get_task_history_edits function to ensure we compare against
@@ -323,11 +337,15 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             dict_repr.get(cls.TREE_ITEM_KEY),
             search_archive=True,
         )
+        task_update_policy = dict_repr.get(cls.TASK_UPDATE_POLICY_KEY)
+        if task_update_policy is not None:
+            task_update_policy = ItemUpdatePolicy(task_update_policy)
         class_instance = cls(
             calendar,
             *init_args,
             tree_item=tree_item,
             status=status,
+            task_update_policy=task_update_policy,
             **init_kwargs,
         )
         class_instance._activate()
@@ -366,4 +384,6 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             dict_repr[self.CHILDREN_KEY] = [
                 child._get_id() for child in self._children
             ]
+        if self.task_update_policy != ItemUpdatePolicy.IN_PROGRESS:
+            dict_repr[self.TASK_UPDATE_POLICY_KEY] = self.task_update_policy
         return dict_repr

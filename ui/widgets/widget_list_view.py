@@ -38,12 +38,20 @@ class WidgetListView(QtWidgets.QListView):
     WIDGET_MARGIN_BUFFER = 2
     SCROLL_BAR_STEP = 20
 
-    def __init__(self, widget_list, item_spacing=None, parent=None):
+    def __init__(
+            self,
+            widget_list,
+            item_spacing=None,
+            inbetween_widget_factory=None,
+            parent=None):
         """Initialize class instance.
 
         Args:
             widget_list (list(QtWidgets.QWidget)): list of widgets to show.
-            item_spacing (int): vertical spacing for widgets.
+            item_spacing (int or None): vertical spacing for widgets, if used.
+            inbetween_widget_factory (class, function or None): if given, this
+                is passed to the spacer class and used to create widgets.
+                These widgets will appear inbetween each widget in the list.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(WidgetListView, self).__init__(parent=parent)
@@ -53,13 +61,19 @@ class WidgetListView(QtWidgets.QListView):
         self.setVerticalScrollMode(self.ScrollMode.ScrollPerPixel)
         self.verticalScrollBar().setSingleStep(self.SCROLL_BAR_STEP)
         self._widget_data_list = WidgetDataList()
-        self._has_spacers = (item_spacing is not None)
-        self._item_spacing = item_spacing
+        self._has_spacers = (
+            item_spacing is not None or inbetween_widget_factory is not None
+        )
+        self._item_spacing = item_spacing or 0
+        self._spacer_widget_factory = inbetween_widget_factory
         for i, widget in enumerate(widget_list):
             if self._has_spacers:
-                self._widget_data_list.append(
-                    WidgetData(Spacer(item_spacing, enable=(i!=0)))
+                spacer = Spacer(
+                    self._item_spacing,
+                    enable=(i!=0),
+                    widget_factory=inbetween_widget_factory,
                 )
+                self._widget_data_list.append(WidgetData(spacer))
             self._widget_data_list.append(WidgetData(widget))
 
         model = WidgetListModel(self._widget_data_list)
@@ -110,7 +124,7 @@ class WidgetListView(QtWidgets.QListView):
 
         Args:
             index (int): index to check at. This allows negative indexes
-                too, in thesame way as negative list indexing works.
+                too, in the same way as negative list indexing works.
             filtered (bool): if True, only use filtered widgets.
             include_spacers (bool): if True, include spacer widgets.
 
@@ -176,7 +190,12 @@ class WidgetListView(QtWidgets.QListView):
             return
         widget_data = WidgetData(widget)
         if self._has_spacers:
-            spacer = WidgetData(Spacer(self._item_spacing))
+            spacer = WidgetData(
+                Spacer(
+                    self._item_spacing,
+                    widget_factory=self._spacer_widget_factory,
+                )
+            )
             self.model().insert_widgets(2 * row, [spacer, widget_data])
             self._configure_spacers()
             self.open_editor(2 * row)
@@ -445,45 +464,86 @@ class WidgetListModel(QtCore.QAbstractListModel):
 
 class Spacer(QtWidgets.QFrame):
     """Simple widget to act as a spacer in the widget list."""
-    def __init__(self, spacing, enable=True, parent=None):
+    def __init__(self, spacing, enable=True, widget_factory=None, parent=None):
         """Initalize.
 
         Args:
             spacing (int): spacing to set.
             enable (bool): whether or not to enable the item.
+            widget_factory (class, function or None): if given, this spacer
+                houses a widget in it. In this case, the spacing defines the
+                space on each side of the widget.
             parent (QtWidgets.QWidget or None): parent item.
         """
         super(Spacer, self).__init__(parent=parent)
         self._spacing = spacing
+        self._widget_factory = widget_factory
+        self._spacers = [None, None]
+        self._widget = None
+
         self._main_layout = QtWidgets.QVBoxLayout()
         self._main_layout.setContentsMargins(0, 0, 0, 0)
         self._main_layout.setSpacing(0)
         self.setLayout(self._main_layout)
-        self._add_spacer(spacing if enable else 0)
+        if enable:
+            self.enable()
+        else:
+            self.disable()
 
-    def _add_spacer(self, spacing):
+    def _add_spacer(self, index, spacing):
         """Add spacer item.
 
         Args:
+            index (int): which spacer to add (1 or 2).
             spacing (int): spacing for item.
         """
-        self._spacer = QtWidgets.QSpacerItem(spacing, spacing)
-        self._main_layout.addSpacerItem(self._spacer)
+        if self._spacers[index] is not None:
+            return
+        self._spacers[index] = QtWidgets.QSpacerItem(spacing, spacing)
+        self._main_layout.addSpacerItem(self._spacers[index])
 
-    def _remove_spacer(self):
-        """Remove spacer item."""
-        self._main_layout.removeItem(self._spacer)
-        self._spacer = None
+    def _add_widget(self):
+        """Add widget to layout."""
+        if self._widget is not None or self._widget_factory is None:
+            return
+        self._widget = self._widget_factory()
+        self._main_layout.addWidget(self._widget)
+
+    def _remove_spacer(self, index):
+        """Remove spacer item.
+
+        Args:
+            index (int): which spacer to remove (1 or 2).
+        """
+        if self._spacers[index] is None:
+            return
+        self._main_layout.removeItem(self._spacers[index])
+        self._spacers[index] = None
+
+    def _remove_widget(self):
+        """Add widget to layout."""
+        if self._widget is None:
+            return
+        self._main_layout.removeWidget(self._widget)
+        self._widget = None
 
     def enable(self):
         """Enable spacer."""
-        self._remove_spacer()
-        self._add_spacer(self._spacing)
+        self._remove_spacer(0)
+        self._add_spacer(0, self._spacing)
+        if self._widget_factory is not None:
+            self._add_widget()
+            self._add_spacer(1, self._spacing)
 
     def disable(self):
         """Disable spacer."""
-        self._remove_spacer()
-        self._add_spacer(0)
+        self._remove_spacer(0)
+        if self._widget_factory is not None:
+            self._remove_widget()
+            self._remove_spacer(1)
+        # add an empty spacer (I think this stops the frame from defaulting
+        # to a larger size? Or maybe it's not needed, not fully sure)
+        self._add_spacer(0, 0)
 
 
 class WidgetListDelegate(QtWidgets.QStyledItemDelegate):

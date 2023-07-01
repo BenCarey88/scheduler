@@ -63,10 +63,10 @@ class PlannedItemDialog(ItemDialog):
 
         self.task_label = QtWidgets.QLabel()
         self.main_layout.addWidget(self.task_label)
-        self.update()
+        self.on_tree_view_changed()
 
-    def update(self):
-        """Update dialog properties."""
+    def on_tree_view_changed(self):
+        """Callback for when a new tree item is selected."""
         if self.tree_item:
             self.task_label.setText(self.tree_item.path)
 

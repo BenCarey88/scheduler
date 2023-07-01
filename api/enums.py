@@ -192,6 +192,15 @@ class ItemUpdatePolicy(OrderedStringEnum):
     COMPLETE = "Complete"
     OVERRIDE = "Override"
 
+    @classmethod
+    def get_task_policies(cls):
+        """Get policies specific to tasks.
+
+        Returns:
+            (list(ItemUpdatePolicy)): list of task update policies.
+        """
+        return [cls.NO_UPDATE, cls.IN_PROGRESS, cls.COMPLETE]
+
     def get_new_status(self, status_):
         """Get new status to give linked item based on original item status.
 

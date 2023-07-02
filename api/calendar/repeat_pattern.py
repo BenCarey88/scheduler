@@ -120,6 +120,15 @@ class RepeatPattern(NestedSerializable):
             (Date): date repeat pattern starts at.
         """
         return self._initial_date_pattern[0]
+    
+    @property
+    def end_date(self):
+        """Get end date of repeat pattern, if one exists.
+
+        Returns:
+            (Date or None): end date of pattern, if exists.
+        """
+        return self._end_date
 
     @property
     def repeat_type(self):
@@ -237,6 +246,9 @@ class RepeatPattern(NestedSerializable):
                     initial_date + self._gap * self._gap_multiplier
                 )
             self._gap_multiplier += 1
+        # NOTE that this means that self._dates MAY contain dates
+        # slightly beyond end_date, so this needs to be taken into
+        # account in check_date and dates_between methods
 
     def check_date(self, date):
         """Check if the repeating item will fall on the given date.
@@ -248,7 +260,9 @@ class RepeatPattern(NestedSerializable):
             (bool): whether or not item falls on given date.
         """
         self._update_to_date(date)
-        return date in self._dates
+        if self._end_date is not None and date > self._end_date:
+            return False
+        return (date in self._dates)
 
     def dates_between(self, start_date, end_date):
         """Get dates in repeating pattern between the two given dates.
@@ -266,10 +280,29 @@ class RepeatPattern(NestedSerializable):
         for date in self._dates:
             if date < start_date:
                 continue
+            if date > self._end_date:
+                # self._dates may contain dates > self._end_date - we need to
+                # skip these as they are not actually part of the pattern
+                break
             elif start_date <= date <= end_date:
                 yield date
             else:
                 break
+
+    def check_end_date_validity(self):
+        """Check whether end date is valid.
+
+        Returns:
+            (bool): whether end date is valid or not. The end date is invalid
+                if it is too early and hence before one of the initial dates.
+        """
+        if self._end_date is None:
+            # having no end date is always valid
+            return True
+        for date in self._initial_date_pattern:
+            if self._end_date < date:
+                return False
+        return True
 
     def summary_string(self):
         """Get string summarising the repeat pattern to display in ui.

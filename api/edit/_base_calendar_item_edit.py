@@ -9,7 +9,9 @@ from .task_edit import UpdateTaskHistoryEdit
 
 
 # TODO use this for scheduled item edits and planned item edits in
-# place of the separate ones we currently have
+# place of the separate ones we currently have?
+# ALTHOUGH: the scheduled item edits already have two separate ones anyway
+# so it may be more trouble than it's worth to try to make that change
 def _get_task_history_edits(ci, ad):
     """Get edits to update linked task history of edited calendar item.
 

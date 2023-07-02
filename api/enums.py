@@ -200,6 +200,8 @@ class ItemUpdatePolicy(OrderedStringEnum):
             (list(ItemUpdatePolicy)): list of task update policies.
         """
         return [cls.NO_UPDATE, cls.IN_PROGRESS, cls.COMPLETE]
+        # NOTE: we can't currently use the OVERRIDE method here for repeat
+        # scheduled item instances (see discussion in schedule edits)
 
     def get_new_status(self, status_):
         """Get new status to give linked item based on original item status.

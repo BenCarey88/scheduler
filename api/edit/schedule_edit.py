@@ -6,7 +6,7 @@ Friend classes: [Calendar, CalendarPeriod, ScheduledItem]
 from scheduler.api.common.date_time import DateTime
 from scheduler.api.utils import fallback_value
 
-from ._container_edit import ListEdit, ContainerOp, ContainerEditFlag
+from ._container_edit import DictEdit, ListEdit, ContainerOp, ContainerEditFlag
 from ._core_edits import (
     ActivateHostedDataEdit,
     AttributeEdit,
@@ -134,6 +134,21 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             keep_last_for_inverse=None):
         """Initialise edit.
 
+        The edit order is:
+            1) attribute edit
+            2) update parent statuses from children if needed
+            3) task history edit
+            4) add or remove override instances
+            5) any subedits passed from superclass
+
+        The inverse edit order is:
+            5) subedits from superclass, except those in keep_last_for_inverse
+            4) add or remove override instances
+            3) task history edit
+            2) update parent statuses from children if needed
+            1) subedits from superclass, except those in keep_last_for_inverse
+            6) any edits passed as keep_last_for_inverse
+
         Args:
             scheduled_item (BaseScheduledItem): scheduled item to edit.
             attr_dict (dict(MutableAttribute, variant)): attributes to change.
@@ -149,13 +164,17 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             self._original_attrs[attr] = attr.value
         subedits = subedits or []
 
-        # attribute edit
+        # 1) attribute edit
         self._attribute_edit = AttributeEdit.create_unregistered(attr_dict)
         subedits.insert(0, self._attribute_edit)
-        # task history update edit
+
+        # 5) add or remove overrides if needed
+        subedits[1:1] = self._get_override_update_edits()
+
+        # 4) task history update edit
         subedits[1:1] = self._get_task_history_edits()
 
-        # update statuses from children if needed
+        # 3) update statuses from children if needed
         if scheduled_item._status in attr_dict:
             for parent in scheduled_item._parents:
                 subedits[1:1] = [
@@ -189,6 +208,33 @@ class BaseModifyScheduledItemEdit(CompositeEdit):
             attr for attr, value in self._attr_dict.items()
             if self._original_attrs.get(attr) != value
         ])
+
+    # TODO: use this in _get_task_history_edits?
+    def _get_new_attr(self, attr, fallback=None):
+        """Convenience method to get value of attribute after the edit.
+
+        Args:
+            attr (MutableAttribute): attribute of the scheduled item.
+            fallback (variant): the current value of that attribute on
+                the item. This is only needed for cases where the property
+                method is defined weirdly. Most of the time, we cn just
+                use attr.value to get the current value.
+        """
+        return fallback_value(
+            self._attr_dict.get(attr),
+            fallback_value(fallback, attr.value),
+        )
+
+    def _get_override_update_edits(self):
+        """Get edits to add or remove overrides.
+
+        This is used by repeat items and repeat scheduled items and must be
+        overridden in these edit classes.
+
+        Returns:
+            (List(BaseEdit)): list of edits to update overrides.
+        """
+        return []
 
     def _get_task_history_edits(self):
         """Get edits to update linked task history.
@@ -275,7 +321,8 @@ class ModifyScheduledItemEdit(BaseModifyScheduledItemEdit):
         subedits = []
         self._remove_edit = None
         self._add_edit = None
-        if scheduled_item._date in attr_dict:
+        if (scheduled_item._date in attr_dict and
+                attr_dict[scheduled_item._date] != scheduled_item.date):
             new_date = attr_dict[scheduled_item._date]
             # remove items from old container and add to new one
             self._remove_edit = ListEdit.create_unregistered(
@@ -309,26 +356,68 @@ class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
         """
         subedits = []
         keep_last_for_inverse = []
-        if scheduled_item._repeat_pattern in attr_dict:
+
+        si = scheduled_item
+        # if repeat pattern is updated, instances need to be recalculated
+        if (scheduled_item._repeat_pattern in attr_dict): #and
+                #atrr_dict[si._repeat_pattern] != si.repeat_pattern):
             clear_instances = SelfInverseSimpleEdit.create_unregistered(
                 scheduled_item._clear_instances,
             )
             subedits.append(clear_instances)
             keep_last_for_inverse.append(clear_instances)
-        elif (scheduled_item._start_time in attr_dict
-                or scheduled_item._end_time in attr_dict
-                or scheduled_item._status in attr_dict):
-            clean_overrides = SelfInverseSimpleEdit.create_unregistered(
-                scheduled_item._clean_overrides,
-            )
-            subedits.append(clean_overrides)
-            keep_last_for_inverse.append(clean_overrides)
+
         super(ModifyRepeatScheduledItemEdit, self).__init__(
             scheduled_item,
             attr_dict,
             subedits=subedits,
             keep_last_for_inverse=keep_last_for_inverse,
         )
+
+    def _get_override_update_edits(self):
+        """Get edit to remove overrides.
+
+        This checks whether items are still overrides or not and removes
+        them as needed. Overrides need to be removed if they are overridden
+        from dates that no longer exist in the repeat pattern, or if they
+        no longer represent overrides.
+
+        Returns:
+            (list(BaseEdit)): edits to remove overrides, if needed.
+        """
+        overrides_dict = self._scheduled_item._overridden_instances
+        si = self._scheduled_item
+        new_repeat_pattern = self._get_new_attr(si._repeat_pattern)
+        new_start_time = self._get_new_attr(si._start_time)
+        new_end_time = self._get_new_attr(si._end_time)
+        new_status = self._get_new_attr(si._status)
+
+        override_removal_edits = []
+        diff_dict = {}
+        for date, instance in overrides_dict.items():
+            # remove and deactivate if date no longer in repeat pattern
+            if not new_repeat_pattern.check_date(date):
+                diff_dict[instance.scheduled_date] = None
+                deactivate_edit = DeactivateHostedDataEdit.create_unregistered(
+                    instance
+                )
+                override_removal_edits.append(deactivate_edit)
+            # or just remove it if it's no longer an override
+            elif not instance.is_override(
+                    template_start_time=new_start_time,
+                    template_end_time=new_end_time,
+                    template_status=new_status):
+                diff_dict[instance.scheduled_date] = None
+
+        if diff_dict:
+            removal_edit = DictEdit.create_unregistered(
+                overrides_dict,
+                diff_dict,
+                ContainerOp.REMOVE,
+            )
+            override_removal_edits.insert(0, removal_edit)
+
+        return override_removal_edits
 
     def _get_task_history_edits(self):
         """Reimplement task history update edits.
@@ -348,17 +437,17 @@ class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
         # if item no longer exists after edit, remove its history
         if si._repeat_pattern in ad:
             repeat_pattern = ad[si._repeat_pattern]
-            for item, task, date_time in si._iter_influences():
-                if not repeat_pattern.check_date(item.scheduled_end_datetime):
+            for instance, task, date_time in si._iter_influences():
+                if not repeat_pattern.check_date(instance.scheduled_date):
                     history_removal_edit = (
                         UpdateTaskHistoryEdit.create_unregistered(
                             task,
-                            item,
+                            instance,
                             old_datetime=date_time,
                         )
                     )
                     edits.append(history_removal_edit)
-                    removed_instances.append(item)
+                    removed_instances.append(instance)
         # if item does exist after edit and its influence changes, edit it
         if si._task_update_policy in ad:
             update_policy = ad[si._task_update_policy]
@@ -374,17 +463,18 @@ class ModifyRepeatScheduledItemEdit(BaseModifyScheduledItemEdit):
                     new_template_tree_item=ad.get(si._tree_item),
                 )
                 old_task_status = task.history.get_influenced_status(
-                    instance,
                     date_time,
+                    instance,
                 )
                 new_task_status = update_policy.get_new_status(instance.status)
                 if old_task_status != new_task_status:
                     history_edit = UpdateTaskHistoryEdit.create_unregistered(
                         task,
-                        item,
+                        instance,
                         old_datetime=date_time,
                         new_datetime=date_time,
                         new_status=new_task_status,
+                        remove_status=(new_task_status is None),
                     )
                     edits.append(history_edit)
         return edits
@@ -405,15 +495,6 @@ class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
         """
         subedits = []
         keep_last_for_inverse=[]
-        if (scheduled_item._date in attr_dict
-                or scheduled_item._start_time in attr_dict
-                or scheduled_item._end_time in attr_dict
-                or scheduled_item._status in attr_dict):
-            compute_override = SelfInverseSimpleEdit.create_unregistered(
-                scheduled_item._compute_override,
-            )
-            subedits.append(compute_override)
-            keep_last_for_inverse.append(compute_override)
         super(ModifyRepeatScheduledItemInstanceEdit, self).__init__(
             scheduled_item,
             attr_dict,
@@ -421,11 +502,54 @@ class ModifyRepeatScheduledItemInstanceEdit(BaseModifyScheduledItemEdit):
             keep_last_for_inverse=keep_last_for_inverse,
         )
 
+    def _get_override_update_edits(self):
+        """Get edit to add or remove overrides.
+
+        This checks whether this is still an override and removes if not.
+
+        Returns:
+            (list(BaseEdit)): edits to remove overrides, if needed.
+        """
+        si = self._scheduled_item
+        ri = si.repeat_scheduled_item
+        overrides_dict = ri._overridden_instances
+
+        new_date = self._get_new_attr(si._date)
+        new_start_time = self._get_new_attr(si._start_time)
+        new_end_time = self._get_new_attr(si._end_time)
+        new_status = self._get_new_attr(si._status)
+
+        is_override = si.is_override(
+            instance_date=new_date,
+            instance_start_time=new_start_time,
+            instance_end_time=new_end_time,
+            instance_status=new_status,
+        )
+        if not is_override and si in overrides_dict.values():
+            # remove edit if no longer an override
+            return [
+                DictEdit.create_unregistered(
+                    overrides_dict,
+                    {si.scheduled_date: None},
+                    ContainerOp.REMOVE,
+                )
+            ]
+        if is_override and si not in overrides_dict.values():
+            # add edit if it's become an override
+            return [
+                DictEdit.create_unregistered(
+                    overrides_dict,
+                    {si.scheduled_date: si},
+                    ContainerOp.ADD,
+                )
+            ]
+        return []
+
     def _modified_attrs(self):
         """Get set of all attributes that are modified by edit.
 
-        This ensures that overriding to the scheduled time isn't
-        considered a valid edit if we started at the scheduled time
+        This ensures that overriding to the scheduled date/time isn't
+        considered a valid edit if we started at the scheduled date/time
         already.
 
         Returns:

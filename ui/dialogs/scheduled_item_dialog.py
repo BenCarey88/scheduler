@@ -4,7 +4,7 @@
 from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import Date, DateTime, Time
+from scheduler.api.common.date_time import Date, DateTime, Time, TimeDelta
 from scheduler.api.calendar.repeat_pattern import RepeatPattern
 from scheduler.api.calendar.scheduled_item import (
     ScheduledItem,
@@ -95,7 +95,10 @@ class ScheduledItemDialog(ItemDialog):
             QtCore.QDate(date.year, date.month, date.day)
         )
 
-        self.repeat_pattern_widget = RepeatPatternWidget(repeat_pattern)
+        self.repeat_pattern_widget = RepeatPatternWidget(
+            repeat_pattern,
+            start_date=date,
+        )
         self.main_layout.addWidget(self.repeat_pattern_widget)
 
         self.time_editors = {
@@ -354,18 +357,36 @@ class ScheduledItemDialog(ItemDialog):
         else:
             self.cb_task_update_policy.setEnabled(True)
 
+    def _get_invalid_repeat_pattern_message(self):
+        """Check if repeat pattern is invalid and return message if so.
+
+        Returns:
+            (str or None): message explaining why repeat pattern is invalid,
+                if it is, else None.
+        """
+        if not self.is_repeat:
+            return None
+        repeat_pattern = self.repeat_pattern
+        if repeat_pattern is None:
+            return "Repeat pattern must include some days"
+        if not repeat_pattern.check_end_date_validity():
+            return "End date is too early - must be after all initial dates"
+
     def accept_and_close(self):
         """Run add or modify scheduled item edit.
 
         Called when user clicks accept.
         """
-        if self.is_repeat and self.repeat_pattern is None:
+        message = self._get_invalid_repeat_pattern_message()
+        if message is not None:
             utils.simple_message_dialog(
-                "Repeat pattern given is invalid.",
+                "Repeat pattern given is invalid:\n\n{0}".format(message),
                 parent=self
             )
             return
         if self.is_editor:
+            # TODO: AT THE MOMENT MODIFYING REPEAT ITEMS IS DELETING ALL
+            # OVERRIDES! fix this
             self._schedule_manager.modify_scheduled_item(
                 self.scheduled_item,
                 self.is_repeat,
@@ -422,18 +443,22 @@ class ScheduledItemDialog(ItemDialog):
 
 
 # TODO: update to allow non-week repeat patterns
+# TODO: also this currently only allows single week gaps in patterns,
+# update to allow multiple weeks, and different days for each one.
 class RepeatPatternWidget(QtWidgets.QWidget):
     """Widget describing the repeat pattern."""
 
-    def __init__(self, repeat_pattern=None, parent=None):
+    def __init__(self, repeat_pattern=None, start_date=None, parent=None):
         """Initialise widget.
 
         Args:
-            repeat_pattern (RepeatPattern or None): repeat pattern
-                to initialise, if one already exists.
+            repeat_pattern (RepeatPattern or None): repeat pattern to
+                initialise, if one already exists.
+            start_date (Date or None): if given, and repeat pattern isn't,
+                use this to set a lower bound on the end date.
             parent (QtWidgets.QWidget): parent widget, if one exists.
         """
-        super(RepeatPatternWidget, self).__init__()
+        super(RepeatPatternWidget, self).__init__(parent=parent)
         # TODO: make separate stylesheet for this
         self.setStyleSheet(
             """
@@ -449,18 +474,20 @@ class RepeatPatternWidget(QtWidgets.QWidget):
         outer_layout = QtWidgets.QVBoxLayout()
         self.setLayout(outer_layout)
 
-        self.enabled_checkbox = QtWidgets.QCheckBox()
-        self.enabled_checkbox.setText("Repeat Instance")
+        # Checkbox to enable/disable the framed subwidget
+        self.enabled_checkbox = QtWidgets.QCheckBox("Repeat Instance")
         outer_layout.addWidget(self.enabled_checkbox)
         self.enabled_checkbox.stateChanged.connect(self.toggle_active_status)
 
-        # TODO: this currently only allows single week gaps in patterns,
-        # update to allow multiple weeks, and different days for each one.
-        self.buttons_widget = QtWidgets.QFrame()
+        # Framed subwidget layout
+        self.framed_widget = QtWidgets.QFrame()
+        frame_layout = QtWidgets.QVBoxLayout()
         buttons_layout = QtWidgets.QHBoxLayout()
-        outer_layout.addWidget(self.buttons_widget)
-        self.buttons_widget.setLayout(buttons_layout)
+        frame_layout.addLayout(buttons_layout)
+        self.framed_widget.setLayout(frame_layout)
+        outer_layout.addWidget(self.framed_widget)
 
+        # Weekday buttons
         self.weekday_buttons = OrderedDict()
         for day in Date.WEEKDAYS:
             weekday_button = QtWidgets.QPushButton(day[0])
@@ -470,7 +497,37 @@ class RepeatPatternWidget(QtWidgets.QWidget):
             buttons_layout.addWidget(weekday_button)
             self.weekday_buttons[day] = weekday_button
 
-        enabled = repeat_pattern is not None
+        # Checkbox to enable/disable end date
+        end_date_layout = QtWidgets.QHBoxLayout()
+        end_date_layout.addStretch()
+        frame_layout.addLayout(end_date_layout)
+        self.end_date_enabled_checkbox = QtWidgets.QCheckBox("End Date")
+        self.end_date_enabled_checkbox.stateChanged.connect(
+            self.toggle_end_date_active_status
+        )
+        end_date_layout.addWidget(self.end_date_enabled_checkbox)
+
+        # End date combobox
+        self.cb_end_date = QtWidgets.QDateEdit()
+        end_date_layout.addWidget(self.cb_end_date)
+        end_date_enabled = (
+            repeat_pattern is not None and repeat_pattern.end_date is not None
+        )
+        if end_date_enabled:
+            self.end_date_enabled_checkbox.setCheckState(True)
+            end_date = repeat_pattern.end_date
+            self.cb_end_date.setDate(
+                QtCore.QDate(end_date.year, end_date.month, end_date.day)
+            )
+        elif start_date is not None:
+            next_week = (start_date + TimeDelta(weeks=1))
+            self.cb_end_date.setDate(
+                QtCore.QDate(next_week.year, next_week.month, next_week.day)
+            )
+        self.toggle_end_date_active_status(end_date_enabled)
+
+        # Show or hide framed widget based on enabled checkbox
+        enabled = (repeat_pattern is not None)
         if enabled:
             self.enabled_checkbox.setChecked(True)
             if repeat_pattern.repeat_type == repeat_pattern.WEEK_REPEAT:
@@ -489,9 +546,19 @@ class RepeatPatternWidget(QtWidgets.QWidget):
         """
         self._is_enabled = bool(enabled)
         if enabled:
-            self.buttons_widget.show()
+            self.framed_widget.show()
         else:
-            self.buttons_widget.hide()
+            self.framed_widget.hide()
+
+    def toggle_end_date_active_status(self, enabled):
+        """Toggle active status of end date edit box.
+
+        Args:
+            enabled (int): current state of end date checkbox widget,
+                representing whether or not it is enabled.
+        """
+        self._end_date_enabled = bool(enabled)
+        self.cb_end_date.setEnabled(enabled)
 
     @property
     def is_enabled(self):
@@ -518,4 +585,13 @@ class RepeatPatternWidget(QtWidgets.QWidget):
         ]
         if not weekdays:
             return None
-        return RepeatPattern.week_repeat(date, weekdays)
+        end_date = None
+        if self._end_date_enabled:
+            end_date = self.cb_end_date.date()
+            end_date = Date(end_date.year(), end_date.month(), end_date.day())
+
+        return RepeatPattern.week_repeat(
+            date,
+            weekdays,
+            end_date=end_date,
+        )

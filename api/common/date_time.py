@@ -91,7 +91,7 @@ class TimeDelta(object):
                 days=days,
                 hours=hours,
                 minutes=minutes,
-                seconds=seconds
+                seconds=seconds,
             )
 
     def __eq__(self, time_delta):
@@ -851,9 +851,7 @@ class Date(BaseDateTimeWrapper):
                 new_year = self.year + time_delta._years + additional_years
                 date = datetime.date(new_year, new_month, self.day)
             # and now add rest of datetime.
-            return Date(
-                _date=(date + time_delta._timedelta_obj)
-            )
+            return Date(_date=(date + time_delta._timedelta_obj))
 
     def __sub__(self, timedelta_or_date):
         """Subtract time_delta or date from date object.

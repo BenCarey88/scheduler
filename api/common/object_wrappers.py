@@ -174,7 +174,7 @@ class Hosted(object):
         self._driven_paired_data_containers = {}
 
     @classmethod
-    def init_and_activate(cls, *args, **kwargs):
+    def create_and_activate(cls, *args, **kwargs):
         """Initialize class and then activate it.
 
         When a hosted data instance isn't initialized from a dict, or made
@@ -1028,8 +1028,16 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         Returns:
             (HostedDataList): shallow copy of self.
         """
+        # TODO copy currently gives a snapshot of the current state of
+        # the dictionary (which is fine for all uses we have currently)
+        # - if we copy a list, then reactivate one of the inactive members
+        # of that list, the member won't be reactivated in the copied list
+        # too. I think intuitively it makes more sense if we allow adding
+        # defunct hosted data to these hosted data containers as well and
+        # then just ignore them until they're activated. It's a potentially
+        # big change though so for now will leave as is.
         return HostedDataList(
-            self._list,
+            list(self._iter_filtered()),
             pairing_id=self._pairing_id,
             parent=self._parent,
             filter=self._filter,
@@ -1046,7 +1054,7 @@ class HostedDataList(_BaseHostedContainer, MutableSequence):
         # NOTE: not sure how deepcopys will work with hosted objects
         # so will need to test if I ever use this
         return HostedDataList(
-            [deepcopy(item) for item in self._list],
+            [deepcopy(item) for item in self._iter_filtered()],
             pairing_id=self._pairing_id,
             parent=self._parent,
             filter=self._filter,
@@ -1401,8 +1409,16 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         Returns:
             (HostedDataList): shallow copy of self.
         """
+        # TODO copy currently gives a snapshot of the current state of
+        # the dictionary (which is fine for all uses we have currently)
+        # - if we copy a dict, then reactivate one of the inactive members
+        # of that dict, the member won't be reactivated in the copied dict
+        # too. I think intuitively it makes more sense if we allow adding
+        # defunct hosted data to these hosted data containers as well and
+        # then just ignore them until they're activated. It's a potentially
+        # big change though so for now will leave as is.
         return HostedDataDict(
-            OrderedDict(zip(self._key_list, self._value_list)),
+            OrderedDict(self._iter_filtered()),
             host_keys=self._keys_are_hosted,
             host_values=self._values_are_hosted,
             pairing_id=self._pairing_id,
@@ -1422,10 +1438,8 @@ class HostedDataDict(_BaseHostedContainer, MutableMapping):
         # NOTE: not sure how deepcopys will work with hosted objects
         # so will need to test if I ever use this
         internal_dict = OrderedDict(
-            zip(
-                [deepcopy(key) for key in self._key_list],
-                [deepcopy(value) for value in self._value_list],
-            )
+            (deepcopy(key), deepcopy(value))
+            for key, value in self._iter_filtered()
         )
         return HostedDataDict(
             internal_dict,

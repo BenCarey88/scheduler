@@ -17,6 +17,7 @@ from scheduler.api.common.object_wrappers import (
     MutableAttribute,
     MutableHostedAttribute,
 )
+from scheduler.api.common.timeline import TimelineDict
 from scheduler.api.serialization import item_registry
 from scheduler.api.serialization.serializable import (
     NestedSerializable,
@@ -809,15 +810,16 @@ class RepeatScheduledItem(BaseScheduledItem):
                 self._instances[_date] = self._overridden_instances[_date]
             else:
                 # otherwise create new instance
-                self._instances[_date] = RepeatScheduledItemInstance(
-                    self._calendar,
-                    self,
-                    _date,
+                self._instances[_date] = (
+                    RepeatScheduledItemInstance.create_and_activate(
+                        self._calendar,
+                        self,
+                        _date,
+                    )
                 )
-                # since repeat instances aren't added directly as edits, we
+                # ^since repeat instances aren't added directly as edits, we
                 # need to activate them to make the hosted data stuff work
                 # TODO: look over this, it's a bit unnerving and messy
-                self._instances[_date]._activate()
 
         # now find the instances at the current date (scheduled or overridden)
         instances_at_date = []
@@ -829,26 +831,29 @@ class RepeatScheduledItem(BaseScheduledItem):
                 instances_at_date.append(instance)
         return instances_at_date
 
-    def _clean_overrides(self):
-        """Remove overrides that no longer apply.
+    #TODO delete, I've just switched this out in the edit method for a
+    # DictEdit, remove this function assuming we don't get bugs with the new
+    # edit setup
+    # def _clean_overrides(self):
+    #     """Remove overrides that no longer apply.
 
-        This should be called after the repeat pattern or times are changed,
-        to remove ghost overrides. Overrides should be removed if they meet
-        one of the following criteria:
-            - their initial scheduled date no longer falls in the repeat
-                pattern (in this case, they're not only no longer overrides
-                but in fact no longer instances and so should be deactivated).
-            - their attributes no longer override the templated attributes.
-        """
-        override_tuples = list(self._overridden_instances.items())
-        for scheduled_date, instance in override_tuples:
-            if not self.repeat_pattern.check_date(scheduled_date):
-                # TODO: look over this, it's a bit unnerving and messy
-                # to be manually deactivating so often
-                self._overridden_instances[scheduled_date]._deactivate()
-                del self._overridden_instances[scheduled_date]
-            elif not instance.is_override():
-                del self._overridden_instances[scheduled_date]
+    #     This should be called after the repeat pattern or times are changed,
+    #     to remove ghost overrides. Overrides should be removed if they meet
+    #     one of the following criteria:
+    #         - their initial scheduled date no longer falls in the repeat
+    #             pattern (in this case, they're not only no longer overrides
+    #             but in fact no longer instances and so should be deactivated).
+    #         - their attributes no longer override the templated attributes.
+    #     """
+    #     override_tuples = list(self._overridden_instances.items())
+    #     for scheduled_date, instance in override_tuples:
+    #         if not self.repeat_pattern.check_date(scheduled_date):
+    #             # TODO: look over this, it's a bit unnerving and messy
+    #             # to be manually deactivating so often
+    #             self._overridden_instances[scheduled_date]._deactivate()
+    #             del self._overridden_instances[scheduled_date]
+    #         elif not instance.is_override():
+    #             del self._overridden_instances[scheduled_date]
 
     def _clear_instances(self):
         """Clear instances list so they can be recalculated.
@@ -858,11 +863,12 @@ class RepeatScheduledItem(BaseScheduledItem):
         # since repeat instances aren't removed directly as edits, we
         # need to deactivate them to make the hosted data stuff work
         # TODO: look over this, it's a bit unnerving and messy
-        for key, instance in self._instances.items():
-            if key not in self._overridden_instances:
-                instance._deactivate()
+        # for key, instance in self._instances.items():
+        #     if key not in self._overridden_instances:
+        #         instance._deactivate()
+        # TODO ^delete above comments assuming the new edit setup is all fine
         self._instances = OrderedDict()
-        self._clean_overrides()
+        # self._clean_overrides()
 
     def _iter_overrides(self):
         """Iterate through overridden instances.
@@ -985,7 +991,9 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             override_end_datetime (DateTime): start date time to override from
                 repeat_item template.
             task_update_policy (ItemUpdatePolicy or None): update policy for
-                linked task.
+                linked task. Ignored in this case because its inherited from
+                the template item but needs to be passed because of super class
+                from_dict methods.
             tree_item (BaseTaskItem or None): tree item to associate. Ignored
                 in this case because its inherited from the template item but
                 needs to be passed because of super class from_dict methods.
@@ -1006,7 +1014,6 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             end_time=end_time,
             date=date,
             template_item=repeat_scheduled_item,
-            task_update_policy=task_update_policy,
             status=status,
         )
         self._scheduled_date = scheduled_date
@@ -1132,6 +1139,19 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             return self.override_date
         return self.scheduled_date
 
+    @property
+    def task_update_policy(self):
+        """Get update policy for linked tasks.
+
+        This is inherited from the template item. We can use the template item
+        decorator however because the value of this property is never None (it
+        defaults to ItemUpdatePolicy.UNSTARTED)
+
+        Returns:
+            (ItemUpdatePolicy): update policy for linked tasks.
+        """
+        return self._template_item.task_update_policy
+
     def datetime_string(self):
         """Get string representing start and end date/time of item.
 
@@ -1180,12 +1200,32 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         """
         return True
 
-    def is_override(self):
+    def is_override(
+            self,
+            template_start_time=None,
+            template_end_time=None,
+            template_status=None,
+            instance_date=None,
+            instance_start_time=None,
+            instance_end_time=None,
+            instance_status=None):
         """Check whether the given instance overrides the repeat template.
 
         An item is an override if one of the following is true:
             - its start or end datetime is overridden from the template
             - its status is overridden from the template
+
+        The optional args are added to allow edit classes to check whether
+        this item will be an override after various changes are made to
+        this instance or its template item.
+
+        Args:
+            template_start_time (Time or None): new template start time.
+            template_status (ItemStatus or None): new template status.
+            instance_date (Date or None): new instance date.
+            instance_start_time (Time or None): new instance start time.
+            instance_end_time (Time or None): new instance start time.
+            instance_status (ItemStatus or None): new instance status.
 
         Returns:
             (bool): whether this instance is an override.
@@ -1194,26 +1234,58 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
         # conditions for triggering the _clean_overrides subedit in the
         # ModifyRepeatScheduledItemEdit, and the _compute_override subedit
         # in the ModifyRepeatScheduledItemInstanceEdit.
-        if self.status != self.repeat_scheduled_item.status:
+
+        # date
+        instance_date = fallback_value(instance_date, self.date)
+        if instance_date != self.scheduled_date:
             return True
-        override_start_datetime = self.override_start_datetime
-        override_end_datetime = self.override_end_datetime
-        if override_start_datetime is not None:
-            if override_start_datetime != self.scheduled_start_datetime:
-                return True
-        if override_end_datetime is not None:
-            if override_end_datetime != self.scheduled_end_datetime:
-                return True
+
+        # start time
+        instance_start_time = fallback_value(
+            instance_start_time,
+            self.start_time,
+        )
+        template_start_time = fallback_value(
+            template_start_time,
+            self.repeat_scheduled_item.start_time,
+        )
+        if instance_start_time != template_start_time:
+            return True
+
+        # end time
+        instance_end_time = fallback_value(
+            instance_end_time,
+            self.end_time,
+        )
+        template_end_time = fallback_value(
+            template_end_time,
+            self.repeat_scheduled_item.end_time,
+        )
+        if instance_end_time != template_end_time:
+            return True
+
+        # status
+        instance_status = fallback_value(instance_status, self.status)
+        template_status = fallback_value(
+            template_status,
+            self.repeat_scheduled_item.status,
+        )
+        if instance_status != template_status:
+            return True
+
         return False
 
-    def _compute_override(self):
-        """Check if this is override and add/remove it from overrides list."""
-        overrides = self.repeat_scheduled_item._overridden_instances
-        if self.is_override():
-            overrides[self.scheduled_date] = self
-        else:
-            if self.scheduled_date in overrides:
-                del overrides[self.scheduled_date]
+    #TODO delete, I've just switched this out in the edit method for a
+    # DictEdit, remove this function assuming we don't get bugs with the new
+    # edit setup
+    # def _compute_override(self):
+    #     """Check if this is override and add/remove it from overrides list."""
+    #     overrides = self.repeat_scheduled_item._overridden_instances
+    #     if self.is_override():
+    #         overrides[self.scheduled_date] = self
+    #     else:
+    #         if self.scheduled_date in overrides:
+    #             del overrides[self.scheduled_date]
 
     def to_dict(self):
         """Return dictionary representation of class.

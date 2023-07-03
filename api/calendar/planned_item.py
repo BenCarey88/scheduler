@@ -21,7 +21,8 @@ class PlannedItem(BaseCalendarItem):
             calendar,
             calendar_period,
             tree_item=None,
-            status=None):
+            status=None,
+            task_update_policy=None):
         """Initialize class.
 
         Args:
@@ -30,8 +31,15 @@ class PlannedItem(BaseCalendarItem):
                 associated to.
             tree_item (BaseTaskItem): the task that this item represents.
             status (ItemStatus): the status of the item.
+            task_update_policy (ItemUpdatePolicy or None): update policy for
+                the linked task.
         """
-        super(PlannedItem, self).__init__(calendar, tree_item, status)
+        super(PlannedItem, self).__init__(
+            calendar,
+            tree_item,
+            status,
+            task_update_policy,
+        )
         self._is_planned_item = True
         self._calendar_period = MutableAttribute(
             calendar_period,
@@ -318,7 +326,8 @@ class PlannedItem(BaseCalendarItem):
         Returns:
             (PlannedItem): planned item.
         """
-        planned_item = super(BaseCalendarItem, cls).from_dict(
+        planned_item = super(PlannedItem, cls).from_dict(
+            dict_repr,
             calendar,
             calendar_period=calendar_period,
         )
@@ -330,6 +339,6 @@ class PlannedItem(BaseCalendarItem):
         Returns:
             (dict): dictionary representation.
         """
-        dict_repr = super(BaseCalendarItem, self).to_dict()
+        dict_repr = super(PlannedItem, self).to_dict()
         dict_repr[self.TIME_PERIOD_KEY] = self.time_period
         return dict_repr

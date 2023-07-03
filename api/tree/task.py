@@ -303,6 +303,8 @@ class Task(BaseTaskItem):
         """
         task_type = json_dict.get(cls.TYPE_KEY, None)
         task_status = json_dict.get(cls.STATUS_KEY, None)
+        if task_status is not None:
+            task_status = ItemStatus(task_status)
         task_history = json_dict.get(cls.HISTORY_KEY, None)
         value_type = json_dict.get(cls.VALUE_TYPE_KEY, None)
         size = json_dict.get(cls.SIZE_KEY, None)

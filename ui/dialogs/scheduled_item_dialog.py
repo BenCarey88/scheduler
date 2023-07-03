@@ -352,7 +352,8 @@ class ScheduledItemDialog(ItemDialog):
     def _configure_task_update_policy(self):
         """Configure enabled/disabled state of task update policy combobox."""
         if (self.is_background or
-                self._tree_manager.is_task_category(self.tree_item)):
+                (self.tree_item is not None and
+                self._tree_manager.is_task_category(self.tree_item))):
             self.cb_task_update_policy.setEnabled(False)
         else:
             self.cb_task_update_policy.setEnabled(True)

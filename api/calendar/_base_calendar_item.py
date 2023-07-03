@@ -316,6 +316,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         """
         if calendar_item not in self._children:
             self._children.append(calendar_item)
+            self._update_status_from_children()
 
     @classmethod
     def from_dict(cls, dict_repr, calendar, *init_args, **init_kwargs):
@@ -333,6 +334,9 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             calendar 
         """
         status = dict_repr.get(cls.STATUS_KEY)
+        if status is not None:
+            status = ItemStatus(status)
+        
         tree_item = calendar.task_root.get_item_at_path(
             dict_repr.get(cls.TREE_ITEM_KEY),
             search_archive=True,

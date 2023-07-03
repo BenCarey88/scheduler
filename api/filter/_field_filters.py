@@ -92,7 +92,7 @@ class FieldFilter(BaseFilter):
         field_value = self._field_getter(*args, **kwargs)
         field_maths_value = field_value
         if (self._math_ops_key is not None and
-                self._field_operator in FilterOperator.MATH_OPS):
+                self._field_operator in FilterOperator.get_maths_ops()):
             field_maths_value = self._math_ops_key(field_value)
             if not isinstance(field_maths_value,
                     (int, float, BaseDateTimeWrapper)):

@@ -1,6 +1,6 @@
 
 1.3.2:
-    - bugfixes for PlannedItem save and load and schedule dialog
+    - bugfixes for PlannedItem serialization, schedule dialog and filters
 
 1.3.1:
     - Added task update policy option to scheduler dialog

@@ -26,6 +26,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
 
     CHILDREN_KEY = "children"
     TREE_ITEM_KEY = "tree_item"
+    NAME_KEY = "name"
     STATUS_KEY = "status"
     TASK_UPDATE_POLICY_KEY = "task_update_policy"
     ID_KEY = "id"
@@ -36,6 +37,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             self,
             calendar,
             tree_item=None,
+            name=None,
             status=None,
             task_update_policy=None):
         """Initialize class.
@@ -43,6 +45,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         Args:
             calendar (Calendar): the calendar object.
             tree_item (BaseTaskItem or None): tree item to associate, if used.
+            name (str): name of item, if different to linked task display name.
             status (ItemStatus or None): status of item, if given.
             task_update_policy (ItemUpdatePolicy or None): update policy for
                 linked task.
@@ -56,6 +59,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             parent=self,
             driver=True,
         )
+        self._name = MutableAttribute(name, "name")
         self._status = MutableAttribute(
             fallback_value(status, ItemStatus.UNSTARTED),
             "status",
@@ -106,6 +110,36 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             (BaseTaskItem): task that this item is using.
         """
         return self._tree_item.value
+
+    @property
+    def name(self):
+        """Get item name.
+
+        Returns:
+            (str): name.
+        """
+        return self.get_name()
+
+    def get_name(self):
+        """Get item name.
+
+        This is implemented as a method to make it easier to change
+        the implementation for superclasses.
+
+        Fallbacks:
+            - self._name attribute, if set
+            - tree item display name, if set
+            - tree item name, if tree item exists
+            - empty string
+
+        Returns:
+            (str): name.
+        """
+        if self._name.value:
+            return self._name.value
+        if self.tree_item:
+            return self.tree_item.display_name or self.tree_item.name
+        return ""
 
     @property
     def status(self):
@@ -333,16 +367,18 @@ class BaseCalendarItem(Hosted, NestedSerializable):
 
         Args:
             dict_repr (dict): dictionary representing class.
-            calendar 
+            calendar (Calendar): calendar item.
+            init_args (list): additional args passed to subclass init.
+            init_kwargs (dict): additional kwargs passed to subclass init.
         """
-        status = dict_repr.get(cls.STATUS_KEY)
-        if status is not None:
-            status = ItemStatus(status)
-        
         tree_item = calendar.task_root.get_item_at_path(
             dict_repr.get(cls.TREE_ITEM_KEY),
             search_archive=True,
         )
+        name = dict_repr.get(cls.NAME_KEY)
+        status = dict_repr.get(cls.STATUS_KEY)
+        if status is not None:
+            status = ItemStatus(status)
         task_update_policy = dict_repr.get(cls.TASK_UPDATE_POLICY_KEY)
         if task_update_policy is not None:
             task_update_policy = ItemUpdatePolicy(task_update_policy)
@@ -350,6 +386,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             calendar,
             *init_args,
             tree_item=tree_item,
+            name=name,
             status=status,
             task_update_policy=task_update_policy,
             **init_kwargs,
@@ -386,6 +423,8 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             dict_repr[self.STATUS_KEY] = self.status
         if self._SERIALIZE_TREE_ITEM and self.is_task():
             dict_repr[self.TREE_ITEM_KEY] = self.tree_item.path
+        if self._name.value is not None:
+            dict_repr[self.NAME_KEY] = self._name.value
         if self._children:
             dict_repr[self.CHILDREN_KEY] = [
                 child._get_id() for child in self._children

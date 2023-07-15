@@ -13,8 +13,15 @@ from scheduler.api.common.object_wrappers import (
 from ._base_tree_item import BaseTreeItem
 
 
+# TODO: give this a to_dict and from_dict method that subclasses can use
+# maybe define _to_dict and _from_dict in subclasses and keep the non-
+# underscored methods constant?
 class BaseTaskItem(BaseTreeItem):
     """Base item for tasks and task categories."""
+    DISPLAY_NAME_KEY = "display_name"
+    COLOR_KEY = "color"
+    ID_KEY = "id"
+
     def __init__(self, name, parent=None, color=None, display_name=""):
         """Initialise task item class.
 
@@ -22,6 +29,7 @@ class BaseTaskItem(BaseTreeItem):
             name (str): name of tree item.
             parent (Task or None): parent of current item, if it's not a root.
             color (tuple(int) or None): rgb color tuple for item, if set.
+            display_name (str): display name of task.
         """
         super(BaseTaskItem, self).__init__(name, parent)
         self._color = MutableAttribute(color, "color")
@@ -168,3 +176,55 @@ class BaseTaskItem(BaseTreeItem):
         if self._id is None:
             self._id = item_registry.generate_unique_id(self.path)
         return self._id
+
+    def to_dict(self):
+        """Get json compatible dictionary representation of class.
+
+        Note that this does not contain a name field, as the name is expected
+        to be added as a key to this dictionary in the tasks json files.
+
+        Returns:
+            (OrderedDict): dictionary representation.
+        """
+        json_dict = {self.ID_KEY: self._get_id()}
+        if self.display_name:
+            json_dict[self.DISPLAY_NAME_KEY] = self.display_name
+        if self._color.value is not None:
+            json_dict[self.COLOR_KEY] = self.color
+        return json_dict
+
+    @classmethod
+    def from_dict(cls, json_dict, name, parent=None, **kwargs):
+        """Initialise class from dictionary representation.
+
+        The json_dict is expected to be structured as described in the to_dict
+        docstring.
+
+        Args:
+            json_dict (OrderedDict): dictionary representation.
+            name (str): name of task.
+            parent (Task, TaskCategory or None): parent of task.
+            kwargs (dict): kwargs, passed from subclass definitions.
+
+        Returns:
+            (Task): task class for given dict.
+        """
+        display_name = json_dict.get(cls.DISPLAY_NAME_KEY, "")
+        color = json_dict.get(cls.COLOR_KEY, None)
+        task_item = cls(
+            name=name,
+            parent=parent,
+            color=color,
+            display_name=display_name,
+            **kwargs,
+        )
+        task_item._activate()
+        id = json_dict.get(cls.ID_KEY, None)
+        if id is not None:
+            # TODO: this bit means tasks are now added to the item registry.
+            # This was done to make deserialization of task history dicts
+            # work. Keep an eye on this, I want to make sure it doesn't slow
+            # down loading too much.
+            item_registry.register_item(id, task_item)
+
+        return task_item

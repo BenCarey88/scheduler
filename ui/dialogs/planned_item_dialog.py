@@ -3,7 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.calendar.planned_item import PlannedItem
-from scheduler.ui import utils
+from scheduler.ui import layout_utils, utils
 from .item_dialog import ItemDialog
 
 
@@ -97,8 +97,8 @@ class PlannedItemDialog(ItemDialog):
             self._planner_manager.create_planned_item(
                 self._calendar,
                 self._calendar_period,
-                self.tree_item,
                 index=self._index,
+                tree_item=self.tree_item,
                 parent=self._planned_item_parent,
             )
         super(PlannedItemDialog, self).accept_and_close()

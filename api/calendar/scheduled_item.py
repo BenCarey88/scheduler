@@ -1,7 +1,6 @@
 """Scheduled item class."""
 
 from collections import OrderedDict
-from functools import partial
 
 from scheduler.api.common.date_time import (
     Date,
@@ -10,23 +9,11 @@ from scheduler.api.common.date_time import (
     Time,
     TimeDelta,
 )
-from scheduler.api.common.object_wrappers import (
-    Hosted,
-    HostedDataDict,
-    HostedDataList,
-    MutableAttribute,
-    MutableHostedAttribute,
-)
-from scheduler.api.common.timeline import TimelineDict
+from scheduler.api.common.object_wrappers import MutableAttribute
 from scheduler.api.serialization import item_registry
-from scheduler.api.serialization.serializable import (
-    NestedSerializable,
-    SaveType,
-)
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
-from scheduler.api import constants
-from scheduler.api.enums import OrderedStringEnum, ItemStatus, ItemUpdatePolicy
+from scheduler.api.enums import OrderedStringEnum
 from scheduler.api.utils import fallback_value
 from .repeat_pattern import RepeatPattern
 from ._base_calendar_item import BaseCalendarItem
@@ -67,10 +54,9 @@ class BaseScheduledItem(BaseCalendarItem):
             tree_item=None,
             event_category=None,
             event_name=None,
-            task_update_policy=None,
             is_background=None,
             template_item=None,
-            status=None):
+            **kwargs):
         """Initialise item.
 
         Args:
@@ -88,21 +74,20 @@ class BaseScheduledItem(BaseCalendarItem):
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
-            task_update_policy (ItemUpdatePolicy or None): update policy for
-                linked task.
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
             template_item (BaseScheduledItem or None): template item to inherit
                 properties from, if they're not overridden. This is used by
                 RepeatScheduledItemInstances.
-            status (ItemStatus or None): status of item.
+            kwargs (dict): additional keyword arguments to pass to subclass
+                init. This includes things like, status, update policies and
+                name.
         """
         super(BaseScheduledItem, self).__init__(
             calendar,
-            tree_item,
-            status,
-            task_update_policy=task_update_policy,
+            tree_item=tree_item,
+            **kwargs,
         )
         self._is_scheduled_item = True
         self._task_root = calendar.task_root
@@ -548,10 +533,9 @@ class ScheduledItem(BaseScheduledItem):
             tree_item=None,
             event_category=None,
             event_name=None,
-            task_update_policy=None,
             is_background=None,
-            status=None,
-            repeat_pattern=None):
+            repeat_pattern=None,
+            **kwargs):
         """Initialise item.
 
         Args:
@@ -565,12 +549,9 @@ class ScheduledItem(BaseScheduledItem):
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
-            task_update_policy (ItemUpdatePolicy or None): update policy for
-                linked task.
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
-            status (ItemStatus or None): status of item.
             repeat_pattern (RepeatPattern or None): repeat pattern - unused but
                 can be saved in this class so it can be copied over to the new
                 one.
@@ -585,9 +566,8 @@ class ScheduledItem(BaseScheduledItem):
             tree_item=tree_item,
             event_category=event_category,
             event_name=event_name,
-            task_update_policy=task_update_policy,
             is_background=is_background,
-            status=status,
+            **kwargs,
         )
 
     def datetime_string(self):
@@ -677,9 +657,8 @@ class RepeatScheduledItem(BaseScheduledItem):
             tree_item=None,
             event_category=None,
             event_name=None,
-            task_update_policy=None,
             is_background=None,
-            status=None):
+            **kwargs):
         """Initialise item.
 
         Args:
@@ -694,12 +673,12 @@ class RepeatScheduledItem(BaseScheduledItem):
             event_category (str or None): name to be used for category of item,
                 if item_type is event.
             event_name (str or None): name of event, if item_type is event.
-            task_update_policy (ItemUpdatePolicy or None): update policy for
-                linked task.
             is_background (bool): if True, this is a 'background' item, ie. a
                 higher level task or event that subevents or subtasks can be
                 overlayed on.
-            status (ItemStatus or None): status of item.
+            kwargs (dict): additional keyword arguments to pass to subclass
+                init. This includes things like, status, update policies and
+                name.
 
         Attributes:
             _instances (dict(Date, RepeatScheduledItemInstance)): dictionary of
@@ -725,9 +704,8 @@ class RepeatScheduledItem(BaseScheduledItem):
             tree_item=tree_item,
             event_category=event_category,
             event_name=event_name,
-            task_update_policy=task_update_policy,
             is_background=is_background,
-            status=status,
+            **kwargs,
         )
         self._instances = OrderedDict()
         self._overridden_instances = {}
@@ -976,9 +954,8 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
             scheduled_date,
             override_start_datetime=None,
             override_end_datetime=None,
-            task_update_policy=None,
-            tree_item=None,
-            status=None):
+            status=None,
+            **kwargs):
         """Initialise class.
 
         Args:
@@ -998,6 +975,10 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
                 in this case because its inherited from the template item but
                 needs to be passed because of super class from_dict methods.
             status (ItemStatus or None): status of item.
+            kwargs (dict): additional keyword arguments to decline to pass to
+                subclass init. This includes things like update policies, tree
+                item and name, which will all be inherited from the template
+                item.
         """
         start_time = None
         end_time = None
@@ -1143,9 +1124,9 @@ class RepeatScheduledItemInstance(BaseScheduledItem):
     def task_update_policy(self):
         """Get update policy for linked tasks.
 
-        This is inherited from the template item. We can use the template item
-        decorator however because the value of this property is never None (it
-        defaults to ItemUpdatePolicy.UNSTARTED)
+        This is inherited from the template item. We can't use the template
+        item decorator however because the value of this property is never
+        None (it defaults to ItemUpdatePolicy.UNSTARTED)
 
         Returns:
             (ItemUpdatePolicy): update policy for linked tasks.

@@ -34,15 +34,22 @@ class TaskCategory(BaseTaskItem):
 
     DEFAULT_NAME = "category"
 
-    def __init__(self, name, parent=None):
+    def __init__(self, name, parent=None, **kwargs):
         """Initialise category class.
 
         Args:
             name (str): name of task.
             parent (Task or None): parent of current category, if it's a
                 subcategory.
+            display_name (str): display name of task, if exists.
+            **kwargs (dict): kwargs to pass to superclass init (including
+                things like color and display_name).
         """
-        super(TaskCategory, self).__init__(name, parent)
+        super(TaskCategory, self).__init__(
+            name,
+            parent,
+            **kwargs,
+        )
         self._allowed_child_types = [TaskCategory, Task]
 
     @property
@@ -115,7 +122,9 @@ class TaskCategory(BaseTaskItem):
                 task1_name: task1_dict,
                 task2_name: task2_dict,
                 ...
-            }
+            },
+            display_name: ...,
+            color: ...,
         }
         Note that this does not contain a name field, as the name is expected
         to be added as a key to this dictionary.
@@ -123,7 +132,7 @@ class TaskCategory(BaseTaskItem):
         Returns:
             (OrderedDict): dictionary representation.
         """
-        json_dict = {self.ID_KEY: self._get_id()}
+        json_dict = super(TaskCategory, self).to_dict()
         if self._subcategories:
             subcategories_dict = OrderedDict()
             for subcategory_name, subcategory in self._subcategories.items():
@@ -154,15 +163,11 @@ class TaskCategory(BaseTaskItem):
         Returns:
             (TaskCategory): category class for given dict.
         """
-        category = cls(name, parent)
-        category._activate()
-        id = json_dict.get(cls.ID_KEY, None)
-        if id is not None:
-            # TODO: this bit means categories are now added to item registry.
-            # This was done to make deserialization of task history dicts
-            # work. Keep an eye on this, I want to make sure it doesn't slow
-            # down loading too much.
-            item_registry.register_item(id, category)
+        category = super(TaskCategory, cls).from_dict(
+            json_dict,
+            name=name,
+            parent=parent,
+        )
         subcategories = json_dict.get(cls.CATEGORIES_KEY, {})
         for subcategory_name, subcategory_dict in subcategories.items():
             subcategory = TaskCategory.from_dict(

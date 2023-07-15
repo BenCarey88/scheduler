@@ -53,7 +53,8 @@ class Task(BaseTaskItem):
             history_dict=None,
             value_type=None,
             size=None,
-            importance=None):
+            importance=None,
+            **kwargs):
         """Initialise task class.
 
         Args:
@@ -68,8 +69,14 @@ class Task(BaseTaskItem):
             value_type (TaskValueType or None): task value type, if not None.
             size (ItemSize or None): task size, if given.
             importance (ItemImportance or None): task importance, if given.
+            **kwargs (dict): kwargs to pass to superclass init (including
+                things like color and display_name).
         """
-        super(Task, self).__init__(name, parent)
+        super(Task, self).__init__(
+            name,
+            parent,
+            **kwargs,
+        )
         self._type = MutableAttribute(
             task_type or TaskType.GENERAL,
             "type"
@@ -250,6 +257,10 @@ class Task(BaseTaskItem):
             status=self.status,
             history_dict=self.history.to_dict(),
             value_type=self.value_type,
+            size=self.size,
+            importance=self.importance,
+            display_name=self.display_name,
+            color=self._color.value,
         )
         task._color = self._color
         return task
@@ -274,11 +285,11 @@ class Task(BaseTaskItem):
         Returns:
             (OrderedDict): dictionary representation.
         """
-        json_dict = {
+        json_dict = super(Task, self).to_dict()
+        json_dict.update({
             self.STATUS_KEY: self.status,
             self.TYPE_KEY: self.type,
-            self.ID_KEY: self._get_id(),
-        }
+        })
         if self.history:
             json_dict[self.HISTORY_KEY] = self.history.to_dict()
         if self.value_type:
@@ -287,6 +298,8 @@ class Task(BaseTaskItem):
             json_dict[self.SIZE_KEY] = self.size
         if self.importance:
             json_dict[self.IMPORTANCE_KEY] = self.importance
+        if self.display_name:
+            json_dict[self.DISPLAY_NAME_KEY] = self.display_name
         if self._subtasks:
             subtasks_dict = OrderedDict()
             for subtask_name, subtask in self._subtasks.items():
@@ -318,27 +331,26 @@ class Task(BaseTaskItem):
         task_history = json_dict.get(cls.HISTORY_KEY, None)
         value_type = json_dict.get(cls.VALUE_TYPE_KEY, None)
         size = json_dict.get(cls.SIZE_KEY, None)
+        if size is not None:
+            size = ItemSize(size)
         importance = json_dict.get(cls.IMPORTANCE_KEY, None)
-        task = cls(
-            name,
-            parent,
-            task_type,
-            task_status,
-            task_history,
-            value_type,
-            size,
-            importance,
+        if importance is not None:
+            importance = ItemImportance(cls.IMPORTANCE_KEY)
+
+        task = super(Task, cls).from_dict(
+            json_dict,
+            name=name,
+            parent=parent,
+            task_type=task_type,
+            status=task_status,
+            history_dict=task_history,
+            value_type=value_type,
+            size=size,
+            importance=importance,
         )
-        task._activate()
-        id = json_dict.get(cls.ID_KEY, None)
-        if id is not None:
-            # TODO: this bit means tasks are now added to the item registry.
-            # This was done to make deserialization of task history dicts
-            # work. Keep an eye on this, I want to make sure it doesn't slow
-            # down loading too much.
-            item_registry.register_item(id, task)
+
         if history_data:
-            for date, subdict in task._history.iter_date_dicts():
+            for date, subdict in task.history.iter_date_dicts():
                 history_data._add_data(date, task, subdict)
 
         subtasks = json_dict.get(cls.TASKS_KEY, {})

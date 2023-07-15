@@ -432,7 +432,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 success = self.planner_manager.create_planned_item(
                     self.calendar,
                     self.calendar_period,
-                    tree_item,
+                    tree_item=tree_item,
                     index=row,
                 )
             return bool(success)
@@ -478,8 +478,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                     success = self.planner_manager.create_planned_item(
                         self.calendar,
                         self.calendar_period,
-                        planned_item.tree_item,
                         index=row,
+                        tree_item=planned_item.tree_item,
                         parent=planned_item,
                     )
                 return success

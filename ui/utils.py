@@ -129,11 +129,11 @@ def get_widget_value(widget):
 
     elif isinstance(widget, QtWidgets.QDateEdit):
         date = widget.date()
-        return Date(date.year, date.month, date.day)
+        return Date(date.year(), date.month(), date.day())
     
     elif isinstance(widget, QtWidgets.QTimeEdit):
         time = widget.time()
-        return Time(time.hour, time.minute, time.second)
+        return Time(time.hour(), time.minute(), time.second())
 
     raise ValueError(
         "get_widget_value method does not currently support widgets of "

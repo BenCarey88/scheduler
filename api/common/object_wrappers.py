@@ -72,6 +72,24 @@ class BaseObjectWrapper(object):
             (bool): False if attribute value is None, else True.
         """
         return self.__bool__()
+    
+    def __str__(self):
+        """Get string representation of self.
+
+        Returns:
+            (str): string representation.
+        """
+        if self.name:
+            return "MutableAttribute({0}={1})".format(self.name, self.value)
+        return super(MutableAttribute, self).__str__()
+
+    def __repr__(self):
+        """Get string representation of self.
+
+        Returns:
+            (str): string representation.
+        """
+        return self.__str__()
 
 
 class MutableAttribute(BaseObjectWrapper):

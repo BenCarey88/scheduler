@@ -393,4 +393,7 @@ class SortPlannedItemsEdit(ListEdit):
             (bool): True if other edit is also same class as this one, else
                 False.
         """
-        return isinstance(edit, SortPlannedItemsEdit)
+        return (
+            super(SortPlannedItemsEdit, self)._stacks_with(edit)
+            or isinstance(edit, SortPlannedItemsEdit)
+        )

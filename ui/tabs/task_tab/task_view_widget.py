@@ -6,8 +6,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.enums import ItemImportance, ItemSize
 
-from scheduler.ui.widgets.base_tree_view import BaseTreeView
+from scheduler.ui.dialogs import TaskItemDialog
 from scheduler.ui.models.tree import TaskTreeModel
+from scheduler.ui.widgets.base_tree_view import BaseTreeView
 from scheduler.ui import utils
 
 
@@ -145,6 +146,14 @@ class TaskViewWidget(BaseTreeView):
         self._connect_action_to_func(
             action,
             partial(self.clear_task_history, item=item),
+        )
+
+        # Task Editor
+        right_click_menu.addSeparator()
+        action = right_click_menu.addAction("Open Task Editor")
+        self._connect_action_to_func(
+            action,
+            partial(self.open_task_editor, item, TaskItemDialog),
         )
 
         return right_click_menu

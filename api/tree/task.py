@@ -9,8 +9,12 @@ from scheduler.api.common.object_wrappers import (
 )
 from scheduler.api.serialization import item_registry
 from scheduler.api.serialization.serializable import SaveType
-from scheduler.api.enums import ItemStatus, OrderedStringEnum
-
+from scheduler.api.enums import (
+    ItemImportance,
+    ItemStatus,
+    ItemSize,
+    OrderedStringEnum,
+)
 from .base_task_item import BaseTaskItem
 from .task_history import TaskHistory, TaskType
 
@@ -80,8 +84,14 @@ class Task(BaseTaskItem):
             else TaskHistory(self)
         )
         self.value_type = value_type or TaskValueType.NONE
-        self._size = MutableAttribute(size, "size")
-        self._importance = MutableAttribute(importance, "importance")
+        self._size = MutableAttribute(
+            size or ItemSize.NONE,
+            "size"
+        )
+        self._importance = MutableAttribute(
+            importance or ItemImportance.NONE,
+            "importance"
+        )
         self._is_tracked = MutableAttribute(False, "is_tracked")
         self._allowed_child_types = [Task]
 

@@ -249,11 +249,12 @@ class TreeEditManager(BaseTreeManager):
         )
 
     @require_class(BaseTaskItem, raise_error=True)
-    def remove_item(self, tree_item):
+    def remove_item(self, tree_item, stack=False):
         """Remove an existing tree item from its parent's children dict.
 
         Args:
             tree_item (BaseTaskItem): the tree item to remove.
+            stack (bool): if True, stack this with the next edit.
 
         Returns:
             (bool): whether or not edit was successful.
@@ -264,7 +265,23 @@ class TreeEditManager(BaseTreeManager):
         return RemoveChildrenEdit.create_and_run(
             parent,
             [tree_item.name],
+            stack=stack,
         )
+
+    def remove_items(self, tree_items):
+        """Remove an existing tree item from its parent's children dict.
+
+        Args:
+            tree_items (list(BaseTaskItem)): the tree items to remove.
+
+        Returns:
+            (bool): whether or not edit was successful.
+        """
+        success = False
+        for i, tree_item in enumerate(tree_items):
+            stack = (i != 0)
+            success = self.remove_item(tree_item, stack=stack) or success
+        return success
 
     @require_class((Task, TaskCategory), raise_error=True)
     def set_item_name(self, tree_item, new_name):
@@ -280,7 +297,7 @@ class TreeEditManager(BaseTreeManager):
             (bool): whether or not name was successfully set.
         """
         parent = tree_item.parent
-        if not parent:
+        if parent is None:
             return False
         if parent.get_child(new_name):
             return False
@@ -477,31 +494,50 @@ class TreeEditManager(BaseTreeManager):
             {task_item._type: new_type},
         )
 
-    @require_class(Task, raise_error=False)
-    def modify_task(
+    @require_class(BaseTaskItem, raise_error=False)
+    def modify_task_item(
             self,
             task_item,
+            name=None,
+            display_name=None,
+            type=None,
             size=None,
             importance=None):
         """Modify attributes of task.
 
         Args:
+            name (str)
             task_item (Task): task to modify.
+            name (str or None): new name to change to, if given.
+            display_name (str or None): new display name to change to, if
+                given.
+            type (TaskType or None): new task type, if given.
             size (ItemSize or None): new size to change to, if given.
             importance (ItemImportance): new importance, if given.
 
         Returns:
             (bool): whether or not edit was successful.
         """
+        is_task = self.is_task(task_item)
         attr_dict = {
-            task_item._size: size,
-            task_item._importance: importance,
+            task_item._name: name,
+            task_item._display_name: display_name,
         }
+        if is_task:
+            attr_dict.update({
+                task_item._type: type,
+                task_item._size: size,
+                task_item._importance: importance,
+            })
         attr_dict = {
             attr: value
             for attr, value in attr_dict.items() if value is not None
         }
-        return ModifyTaskEdit.create_and_run(task_item, attr_dict)
+        return ModifyTaskEdit.create_and_run(
+            task_item,
+            attr_dict,
+            is_task=is_task,
+        )
 
     @require_class(BaseTaskItem, raise_error=False)
     def archive_item(

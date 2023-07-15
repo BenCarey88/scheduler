@@ -15,7 +15,7 @@ from ._base_tree_item import BaseTreeItem
 
 class BaseTaskItem(BaseTreeItem):
     """Base item for tasks and task categories."""
-    def __init__(self, name, parent=None, color=None):
+    def __init__(self, name, parent=None, color=None, display_name=""):
         """Initialise task item class.
 
         Args:
@@ -24,7 +24,8 @@ class BaseTaskItem(BaseTreeItem):
             color (tuple(int) or None): rgb color tuple for item, if set.
         """
         super(BaseTaskItem, self).__init__(name, parent)
-        self._color = MutableAttribute(color)
+        self._color = MutableAttribute(color, "color")
+        self._display_name = MutableAttribute(display_name, "display_name")
         # TODO: make this list into HostedDataTimeline?
         self._calendar_items = HostedDataList(
             pairing_id=constants.CALENDAR_ITEM_TREE_PAIRING,
@@ -36,7 +37,7 @@ class BaseTaskItem(BaseTreeItem):
 
     @property
     def color(self):
-        """Get color of tree item.
+        """Get color of task item.
 
         Returns:
             (tuple(int) or None): rgb color of item, if defined.
@@ -48,6 +49,17 @@ class BaseTaskItem(BaseTreeItem):
         if self.parent:
             return self.parent.color
         return None
+
+    @property
+    def display_name(self):
+        """Get display name of task item.
+
+        Returns:
+            (str): display name of item - this is the full name of the item,
+                designed to identify it without needing the full path. If it's
+                empty, its name will be used in place of this.
+        """
+        return self._display_name.value
 
     def _iter_planned_items(self):
         """Iterate over all planned items for given task.

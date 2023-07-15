@@ -41,6 +41,8 @@ class BaseEdit(object):
                 edit stack is). Note that both these attributes should not be
                 modified by this class or its subclass, and are instead handled
                 by the edit log.
+            _always_stack (bool): if True, this edit will always stack with the
+                edit before, regardless of what the previous edit was.
             _name (str): name to use for edit in edit log.
             _description (str): description to use for edit in edit log.
             _edit_stack_name (str): name of any edit stack that contains this
@@ -54,18 +56,18 @@ class BaseEdit(object):
         self._undo_callback_args = None
         self._previous_edit_in_stack = None
         self._next_edit_in_stack = None
+        self._always_stack = False
         self._name = "Unnamed Edit"
         self._description = ""
-        self._edit_stack_name = (
-            "This should be overridden in subclasses that support stacking."
-        )
+        self._edit_stack_name = "Edit Stack"
 
     @classmethod
-    def create_and_run(cls, *args, **kwargs):
+    def create_and_run(cls, *args, stack=False, **kwargs):
         """Create and run an edit.
 
         Args:
             args (tuple): args to pass to __init__.
+            stack (bool): if True, make this edit stack with previous edit.
             kwargs (dict): kwargs to pass to __init__.
 
         Returns:
@@ -73,6 +75,7 @@ class BaseEdit(object):
                 the edit log).
         """
         edit = cls(*args, **kwargs)
+        edit._always_stack = stack
         return edit.run()
 
     @classmethod
@@ -217,10 +220,11 @@ class BaseEdit(object):
             edit (BaseEdit): edit to check if this should stack with.
 
         Returns:
-            (bool): whether or not this should stack (by default this is
-                always false).
+            (bool): whether or not this should stack (by default this is just
+                set to self._always_stack which is False unless this edit is
+                made with create_and_run and stack=True is passed to it).
         """
-        return False
+        return self._always_stack
 
     @property
     def is_valid(self):

@@ -9,16 +9,18 @@ class ManagerError(Exception):
     """Base error class for manager exceptions."""
 
 
-def require_class(require_class, raise_error=False):
+def require_class(require_class, raise_error=False, return_val=False):
     """Decorator factory to check object is a specific class instance.
 
     Args:
         require_class (class or tuple): the class or classes to
             allow.
         raise_error (bool): if True, raise error for unallowed classes.
-            Otherwise just return None. We should raise an error when
+            Otherwise return return_val. We should raise an error when
             the implementation in the ui should make it impossible for
             this to be run on an unallowed class.
+        return_val (variant): value to return if class is not allowed
+            and raise_error is set to False. This defaults to False.
 
     Returns:
         (function): the decorator function. This decorator will run
@@ -37,7 +39,11 @@ def require_class(require_class, raise_error=False):
                             object.__class__.__name__
                         )
                     )
-                return None
+                # TODO: keep an eye on this: I just switched it to return
+                # False rather than None by default, since all the edit methods
+                # require a boolean return value. I don't know for sure that
+                # none of the rest of my code expects it to return None though
+                return return_val
             return function(self, object, *args, **kwargs)
         return decorated_func
     return decorator

@@ -69,6 +69,8 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             "task_update_policy",
         )
         self._from_children_update_policy = MutableAttribute(
+            # TODO: if this is going to be used, it should be an init arg
+            # and also needs to be serializable and editable
             ItemUpdatePolicy.IN_PROGRESS,
             "from_children_update_policy",
         )

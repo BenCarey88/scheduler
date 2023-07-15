@@ -5,6 +5,8 @@ import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.api.common.date_time import Date, Time
+
 
 @contextmanager
 def suppress_signals(*QObjects_list):
@@ -102,6 +104,104 @@ def set_style(widget, stylesheet_filename):
     with open(stylesheet_path, "r") as stylesheet_file:
         stylesheet = stylesheet_file.read()
     widget.setStyleSheet(stylesheet)
+
+
+def get_widget_value(widget):
+    """Get the current value of a qt widget.
+
+    Args:
+        widget (QWidget): widget to read.
+
+    Returns:
+        (variant): current value of widget.
+    """
+    if isinstance(widget, QtWidgets.QLineEdit):
+        return widget.text()
+
+    elif isinstance(widget, QtWidgets.QComboBox):
+        return widget.currentText()
+
+    elif isinstance(widget, QtWidgets.QCheckBox):
+        return widget.checkState()
+
+    elif isinstance(widget, (QtWidgets.QSpinBox, QtWidgets.QDoubleSpinBox)):
+        return widget.value()
+
+    elif isinstance(widget, QtWidgets.QDateEdit):
+        date = widget.date()
+        return Date(date.year, date.month, date.day)
+    
+    elif isinstance(widget, QtWidgets.QTimeEdit):
+        time = widget.time()
+        return Time(time.hour, time.minute, time.second)
+
+    raise ValueError(
+        "get_widget_value method does not currently support widgets of "
+        "type {0}".format(type(widget))
+    )
+
+
+def set_widget_value(widget, value):
+    """Set the value of a qt widget.
+
+    Args:
+        widget (QWidget): widget to set.
+        value (variant): value to set. Accepted values types will depend on
+            the type of widget.
+
+    Raises:
+        (ValueError): if widget not accepted yet or value is not one that the
+            widget can set.
+    """
+    if isinstance(widget, QtWidgets.QLineEdit):
+        if isinstance(value, str):
+            return widget.setText(value)
+
+    elif isinstance(widget, QtWidgets.QComboBox):
+        if isinstance(value, str):
+            return widget.setCurrentText(value)
+
+    elif isinstance(widget, QtWidgets.QCheckBox):
+        if isinstance(value, bool):
+            return widget.setChecked(value)
+        elif isinstance(value, int):
+            return widget.setCheckState(value)
+
+    elif isinstance(widget, QtWidgets.QSpinBox):
+        if isinstance(value, int):
+            return widget.setValue(value)
+
+    elif isinstance(widget, QtWidgets.QDoubleSpinBox):
+        if isinstance(value, (float, int)):
+            return widget.setValue(value)
+
+    elif isinstance(widget, QtWidgets.QDateEdit):
+        if isinstance(value, Date):
+            return widget.setDate(
+                QtCore.QDate(value.year, value.month, value.day)
+            )
+        elif isinstance(value, QtCore.QDate):
+            return widget.setDate(value)
+
+    elif isinstance(widget, QtWidgets.QTimeEdit):
+        if isinstance(value, Time):
+            return widget.setTime(
+                QtCore.QTime(value.hour, value.minute, value.second)
+            )
+        elif isinstance(value, QtCore.QTime):
+            return widget.setTime(value)
+
+    else:
+        raise ValueError(
+            "set_widget_value method does not currently support widgets of "
+            "type {0}".format(type(widget))
+        )
+    raise ValueError(
+        "widget of type {0} cannot set values of type {1}".format(
+            type(widget),
+            type(value),
+        )
+    )
 
 
 """Id registry to store floating items by temporary ids."""

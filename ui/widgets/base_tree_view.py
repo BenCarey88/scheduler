@@ -150,11 +150,12 @@ class BaseTreeView(QtWidgets.QTreeView):
             )
             if not continue_deletion:
                 return False
-        success = False
-        for item in items:
-            # TODO: stack these edits, or make them a single edit
-            success = self.tree_manager.remove_item(item) or success
-        return success
+        return self.tree_manager.remove_items(items)
+        # TODO: DELETE BELOW ASSUMING THE ABOVE WORKS FINE
+        # for item in items:
+        #     # TODO: stack these edits, or make them a single edit
+        #     success = self.tree_manager.remove_item(item) or success
+        # return success
 
     def add_subtask(self, item, *args):
         """Add task child to item.
@@ -237,10 +238,31 @@ class BaseTreeView(QtWidgets.QTreeView):
 
         Args:
             item (BaseTreeItem or None): item to archive.
+
+        Returns:
+            (bool): whether or not action was successful.
         """
         if item is None:
             return False
         return self.tree_manager.archive_item(item)
+
+    def open_task_editor(self, item, task_dialog_class, *args):
+        """Open task editor dialog to edit task.
+
+        Args:
+            item (BaseTaskItem): the task item to edit with the dialog.
+            tasl_dialog_class (class): the task dialog class. This is only
+                passed as an argument to avoid recursive imports - the
+                subclasses that use this method must import the TaskItemDialog
+                themselves.
+
+        Returns:
+            (bool): whether or not action was successful.
+        """
+        if item is None:
+            return False
+        task_editor = task_dialog_class(self.tree_manager, item)
+        return bool(task_editor.exec())
 
     def keyPressEvent(self, event):
         """Reimplement key event to add hotkeys.

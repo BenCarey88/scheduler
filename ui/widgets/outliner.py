@@ -4,6 +4,7 @@ from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from scheduler.ui.dialogs import TaskItemDialog
 from scheduler.ui.models.tree import OutlinerTreeModel
 from .base_tree_view import BaseTreeView
 
@@ -183,6 +184,7 @@ class Outliner(BaseTreeView):
         )
         right_click_menu.addSeparator()
 
+        # Filtered Item Actions
         if self._hide_filtered_items:
             action = right_click_menu.addAction("Unhide filtered items")
         else:
@@ -191,5 +193,13 @@ class Outliner(BaseTreeView):
 
         action = right_click_menu.addAction("Expand from filtered")
         self._connect_action_to_func(action, self.expand_items_from_filtered)
+
+        # Task Editor
+        right_click_menu.addSeparator()
+        action = right_click_menu.addAction("Open Task Editor")
+        self._connect_action_to_func(
+            action,
+            partial(self.open_task_editor, item, TaskItemDialog),
+        )
 
         return right_click_menu

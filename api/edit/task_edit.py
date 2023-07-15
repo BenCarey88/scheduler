@@ -1,40 +1,60 @@
-"""Task edits to be applied to task items."""
+"""Edits to be applied to task and task category items."""
 
-from collections import OrderedDict
+# from collections import OrderedDict
 from functools import partial
 
 from scheduler.api.common.date_time import Date, DateTime
-from scheduler.api.common.object_wrappers import HostedDataDict, HostedDataList
-from scheduler.api.common.timeline import TimelineDict
-from ._base_edit import EditError
+# from scheduler.api.common.object_wrappers import HostedDataDict, HostedDataList
+# from scheduler.api.common.timeline import TimelineDict
+# from ._base_edit import EditError
 from ._core_edits import AttributeEdit, CompositeEdit, SelfInverseSimpleEdit
 from ._container_edit import DictEdit, ContainerEditFlag, ContainerOp, ListEdit
+from .tree_edit import RenameChildrenEdit
 
 
-class ModifyTaskEdit(AttributeEdit):
+class ModifyTaskEdit(CompositeEdit):
     """Task edit to change attributes of a task."""
-    def __init__(self, task_item, attr_dict):
+    def __init__(self, task_item, attr_dict, is_task=True):
         """Initialise edit.
 
         Args:
-            task_item (Task): the task item this edit is being run on.
+            task_item (BaseTaskItem): the task item this edit is being run on.
             attr_dict (dict(MutableAttribute, variant)): attributes to update.
-            new_type (TaskType): new type to change to.
+            is_task (bool): if True, this item is a task (and not a category)
+                and so has more attributes that can be updated.
         """
+        subedits = []
+        print (attr_dict)
         # type edits apply to whole family
         # TODO: THEY SHOULDN'T!
-        if task_item._type in attr_dict:
+        if is_task and task_item._type in attr_dict:
             new_type = attr_dict[task_item._type]
             attr_dict.update(
                 {item._type: new_type for item in task_item.get_family()}
             )
-        super(ModifyTaskEdit, self).__init__(attr_dict)
+        # rename in parent dict as well if needed
+        if task_item._name in attr_dict:
+            name = attr_dict[task_item._name]
+            parent = task_item.parent
+            if parent is not None and not parent.get_child(name):
+                name_edit = RenameChildrenEdit.create_unregistered(
+                    parent,
+                    {task_item.name: name},
+                    dict_edit_only=True,
+                )
+                subedits.append(name_edit)
+            else:
+                # can't change name if other child with new name exists
+                del attr_dict[task_item._name]
+        attr_edit = AttributeEdit.create_unregistered(attr_dict)
+        subedits.insert(0, attr_edit)
+        super(ModifyTaskEdit, self).__init__(subedits)
         self._callback_args = self._undo_callback_args = [(
             task_item,
             task_item,
         )]
-        self._name = "ModifyTask ({0})".format(task_item.name)
-        self._description = self.get_description(
+        self._name = "ModifyTaskItem ({0})".format(task_item.name)
+        self._description = attr_edit.get_description(
             task_item,
             task_item.name,
         )

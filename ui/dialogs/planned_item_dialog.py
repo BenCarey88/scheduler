@@ -1,4 +1,4 @@
-"""Scheduled item dialog for creating and editing scheduled items."""
+"""Planned item dialog for creating and editing planned items."""
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -49,14 +49,16 @@ class PlannedItemDialog(ItemDialog):
         self._index = index
         self._planned_item_parent = planned_item_parent
 
-        if planned_item is None:
-            # create a temp planned item just to get default values
-            planned_item = PlannedItem(
-                self._calendar,
-                calendar_period,
-                tree_item,
-            )
-        tree_item = planned_item.tree_item
+        # TODO: this will be useful once we start adding other fields into
+        # this dialog, so then we can uncomment the below
+        # if planned_item is None:
+        #     # create a temp planned item just to get default values
+        #     planned_item = PlannedItem(
+        #         self._calendar,
+        #         calendar_period,
+        #         tree_item,
+        #     )
+        # tree_item = planned_item.tree_item
 
         self.setMinimumSize(900, 700)
         utils.set_style(self, "scheduled_item_dialog.qss")

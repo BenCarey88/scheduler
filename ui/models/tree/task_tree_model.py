@@ -157,7 +157,7 @@ class TaskTreeModel(BaseTreeModel):
                 task_item = index.internalPointer()
                 if not task_item:
                     return False
-                return self.tree_manager.modify_task(
+                return self.tree_manager.modify_task_item(
                     task_item,
                     importance=value,
                 )
@@ -165,7 +165,7 @@ class TaskTreeModel(BaseTreeModel):
                 task_item = index.internalPointer()
                 if not task_item:
                     return False
-                return self.tree_manager.modify_task(
+                return self.tree_manager.modify_task_item(
                     task_item,
                     size=value,
                 )

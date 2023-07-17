@@ -60,7 +60,7 @@ class BaseTaskItem(BaseTreeItem):
 
     @property
     def display_name(self):
-        """Get display name of task item.
+        """Get display name attribute of task item.
 
         Returns:
             (str): display name of item - this is the full name of the item,
@@ -68,6 +68,15 @@ class BaseTaskItem(BaseTreeItem):
                 empty, its name will be used in place of this.
         """
         return self._display_name.value
+    
+    def get_display_name(self):
+        """Get display name of task item.
+
+        Returns:
+            (str): the display_name property if it exists, otherwise the name
+                attribute.
+        """
+        return self.display_name or self.name
 
     def _iter_planned_items(self):
         """Iterate over all planned items for given task.

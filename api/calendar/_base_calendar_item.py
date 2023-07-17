@@ -138,7 +138,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         if self._name.value:
             return self._name.value
         if self.tree_item:
-            return self.tree_item.display_name or self.tree_item.name
+            return self.tree_item.get_display_name()
         return ""
 
     @property
@@ -208,6 +208,25 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             (bool): whether or not item is planned item.
         """
         return self._is_planned_item
+
+    def __str__(self):
+        """Get string representation of object.
+
+        Returns:
+            (str): string representation.
+        """
+        return "{0}({1})".format(
+            self.__class__.__name__,
+            self.name,
+        )
+
+    def __repr__(self):
+        """Get string representation of object.
+
+        Returns:
+            (str): string representation.
+        """
+        return self.__str__()
 
     def is_task(self):
         """Check whether calendar item represents a task or an event.

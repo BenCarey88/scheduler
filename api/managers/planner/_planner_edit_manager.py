@@ -94,7 +94,8 @@ class PlannerEditManager(BasePlannerManager):
             self,
             planned_item,
             calendar_period=None,
-            tree_item=None):
+            tree_item=None,
+            name=None):
         """Remove planned item from calendar.
 
         Args:
@@ -103,6 +104,7 @@ class PlannerEditManager(BasePlannerManager):
                 item is planned over.
             tree_item (BaseTaskItem or None): the task that this item
                 represents.
+            name (str or None): the new name of the planned item.
 
         Returns:
             (bool): whether or not edit was successful.
@@ -110,6 +112,7 @@ class PlannerEditManager(BasePlannerManager):
         attr_dict = {
             planned_item._calendar_period: calendar_period,
             planned_item._tree_item: tree_item,
+            planned_item._name: name,
         }
         attr_dict = {
             attr: value

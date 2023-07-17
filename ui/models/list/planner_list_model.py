@@ -44,7 +44,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         if calendar_period is None:
             calendar_period = self.calendar.get_current_period(time_period)
         self.calendar_period = calendar_period
-        self.columns = [self.NAME_COLUMN, self.PATH_COLUMN]
+        self.columns = [self.NAME_COLUMN] #, self.PATH_COLUMN]
+        # TODO: delete path column? Or leave it as an option?
         self.open_dialog_on_drop_event = open_dialog_on_drop_event
 
         self._insert_rows_in_progress = False

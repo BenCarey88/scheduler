@@ -59,7 +59,9 @@ class BaseEdit(object):
         self._always_stack = False
         self._name = "Unnamed Edit"
         self._description = ""
-        self._edit_stack_name = "Edit Stack"
+        self._edit_stack_name = "{0} Edit Stack".format(
+            self.__class__.__name__
+        )
 
     @classmethod
     def create_and_run(cls, *args, stack=False, **kwargs):

@@ -126,6 +126,7 @@ class BaseListView(BaseCalendarView, QtWidgets.QTreeView):
         self.setModel(list_model)
         self.setItemsExpandable(False)
         utils.set_style(self, "base_list_view.qss")
+        self.setIndentation(0)
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.

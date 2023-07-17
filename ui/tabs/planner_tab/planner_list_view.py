@@ -107,11 +107,17 @@ class PlannerListView(BaseListView):
 
         self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
 
-        header = self.header()
-        header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionsMovable(True)
-        header.setSectionsClickable(True)
+        # header = self.header()
+        # header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        # header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        # header.setSectionsMovable(True)
+        # header.setSectionsClickable(True)
+        self.setHeaderHidden(True)
+        self.header().setStretchLastSection(False)
+        self.header().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.ResizeMode.Stretch
+        )
+        self.header().resizeSection(1, 1)
 
         for column in range(self.model().columnCount()):
             self.resizeColumnToContents(column)

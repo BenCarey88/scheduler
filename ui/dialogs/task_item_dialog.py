@@ -197,8 +197,8 @@ class TaskItemDialog(ItemDialog):
                     task_dict[widget_wrapper.name] = dialog_value
 
         # set new values (from cache or existing attributes)
-        if new_index is not None and new_index.isValid():
-            new_task = new_index.internalPointer()
+        if self.tree_item:
+            new_task = self.tree_item
             task_dict = self.values_cache.get(new_task, {})
             self.task_label.setText(new_task.path)
             for widget_wrapper in self._iter_widget_wrappers(new_task):

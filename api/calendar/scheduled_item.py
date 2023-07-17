@@ -260,8 +260,10 @@ class BaseScheduledItem(BaseCalendarItem):
             (str): name to use for item.
         """
         if self.type == ScheduledItemType.TASK:
+            if self._name.value:
+                return self._name.value
             if self.tree_item:
-                return self.tree_item.name
+                return self.tree_item.get_display_name()
             return ""
         else:
             return self._event_name.value

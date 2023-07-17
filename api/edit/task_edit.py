@@ -24,7 +24,6 @@ class ModifyTaskEdit(CompositeEdit):
                 and so has more attributes that can be updated.
         """
         subedits = []
-        print (attr_dict)
         # type edits apply to whole family
         # TODO: THEY SHOULDN'T!
         if is_task and task_item._type in attr_dict:

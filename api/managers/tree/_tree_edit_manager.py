@@ -254,7 +254,7 @@ class TreeEditManager(BaseTreeManager):
 
         Args:
             tree_item (BaseTaskItem): the tree item to remove.
-            stack (bool): if True, stack this with the next edit.
+            stack (bool): if True, stack this with the previous edit.
 
         Returns:
             (bool): whether or not edit was successful.
@@ -275,12 +275,12 @@ class TreeEditManager(BaseTreeManager):
             tree_items (list(BaseTaskItem)): the tree items to remove.
 
         Returns:
-            (bool): whether or not edit was successful.
+            (bool): whether or not edit was successful (ie. at least one item
+                was removed).
         """
         success = False
-        for i, tree_item in enumerate(tree_items):
-            stack = (i != 0)
-            success = self.remove_item(tree_item, stack=stack) or success
+        for tree_item in tree_items:
+            success = self.remove_item(tree_item, stack=success) or success
         return success
 
     @require_class((Task, TaskCategory), raise_error=True)
@@ -502,7 +502,8 @@ class TreeEditManager(BaseTreeManager):
             display_name=None,
             type=None,
             size=None,
-            importance=None):
+            importance=None,
+            stack=False):
         """Modify attributes of task.
 
         Args:
@@ -514,6 +515,7 @@ class TreeEditManager(BaseTreeManager):
             type (TaskType or None): new task type, if given.
             size (ItemSize or None): new size to change to, if given.
             importance (ItemImportance): new importance, if given.
+            stack (bool): if True, stack this with the previous edit.
 
         Returns:
             (bool): whether or not edit was successful.
@@ -537,6 +539,7 @@ class TreeEditManager(BaseTreeManager):
             task_item,
             attr_dict,
             is_task=is_task,
+            stack=stack,
         )
 
     @require_class(BaseTaskItem, raise_error=False)

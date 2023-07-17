@@ -38,13 +38,14 @@ def add_field_widget(vertical_layout, field_name, field_widget):
     return field_widget
 
 
-def add_checkbox_field(vertical_layout, field_name, default=False):
+def add_checkbox_field(vertical_layout, field_name, default=False, **kwargs):
     """Add a label and checkbox widget.
 
     Args:
         vertical_layout (QVBoxLayout): layout to add to.
         field_name (str): name of field that this widget edits.
         default (boolean): default value of checkbox.
+        kwargs (dict): kwargs to pass to add_field_widget.
 
     Returns:
         (QComboBox): the combobox widget.
@@ -52,16 +53,17 @@ def add_checkbox_field(vertical_layout, field_name, default=False):
     checkbox = QtWidgets.QCheckBox()
     if default:
         checkbox.setChecked(True)
-    return add_field_widget(vertical_layout, field_name, checkbox)
+    return add_field_widget(vertical_layout, field_name, checkbox, **kwargs)
 
 
-def add_text_field(vertical_layout, field_name, default=None):
+def add_text_field(vertical_layout, field_name, default=None, **kwargs):
     """Add a label and text widget.
 
     Args:
         vertical_layout (QVBoxLayout): layout to add to.
         field_name (str): name of field that this widget edits.
         default (str or None): if given, set as the combobox default value.
+        kwargs (dict): kwargs to pass to add_field_widget.
 
     Returns:
         (QLineEdit): the line edit widget.
@@ -69,10 +71,15 @@ def add_text_field(vertical_layout, field_name, default=None):
     line_edit = QtWidgets.QLineEdit()
     if default is not None:
         line_edit.setText(default)
-    return add_field_widget(vertical_layout, field_name, line_edit)
+    return add_field_widget(vertical_layout, field_name, line_edit, **kwargs)
 
 
-def add_combobox_field(vertical_layout, field_name, values, default=None):
+def add_combobox_field(
+        vertical_layout,
+        field_name,
+        values,
+        default=None,
+        **kwargs):
     """Add a label and combobox widget.
 
     Args:
@@ -80,6 +87,7 @@ def add_combobox_field(vertical_layout, field_name, values, default=None):
         field_name (str): name of field that this widget edits.
         values (iterable): the possible values of the combobox.
         default (str or None): if given, set as the combobox default value.
+        kwargs (dict): kwargs to pass to add_field_widget.
 
     Returns:
         (QComboBox): the combobox widget.
@@ -88,4 +96,4 @@ def add_combobox_field(vertical_layout, field_name, values, default=None):
     combobox.addItems(values)
     if default is not None:
         combobox.setCurrentText(default)
-    return add_field_widget(vertical_layout, field_name, combobox)
+    return add_field_widget(vertical_layout, field_name, combobox, **kwargs)

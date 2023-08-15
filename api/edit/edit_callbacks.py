@@ -9,6 +9,7 @@ from .filter_edit import (
     AddFilterEdit,
     RemoveFilterEdit,
     ModifyFilterEdit,
+    ModifyFilterPinEdit,
 )
 from .tree_edit import (
     AddChildrenEdit,
@@ -144,7 +145,7 @@ class CallbackType(object):
     Filter:
         FILTER_ADD:
             Args:   (filter)
-            Edits:  [AddFilterEdit]
+            Edits:  [AddFilterEdit, ModifyFilterPinEdit]
         FILTER_REMOVE:
             Args:   (filter)
             Edits:  [RemoveFilterEdit]
@@ -194,7 +195,7 @@ class CallbackType(object):
         PLANNER_MODIFY: [ModifyPlannedItemEdit],
         PLANNER_MOVE: [MovePlannedItemEdit],
         PLANNER_FULL_UPDATE: [SortPlannedItemsEdit],
-        FILTER_ADD: [AddFilterEdit],
+        FILTER_ADD: [AddFilterEdit, ModifyFilterPinEdit],
         FILTER_REMOVE: [RemoveFilterEdit],
         FILTER_MODIFY: [ModifyFilterEdit],
     }

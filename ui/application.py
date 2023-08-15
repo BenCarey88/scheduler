@@ -12,7 +12,12 @@ from scheduler.api.project import Project
 
 from . import constants as ui_constants
 from .tabs import SchedulerTab, HistoryTab, PlannerTab, TaskTab, TrackerTab
-from .utils import custom_message_dialog, set_style, simple_message_dialog
+from .utils import (
+    custom_message_dialog,
+    get_qicon,
+    set_style,
+    simple_message_dialog,
+)
 
 
 class SchedulerWindow(QtWidgets.QMainWindow):
@@ -97,11 +102,7 @@ class SchedulerWindow(QtWidgets.QMainWindow):
             **kwargs
         )
         self.outliner_stack.addWidget(tab.outliner_panel)
-        tab_icon = QtGui.QIcon(
-            os.path.join(
-                os.path.dirname(__file__), "icons", "{0}.png".format(tab.name)
-            ),
-        )
+        tab_icon = get_qicon("{0}.png".format(tab.name))
         self.tabs_widget.addTab(
             tab,
             tab_icon,

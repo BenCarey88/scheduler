@@ -1,6 +1,6 @@
 """Tracker file reader."""
 
-from scheduler.api import constants
+from scheduler.api.enums import TrackedValueType
 from scheduler.api.common.object_wrappers import (
     MutableAttribute,
     HostedDataList,
@@ -9,8 +9,7 @@ from scheduler.api.common.object_wrappers import (
 from scheduler.api.serialization.serializable import BaseSerializable
 
 
-# TODO: move TaskValueType to enums module and include here;
-# update this class to allow tracking of non-task items, AND tracking of
+# TODO update this class to allow tracking of non-task items, AND tracking of
 # task items with a different value type from the one set in the task?
 #
 # need to include a history dict for non-task items (can still use
@@ -47,7 +46,7 @@ class TrackedItem(Hosted, BaseSerializable):
             (BaseTaskItem or None): tracked task, if this item is a task.
         """
         return self._task_item
-    
+
     @property
     def name(self):
         """Get name of this item.
@@ -73,7 +72,7 @@ class TrackedItem(Hosted, BaseSerializable):
         if self.task_item is not None:
             return self.task_item.value_type
         return TrackedValueType.NONE
-    
+
     def to_dict(self):
         """Get json compatible dictionary representation of class.
 
@@ -107,9 +106,9 @@ class TrackedItem(Hosted, BaseSerializable):
         if task is not None:
             task = task_root.get_item_at_path(task, search_archive=True)
         name = json_dict.get(cls.NAME_KEY)
-        value_type = json_dict.get(cls.VALUE_TYPE_KEY)
-        if value_type is not None:
-            value_type = TrackedValueType(value_type)
+        value_type = TrackedValueType.from_string(
+            json_dict.get(cls.VALUE_TYPE_KEY)
+        )
         return cls(task_item=task, name=name, value_type=value_type)
 
 

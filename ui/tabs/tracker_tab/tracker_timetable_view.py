@@ -9,7 +9,7 @@ from scheduler.api.edit.edit_callbacks import (
     CallbackEditType as CET,
     CallbackItemType as CIT,
 )
-from scheduler.api.tree.task import TaskValueType
+from scheduler.api.enums import TrackedValueType
 
 from scheduler.ui.models.table import TrackerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
@@ -217,7 +217,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         status = task.history.get_status_at_date(date)
         value = task.history.get_value_at_date(date)
 
-        if task_value_type == TaskValueType.MULTI:
+        if task_value_type == TrackedValueType.MULTI:
             layout = QtWidgets.QVBoxLayout()
             label = QtWidgets.QLabel(task.name)
             label.setStyleSheet("font-weight: bold")
@@ -229,7 +229,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             layout.setContentsMargins(1, 1, 1, 10)
             return layout
 
-        if task_value_type == TaskValueType.NONE:
+        if task_value_type == TrackedValueType.NONE:
             value_widget = QtWidgets.QCheckBox()
             value_widget.setCheckState(
                 constants.TASK_STATUS_CHECK_STATES.get(status)
@@ -238,27 +238,27 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.STRING:
+        elif task_value_type == TrackedValueType.STRING:
             value_widget = QtWidgets.QLineEdit(value or "")
             value_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.INT:
+        elif task_value_type == TrackedValueType.INT:
             value_widget = QtWidgets.QSpinBox()
             value_widget.setValue(value or 0)
             value_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.FLOAT:
+        elif task_value_type == TrackedValueType.FLOAT:
             value_widget = QtWidgets.QDoubleSpinBox()
             value_widget.setValue(value or 0)
             value_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.TIME:
+        elif task_value_type == TrackedValueType.TIME:
             value_widget = QtWidgets.QStackedWidget()
             push_button = QtWidgets.QPushButton("    ")
             time_widget = QtWidgets.QTimeEdit(QtCore.QTime(0, 0, 0))
@@ -298,7 +298,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         value = None
         status = None
 
-        if task.value_type == TaskValueType.NONE:
+        if task.value_type == TrackedValueType.NONE:
             # if value type is None we set status instead of value
             # TODO: this is a really gross way to do things really
             for status_, state in constants.TASK_STATUS_CHECK_STATES.items():
@@ -307,11 +307,11 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
                     break
             if not status:
                 return
-        elif task.value_type == TaskValueType.STRING:
+        elif task.value_type == TrackedValueType.STRING:
             value = value_widget.text()
-        elif task.value_type in (TaskValueType.INT, TaskValueType.FLOAT):
+        elif task.value_type in (TrackedValueType.INT, TrackedValueType.FLOAT):
             value = value_widget.value()
-        elif task.value_type == TaskValueType.TIME:
+        elif task.value_type == TrackedValueType.TIME:
             # TODO: this should be fixed so it doesn't need to be a string
             qtime = value_widget.time()
             value=str(Time(qtime.hour(), qtime.minute(), qtime.second()))

@@ -17,6 +17,12 @@ TINY_TIMER_INTERVAL = 200    # every 0.2s
 SHORT_TIMER_INTERVAL = 30000 # every 30s
 LONG_TIMER_INTERVAL = 300000 # every 5m
 
+# Layout Dicts
+SUBLAYOUT = "sublayout"
+FRAME = "frame"
+HORIZONTAL = "horizontal"
+VERTICAL = "vertical"
+
 # Mime Data
 OUTLINER_TREE_MIME_DATA_FORMAT = "outliner_tree_mime_data"
 TASK_TAB_TREE_MIME_DATA_FORMAT = "task_tab_tree_mime_data"

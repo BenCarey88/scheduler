@@ -93,7 +93,9 @@ def set_style(widget, stylesheet_filename):
 
     Args:
         stylesheet_filename (str): name of stylesheet file under
-            scheduler/ui/style directory. Can be in a subdirectory.
+            scheduler/ui/style directory. Can be in a subdirectory, in which
+            case this arg should give the relative path to the file from the
+            icons directory.
         widget (QtWidgets.QWidget): Qt widget to set style on.
     """
     stylesheet_path = os.path.join(
@@ -104,6 +106,27 @@ def set_style(widget, stylesheet_filename):
     with open(stylesheet_path, "r") as stylesheet_file:
         stylesheet = stylesheet_file.read()
     widget.setStyleSheet(stylesheet)
+
+
+def get_qicon(icon_filename):
+    """Get qicon from a given image file.
+
+    Args:
+        icon_filename (str): name of image file under scheduler/ui/icons
+            directory. Can be in a subdirectory, in which case this arg
+            should give the relative path to the file from the icons
+            directory.
+
+    Returns:
+        (QtGui.QIcon): the qicon.
+    """
+    return QtGui.QIcon(
+        os.path.join(
+            os.path.dirname(__file__),
+            "icons",
+            os.path.normpath(icon_filename),
+        )
+    )
 
 
 def get_widget_value(widget):

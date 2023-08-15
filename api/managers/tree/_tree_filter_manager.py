@@ -433,48 +433,58 @@ class TreeFilterManager(BaseTreeManager):
             field_filter.name if field_filter is not None else None,
         )
 
-    def add_field_filter(self, field_filter):
+    # TODO: add this to base manager, maybe with a cls.FILTER_TYPE property?
+    def add_field_filter(self, field_filter, filter_path):
         """Add given field filter.
 
         Args:
             field_filter (BaseFilter): the field filter to add.
+            filter_path (list(str)): path to save filter under, including name.
         """
         AddFilterEdit.create_and_run(
             self._filterer,
             FilterType.TREE,
+            filter_path,
             field_filter,
         )
         # self._filterer.add_filter(FilterType.TREE, field_filter)
 
-    def modify_field_filter(self, old_name, field_filter):
+    def modify_field_filter(
+            self,
+            old_filter_path,
+            field_filter,
+            new_filter_path=None):
         """Modify given field filter.
 
         Args:
-            old_name (str): old name of filter we're modifying.
+            old_filter_path (list(str)): old path of filter we're modifying.
             field_filter (BaseFilter): the field filter after modification.
+            new_filter_path (list(str)): new path of filter, if changed.
         """
         ModifyFilterEdit.create_and_run(
             self._filterer,
             FilterType.TREE,
-            old_name,
+            old_filter_path,
             field_filter,
+            new_filter_path=new_filter_path,
         )
+        old_name = old_filter_path[-1]
         # ensure filter is set as active if the one it replaced was active
         if (self._active_field_filter is not None and
                 self._active_field_filter.name == old_name):
             self.set_active_field_filter(field_filter)
         # self._filterer.modify_filter(FilterType.TREE, old_name, field_filter)
 
-    def remove_field_filter(self, name):
+    def remove_field_filter(self, filter_path):
         """Remove field filter with given name.
 
         Args:
-            name (str): name of filter to remove.
+            filter_path (list(str)): path of filter to remove.
         """
         RemoveFilterEdit.create_and_run(
             self._filterer,
             FilterType.TREE,
-            name,
+            filter_path,
         )
         # self.filterer.remove_filter(FilterType.TREE, name)
 

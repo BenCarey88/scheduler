@@ -13,20 +13,10 @@ from scheduler.api.enums import (
     ItemImportance,
     ItemStatus,
     ItemSize,
-    OrderedStringEnum,
+    TrackedValueType,
 )
 from .base_task_item import BaseTaskItem
 from .task_history import TaskHistory, TaskType
-
-
-class TaskValueType(OrderedStringEnum):
-    """Enumeration for task value types."""
-    NONE = ""
-    TIME = "Time"
-    STRING = "String"
-    INT = "Int"
-    FLOAT = "Float"
-    MULTI = "Multi"
 
 
 class Task(BaseTaskItem):
@@ -66,7 +56,7 @@ class Task(BaseTaskItem):
                 we default to unstarted.
             history_dict (OrderedDict or None): serialized task history dict,
                 if exists.
-            value_type (TaskValueType or None): task value type, if not None.
+            value_type (TrackedValueType or None): task value type, if not None.
             size (ItemSize or None): task size, if given.
             importance (ItemImportance or None): task importance, if given.
             **kwargs (dict): kwargs to pass to superclass init (including
@@ -90,7 +80,7 @@ class Task(BaseTaskItem):
             if history_dict is not None
             else TaskHistory(self)
         )
-        self.value_type = value_type or TaskValueType.NONE
+        self.value_type = value_type or TrackedValueType.NONE
         self._size = MutableAttribute(
             size or ItemSize.NONE,
             "size"
@@ -262,7 +252,6 @@ class Task(BaseTaskItem):
             display_name=self.display_name,
             color=self._color.value,
         )
-        task._color = self._color
         return task
 
     def to_dict(self):
@@ -324,18 +313,14 @@ class Task(BaseTaskItem):
         Returns:
             (Task): task class for given dict.
         """
-        task_type = json_dict.get(cls.TYPE_KEY, None)
-        task_status = json_dict.get(cls.STATUS_KEY, None)
-        if task_status is not None:
-            task_status = ItemStatus(task_status)
-        task_history = json_dict.get(cls.HISTORY_KEY, None)
-        value_type = json_dict.get(cls.VALUE_TYPE_KEY, None)
-        size = json_dict.get(cls.SIZE_KEY, None)
-        if size is not None:
-            size = ItemSize(size)
-        importance = json_dict.get(cls.IMPORTANCE_KEY, None)
-        if importance is not None:
-            importance = ItemImportance(cls.IMPORTANCE_KEY)
+        task_type = json_dict.get(cls.TYPE_KEY)
+        task_status = ItemStatus.from_string(json_dict.get(cls.STATUS_KEY))
+        task_history = json_dict.get(cls.HISTORY_KEY)
+        value_type = json_dict.get(cls.VALUE_TYPE_KEY)
+        size = ItemSize.from_string(json_dict.get(cls.SIZE_KEY))
+        importance = ItemImportance.from_string(
+            json_dict.get(cls.IMPORTANCE_KEY)
+        )
 
         task = super(Task, cls).from_dict(
             json_dict,

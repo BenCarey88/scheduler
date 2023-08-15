@@ -3,23 +3,155 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-def add_widgets_horizontally(vertical_layout, *widget_list, frame=False):
-    """Layout a list of widgets horizontally and add to a vertical layout.
+def _layout_widgets(
+        layout_or_widget,
+        new_layout_type,
+        *widgets,
+        frame=False):
+    """Create a layout of widgets and add to an existing layout or widget.
 
     Args:
-        vertical_layout (QVBoxLayout): layout to add to.
-        widget_list (list(QWidget)): widgets to add.
+        layout_or_widget (QLayout or QWidget): layout or widget to add to. If
+            adding to a widget, and the layout of the widget already exists,
+            add new_layout as a sublayout to it. Otheriwse, make new_layout the
+            layout of the widget.
+        new_layout_type (class): class of sublayout to put widgets in.
+        widgets (list(QWidget)): widgets to add.
         frame (bool): if True, add a frame.
+
+    Returns:
+        (QBoxLayout): the layout for the widgets.
     """
-    horizontal_layout = QtWidgets.QHBoxLayout()
-    for widget in widget_list:
-        horizontal_layout.addWidget(widget)
+    new_layout = new_layout_type()
+    for widget in widgets:
+        new_layout.addWidget(widget)
+    frame_widget = None
     if frame:
         frame_widget = QtWidgets.QFrame()
-        frame_widget.setLayout(horizontal_layout)
-        vertical_layout.addWidget(frame_widget)
+        frame_widget.setLayout(new_layout)
+
+    if isinstance(layout_or_widget, QtWidgets.QWidget):
+        outer_layout = layout_or_widget.layout()
+        if outer_layout is None:
+            if frame_widget:
+                outer_layout = new_layout_type()
+            else:
+                outer_layout = new_layout
+                new_layout = None
+            layout_or_widget.setLayout(outer_layout)
+
+    elif isinstance(layout_or_widget, QtWidgets.QLayout):
+        outer_layout = layout_or_widget
+
     else:
-        vertical_layout.addLayout(horizontal_layout)
+        raise ValueError(
+            "layout_or_widget arg must be a layout or a widget, not "
+            "{0}".format(type(layout_or_widget))
+        )
+
+    if frame_widget is not None:
+        outer_layout.addWidget(frame_widget)
+    elif new_layout is not None:
+        outer_layout.addLayout(new_layout)
+
+    return new_layout
+
+
+def add_widgets_horizontally(layout_or_widget, *widget_list, frame=False):
+    """Layout a list of widgets horizontally and add to an existing layout.
+
+    Args:
+        layout_or_widget (QLayout or QWidget): layout or widget to add to. If
+            adding to a widget, and the layout of the widget already exists,
+            add new_layout as a sublayout to it. Otheriwse, make new_layout the
+            layout of the widget.
+        widget_list (list(QWidget)): widgets to add.
+        frame (bool): if True, add a frame.
+
+    Returns:
+        (QHBoxLayout): the horizontal layout.
+    """
+    return _layout_widgets(
+        layout_or_widget,
+        QtWidgets.QHBoxLayout,
+        *widget_list,
+        frame=frame,
+    )
+
+
+def add_widgets_vertically(layout_or_widgets, *widget_list, frame=False):
+    """Layout a list of widgets vertically and add to an existing layout.
+
+    Args:
+        layout_or_widget (QLayout or QWidget): layout or widget to add to. If
+            adding to a widget, and the layout of the widget already exists,
+            add new_layout as a sublayout to it. Otheriwse, make new_layout the
+            layout of the widget.
+        widget_list (list(QWidget)): widgets to add.
+        frame (bool): if True, add a frame.
+
+    Returns:
+        (QVBoxLayout): the vertical layout.
+    """
+    return _layout_widgets(
+        layout_or_widgets,
+        QtWidgets.QVBoxLayout,
+        *widget_list,
+        frame=frame,
+    )
+
+
+def layout_widget_dict(layout_or_widget, widget_list_or_dict):
+    """Add widgets according to widget dict.
+
+    Widget lists looks like this:
+    [
+        {
+            # optional layout properties dict, eg.
+            frame: True,
+            orientation: vertical,
+        },
+        widget_1,
+        widget_2,
+        [
+            # subdict or sublist representing widgets for sublayout
+            widget_3_1,
+            widget_3_2,
+            ...
+        ],
+        ...
+    ]
+
+    Widget dicts looks like this:
+    {
+        # optionaly keyword args for layout properties, eg.
+        frame: True,
+        orientation: vertical,
+        widget_1: {
+            # widget properties dict, eg.
+        },
+        widget_2: None,  # represents no widget properties
+        layout_1: {
+            # subdict or sublist representing widgets for sublayout
+            widget_3_1: {},
+            ...
+        },
+        layout_name_2: {
+            # as above, but to avoid having to manually create layouts,
+            # you can just give an arbitrary name and then have them made for you
+        }
+        ...
+    }
+
+    Args:
+        layout_or_widget (QLayout or QWidget): layout or widget to add to.
+        widget_list_or_dict (list or OrderedDict): list or ordered dict of
+            widgets to add. Can be nested, allowing sublayouts (and the nested
+            elements can be either dicts or lists). See above for how they
+            should be laid out. 
+    """
+    # ^TODO: maybe just delete this method because it's super gross?
+    # or come up with a consistent way of doing it
 
 
 def add_field_widget(vertical_layout, field_name, field_widget):
@@ -33,6 +165,12 @@ def add_field_widget(vertical_layout, field_name, field_widget):
     Returns:
         (QWidget): the field widget.
     """
+    if not isinstance(vertical_layout, QtWidgets.QLayout):
+        raise ValueError(
+            "vertical_layout arg must be a QLayout object, not {0}".format(
+                type(vertical_layout)
+            )
+        )
     label = QtWidgets.QLabel(field_name)
     add_widgets_horizontally(vertical_layout, label, field_widget)
     return field_widget

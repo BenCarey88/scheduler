@@ -38,6 +38,21 @@ class OrderedStringEnum(str, Enum):
         """Get all values for enum."""
         return list(cls.__members__)
 
+    @classmethod
+    def from_string(cls, string):
+        """Get enum value from the corresponding string.
+
+        Args:
+            string (str or None): string to get enum value from.
+
+        Returns:
+            (OrderedStringEnum or None): enum value, or None if not found.
+        """
+        try:
+            return cls(string)
+        except ValueError:
+            return None
+
     @property
     def key(self):
         """Get key for ordering comparisons."""
@@ -134,6 +149,16 @@ class TimePeriod(OrderedStringEnum):
     WEEK = "week"
     MONTH = "month"
     YEAR = "year"
+
+
+class TrackedValueType(OrderedStringEnum):
+    """Enum for tracker value types."""
+    NONE = ""
+    TIME = "Time"
+    STRING = "String"
+    INT = "Int"
+    FLOAT = "Float"
+    MULTI = "Multi"
 
 
 class ItemStatus(OrderedStringEnum):

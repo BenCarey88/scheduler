@@ -395,12 +395,10 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             search_archive=True,
         )
         name = dict_repr.get(cls.NAME_KEY)
-        status = dict_repr.get(cls.STATUS_KEY)
-        if status is not None:
-            status = ItemStatus(status)
-        task_update_policy = dict_repr.get(cls.TASK_UPDATE_POLICY_KEY)
-        if task_update_policy is not None:
-            task_update_policy = ItemUpdatePolicy(task_update_policy)
+        status = ItemStatus.from_string(dict_repr.get(cls.STATUS_KEY))
+        task_update_policy = ItemUpdatePolicy.from_string(
+            dict_repr.get(cls.TASK_UPDATE_POLICY_KEY)
+        )
         class_instance = cls(
             calendar,
             *init_args,

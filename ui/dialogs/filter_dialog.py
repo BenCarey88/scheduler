@@ -680,16 +680,21 @@ class FilterDialog(QtWidgets.QDialog):
                     "already exists".format(self.filter_name),
                 )
             self._tree_manager.modify_field_filter(
-                self.original_name,
+                [self.original_name],
                 self.filter,
             )
         else:
             if self.filter_name in self._tree_manager.field_filters_dict:
                 return simple_message_dialog(
                     "Invalid Name",
-                    "A filter called {0} already exists".format(self.filter_name)
+                    "A filter called {0} already exists".format(
+                        self.filter_name
+                    )
                 )
-            self._tree_manager.add_field_filter(self.filter)
+            self._tree_manager.add_field_filter(
+                self.filter,
+                [self.filter.name],
+            )
         self.accept()
         self.close()
 
@@ -698,6 +703,6 @@ class FilterDialog(QtWidgets.QDialog):
 
         Called when user clicks delete.
         """
-        self._tree_manager.remove_field_filter(self.original_name)
+        self._tree_manager.remove_field_filter([self.original_name])
         self.reject()
         self.close()

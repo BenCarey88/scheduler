@@ -2,6 +2,10 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from functools import partial
+
+from scheduler.api.filter import BaseFilter
+
 from scheduler.ui.dialogs import FilterDialog
 from scheduler.ui.utils import get_qicon
 from scheduler.ui.layout_utils import add_widgets_horizontally
@@ -100,34 +104,60 @@ class FilterWidget(QtWidgets.QWidget):
         main_layout = QtWidgets.QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(main_layout)
-        new_filter_button = QtWidgets.QPushButton("New filter")
+        new_filter_button = QtWidgets.QPushButton("New Filter")
         new_filter_button.clicked.connect(self.launch_filter_dialog)
         self.menu_button = QtWidgets.QToolButton()
-        self.menu_button.setIcon(get_qicon("history.png"))
+        self.menu_button.setIcon(get_qicon("open.png"))
         self.menu_button.clicked.connect(self.open_filter_menu)
-        # main_layout.addWidget(menu_button)
-        # main_layout.addWidget(new_filter_button)
         add_widgets_horizontally(
             main_layout,
             new_filter_button,
             self.menu_button,
         )
-
-        # menu_bar = self.create_menu_bar()
-        # main_layout.addWidget(menu_bar)
-
-        # TODO: trigger menu with a tool button, see base_tree_view
-        # right_click menu as eg.
+        self.active_filter_label = QtWidgets.QLabel("")
+        add_widgets_horizontally(
+            main_layout,
+            self.active_filter_label,
+            start_stretch=True,
+            end_stretch=True,
+        )
         self.filter_view = FilterView(tree_manager, outliner)
         main_layout.addWidget(self.filter_view)
 
     def open_filter_menu(self):
         """Open the menu bar and actions."""
         filter_menu = QtWidgets.QMenu("Filters")
-        
-        # save_action = file_menu.addAction("Save")
-        # save_action.triggered.connect(self.save)
+        self._populate_filter_menu(
+            filter_menu,
+            self.tree_manager.get_filters_dict(),
+        )
         filter_menu.exec(self.mapToGlobal(self.menu_button.pos()))
+
+    def _populate_filter_menu(self, menu, filter_dict):
+        """Populate filter menu from filter dict.
+
+        Args:
+            menu (QMenu): the menu to populate.
+            filter_dict (dict): dict of filters.
+        """
+        for key, value in filter_dict.items():
+            if isinstance(value, dict):
+                submenu = menu.addMenu(key)
+                self._populate_filter_menu(submenu, value)
+            elif isinstance(value, BaseFilter):
+                action = menu.addAction(key)
+                action.triggered.connect(
+                    partial(self._update_active_filter, value)
+                )
+        return menu
+
+    def _update_active_filter(self, filter_):
+        """Update filter label text.
+
+        Args:
+            filter_ (BaseFilter): the filter_ to use as the active filter.
+        """
+        self.active_filter_label.setText(filter_.name)
 
     def sizeHint(self):
         """Get size hint.

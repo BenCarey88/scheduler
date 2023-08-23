@@ -84,7 +84,6 @@ class RemoveFilterEdit(DictEdit):
         )
 
 
-# TODO: fix this to match the above 2 args, plus fix all calls of these edits.
 class ModifyFilterEdit(CompositeEdit):
     """Modify filter in filterer."""
     def __init__(

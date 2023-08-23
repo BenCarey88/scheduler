@@ -202,11 +202,11 @@ class Filterer(BaseSerializable):
         for filter_ in self.iter_filters(_filter_dict=filters_dict):
             yield filter_
 
-    def get_filters_dict(self, filter_type, filter_path=None):
+    def get_filters_dict(self, filter_type=None, filter_path=None):
         """Get filters dict for all filters of given type under given path.
 
         Args:
-            filter_type (FilterType): filter type.
+            filter_type (FilterType or None): filter type, if restricting.
             filter_path (list(str) or None): path to filters, if not saved
                 directly under the filter_type category. If this path ends with
                 the name of a filter, the final element of the list is ignored
@@ -214,8 +214,11 @@ class Filterer(BaseSerializable):
 
         Returns:
             (dict(str, BaseFilter) or None): filters dict for given type and
-                path, if found. This may include nested filters.
+                path, if found. This may include nested filters. If no args are
+                given, return all filters.
         """
+        if not filter_type:
+            return self._all_filters
         self._assert_filter_type_is_valid(filter_type, allow_tuples=False)
         filter_dict = self._all_filters.get(filter_type)
         prev_filter_dict = None
@@ -366,6 +369,12 @@ class Filterer(BaseSerializable):
         """
         filterer = cls()
         all_filters = dictionary.get(cls.ALL_FILTERS_KEY, {})
+        # legacy method - old saves have no all_filters key and just have
+        # the filter dicts at top-level.
+        # TODO: remove this method once we've transitioned to new method
+        if cls.ALL_FILTERS_KEY not in dictionary:
+            all_filters = dictionary
+
         for filter_type, filters_dict in all_filters.items():
             if filter_type in filterer._all_filters:
                 filterer._all_filters[filter_type] = (
@@ -415,13 +424,17 @@ class Filterer(BaseSerializable):
             if isinstance(filter_or_subdict, BaseFilter):
                 filter_ = filter_or_subdict
                 serialized_subdict = filter_.to_dict()
-                # add to pin list if needed
-                for list_ in list(set([pins_list, global_pins_list])):
+                # add to pin list if needed - note global filters could be
+                # in any list
+                for list_ in (pins_list, global_pins_list):
                     if filter_ in list_:
                         index = list_.index(filter_)
                         list_[index] = self.PATH_SEPARATOR.join(
                             filter_path + [key]
                         )
+                    if filter_type == FilterType.GLOBAL:
+                        # break to avoid doubling up on global pins
+                        break
             else:
                 serialized_subdict = self._serialize_filters_dict(
                     filter_or_subdict,

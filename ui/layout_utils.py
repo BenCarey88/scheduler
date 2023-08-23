@@ -7,7 +7,9 @@ def _layout_widgets(
         layout_or_widget,
         new_layout_type,
         *widgets,
-        frame=False):
+        frame=False,
+        start_stretch=False,
+        end_stretch=False):
     """Create a layout of widgets and add to an existing layout or widget.
 
     Args:
@@ -18,13 +20,20 @@ def _layout_widgets(
         new_layout_type (class): class of sublayout to put widgets in.
         widgets (list(QWidget)): widgets to add.
         frame (bool): if True, add a frame.
+        start_stretch (bool): if True, add stretch at start.
+        end_stretch (bool): if True, add stretch at end.
 
     Returns:
         (QBoxLayout): the layout for the widgets.
     """
     new_layout = new_layout_type()
+    if start_stretch:
+        new_layout.addStretch()
     for widget in widgets:
-        new_layout.addWidget(widget)
+        if isinstance(widget, QtWidgets.QWidget):
+            new_layout.addWidget(widget)
+    if end_stretch:
+        new_layout.addStretch()
     frame_widget = None
     if frame:
         frame_widget = QtWidgets.QFrame()
@@ -57,7 +66,7 @@ def _layout_widgets(
     return new_layout
 
 
-def add_widgets_horizontally(layout_or_widget, *widget_list, frame=False):
+def add_widgets_horizontally(layout_or_widget, *widget_list, **kwargs):
     """Layout a list of widgets horizontally and add to an existing layout.
 
     Args:
@@ -66,7 +75,7 @@ def add_widgets_horizontally(layout_or_widget, *widget_list, frame=False):
             add new_layout as a sublayout to it. Otheriwse, make new_layout the
             layout of the widget.
         widget_list (list(QWidget)): widgets to add.
-        frame (bool): if True, add a frame.
+        kwargs (dict): kwargs to pass to _layout_widgets function.
 
     Returns:
         (QHBoxLayout): the horizontal layout.
@@ -75,11 +84,11 @@ def add_widgets_horizontally(layout_or_widget, *widget_list, frame=False):
         layout_or_widget,
         QtWidgets.QHBoxLayout,
         *widget_list,
-        frame=frame,
+        **kwargs,
     )
 
 
-def add_widgets_vertically(layout_or_widgets, *widget_list, frame=False):
+def add_widgets_vertically(layout_or_widgets, *widget_list, **kwargs):
     """Layout a list of widgets vertically and add to an existing layout.
 
     Args:
@@ -88,7 +97,7 @@ def add_widgets_vertically(layout_or_widgets, *widget_list, frame=False):
             add new_layout as a sublayout to it. Otheriwse, make new_layout the
             layout of the widget.
         widget_list (list(QWidget)): widgets to add.
-        frame (bool): if True, add a frame.
+        kwargs (dict): kwargs to pass to _layout_widgets function.
 
     Returns:
         (QVBoxLayout): the vertical layout.
@@ -97,7 +106,7 @@ def add_widgets_vertically(layout_or_widgets, *widget_list, frame=False):
         layout_or_widgets,
         QtWidgets.QVBoxLayout,
         *widget_list,
-        frame=frame,
+        **kwargs,
     )
 
 
@@ -154,13 +163,14 @@ def layout_widget_dict(layout_or_widget, widget_list_or_dict):
     # or come up with a consistent way of doing it
 
 
-def add_field_widget(vertical_layout, field_name, field_widget):
+def add_field_widget(vertical_layout, field_name, field_widget, **kwargs):
     """Add a label and widget representing a field and its value.
 
     Args:
         vertical_layout (QVBoxLayout): layout to add to.
         field_name (str): name of field that this widget edits.
-        field_widget (QWidget): the widget that edits this field
+        field_widget (QWidget): the widget that edits this field.
+        kwargs (dict): kwargs to pass to add_widgets_horizontally.
 
     Returns:
         (QWidget): the field widget.
@@ -172,7 +182,7 @@ def add_field_widget(vertical_layout, field_name, field_widget):
             )
         )
     label = QtWidgets.QLabel(field_name)
-    add_widgets_horizontally(vertical_layout, label, field_widget)
+    add_widgets_horizontally(vertical_layout, label, field_widget, **kwargs)
     return field_widget
 
 

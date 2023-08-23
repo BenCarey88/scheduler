@@ -104,7 +104,7 @@ class TreeFilterManager(BaseTreeManager):
         )
         if active_filter_name is not None:
             self._active_field_filter = self.get_field_filter(
-                active_filter_name
+                [active_filter_name]
             )
 
     def has_attribute(self, tree_item, attribute):
@@ -358,6 +358,22 @@ class TreeFilterManager(BaseTreeManager):
                 self.set_expanded_from_filtered(child)
         return True
 
+    def get_filters_dict(self, filter_type=None, filter_path=None):
+        """Get filters dict for given filter type and path
+
+        Args:
+            filter_type (FilterType or None): filter type, if restricting.
+            filter_path (list(str) or None): path to filters, if not saved
+                directly under the filter_type category. If this path ends with
+                the name of a filter, the final element of the list is ignored
+                and the returned value is just the dict that filter lives in.
+
+        Returns:
+            (dict(str, BaseFilter) or None): filters dict for given type and
+                path, if found. This may include nested filters.
+        """
+        return self._filterer.get_filters_dict(filter_type, filter_path)
+
     @property
     def field_filters_dict(self):
         """Get dict of all field filters.
@@ -365,7 +381,7 @@ class TreeFilterManager(BaseTreeManager):
         Returns:
             (dict(str, BaseFilter)): dictionary of all tree field filters.
         """
-        return self._filterer.get_filters(FilterType.TREE)
+        return self._filterer.get_filters_dict(FilterType.TREE)
 
     @property
     def field_filter(self):
@@ -411,13 +427,16 @@ class TreeFilterManager(BaseTreeManager):
         with tree_item.filter_children(self.child_filter):
             return tree_item.get_all_children()
 
-    def get_field_filter(self, name):
+    def get_field_filter(self, filter_path):
         """Get field filter by name.
+
+        Args:
+            filter_path (list(str)): path to filter, including name.
 
         Returns:
             (BaseFilter or None): field filter, if found.
         """
-        return self._filterer.get_filters(FilterType.TREE).get(name)
+        return self._filterer.get_filter(FilterType.TREE, filter_path)
 
     def set_active_field_filter(self, field_filter):
         """Set active field filter.

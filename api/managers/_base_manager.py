@@ -96,6 +96,84 @@ class BaseManager(object):
             (bool): whether or not item is task category.
         """
         return isinstance(item, TaskCategory)
+    
+    @require_class(BaseTaskItem, raise_error=True)
+    def is_top_level_task(self, item):
+        """Check if tree item is a top level task.
+
+        Args:
+            item (BaseTaskItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is top level task.
+        """
+        return isinstance(item, Task) and isinstance(item.parent, TaskCategory)
+
+    @require_class(BaseTaskItem, raise_error=True)
+    def is_task_category_or_top_level_task(self, item):
+        """Check if tree item is a top level task.
+
+        Args:
+            item (BaseTaskItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is task category or top level task.
+        """
+        return (self.is_task_category(item) or self.is_top_level_task(item))
+    
+    @require_class(BaseTaskItem, raise_error=True)
+    def is_tracked_task(self, item):
+        """Check if tree item is a tracked task.
+
+        Args:
+            item (BaseTaskItem): tree item to check.
+
+        Return:
+            (bool): whether or not item is a tracked task.
+        """
+        return (isinstance(item, Task) and item.is_tracked)
+
+    @require_class((Task, TaskCategory), raise_error=True)
+    def get_task_category_or_top_level_task(self, item):
+        """Get task category or top level task ancestor of item.
+
+        Args:
+            item (BaseTaskItem): tree item to use.
+
+        Return:
+            (Task or TaskCategory or None): task category or top level task
+                of item, if found.
+        """
+        if self.is_task_category_or_top_level_task(item):
+            return item
+        if item.parent is None:
+            return None
+        return self.get_task_category_or_top_level_task(item.parent)
+
+    @require_class(BaseTaskItem, raise_error=True)
+    def can_accept_child(self, parent_item, child_item):
+        """Check if tree item can accept given item as a child.
+
+        An item can be dropped UNLESS one of the following is true:
+        - The item is an ancestor of the new parent
+        - The parent has a child that is not the item but has the item's name
+        - the item is not in the parent's allowed children.
+
+        Args:
+            parent_item (BaseTaskItem): parent item to check.
+            child_item (BaseTaskItem): child item to check if can be accepted.
+
+        Return:
+            (bool): whether or not parent item can accept child item.
+        """
+        if child_item.is_ancestor(parent_item):
+            return False
+        if (parent_item != child_item.parent
+                and child_item.name in parent_item._children.keys()):
+            return False
+        if type(child_item) not in parent_item._allowed_child_types:
+            return False
+        return True
 
 
 class BaseCalendarManager(BaseManager):

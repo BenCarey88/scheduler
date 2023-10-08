@@ -182,6 +182,7 @@ class Project(CustomSerializable):
         """
         self.set_project_path(project_root_path)
         self._load_project_data()
+        self._filter_managers = {}
         self._tree_managers = {}
         self._schedule_managers = {}
         self._planner_managers = {}
@@ -307,6 +308,25 @@ class Project(CustomSerializable):
             (ProjectUserPrefs): user prefs object.
         """
         return self._user_prefs
+
+    def get_filter_manager(self, name):
+        """Get a filter manager for this project with the given name.
+
+        Args:
+            name (str): name of manager object.
+
+        Returns:
+            (FilterManager): filter manager for managing filtering and
+                filter edits.
+        """
+        if self._filter_managers.get(name) is None:
+            self._filter_managers[name] = FilterManager(
+                name,
+                self.user_prefs,
+                self.task_root,
+                self.filterer,
+            )
+        return self._filter_managers.get(name)
 
     def get_tree_manager(self, name):
         """Get a tree manager for this project with the given name.

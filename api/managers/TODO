@@ -1,0 +1,10 @@
+
+- Remove tree_manager as arg from calendar_manager classes and replace all
+    with a filter_manager arg
+- Similarly remove the filterer arg from all manager classes and just get
+    it from the filter manager
+- Add most of the introductory tree_manager property and utility functions
+    as just manager base functions for all to use if needed
+- Then start building up the filter manager as class
+- And add back the specific filtering methods required for each of history,
+    tracker etc etc.

@@ -5,6 +5,8 @@ import datetime
 import math
 import re
 
+from scheduler.api.utils import fallback_value
+
 
 class DateTimeError(Exception):
     """Exception class for datetime related errors."""
@@ -742,8 +744,6 @@ class BaseDateTimeWrapper(object):
                 )
             )
 
-    # TODO: add a bunch of args to string method for subclasses, and add
-    # corresponding args in from_string methods
     def string(self):
         """Get string representation of class instance.
 
@@ -754,6 +754,21 @@ class BaseDateTimeWrapper(object):
             (str): string representation of class instance.
         """
         return str(self._datetime_obj)
+    
+    def isoformat(self, append=""):
+        """Get isoformat string representation of class instance.
+
+        This should be the same format as the string used by the from_isoformat
+        classmethod.
+
+        Args:
+            append (str): if given, append this string to the end of
+                the returned value.
+
+        Returns:
+            (str): isoformat string representation.
+        """
+        return self._datetime_obj.isoformat() + append
 
     def __str__(self):
         """Override string representation of self.
@@ -817,6 +832,24 @@ class Date(BaseDateTimeWrapper):
             "%Y-%m-%d"
         ).date()
         return cls(_date=_date)
+
+    @classmethod
+    def from_isoformat(cls, isoformat_str, appended=""):
+        """Get class instance from isoformat string representation.
+
+        Args:
+            isoformat_str (str): the string to deserialize.
+            appended (str): if given, this string is assumed to be appended to
+                the end of the isoformat, and should be removed first.
+
+        Returns:
+            (Date): class instance.
+        """
+        return cls(
+            _date=datetime.date.fromisoformat(
+                isoformat_str.removesuffix(appended)
+            )
+        )
 
     @classmethod
     def now(cls):
@@ -961,8 +994,7 @@ class Date(BaseDateTimeWrapper):
 class Time(BaseDateTimeWrapper):
     """Wrapper around datetime time class for easy string conversions etc."""
     def __init__(self, hour=0, minute=0, second=0, _time=None):
-        """
-        Initialise time item.
+        """Initialise time item.
 
         Args:
             hour (int): year to pass to date or datetime init.
@@ -1010,6 +1042,24 @@ class Time(BaseDateTimeWrapper):
             "%H:%M:%S.%f"
         ).time()
         return cls(_time=_time)
+    
+    @classmethod
+    def from_isoformat(cls, isoformat_str, appended=""):
+        """Get class instance from isoformat string representation.
+
+        Args:
+            isoformat_str (str): the string to deserialize.
+            appended (str): if given, this string is assumed to be appended to
+                the end of the isoformat, and should be removed first.
+
+        Returns:
+            (Time): class instance.
+        """
+        return cls(
+            _time=datetime.time.fromisoformat(
+                isoformat_str.removesuffix(appended)
+            )
+        )
 
     def string(self, short=True):
         """Get string representation of class instance.
@@ -1152,7 +1202,7 @@ class DateTime(Date, Time):
                 day,
                 hour,
                 minute,
-                second
+                second,
             )
         else:
             raise DateTimeError(
@@ -1202,6 +1252,24 @@ class DateTime(Date, Time):
             "%Y-%m-%d %H:%M:%S"
         )
         return cls(_datetime=_datetime)
+
+    @classmethod
+    def from_isoformat(cls, isoformat_str, appended=""):
+        """Get class instance from isoformat string representation.
+
+        Args:
+            isoformat_str (str): the string to deserialize.
+            appended (str): if given, this string is assumed to be appended to
+                the end of the isoformat, and should be removed first.
+
+        Returns:
+            (DateTime): class instance.
+        """
+        return cls(
+            _datetime=datetime.datetime.fromisoformat(
+                isoformat_str.removesuffix(appended)
+            )
+        )
 
     def string(self):
         """Get string representation of class instance.

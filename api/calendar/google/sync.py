@@ -1,7 +1,5 @@
 """Functionality for syncing scheduled items with google calendar."""
 
-from __future__ import print_function
-
 # TODO: use my datetime wrapper instead (maybe just add a to_datettime func in)
 import datetime
 import os.path
@@ -12,13 +10,21 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from scheduler.api.calendar.scheduled_item import (
+    ScheduledItem,
+    ScheduledItemType,
+)
+from scheduler.api.common.date_time import Date, DateTime, Time
+
+from . import constants
+
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 
-def setp_credentials():
-    """Setup google api authourisation and credentials.
+def setup_credentials():
+    """Setup google api authorisation and credentials.
 
     Returns:
         (Credentials): credentials for using google calendar api.
@@ -27,21 +33,23 @@ def setp_credentials():
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if os.path.exists(constants.GOOGLE_TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(
+            constants.GOOGLE_TOKEN_FILE,
+            SCOPES,
+        )
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json',
+                "credentials.json",
                 SCOPES
             )
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        # TODO: this should be saved in pkg-data rather than in this file
-        with open('token.json', 'w') as token:
+        with open(constants.GOOGLE_TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
     return creds
 
@@ -55,17 +63,57 @@ def scheduled_item_to_google_event(scheduled_item):
     Returns:
         (dict): google calendar event dict.
     """
+    return {
+        constants.START_KEY: {
+            constants.DATE_TIME_KEY: scheduled_item.start_datetime,
+        },
+        constants.END_KEY: {
+            constants.DATE_TIME_KEY: scheduled_item.end_datetime,
+        },
+        constants.EVENT_TYPE_KEY: constants.DEFAULT_TYPE,
+        constants.KIND_KEY:  constants.CALENDAR_EVENT_KIND,
+        constants.EXTENDED_PROPERTIES_KEY: {
+            constants.SHARED_KEY: {
+                constants.SCHEDULER_ID_KEY: None, # need way to generate a unique id
+                constants.SYNCED_TO_SCHEDULER_KEY: True,
+            }
+        },
+        constants.SUMMARY_KEY: scheduled_item.name,
+    }
 
 
-def google_event_to_scheduled_item(google_event):
+def google_event_to_scheduled_item(google_event, scheduler_calendar):
     """Convert scheduled item to google calendar event.
 
     Args:
         google_event (dict): google calendar event dict.
+        scheduler_calendar (Calendar): the calendar.
 
     Returns:
         (ScheduledItem): scheduled item.
     """
+    start_dict = google_event.get(constants.START_KEY, {})
+    end_dict = google_event.get(constants.END_KEY, {})
+    date = start_dict.get(constants.DATE_KEY)
+    start_date_time = start_dict.get(constants.DATE_TIME_KEY)
+    end_date_time = end_dict.get(constants.DATE_TIME_KEY)
+    if date is not None:
+        date = Date.from_isoformat(date)
+    if start_date_time is not None:
+        start_date_time = DateTime.from_isoformat(start_date_time) 
+        date = start_date_time.date()
+    if end_date_time is not None:
+        end_date_time = DateTime.from_isoformat(end_date_time)
+
+    # TODO: check if repeat, instance, etc.
+    if start_date_time is not None and end_date_time is not None:
+        return ScheduledItem(
+            scheduler_calendar,
+            start_date_time.time(),
+            end_date_time.time(),
+            date,
+            item_type=ScheduledItemType.EVENT,
+        )
 
 
 def sync_scheduler_to_google_calendar(
@@ -81,6 +129,7 @@ def sync_scheduler_to_google_calendar(
         date_range (tuple(Date, Date)): date to search for items within.
         include_repeat_items (bool): if True, sync repeat items as well.
     """
+    # TODO: make get_events_in_range
     scheduled_items = scheduler_calendar.get_events_in_range(
         date_range,
         include_repeat_items=include_repeat_items,

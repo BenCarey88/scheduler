@@ -6,6 +6,7 @@ from .calendar import Calendar
 from .common.user_prefs import ProjectUserPrefs
 from .filter import Filterer
 from .managers import (
+    FilterManager,
     HistoryManager,
     PlannerManager,
     ScheduleManager,
@@ -168,6 +169,13 @@ class Project(CustomSerializable):
     _STORE_SAVE_PATH = True
     _MARKER_FILE = "scheduler_project{0}".format(SerializableFileTypes.MARKER)
 
+    # # Component names
+    # TASK_NAME = "tasks"
+    # PLANNER_NAME = "planner"
+    # SCHEDULER_NAME = "scheduler"
+    # TRACKER_NAME = "tracker"
+    # HISTORY_NAME = "history"
+
     def __init__(self, project_root_path):
         """Initialize project.
 
@@ -328,6 +336,7 @@ class Project(CustomSerializable):
             )
         return self._filter_managers.get(name)
 
+    # TODO: remove name arg and multiple managers (except for filter_manager)
     def get_tree_manager(self, name):
         """Get a tree manager for this project with the given name.
 
@@ -342,7 +351,7 @@ class Project(CustomSerializable):
                 name,
                 self.user_prefs,
                 self.task_root,
-                self.filterer,
+                self.get_filter_manager(name),
                 self.tracker,
             )
         return self._tree_managers.get(name)
@@ -362,8 +371,7 @@ class Project(CustomSerializable):
                 name,
                 self.user_prefs,
                 self.calendar,
-                self.get_tree_manager(name),
-                self.filterer,
+                self.get_filter_manager(name),
             )
         return self._planner_managers.get(name)
 
@@ -382,8 +390,7 @@ class Project(CustomSerializable):
                 name,
                 self.user_prefs,
                 self.calendar,
-                self.get_tree_manager(name),
-                self.filterer,
+                self.get_filter_manager(name),
             )
         return self._schedule_managers.get(name)
 
@@ -402,8 +409,7 @@ class Project(CustomSerializable):
                 name,
                 self.user_prefs,
                 self.calendar,
-                self.get_tree_manager(name),
-                self.filterer,
+                self.get_filter_manager(name),
                 self.tracker,
             )
         return self._tracker_managers.get(name)
@@ -422,8 +428,7 @@ class Project(CustomSerializable):
                 name,
                 self.user_prefs,
                 self.calendar,
-                self.get_tree_manager(name),
-                self.filterer,
+                self.get_filter_manager(name),
             )
         return self._history_managers.get(name)
 

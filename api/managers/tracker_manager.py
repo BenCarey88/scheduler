@@ -5,29 +5,21 @@ from ._base_manager import BaseCalendarManager
 
 class TrackerManager(BaseCalendarManager):
     """Tracker manager class to manage tracker edits."""
-    def __init__(
-            self,
-            name,
-            user_prefs,
-            calendar,
-            tree_manager,
-            filterer,
-            tracker):
+    def __init__(self, name, user_prefs, calendar, filter_manager, tracker):
         """Initialize class.
 
         Args:
             name (str): name of this manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
-            tree_manager (TreeManager): tree manager used by this tab.
             tracker (Tracker): tracker object.
-            filterer (Filterer): filterer class for storing filters.
+            filter_manager (FilterManager): filter manager class for managing
+                filters.
         """
         super(TrackerManager, self).__init__(
             user_prefs,
             calendar,
-            tree_manager,
-            filterer=filterer,
+            filter_manager=filter_manager,
             name=name,
             suffix="tracker_manager",
         )

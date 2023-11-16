@@ -23,21 +23,20 @@ from ._base_manager import BaseCalendarManager, require_class
 
 class ScheduleManager(BaseCalendarManager):
     """Schedule manager class to manage schedule edits."""
-    def __init__(self, name, user_prefs, calendar, tree_manager, filterer):
+    def __init__(self, name, user_prefs, calendar, filter_manager):
         """Initialize class.
 
         Args:
             name (str): name of this manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
-            tree_manager (TreeManager): tree manager used by this tab.
-            filterer (Filterer): filterer class for storing filters.
+            filter_manager (FilterManager): filter manager class for managing
+                filters.
         """
         super(ScheduleManager, self).__init__(
             user_prefs,
             calendar,
-            tree_manager,
-            filterer=filterer,
+            filter_manager=filter_manager,
             name=name,
             suffix="schedule_manager",
         )
@@ -77,7 +76,7 @@ class ScheduleManager(BaseCalendarManager):
         return (
             scheduled_item.type == ScheduledItemType.TASK and
             scheduled_item.tree_item is not None and
-            self._tree_manager.is_task(scheduled_item.tree_item)
+            self.is_task(scheduled_item.tree_item)
         )
 
     @require_class(BaseScheduledItem, True)

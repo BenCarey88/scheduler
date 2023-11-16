@@ -51,12 +51,11 @@ def require_class(require_class, raise_error=False, return_val=False):
 
 class BaseManager(object):
     """Base manager class that all others inherit from."""
-    def __init__(self, user_prefs, filterer, name="", suffix="manager"):
+    def __init__(self, user_prefs, name="", suffix="manager"):
         """Initialize class.
 
         Args:
             user_prefs (ProjectUserPrefs): project user prefs class.
-            filterer (Filterer): filterer class for storing filters.
             name (str): name of manager.
             suffix (str): string to append to name.
         """
@@ -67,11 +66,10 @@ class BaseManager(object):
         else:
             self._name = suffix
         self._project_user_prefs = user_prefs
-        self._filterer = filterer
 
     def clear_filter_caches(self):
         """Clear all filter caches."""
-        self._filterer.clear_filter_caches()
+        self._filter_manager.clear_filter_caches()
 
     @require_class(BaseTaskItem, raise_error=True)
     def is_task(self, item):
@@ -176,14 +174,42 @@ class BaseManager(object):
         return True
 
 
-class BaseCalendarManager(BaseManager):
+class BaseManagerWithFilter(BaseManager):
+    """Base manager class for all classes except the filter manager.
+
+    This allows all other manager classes to use their own filter manager to
+    edit filters for their specific objects.
+    """
+    def __init__(self, user_prefs, filter_manager, name="", suffix="manager"):
+        """Initialize class.
+
+        Args:
+            user_prefs (ProjectUserPrefs): project user prefs class.
+            calendar (Calendar): calendar object.
+            filter_manager (FilterManager): filter manager class for managing
+                filters.
+            name (str): manager name.
+            suffix (str): string to append to name.
+        """
+        self._filter_manager = filter_manager
+        super(BaseCalendarManager, self).__init__(
+            user_prefs,
+            name=name,
+            suffix=suffix,
+        )
+
+    def clear_filter_caches(self):
+        """Clear all filter caches."""
+        self._filter_manager.clear_filter_caches()
+
+
+class BaseCalendarManager(BaseManagerWithFilter):
     """Base manager for all calendar classes."""
     def __init__(
             self,
             user_prefs,
             calendar,
-            tree_manager,
-            filterer,
+            filter_manager,
             name="",
             suffix="manager"):
         """Initialize class.
@@ -191,18 +217,17 @@ class BaseCalendarManager(BaseManager):
         Args:
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
-            tree_manager (TreeManager): tree manager used by this tab.
-            filterer (Filterer): filterer class for storing filters.
+            filter_manager (FilterManager): filter manager class for managing
+                filters.
             name (str): manager name.
             suffix (str): string to append to name.
         """
-        self._tree_manager = tree_manager
         self._calendar = calendar
         super(BaseCalendarManager, self).__init__(
             user_prefs,
-            filterer=filterer,
             name=name,
             suffix=suffix,
+            filter_manager=filter_manager,
         )
 
     @property

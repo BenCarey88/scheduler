@@ -23,19 +23,20 @@ from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.base_task_item import BaseTaskItem
 
-from ._base_manager import require_class, BaseManager
+from ._base_manager import require_class, BaseManagerWithFilter
 
 
-class TreeManager(BaseManager):
+class TreeManager(BaseManagerWithFilter):
     """Tree edit manager to apply edits to tree items."""
-    def __init__(self, name, user_prefs, tree_root, filterer, tracker):
+    def __init__(self, name, user_prefs, tree_root, filter_manager, tracker):
         """Initialise class.
 
         Args:
             name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
-            filterer (Filterer): filterer class for storing filters.
+            filter_manager (FilterManager): filter manager class for managing
+                filters.
             tracker (Tracker): tracker to track tasks with.
         """
         self._tree_root = tree_root
@@ -43,9 +44,9 @@ class TreeManager(BaseManager):
         self._tracker = tracker
         super(TreeManager, self).__init__(
             user_prefs,
-            filterer=filterer,
             name=name,
             suffix="tree_manager",
+            filter_manager=filter_manager,
         )
 
     @property

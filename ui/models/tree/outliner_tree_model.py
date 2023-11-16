@@ -15,7 +15,6 @@ class OutlinerTreeModel(BaseTreeModel):
     This model is to be used in the task outliner. It's intended to expand
     up to the first task items under each category but not show any subtasks.
     """
-
     def __init__(
             self,
             tree_manager,

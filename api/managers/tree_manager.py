@@ -626,3 +626,25 @@ class TreeManager(BaseManagerWithFilter):
         if task_item.is_tracked:
             return UntrackTaskEdit.create_and_run(task_item, self._tracker)
         return TrackTaskEdit.create_and_run(task_item, self._tracker)
+
+    ### Filter Methods ###
+    @property
+    def filter(self):
+        """Get filter to filter children of tree items from filter_manager.
+
+        Returns:
+            (BaseFilter): filter to filter tree item children with.
+        """
+        return self._filter_manager.tree_filter
+
+    @require_class(BaseTaskItem, raise_error=True)
+    def get_filtered_children(self, tree_item):
+        """Get filtered children of tree item.
+
+        Args:
+            tree_item (BaseTaskItem): item to get chidren of.
+
+        Returns:
+            (list(BaseTaskItem)): children with filter applied.
+        """
+        return self._filter_manager.get_filtered_children(tree_item)

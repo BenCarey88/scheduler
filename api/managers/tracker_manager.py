@@ -1,5 +1,7 @@
 """Tracker manager class."""
 
+from scheduler.api.filter.tracker_filters import NoFilter, TaskTreeFilter
+
 from ._base_manager import BaseCalendarManager
 
 
@@ -33,3 +35,24 @@ class TrackerManager(BaseCalendarManager):
             (Tracker): tracker object.
         """
         return self._tracker
+
+    ### Filter Methods ###
+    @property
+    def filter(self):
+        """Get filter to filter tracked tasks.
+
+        Returns:
+            (BaseFilter): filter to filter tracked tasks with.
+        """
+        if self._filter_manager.tree_filter:
+            return TaskTreeFilter(self._filter_manager.tree_filter)
+        return NoFilter()
+
+    def iter_filtered_items(self):
+        """Get filtered tasks selected for tracking.
+
+        Yields:
+            (Task): filtered tracked tasks.
+        """
+        for task in self.tracker.iter_tracked_tasks(filter=self.filter):
+            yield task

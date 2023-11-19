@@ -16,6 +16,7 @@ from scheduler.api.edit.schedule_edit import (
     ModifyRepeatScheduledItemInstanceEdit,
     ReplaceScheduledItemEdit,
 )
+from scheduler.api.filter.schedule_filters import NoFilter, TaskTreeFilter
 from scheduler.api.utils import fallback_value
 
 from ._base_manager import BaseCalendarManager, require_class
@@ -374,3 +375,29 @@ class ScheduleManager(BaseCalendarManager):
         )
         # TODO: find a way to trigger a task ui update after this too?
         # so that this still updates properly if we're in the task tab
+
+    ### Filter Methods ###
+    @property
+    def filter(self):
+        """Get filter to filter scheduled items.
+
+        Returns:
+            (BaseFilter): filter to filter scheduled items with.
+        """
+        if self._filter_manager.tree_filter:
+            return TaskTreeFilter(self._filter_manager.tree_filter)
+        return NoFilter()
+
+    def iter_filtered_items(self, calendar_day):
+        """Get filtered scheduled items for given day.
+
+        Args:
+            calendar_day (CalendarDay): day to check.
+
+        Yield:
+            (ScheduledItem or RepeatScheduledItemInstance): filtered scheduled
+                items.
+        """
+        for scheduled_item in calendar_day.iter_scheduled_items(self.filter):
+            yield scheduled_item
+

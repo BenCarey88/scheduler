@@ -286,6 +286,9 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         layout.setContentsMargins(0, 0, 0, 0)
         return layout
 
+    # TODO: keep an eye on this and remove the commented out bits if it seems
+    # fine - I've just changed it to use the date only, which I believe should
+    # be fine but should confirm to be sure
     def update_task_value(self, task, date, value_widget):
         """Run edit to update task value.
 
@@ -294,7 +297,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             date (Date): date to update.
             value_widget (QtWidgets.QWidget): widget to get new value from.
         """
-        date_time = DateTime.from_date_and_time(date, Time())
+        # date_time = DateTime.from_date_and_time(date, Time())
         value = None
         status = None
 
@@ -318,7 +321,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
 
         self.tree_manager.update_task(
             task,
-            date_time,
+            date, #date_time,
             status,
             value,
         )

@@ -1,5 +1,6 @@
 """Planner manager class to manage planned item edits."""
 
+from scheduler.api.calendar.planned_item import PlannedItem
 from scheduler.api.edit.planner_edit import (
     AddPlannedItemEdit,
     ModifyPlannedItemEdit,
@@ -7,7 +8,7 @@ from scheduler.api.edit.planner_edit import (
     RemovePlannedItemEdit,
     SortPlannedItemsEdit,
 )
-from scheduler.api.calendar.planned_item import PlannedItem
+from scheduler.api.filter.planner_filters import NoFilter, TaskTreeFilter
 
 from ._base_manager import require_class, BaseCalendarManager
 
@@ -136,3 +137,38 @@ class PlannerManager(BaseCalendarManager):
             key=key,
             reverse=reverse,
         )
+
+    ### Filter Methods ###
+    @property
+    def filter(self):
+        """Get filter to filter planned items.
+
+        Returns:
+            (BaseFilter): filter to filter planned items with.
+        """
+        if self._filter_manager.tree_filter:
+            return TaskTreeFilter(self._filter_manager.tree_filter)
+        return NoFilter()
+
+    def iter_filtered_items(self, calendar_period):
+        """Get filtered planned items for given calendar period.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): period to check.
+
+        Yield:
+            (PlannedItem): filtered planned item.
+        """
+        for planned_item in calendar_period.iter_planned_items(self.filter):
+            yield planned_item
+
+    def get_filtered_items(self, calendar_period):
+        """Get list of filtered planned items for calendar period.
+
+        Args:
+            calendar_period (BaseCalendarPeriod): period to check.
+
+        Returns:
+            (list(PlannedItem)): filtered planned items.
+        """
+        return list(self.iter_filtered_items(calendar_period))

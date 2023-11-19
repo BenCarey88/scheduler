@@ -2,6 +2,43 @@
 
 from collections import Hashable
 
+from scheduler.api.enums import OrderedStringEnum
+from scheduler.api.utils import fallback_value
+
+
+class FilterType(OrderedStringEnum):
+    """Struct for different types of item to filter.
+    
+    This defines the type of component that a filter is used on (eg. tree
+    item, planned item, scheduled item etc.). If a filter is not used on
+    any of these scheduler project components, it will just have 'general'
+    type. If it can be used on all these components, it has 'global' type.
+    """
+    TREE = "tree"
+    PLANNER = "planner"
+    SCHEDULER = "scheduler"
+    TRACKER = "tracker"
+    HISTORY = "history"
+    GLOBAL = "global"
+    GENERAL = "general"
+
+    @classmethod
+    def scheduler_filter_types(cls):
+        """Return all filter types of scheduler components.
+
+        Returns:
+            (list): list of filter types that correspond to components
+                in the scheduler. Specifically, this doesn't include the
+                Global and General filter types.
+        """
+        return [
+            cls.TREE,
+            cls.PLANNER,
+            cls.SCHEDULER,
+            cls.TRACKER,
+            cls.HISTORY,
+        ]
+
 
 class FilterError(Exception):
     """Base exception for filter class errors."""
@@ -57,8 +94,11 @@ class BaseFilter(object):
     _FILTER_CLASS_NAME_KEY = "filter_class"
     _FILTER_CLASS_NAME = None
 
-    def __init__(self):
+    def __init__(self, filter_type=None):
         """Initialize.
+
+        Args:
+            filter_type (FilterType or None): filter type
 
         Attributes:
             _composite_filter_class (class): the class used to build composite
@@ -69,6 +109,7 @@ class BaseFilter(object):
                 already been run through this filter and the resulting value,
                 used to save recalculating.
         """
+        self._filter_type = fallback_value(filter_type, FilterType.GENERAL)
         self._composite_filter_class = CompositeFilter
         self._is_valid = True
         self._name = None
@@ -84,6 +125,15 @@ class BaseFilter(object):
             (str or None): filter name.
         """
         return self._name
+
+    @property
+    def filter_type(self):
+        """Get type of filter.
+
+        Returns:
+            (FilterType): filter type.
+        """
+        return self._filter_type
 
     def set_name(self, name):
         """Set name of filter.

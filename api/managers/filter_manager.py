@@ -51,14 +51,16 @@ class FilterManager(BaseManager):
     FIELD_FILTERS_PREF = "field_filters"
     ACTIVE_FIELD_FILTER_PREF = "active_field_filter"
 
-    def __init__(self, name, user_prefs, tree_root, filterer):
+    def __init__(self, name, user_prefs, tree_root, filterer, filter_type):
         """Initialise class.
 
         Args:
-            name (str): name of tree manager.
+            name (str): name of filter manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
             filterer (Filterer): filterer class for storing filters.
+            filter_type (FilterType): the filter type that this filter manager
+                manages.
 
         Attributes:
             _tree_data (dict(str, dict)): additional tree data for each tree
@@ -70,6 +72,7 @@ class FilterManager(BaseManager):
                 item.
         """
         self._filterer = filterer
+        self._filter_type = filter_type
         self._tree_root = tree_root
         self._archive_tree_root = tree_root.archive_root
         super(FilterManager, self).__init__(
@@ -387,9 +390,9 @@ class FilterManager(BaseManager):
         Returns:
             (list(BaseTaskItem)): children with filter applied.
         """
-        with tree_item.filter_children(self.child_filter):
+        with tree_item.filter_children(self.tree_):
             return tree_item.get_all_children()
-        
+
     def set_current_item(self, item):
         """Set given tree item as the currently selected one.
 
@@ -427,12 +430,19 @@ class FilterManager(BaseManager):
             return self._active_field_filter
         return NoFilter()
 
-    # TODO: change this name to tree_filter - it's the filter for the
-    # tree items defined by what's selected in the outliner (after applying
-    # field filters)
+    # TODO: maybe this should be called combined_filter and it combines
+    # the filters to give the one of the required filter type - so for planned
+    # items it takes a PlannerFilter object from the _tree_item_filter etc.
+    # This means that field_filter and _tree_item_filter could be combined even
+    # when field_filter is not a tree filter.
+    # TODO: separately we'd need to consider how field filters should restrict
+    # the tree outliner in cases where the field filter isn't a tree filter.
+    # I think we should scan through the field filter for any ANDs within it
+    # that entirely relate to tasks, and restrict the outliner based on those
+    # subfilters.
     @property
-    def child_filter(self):
-        """Get filter to filter children.
+    def tree_filter(self):
+        """Get filter to filter tree children.
 
         Returns:
             (BaseFilter): filter to filter children with.
@@ -462,17 +472,6 @@ class FilterManager(BaseManager):
         # name of the manager, which needs to match the filter type -
         # maybe a good argument for a general constant for each tab/filter
         # name, to be used both by filters and by tabs
-        return self._filterer.get_filter(FilterType.TREE, filter_path)
-
-    def get_field_filter(self, filter_path):
-        """Get field filter by name.
-
-        Args:
-            filter_path (list(str)): path to filter, including name.
-
-        Returns:
-            (BaseFilter or None): field filter, if found.
-        """
         return self._filterer.get_filter(FilterType.TREE, filter_path)
 
     def set_active_field_filter(self, field_filter):

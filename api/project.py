@@ -191,11 +191,11 @@ class Project(CustomSerializable):
         self.set_project_path(project_root_path)
         self._load_project_data()
         self._filter_managers = {}
-        self._tree_managers = {}
-        self._schedule_managers = {}
-        self._planner_managers = {}
-        self._history_managers = {}
-        self._tracker_managers = {}
+        self._tree_manager = None
+        self._schedule_manager = None
+        self._planner_manager = None
+        self._history_manager = None
+        self._tracker_manager = None
 
     def set_project_path(self, project_root_path):
         """Set project path to given directory.

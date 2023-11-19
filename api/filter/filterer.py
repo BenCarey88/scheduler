@@ -2,25 +2,21 @@
 
 from collections import OrderedDict
 from scheduler.api.serialization.serializable import BaseSerializable
-from scheduler.api.enums import OrderedStringEnum
 
-from ._base_filter import BaseFilter, filter_from_dict, FilterError
+from ._base_filter import BaseFilter, filter_from_dict, FilterError, FilterType
 from .planner_filters import TaskTreeFilter as PlannerTaskTreeFilter
 from .schedule_filters import TaskTreeFilter as SchedulerTaskTreeFilter
 from .tracker_filters import TaskTreeFilter as TrackerTaskTreeFilter
 from .history_filters import TaskTreeFilter as HistoryTaskTreeFilter
 
 
-class FilterType(OrderedStringEnum):
-    """Struct for different types of item to filter."""
-    TREE = "tree_filters"
-    PLANNER = "planner_filters"
-    SCHEDULER = "scheduler_filters"
-    TRACKER = "tracker_filters"
-    HISTORY = "history_filters"
-    GLOBAL = "global_filters"
-
-
+# TODO: maybe make this into an actual Filter object? Would need to have a
+# check in filter_function for which type of object is being passed and then
+# apply the correct filter. Would kind of mean that tracker (and maybe
+# history) filter types aren't used as these just filter based on tasks
+# anyway? But tbh maybe the whole tracker_filters class should be removed
+# for this reason anyway - tracked_items aren't a distinct thing from
+# tree_items so don't really need separate filtering.
 class GlobalFilter(object):
     """Global filter struct for filters that can be applied to all types."""
     def __init__(
@@ -39,11 +35,12 @@ class GlobalFilter(object):
                 planned item objects.
             scheduler_filter (BaseSchedulerFilter): version of the filter
                 for scheduled item objects.
-            history_filter (BaseTrackerFilter): version of the filter for
+            tracker_filter (BaseTrackerFilter): version of the filter for
                 tracked item objects.
             history_filter (BaseHistoryFilter): version of the filter for
                 task histories.
         """
+        self._filter_type = FilterType.GLOBAL
         self.tree_filter = tree_filter
         self.planner_filter = planner_filter
         self.scheduler_filter = scheduler_filter

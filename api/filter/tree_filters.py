@@ -7,6 +7,7 @@ from scheduler.api.enums import ItemSize, ItemImportance, ItemStatus
 from ._base_filter import (
     BaseFilter,
     CompositeFilter,
+    FilterType,
     NoFilter,
     register_serializable_filter,
 )
@@ -18,6 +19,7 @@ class BaseTreeFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BaseTreeFilter, self).__init__()
+        self._filter_type = FilterType.TREE
         self._composite_filter_class = CompositeTreeFilter
         self._recursive_cache = {}
 
@@ -83,7 +85,7 @@ class BaseTreeFieldFilter(FieldFilter, BaseTreeFilter):
                 to a numeric value for maths ops, if needed.
             tasks_only (bool): if True, only apply filter to tasks. Task
                 categories will get included only if some of their children
-                are.
+                are included.
             check_descendants (bool): if True, keep an item in if any of
                 its descendants are unfiltered.
         """

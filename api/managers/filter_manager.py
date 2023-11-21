@@ -11,12 +11,13 @@ from scheduler.api.edit.filter_edit import (
     RemoveFilterEdit,
     ModifyFilterEdit,
 )
-from scheduler.api.filter import FilterType
+# from scheduler.api.filter import FilterType
+from scheduler.api.filter.conversion import convert_filter
 from scheduler.api.filter.tree_filters import NoFilter, FilterByItem
 from scheduler.api.tree.base_task_item import BaseTaskItem
 from scheduler.api.utils import fallback_value
 
-from ._base_manager import require_class, BaseManager
+from ._base_manager import require_class, BaseManager, ManagerError
 
 
 class FilterManager(BaseManager):
@@ -51,16 +52,21 @@ class FilterManager(BaseManager):
     FIELD_FILTERS_PREF = "field_filters"
     ACTIVE_FIELD_FILTER_PREF = "active_field_filter"
 
-    def __init__(self, name, user_prefs, tree_root, filterer, filter_type):
+    def __init__(self, user_prefs, tree_root, filterer, filter_type):
         """Initialise class.
 
         Args:
-            name (str): name of filter manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
             filterer (Filterer): filterer class for storing filters.
             filter_type (FilterType): the filter type that this filter manager
-                manages.
+                manages. This corresponds to the tab that it's used on, and
+                so primarily defines the type of component this manager is
+                filtering. However note that these filters may still be used
+                on other types of component (eg. the field filters will be
+                partially applied to the tree outliner, and hybrid views in
+                the scheduler and planner tabs may require the filters to be
+                converted to be applied to other component types).
 
         Attributes:
             _tree_data (dict(str, dict)): additional tree data for each tree
@@ -77,7 +83,7 @@ class FilterManager(BaseManager):
         self._archive_tree_root = tree_root.archive_root
         super(FilterManager, self).__init__(
             user_prefs,
-            name=name,
+            name=filter_type,
             suffix="filter_manager",
         )
 
@@ -122,6 +128,23 @@ class FilterManager(BaseManager):
         # QUESTION: should this only clear filter caches for filters
         # owned by this manager? If so, need to pass the filter type
         # to clear filter_caches arg too
+
+    def assert_filter_type(self, filter_type):
+        """Assert that filter type of manager is correct one.
+
+        Args:
+            filter_type (FilterType): type to check.
+
+        Raises:
+            (ManagerError): if filter type doesn't match manager filter type.
+        """
+        if filter_type != self._filter_type:
+            raise ManagerError(
+                "FilterManager has incorrect type {0}, not {1}".format(
+                    self._filter_type,
+                    filter_type,
+                )
+            )
 
     ### Tree item filtering ###
     def has_attribute(self, tree_item, attribute):
@@ -376,22 +399,19 @@ class FilterManager(BaseManager):
                 self.set_expanded_from_filtered(child)
         return True
     
-    # TODO: I don't know if here's the best place for this, but filtering
-    # children is still slower than I'd like, we should be able to reduce
-    # some calls/reduce number of times we recreate the filter function/
-    # add more caching/something
-    @require_class(BaseTaskItem, raise_error=True)
-    def get_filtered_children(self, tree_item):
-        """Get filtered children of tree item.
 
-        Args:
-            tree_item (BaseTaskItem): item to get chidren of.
+    # @require_class(BaseTaskItem, raise_error=True)
+    # def get_filtered_children(self, tree_item):
+    #     """Get filtered children of tree item.
 
-        Returns:
-            (list(BaseTaskItem)): children with filter applied.
-        """
-        with tree_item.filter_children(self.tree_):
-            return tree_item.get_all_children()
+    #     Args:
+    #         tree_item (BaseTaskItem): item to get chidren of.
+
+    #     Returns:
+    #         (list(BaseTaskItem)): children with filter applied.
+    #     """
+    #     with tree_item.filter_children(self.tree_filter):
+    #         return tree_item.get_all_children()
 
     def set_current_item(self, item):
         """Set given tree item as the currently selected one.
@@ -417,7 +437,9 @@ class FilterManager(BaseManager):
         Returns:
             (dict(str, BaseFilter)): dictionary of all tree field filters.
         """
-        return self._filterer.get_filters_dict(FilterType.TREE)
+        # TODO: may need to change this to include FilterType.GLOBAL types
+        # as well? Not sure how we're planning to use that
+        return self._filterer.get_filters_dict(self._filter_type)
 
     @property
     def field_filter(self):
@@ -428,24 +450,18 @@ class FilterManager(BaseManager):
         """
         if self._active_field_filter:
             return self._active_field_filter
-        return NoFilter()
+        return convert_filter(NoFilter(), self._filter_type)
 
-    # TODO: maybe this should be called combined_filter and it combines
-    # the filters to give the one of the required filter type - so for planned
-    # items it takes a PlannerFilter object from the _tree_item_filter etc.
-    # This means that field_filter and _tree_item_filter could be combined even
-    # when field_filter is not a tree filter.
-    # TODO: separately we'd need to consider how field filters should restrict
-    # the tree outliner in cases where the field filter isn't a tree filter.
-    # I think we should scan through the field filter for any ANDs within it
-    # that entirely relate to tasks, and restrict the outliner based on those
-    # subfilters.
     @property
-    def tree_filter(self):
-        """Get filter to filter tree children.
+    def combined_filter(self):
+        """Get combination of field filter and tree item filter.
+
+        Note that the tree item filter has TREE filter_type while the
+        field filter should have type self._filter_type, so we will need
+        to convert to ensure the combined filter has self._filter_type.
 
         Returns:
-            (BaseFilter): filter to filter children with.
+            (BaseFilter): combined filter, with type self._filter_type.
         """
         if self._combined_filter is not None:
             return self._combined_filter
@@ -454,7 +470,11 @@ class FilterManager(BaseManager):
                 self._tree_item_filter = FilterByItem(
                     list(self._filtered_tree_items)
                 )
-            self._combined_filter = self._tree_item_filter & self.field_filter
+                converted_tree_filter = convert_filter(
+                    self._tree_item_filter,
+                    self._filter_type,
+                )
+            self._combined_filter = converted_tree_filter & self.field_filter
             return self._combined_filter
         return self.field_filter
 
@@ -468,11 +488,7 @@ class FilterManager(BaseManager):
         Returns:
             (BaseFilter or None): field filter, if found.
         """
-        # TODO: this shouldn't be FilterType.TREE - this should be the
-        # name of the manager, which needs to match the filter type -
-        # maybe a good argument for a general constant for each tab/filter
-        # name, to be used both by filters and by tabs
-        return self._filterer.get_filter(FilterType.TREE, filter_path)
+        return self._filterer.get_filter(self._filter_type, filter_path)
 
     def set_active_field_filter(self, field_filter):
         """Set active field filter.
@@ -489,7 +505,6 @@ class FilterManager(BaseManager):
         )
 
     ### Field Filter Edits ###
-    # TODO: replace the filter_type.tree calls with self.filter_type_name attr
     def add_field_filter(self, field_filter, filter_path):
         """Add given field filter.
 
@@ -499,7 +514,7 @@ class FilterManager(BaseManager):
         """
         AddFilterEdit.create_and_run(
             self._filterer,
-            FilterType.TREE,
+            self._filter_type,
             filter_path,
             field_filter,
         )
@@ -519,7 +534,7 @@ class FilterManager(BaseManager):
         """
         ModifyFilterEdit.create_and_run(
             self._filterer,
-            FilterType.TREE,
+            self._filter_type,
             old_filter_path,
             field_filter,
             new_filter_path=new_filter_path,
@@ -538,6 +553,6 @@ class FilterManager(BaseManager):
         """
         RemoveFilterEdit.create_and_run(
             self._filterer,
-            FilterType.TREE,
+            self._filter_type,
             filter_path,
         )

@@ -16,7 +16,7 @@ from scheduler.api.edit.schedule_edit import (
     ModifyRepeatScheduledItemInstanceEdit,
     ReplaceScheduledItemEdit,
 )
-from scheduler.api.filter.schedule_filters import NoFilter, TaskTreeFilter
+from scheduler.api.filter import FilterType
 from scheduler.api.utils import fallback_value
 
 from ._base_manager import BaseCalendarManager, require_class
@@ -24,22 +24,19 @@ from ._base_manager import BaseCalendarManager, require_class
 
 class ScheduleManager(BaseCalendarManager):
     """Schedule manager class to manage schedule edits."""
-    def __init__(self, name, user_prefs, calendar, filter_manager):
+    def __init__(self, user_prefs, calendar): #, filter_manager):
         """Initialize class.
 
         Args:
             name (str): name of this manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
-            filter_manager (FilterManager): filter manager class for managing
-                filters.
         """
         super(ScheduleManager, self).__init__(
             user_prefs,
             calendar,
-            filter_manager=filter_manager,
-            name=name,
-            suffix="schedule_manager",
+            filter_type=FilterType.SCHEDULER,
+            name="schedule",
         )
 
     @require_class((ScheduledItem, RepeatScheduledItemInstance), True)
@@ -376,28 +373,30 @@ class ScheduleManager(BaseCalendarManager):
         # TODO: find a way to trigger a task ui update after this too?
         # so that this still updates properly if we're in the task tab
 
-    ### Filter Methods ###
-    @property
-    def filter(self):
-        """Get filter to filter scheduled items.
+    # ### Filter Methods ###
+    # @property
+    # def filter(self):
+    #     """Get filter to filter scheduled items.
 
-        Returns:
-            (BaseFilter): filter to filter scheduled items with.
-        """
-        if self._filter_manager.tree_filter:
-            return TaskTreeFilter(self._filter_manager.tree_filter)
-        return NoFilter()
+    #     Returns:
+    #         (BaseFilter): filter to filter scheduled items with.
+    #     """
+    #     if self._filter_manager.tree_filter:
+    #         return TaskTreeFilter(self._filter_manager.tree_filter)
+    #     return NoFilter()
 
-    def iter_filtered_items(self, calendar_day):
+    def iter_filtered_items(self, filter_manager, calendar_day):
         """Get filtered scheduled items for given day.
 
         Args:
+            filter_manager (FilterManager): filter manager to use.
             calendar_day (CalendarDay): day to check.
 
         Yield:
             (ScheduledItem or RepeatScheduledItemInstance): filtered scheduled
                 items.
         """
-        for scheduled_item in calendar_day.iter_scheduled_items(self.filter):
+        filter_ = self._get_filter(filter_manager)
+        for scheduled_item in calendar_day.iter_scheduled_items(filter_):
             yield scheduled_item
 

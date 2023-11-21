@@ -9,6 +9,8 @@ from ._container_edit import ContainerOp, DictEdit, ListEdit
 from scheduler.api.utils import fallback_value
 
 
+# TODO: this should probably have a check that the added filter_ has
+# a type that matches the filter_type arg
 class AddFilterEdit(DictEdit):
     """Add filter to filterer."""
     def __init__(self, filterer, filter_type, filter_path, filter_):

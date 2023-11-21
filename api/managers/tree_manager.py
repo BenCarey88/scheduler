@@ -18,25 +18,25 @@ from scheduler.api.edit.task_edit import (
     UntrackTaskEdit,
     UpdateTaskHistoryEdit,
 )
+from scheduler.api.filter import FilterType
 from scheduler.api.tree.exceptions import UnallowedChildType
 from scheduler.api.tree.task import Task, TaskType
 from scheduler.api.tree.task_category import TaskCategory
 from scheduler.api.tree.base_task_item import BaseTaskItem
 
-from ._base_manager import require_class, BaseManagerWithFilter
+from ._base_manager import require_class, BaseManager #BaseManagerWithFilter
 
 
-class TreeManager(BaseManagerWithFilter):
+# TODO: do we need user_prefs for any of these? Outside of filter_manager,
+# I'm not sure that we do since the others all just manage edits
+class TreeManager(BaseManager):     #BaseManagerWithFilter):
     """Tree edit manager to apply edits to tree items."""
-    def __init__(self, name, user_prefs, tree_root, filter_manager, tracker):
+    def __init__(self, user_prefs, tree_root, tracker): #filter_manager
         """Initialise class.
 
         Args:
-            name (str): name of tree manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             tree_root (TaskRoot): root task object.
-            filter_manager (FilterManager): filter manager class for managing
-                filters.
             tracker (Tracker): tracker to track tasks with.
         """
         self._tree_root = tree_root
@@ -44,9 +44,9 @@ class TreeManager(BaseManagerWithFilter):
         self._tracker = tracker
         super(TreeManager, self).__init__(
             user_prefs,
-            name=name,
-            suffix="tree_manager",
-            filter_manager=filter_manager,
+            filter_type=FilterType.TREE,
+            name="tree",
+            # filter_manager=filter_manager,
         )
 
     @property
@@ -464,6 +464,15 @@ class TreeManager(BaseManagerWithFilter):
                 "date_time must be Date or DateTime, not {0}".format(date_time)
             )
 
+        # TODO: we need a way to just update value without updating status
+        # maybe an ignore_status arg or similar?
+        # or maybe make this 'if status is None and value is None'?
+        # either way, we should probably change logic in tracker delegate
+        # to check whether or not status should be updated. Normally, changing
+        # value should change status to complete or in_progress once and then
+        # stop - ideally this should probably be set by eg. a ValueStatusPolicy
+        # TODO: also separately, some routines should be allowed to be
+        # in_progress! Not all, but def some, make that a separate thing
         if status is None:
             current_status = task_item.get_status_at_date(date)
             if current_status == ItemStatus.UNSTARTED:
@@ -627,24 +636,29 @@ class TreeManager(BaseManagerWithFilter):
             return UntrackTaskEdit.create_and_run(task_item, self._tracker)
         return TrackTaskEdit.create_and_run(task_item, self._tracker)
 
-    ### Filter Methods ###
-    @property
-    def filter(self):
-        """Get filter to filter children of tree items from filter_manager.
+    # ### Filter Methods ###
+    # @property
+    # def filter(self):
+    #     """Get filter to filter children of tree items from filter_manager.
 
-        Returns:
-            (BaseFilter): filter to filter tree item children with.
-        """
-        return self._filter_manager.tree_filter
+    #     Returns:
+    #         (BaseFilter): filter to filter tree item children with.
+    #     """
+    #     return self._filter_manager.tree_filter
 
-    @require_class(BaseTaskItem, raise_error=True)
-    def get_filtered_children(self, tree_item):
+    # TODO: I don't know if here's the best place for this, but filtering
+    # children is still slower than I'd like, we should be able to reduce
+    # some calls/reduce number of times we recreate the filter function/
+    # add more caching/something
+    def get_filtered_children(self, filter_manager, tree_item):
         """Get filtered children of tree item.
 
         Args:
+            filter_manager (FilterManager): filter manager to use.
             tree_item (BaseTaskItem): item to get chidren of.
 
         Returns:
             (list(BaseTaskItem)): children with filter applied.
         """
-        return self._filter_manager.get_filtered_children(tree_item)
+        with tree_item.filter_children(self._get_filter(filter_manager)):
+            return tree_item.get_all_children()

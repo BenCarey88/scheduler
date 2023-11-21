@@ -144,7 +144,7 @@ class FilterConverter(object):
             )
         return None
 
-    def subconvert(self, filter_, filter_type):
+    def quasiconvert(self, filter_, filter_type):
         """Convert filter, or largest selection of subfilters to new type.
 
         This returns a converted filter, if the filter can be converted. If
@@ -160,11 +160,11 @@ class FilterConverter(object):
         of the full filter do not apply to tree items.
 
         Args:
-            filter_ (BaseFilter): filter to subconvert.
+            filter_ (BaseFilter): filter to quasiconvert.
             filter_type (FilterType): type to convert to.
 
         Returns:
-            (BaseFilter): the subconverted filter.
+            (BaseFilter): the quasiconverted filter.
         """
         full_conversion = self.convert(filter_, filter_type, raise_error=False)
         if full_conversion is not None:
@@ -172,13 +172,13 @@ class FilterConverter(object):
 
         if (not isinstance(filter_, CompositeFilter)
                 or filter_.composition_operator == filter_.OR):
-            # note: 'OR' composites cannot be subconverted, as these don't
+            # note: 'OR' composites cannot be quasiconverted, as these don't
             # guarantee a less restrictive filter will be returned
             return EMPTY_FILTER_CLASSES.get(filter_type, NoFilter)()
 
         converted_subfilters = []
         for subfilter in filter_.subfilters:
-            converted_subfilter = self.subconvert(subfilter, filter_type)
+            converted_subfilter = self.quasiconvert(subfilter, filter_type)
             if converted_subfilter:
                 # only add subfilters that aren't NoFilter
                 converted_subfilters.append(converted_subfilter)
@@ -191,7 +191,7 @@ class FilterConverter(object):
 FILTER_CONVERTER = FilterConverter()
 
 
-def can_convert(filter_, filter_type):
+def can_convert_filter(filter_, filter_type):
     """Check if given filter can be converted to new type.
 
     Args:
@@ -204,7 +204,7 @@ def can_convert(filter_, filter_type):
     return FILTER_CONVERTER.can_convert(filter_, filter_type)
 
 
-def convert(filter_, filter_type, raise_error=True):
+def convert_filter(filter_, filter_type, raise_error=True):
         """Convert filter to new type.
 
         Args:
@@ -226,16 +226,16 @@ def convert(filter_, filter_type, raise_error=True):
         )
 
 
-def subconvert(filter_, filter_type):
+def quasiconvert_filter(filter_, filter_type):
     """Convert filter, or largest selection of subfilters to new type.
 
     See notes in FilterConverter class for explanation of how this works.
 
     Args:
-        filter_ (BaseFilter): filter to subconvert.
+        filter_ (BaseFilter): filter to quasiconvert.
         filter_type (FilterType): type to convert to.
 
     Returns:
-        (BaseFilter): the subconverted filter.
+        (BaseFilter): the quasiconverted filter.
     """
-    return FILTER_CONVERTER.subconvert(filter_, filter_type)
+    return FILTER_CONVERTER.quasiconvert(filter_, filter_type)

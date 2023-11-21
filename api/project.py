@@ -244,6 +244,18 @@ class Project(CustomSerializable):
             self._task_root,
         )
 
+    # TODO: this is work in progress - needs manager reload methods too
+    # TODO: maybe allow to reload with no path?
+    def reload(self, new_path):
+        """Reload project with new path.
+
+        Args:
+            new_path (str): new path to load.
+        """
+        self.set_project_path(new_path)
+        self._load_project_data()
+        self.reload_managers()
+
     @property
     def root_directory(self):
         """Get project root directory
@@ -317,84 +329,69 @@ class Project(CustomSerializable):
         """
         return self._user_prefs
 
-    def get_filter_manager(self, name):
-        """Get a filter manager for this project with the given name.
+    def get_filter_manager(self, filter_type):
+        """Get a filter manager for this project with the given filter type.
 
         Args:
-            name (str): name of manager object.
+            filter_type (FilterType): filter type of manager. This corresponds
+                to the tab that the filter is used on.
 
         Returns:
             (FilterManager): filter manager for managing filtering and
                 filter edits.
         """
-        if self._filter_managers.get(name) is None:
-            self._filter_managers[name] = FilterManager(
-                name,
+        if self._filter_managers.get(filter_type) is None:
+            self._filter_managers[filter_type] = FilterManager(
                 self.user_prefs,
                 self.task_root,
                 self.filterer,
+                filter_type,
             )
-        return self._filter_managers.get(name)
+        return self._filter_managers.get(filter_type)
 
-    # TODO: remove name arg and multiple managers (except for filter_manager)
-    def get_tree_manager(self, name):
+    def get_tree_manager(self):
         """Get a tree manager for this project with the given name.
-
-        Args:
-            name (str): name of manager object.
 
         Returns:
             (TreeManager): tree manager for managing tree edits and filtering.
         """
-        if self._tree_managers.get(name) is None:
-            self._tree_managers[name] = TreeManager(
-                name,
+        if self._tree_manager is None:
+            self._tree_manager = TreeManager(
                 self.user_prefs,
                 self.task_root,
-                self.get_filter_manager(name),
                 self.tracker,
             )
-        return self._tree_managers.get(name)
+        return self._tree_manager
 
-    def get_planner_manager(self, name):
+    def get_planner_manager(self):
         """Get planner manager for this project.
-
-        Args:
-            name (str): name of manager object.
 
         Returns:
             (PlannerManager): planner manager for managing planner edits
                 and filtering.
         """
-        if self._planner_managers.get(name) is None:
-            self._planner_managers[name] = PlannerManager(
-                name,
+        if self._planner_manager is None:
+            self._planner_manager = PlannerManager(
                 self.user_prefs,
                 self.calendar,
-                self.get_filter_manager(name),
             )
-        return self._planner_managers.get(name)
+        return self._planner_manager
 
-    def get_schedule_manager(self, name):
+    def get_schedule_manager(self):
         """Get scheduler manager for this project.
-
-        Args:
-            name (str): name of manager object.
 
         Returns:
             (ScheduleManager): schedule manager for schedule calendar edits
                 and filtering.
         """
-        if self._schedule_managers.get(name) is None:
-            self._schedule_managers[name] = ScheduleManager(
-                name,
+        if self._schedule_manager is None:
+            self._schedule_manager = ScheduleManager(
                 self.user_prefs,
                 self.calendar,
-                self.get_filter_manager(name),
             )
-        return self._schedule_managers.get(name)
+        return self._schedule_manager
 
-    def get_tracker_manager(self, name):
+    def get_tracker_manager(self):
         """Get tracker manager for this project.
 
         Args:
@@ -404,33 +401,26 @@ class Project(CustomSerializable):
             (TrackerManager): tracker manager for managing tracker filtering
                 and edits.
         """
-        if self._tracker_managers.get(name) is None:
-            self._tracker_managers[name] = TrackerManager(
-                name,
+        if self._tracker_manager is None:
+            self._tracker_manager = TrackerManager(
                 self.user_prefs,
                 self.calendar,
-                self.get_filter_manager(name),
                 self.tracker,
             )
-        return self._tracker_managers.get(name)
+        return self._tracker_manager
 
-    def get_history_manager(self, name):
+    def get_history_manager(self):
         """Get history manager for this project.
-
-        Args:
-            name (str): name of manager object.
 
         Returns:
             (HistoryManager): history manager for managing history filtering.
         """
-        if self._history_managers.get(name) is None:
-            self._history_managers[name] = HistoryManager(
-                name,
+        if self._history_manager is None:
+            self._history_manager = HistoryManager(
                 self.user_prefs,
                 self.calendar,
-                self.get_filter_manager(name),
             )
-        return self._history_managers.get(name)
+        return self._history_manager
 
     # TODO: find a way to avoid writing entire tree, should be able to just
     # save edited components

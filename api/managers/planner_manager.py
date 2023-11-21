@@ -8,18 +8,17 @@ from scheduler.api.edit.planner_edit import (
     RemovePlannedItemEdit,
     SortPlannedItemsEdit,
 )
-from scheduler.api.filter.planner_filters import NoFilter, TaskTreeFilter
+from scheduler.api.filter import FilterType
 
 from ._base_manager import require_class, BaseCalendarManager
 
 
 class PlannerManager(BaseCalendarManager):
     """Planner edit manager to apply edits to planned items."""
-    def __init__(self, name, user_prefs, calendar, filter_manager):
+    def __init__(self, user_prefs, calendar): #, filter_manager):
         """Initialize class.
 
         Args:
-            name (str): name of this manager.
             user_prefs (ProjectUserPrefs): project user prefs class.
             calendar (Calendar): calendar object.
             filter_manager (FilterManager): filter manager class for managing
@@ -28,9 +27,8 @@ class PlannerManager(BaseCalendarManager):
         super(PlannerManager, self).__init__(
             user_prefs,
             calendar,
-            filter_manager=filter_manager,
-            name=name,
-            suffix="planner_manager",
+            filter_type=FilterType.PLANNER,
+            name="planner",
         )
 
     def create_planned_item(
@@ -139,36 +137,39 @@ class PlannerManager(BaseCalendarManager):
         )
 
     ### Filter Methods ###
-    @property
-    def filter(self):
-        """Get filter to filter planned items.
+    # @property
+    # def filter(self):
+    #     """Get filter to filter planned items.
 
-        Returns:
-            (BaseFilter): filter to filter planned items with.
-        """
-        if self._filter_manager.tree_filter:
-            return TaskTreeFilter(self._filter_manager.tree_filter)
-        return NoFilter()
+    #     Returns:
+    #         (BaseFilter): filter to filter planned items with.
+    #     """
+    #     if self._filter_manager.tree_filter:
+    #         return TaskTreeFilter(self._filter_manager.tree_filter)
+    #     return NoFilter()
 
-    def iter_filtered_items(self, calendar_period):
+    def iter_filtered_items(self, filter_manager, calendar_period):
         """Get filtered planned items for given calendar period.
 
         Args:
+            filter_manager (FilterManager): filter manager to use.
             calendar_period (BaseCalendarPeriod): period to check.
 
         Yield:
             (PlannedItem): filtered planned item.
         """
-        for planned_item in calendar_period.iter_planned_items(self.filter):
+        filter_ = self._get_filter(filter_manager)
+        for planned_item in calendar_period.iter_planned_items(filter_):
             yield planned_item
 
-    def get_filtered_items(self, calendar_period):
+    def get_filtered_items(self, filter_manager, calendar_period):
         """Get list of filtered planned items for calendar period.
 
         Args:
+            filter_manager (FilterManager): filter manager to use.
             calendar_period (BaseCalendarPeriod): period to check.
 
         Returns:
             (list(PlannedItem)): filtered planned items.
         """
-        return list(self.iter_filtered_items(calendar_period))
+        return list(self.iter_filtered_items(filter_manager, calendar_period))

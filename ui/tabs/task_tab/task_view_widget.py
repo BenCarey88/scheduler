@@ -19,11 +19,18 @@ class TaskViewWidget(BaseTreeView):
     """
     HEIGHT_BUFFER = 10
 
-    def __init__(self, tree_manager, task_item, tab, parent=None):
+    def __init__(
+            self,
+            tree_manager,
+            filter_manager,
+            task_item,
+            tab,
+            parent=None):
         """Initialise task category widget.
 
         Args:
             tree_manager (TreeManager): tree manager item.
+            filter_manager (FilterManager): filter manager item.
             task_item (Task): task category tree item.
             tab (TaskTab): task tab this widget is a descendant of.
             parent (QtGui.QWidget or None): QWidget parent of widget.
@@ -31,12 +38,18 @@ class TaskViewWidget(BaseTreeView):
         super(TaskViewWidget, self).__init__(tree_manager, parent=parent)
         self._only_delete_current_item = True
         self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
         self.task_item = task_item
         self.tab = tab
         tab.task_widget_tree.add_or_update_item(task_item, task_view=self)
 
         # setup model and delegate
-        model = TaskTreeModel(tab.tree_manager, task_item, parent=self)
+        model = TaskTreeModel(
+            tree_manager,
+            filter_manager,
+            task_item,
+            parent=self,
+        )
         self.setItemDelegate(TaskDelegate(model, parent=self))
         self.setModel(model)
         self.expandAll()

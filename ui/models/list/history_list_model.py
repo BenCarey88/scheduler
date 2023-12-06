@@ -16,6 +16,7 @@ class HistoryListModel(QtCore.QAbstractItemModel):
             self,
             tree_manager,
             history_manager,
+            filter_manager,
             calendar_day,
             use_long_names=False,
             parent=None):
@@ -24,6 +25,7 @@ class HistoryListModel(QtCore.QAbstractItemModel):
         Args:
             tree_manager (TreeManager): the tree manager object.
             history_manager (HistoryManager): history manager object.
+            filter_manager (FilterManager): filter manager object.
             calendar_day (CalendarDay): the calendar day this is modelling.
             use_long_names (bool): if True, use full path names for history
                 items. Otherwise, we just use their task names.
@@ -32,6 +34,7 @@ class HistoryListModel(QtCore.QAbstractItemModel):
         super(HistoryListModel, self).__init__(parent)
         self.tree_manager = tree_manager
         self.history_manager = history_manager
+        self.filter_manager = filter_manager
         self.calendar_day = calendar_day
         self.date = calendar_day.date
         self.use_long_names = use_long_names
@@ -49,6 +52,7 @@ class HistoryListModel(QtCore.QAbstractItemModel):
         """
         if self.hasIndex(row, column, parent_index):
             task_list = self.history_manager.get_filtered_tasks(
+                self.filter_manager,
                 self.calendar_day,
             )
             if 0 <= row < len(task_list):

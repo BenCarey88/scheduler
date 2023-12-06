@@ -9,17 +9,17 @@ from scheduler.ui.dialogs import FilterDialog
 
 class FilterView(QtWidgets.QListView):
     """Filter view."""
-    def __init__(self, tree_manager, outliner, parent=None):
+    def __init__(self, filter_manager, outliner, parent=None):
         """Initialize filter view.
 
         Args:
-            tree_manager (TreeManager): tree manager object.
+            filter_manager (FilterManager): filter manager object.
             outliner (Outliner): outliner view this filter applies to.
             parent (QtWidgets.QWidget or None): parent widget, if given.
         """
         super(FilterView, self).__init__(parent=parent)
-        self.setModel(FilterListModel(tree_manager, outliner))
-        self.setItemDelegate(FilterItemDelegate(tree_manager, self))
+        self.setModel(FilterListModel(filter_manager, outliner))
+        self.setItemDelegate(FilterItemDelegate(filter_manager, self))
         self.outliner = outliner
         self._is_active = False
 
@@ -51,21 +51,21 @@ class FilterView(QtWidgets.QListView):
 
 class FilterListModel(QtCore.QAbstractListModel):
     """List model for filter view."""
-    def __init__(self, tree_manager, outliner, parent=None):
+    def __init__(self, filter_manager, outliner, parent=None):
         """Initialize model.
 
         Args:
-            tree_manager (TreeManager): tree manager object.
+            filter_manager (FilterManager): filter manager object.
             outliner (Outliner): outliner view this filter applies to.
             parent (QtGui.QWidget or None): parent widget, if given.
         """
         super(FilterListModel, self).__init__(parent=parent)
-        self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
         self.outliner = outliner
 
     def rowCount(self, parent=None):
         """Get number of rows."""
-        return len(self.tree_manager.field_filters_dict)
+        return len(self.filter_manager.field_filters_dict)
 
     def _get_filter_from_index(self, index):
         """Get filter name for given model index.
@@ -77,8 +77,8 @@ class FilterListModel(QtCore.QAbstractListModel):
             (BaseFilter or None): filter at given index, if found.
         """
         row = index.row()
-        if 0 <= row < len(self.tree_manager.field_filters_dict):
-            return list(self.tree_manager.field_filters_dict.values())[row]
+        if 0 <= row < len(self.filter_manager.field_filters_dict):
+            return list(self.filter_manager.field_filters_dict.values())[row]
         return None
 
     def data(self, index, role):
@@ -101,13 +101,13 @@ class FilterListModel(QtCore.QAbstractListModel):
                 if role in text_roles:
                     return filter_.name
                 if role == QtCore.Qt.ItemDataRole.CheckStateRole:
-                    return 2 * (self.tree_manager.field_filter == filter_)
+                    return 2 * (self.filter_manager.field_filter == filter_)
         return QtCore.QVariant()
 
     def setData(self, index, value, role):
         """Set data at given index to given value.
 
-        Implementing this method allows the tree model to be editable.
+        Implementing this method allows the filter model to be editable.
 
         Args:
             index (QtCore.QModelIndex): index of item we're setting data for.
@@ -123,7 +123,7 @@ class FilterListModel(QtCore.QAbstractListModel):
             filter_ = self._get_filter_from_index(index)
             if not filter_:
                 return False
-            self.tree_manager.set_active_field_filter(
+            self.filter_manager.set_active_field_filter(
                 filter_ if value else None
             )
             self.beginResetModel()
@@ -164,16 +164,16 @@ class FilterListModel(QtCore.QAbstractListModel):
 
 class FilterItemDelegate(QtWidgets.QStyledItemDelegate):
     """Filter item delegate."""
-    def __init__(self, tree_manager, filter_view, parent=None):
+    def __init__(self, filter_manager, filter_view, parent=None):
         """Initialise delegate item.
 
         Args:
-            tree_manager (TreeManager): tree manager object.
+            filter_manager (FilterManager): filter manager object.
             filter_view (FilterView): the view.
             parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(FilterItemDelegate, self).__init__(parent)
-        self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
         self.view = filter_view
 
     def createEditor(self, parent, option, index):
@@ -189,11 +189,13 @@ class FilterItemDelegate(QtWidgets.QStyledItemDelegate):
         """
         row = index.row()
         if row >= 0:
-            filter_ = list(self.tree_manager.field_filters_dict.values())[row]
+            filter_ = list(
+                self.filter_manager.field_filters_dict.values()
+            )[row]
             editor = QtWidgets.QWidget(parent=parent)
             # TODO: getting a weird thing where can't reopen this immediately
             # after closing dialog for some reason
-            dialog = FilterDialog(self.tree_manager, filter_)
+            dialog = FilterDialog(self.filter_manager, filter_)
             dialog.exec_()
             return editor
         return super(FilterItemDelegate, self).createEditor(

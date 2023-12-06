@@ -413,7 +413,7 @@ class FilterManager(BaseManager):
     #     with tree_item.filter_children(self.tree_filter):
     #         return tree_item.get_all_children()
 
-    def set_current_item(self, item):
+    def set_current_tree_item(self, item):
         """Set given tree item as the currently selected one.
 
         Args:
@@ -421,7 +421,7 @@ class FilterManager(BaseManager):
         """
         self._current_tree_item = item
 
-    def get_current_item(self):
+    def get_current_tree_item(self):
         """Get currently selected tree item.
 
         Returns:
@@ -503,6 +503,22 @@ class FilterManager(BaseManager):
             [self._name, self.ACTIVE_FIELD_FILTER_PREF],
             field_filter.name if field_filter is not None else None,
         )
+
+    def get_filters_dict(self, filter_type=None, filter_path=None):
+        """Get filters dict for given filter type and path
+
+        Args:
+            filter_type (FilterType or None): filter type, if restricting.
+            filter_path (list(str) or None): path to filters, if not saved
+                directly under the filter_type category. If this path ends with
+                the name of a filter, the final element of the list is ignored
+                and the returned value is just the dict that filter lives in.
+
+        Returns:
+            (dict(str, BaseFilter) or None): filters dict for given type and
+                path, if found. This may include nested filters.
+        """
+        return self._filterer.get_filters_dict(filter_type, filter_path)
 
     ### Field Filter Edits ###
     def add_field_filter(self, field_filter, filter_path):

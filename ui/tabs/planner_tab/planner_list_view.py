@@ -89,10 +89,11 @@ class PlannerListView(BaseListView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.open_dialog_on_drop_event = True
-        self.planner_manager = project.get_planner_manager(name)
+        self.planner_manager = project.get_planner_manager()
         model = PlannerListModel(
-            project.get_tree_manager(name),
+            project.get_tree_manager(),
             self.planner_manager,
+            project.get_filter_manager(name),
             time_period=time_period,
             open_dialog_on_drop_event=self.open_dialog_on_drop_event,
         )

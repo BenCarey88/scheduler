@@ -103,7 +103,7 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         self.hide_day_change_buttons = (
             time_period == TimePeriod.WEEK and num_days == 7
         )
-        self.planner_manager = project.get_planner_manager(name)
+        self.planner_manager = project.get_planner_manager()
         self.left_view = self.hybrid_view.left_view
         self.right_view = self.hybrid_view.right_view
 
@@ -363,6 +363,7 @@ class OverlayedPlannerHybridView(BaseOverlayedView):
         painter.setBrush(brush)
         if self.display_all_connections:
             planned_items_iterator = self.planner_manager.iter_filtered_items(
+                self.filter_manager,
                 self.calendar_period,
             )
             for planned_item in planned_items_iterator:

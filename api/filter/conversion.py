@@ -92,10 +92,12 @@ class FilterConverter(object):
         # case 2: filter_type unchanged, no conversion needed
         if filter_type == filter_.filter_type:
             return _test_run or filter_
-        
-        # case 3: all empty filter classes can be converted
+
+        # case 3: all empty filter classes can be converted trivially
         if isinstance(filter_, NoFilter):
-            return _test_run or EMPTY_FILTER_CLASSES.get(filter_type, NoFilter)()
+            return (
+                _test_run or EMPTY_FILTER_CLASSES.get(filter_type, NoFilter)()
+            )
 
         # case 3: convert from a tree filter to any scheduler component type 
         if (filter_.filter_type == FilterType.TREE

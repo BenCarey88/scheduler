@@ -24,6 +24,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
     def __init__(
             self,
             tree_manager,
+            filter_manager,
             task_item,
             tab,
             recursive_depth=0,
@@ -33,6 +34,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
 
         Args:
             tree_manager (TreeManager): tree manager item.
+            filter_manager (FilterManager): filter manager item.
             task_item (Task or TaskCategory): task or task category tree item.
             tab (TaskTab): task tab this widget is a descendant of.
             recursive_depth (int): how far down the tree this item is.
@@ -41,6 +43,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         """
         super(TaskHeaderWidget, self).__init__(parent)
         self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
         self.task_item = task_item
         self.tab = tab
         tab.task_widget_tree.add_or_update_item(
@@ -80,6 +83,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         if self.tree_manager.is_task_category(task_item):
             self.task_header_view = TaskHeaderListView(
                 tree_manager,
+                filter_manager,
                 task_item,
                 tab=tab,
                 recursive_depth=recursive_depth+1,
@@ -91,6 +95,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
         elif self.tree_manager.is_task(task_item):
             self.task_view_widget = TaskViewWidget(
                 self.tree_manager,
+                self.filter_manager,
                 task_item,
                 tab=tab,
             )
@@ -156,7 +161,11 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             self.child_widget.sizeHint().height() +
             self.HEIGHT_BUFFER
         )
-        if not self.tree_manager.get_filtered_children(self.task_item):
+        child_list = self.tree_manager.get_filtered_children(
+            self.filter_manager,
+            self.task_item
+        )
+        if not child_list
             height += self.NO_CHILDREN_HEIGT_BUFFER
         return QtCore.QSize(width, height)
 
@@ -179,6 +188,7 @@ class TaskHeaderListView(WidgetListView):
     def __init__(
             self,
             tree_manager,
+            filter_manager,
             task_item,
             tab,
             recursive_depth=0,
@@ -188,6 +198,7 @@ class TaskHeaderListView(WidgetListView):
 
         Args:
             tree_manager (TreeManager): tree manager item.
+            filter_manager (FilterManager): filter manager item.
             task_item (Task or TaskCategory): task or task category tree item.
             tab (TaskTab): task tab this widget is a descendant of.
             recursive_depth (int): how far down the tree this item is.
@@ -199,6 +210,7 @@ class TaskHeaderListView(WidgetListView):
             task_header_view=self,
         )
         self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
         self.task_item = task_item
         self.tab = tab
         self.recursive_depth = recursive_depth
@@ -206,6 +218,7 @@ class TaskHeaderListView(WidgetListView):
         for child in task_item.get_all_children():
             widget = TaskHeaderWidget(
                 tree_manager,
+                filter_manager,
                 child,
                 tab=tab,
                 recursive_depth=recursive_depth,
@@ -225,7 +238,7 @@ class TaskHeaderListView(WidgetListView):
             update (bool): if True, update view after.
         """
         for i, child in enumerate(self.task_item.get_all_children()):
-            if self.tree_manager.is_filtered_out(child):
+            if self.filter_manager.is_filtered_out(child):
                 self.filter_row(i)
             else:
                 self.unfilter_row(i)
@@ -243,6 +256,7 @@ class TaskHeaderListView(WidgetListView):
         """
         widget = TaskHeaderWidget(
             self.tree_manager,
+            self.filter_manager,
             task_header_item,
             self.tab,
             recursive_depth=self.recursive_depth,

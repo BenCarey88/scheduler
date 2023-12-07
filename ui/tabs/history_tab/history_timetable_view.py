@@ -147,6 +147,7 @@ class HistoryDelegate(QtWidgets.QStyledItemDelegate):
         self.table = table
         self.tree_manager = table.tree_manager
         self.history_manager = table.history_manager
+        self.filter_manager = table.filter_manager
 
     @property
     def calendar_week(self):

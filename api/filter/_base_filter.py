@@ -14,7 +14,7 @@ class FilterType(OrderedStringEnum):
     any of these scheduler project components, it will just have 'general'
     type. If it can be used on all these components, it has 'global' type.
     """
-    TREE = "tree"
+    TREE = "tasks"
     PLANNER = "planner"
     SCHEDULER = "scheduler"
     TRACKER = "tracker"

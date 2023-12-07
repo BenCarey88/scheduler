@@ -93,9 +93,9 @@ class BaseManager(object):
         Returns:
             (BaseFilter): combined_filter from filter_manager, quasiconverted
                 so that it's usable by the objects that this class manages.
-                Note that this method is intended to be used by the component
-                manager classes and not by filter manager classes, but is
-                defined in the base class for convenience.
+                Note that this method is only intended to be used by the
+                component manager classes and not by filter manager classes,
+                but is defined in the base class for convenience.
         """
         return quasiconvert_filter(
             filter_manager.combined_filter,

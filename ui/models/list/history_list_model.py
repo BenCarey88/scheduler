@@ -79,7 +79,12 @@ class HistoryListModel(QtCore.QAbstractItemModel):
         Returns:
             (int): number of children.
         """
-        return len(self.history_manager.get_filtered_tasks(self.calendar_day))
+        return len(
+            self.history_manager.get_filtered_tasks(
+                self.filter_manager,
+                self.calendar_day,
+            )
+        )
 
     def columnCount(self, parent_index=None):
         """Get number of columns of given item.

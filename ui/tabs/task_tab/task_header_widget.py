@@ -165,7 +165,7 @@ class TaskHeaderWidget(QtWidgets.QFrame):
             self.filter_manager,
             self.task_item
         )
-        if not child_list
+        if not child_list:
             height += self.NO_CHILDREN_HEIGT_BUFFER
         return QtCore.QSize(width, height)
 

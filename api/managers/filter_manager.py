@@ -12,7 +12,8 @@ from scheduler.api.edit.filter_edit import (
     ModifyFilterEdit,
 )
 # from scheduler.api.filter import FilterType
-from scheduler.api.filter.conversion import convert_filter
+from scheduler.api.filter import FilterType
+from scheduler.api.filter.conversion import convert_filter, quasiconvert_filter
 from scheduler.api.filter.tree_filters import NoFilter, FilterByItem
 from scheduler.api.tree.base_task_item import BaseTaskItem
 from scheduler.api.utils import fallback_value
@@ -78,11 +79,11 @@ class FilterManager(BaseManager):
                 item.
         """
         self._filterer = filterer
-        self._filter_type = filter_type
         self._tree_root = tree_root
         self._archive_tree_root = tree_root.archive_root
         super(FilterManager, self).__init__(
             user_prefs,
+            filter_type=filter_type,
             name=filter_type,
             suffix="filter_manager",
         )
@@ -211,8 +212,12 @@ class FilterManager(BaseManager):
         Returns:
             (bool): whether or not the given item is being filtered out.
         """
+        tree_field_filter = quasiconvert_filter(
+            self.field_filter,
+            FilterType.TREE,
+        )
         if (tree_item.parent is not None and tree_item not in
-                tree_item.parent.get_filtered_children(self.field_filter)):
+                tree_item.parent.get_filtered_children(tree_field_filter)):
             return True
 
         if self.has_attribute(tree_item, self.IS_FILTERED_OUT):

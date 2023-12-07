@@ -36,6 +36,7 @@ class OutlinerTreeModel(BaseTreeModel):
             filter_ = filter_manager.combined_filter
         else:
             filter_ = filter_manager.field_filter
+        self.filter_manager = filter_manager
         super(OutlinerTreeModel, self).__init__(
             tree_manager,
             filter=filter_,

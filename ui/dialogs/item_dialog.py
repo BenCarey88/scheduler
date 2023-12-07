@@ -168,7 +168,7 @@ class DialogTreeView(BaseTreeView):
             new_index (QtCore.QModelIndex): new index.
             old_index (QtCore.QModelIndex): previous index.
         """
-        self.tree_item = self._get_current_tree_item()
+        self.tree_item = self._get_current_item()
 
     def expand_to_tree_item(self, tree_item, select=False, expand_final=False):
         """Expand to tree item.

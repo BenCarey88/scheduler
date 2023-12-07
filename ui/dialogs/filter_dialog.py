@@ -65,9 +65,9 @@ class FilterFieldData(object):
         Args:
             name (str): name of field.
             filter_class (class): the corresponding filter class.
-            values (list(str) or None): list of possible predefined values
-                for this field. If not given, it is assumed that the field's
-                values are unrestricted.
+            values (OrderedStringEnum, list, or None): enum or list of possible
+                predefined values for this field. If not given, it is assumed
+                that the field's values are unrestricted.
             value_type (type): type of value. This defaults to string.
         """
         self.name = name
@@ -150,24 +150,24 @@ class FilterField(Enum):
     STATUS = FilterFieldData(
         "Status",
         TaskStatusFilter,
-        ItemStatus.get_values(),
+        ItemStatus,
         OrderedStringEnum,
     )
     TYPE = FilterFieldData(
         "Type",
         TaskTypeFilter,
-        TaskType.get_values(),
+        TaskType,
     )
     SIZE = FilterFieldData(
         "Size",
         TaskSizeFilter,
-        ItemSize.get_values(),
+        ItemSize,
         OrderedStringEnum,
     )
     IMPORTANCE = FilterFieldData(
         "Importance",
         TaskImportanceFilter,
-        ItemImportance.get_values(),
+        ItemImportance,
         OrderedStringEnum,
     )
     PATH = FilterFieldData(

@@ -257,12 +257,12 @@ class TaskDelegate(QtWidgets.QStyledItemDelegate):
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QComboBox(parent)
-                editor.addItems(ItemImportance.get_values())
+                editor.addItems(ItemImportance)
                 return editor
         elif column_name == self._model.SIZE_COLUMN:
             item = index.internalPointer()
             if item:
                 editor = QtWidgets.QComboBox(parent)
-                editor.addItems(ItemSize.get_values())
+                editor.addItems(ItemSize)
                 return editor
         return super().createEditor(parent, option, index)

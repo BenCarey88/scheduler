@@ -18,14 +18,16 @@ class TaskTreeModel(BaseTreeModel):
     IMPORTANCE_COLUMN = "Importance"
     SIZE_COLUMN = "Size"
 
-    def __init__(self, tree_manager, root_task, parent=None):
+    def __init__(self, tree_manager, filter_manager, root_task, parent=None):
         """Initialise task tree model.
 
         Args:
-            root_task (Task): root Task item.
             tree_manager (TreeManager): tree manager item.
+            filter_manager (FilterManager): filter manager object.
+            root_task (Task): root Task item.
             parent (QtWidgets.QWidget or None): QWidget that this models.
         """
+        self.filter_manager = filter_manager
         super(TaskTreeModel, self).__init__(
             tree_manager,
             tree_root=root_task,
@@ -46,9 +48,9 @@ class TaskTreeModel(BaseTreeModel):
         Returns:
             (BaseTreeFilter): child filter, combining the initial filter
                 passed during construction, and the item filter from the
-                tree manager.
+                filter manager.
         """
-        item_filter = self.tree_manager.child_filter
+        item_filter = self.filter_manager.combined_filter
         if item_filter:
             return (self._base_filter & item_filter)
         return self._base_filter

@@ -65,9 +65,9 @@ class FilterFieldData(object):
         Args:
             name (str): name of field.
             filter_class (class): the corresponding filter class.
-            values (list(str) or None): list of possible predefined values
-                for this field. If not given, it is assumed that the field's
-                values are unrestricted.
+            values (OrderedStringEnum, list, or None): enum or list of possible
+                predefined values for this field. If not given, it is assumed
+                that the field's values are unrestricted.
             value_type (type): type of value. This defaults to string.
         """
         self.name = name
@@ -150,24 +150,24 @@ class FilterField(Enum):
     STATUS = FilterFieldData(
         "Status",
         TaskStatusFilter,
-        ItemStatus.get_values(),
+        ItemStatus,
         OrderedStringEnum,
     )
     TYPE = FilterFieldData(
         "Type",
         TaskTypeFilter,
-        TaskType.get_values(),
+        TaskType,
     )
     SIZE = FilterFieldData(
         "Size",
         TaskSizeFilter,
-        ItemSize.get_values(),
+        ItemSize,
         OrderedStringEnum,
     )
     IMPORTANCE = FilterFieldData(
         "Importance",
         TaskImportanceFilter,
-        ItemImportance.get_values(),
+        ItemImportance,
         OrderedStringEnum,
     )
     PATH = FilterFieldData(
@@ -588,20 +588,20 @@ class FilterDialog(QtWidgets.QDialog):
 
     def __init__(
             self,
-            tree_manager,
+            filter_manager,
             filter=None,
             parent=None):
         """Initialise dialog.
 
         Args:
-            tree_manager (TreeManager): the task tree manager object.
+            filter_manager (FilterManager): the task tree manager object.
             filter (BaseFilter or None): filter we're editing if given, else
                 we're in create mode.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
         super(FilterDialog, self).__init__(parent=parent)
         set_style(self, "filter_dialog.qss")
-        self._tree_manager = tree_manager
+        self._filter_manager = filter_manager
         self.is_editor = (filter is not None)
         self.original_name = filter.name if filter is not None else None
 
@@ -672,26 +672,26 @@ class FilterDialog(QtWidgets.QDialog):
                 "Name field must be filled in",
             )
         if self.is_editor:
-            if (self.filter_name != self.original_name and
-                    self.filter_name in self._tree_manager.field_filters_dict):
+            if (self.filter_name in self._filter_manager.field_filters_dict
+                    and self.filter_name != self.original_name):
                 return simple_message_dialog(
                     "Invalid Name",
                     "Cannot change name to {0} - a filter with this name "
                     "already exists".format(self.filter_name),
                 )
-            self._tree_manager.modify_field_filter(
+            self._filter_manager.modify_field_filter(
                 [self.original_name],
                 self.filter,
             )
         else:
-            if self.filter_name in self._tree_manager.field_filters_dict:
+            if self.filter_name in self._filter_manager.field_filters_dict:
                 return simple_message_dialog(
                     "Invalid Name",
                     "A filter called {0} already exists".format(
                         self.filter_name
                     )
                 )
-            self._tree_manager.add_field_filter(
+            self._filter_manager.add_field_filter(
                 self.filter,
                 [self.filter.name],
             )
@@ -703,6 +703,6 @@ class FilterDialog(QtWidgets.QDialog):
 
         Called when user clicks delete.
         """
-        self._tree_manager.remove_field_filter([self.original_name])
+        self._filter_manager.remove_field_filter([self.original_name])
         self.reject()
         self.close()

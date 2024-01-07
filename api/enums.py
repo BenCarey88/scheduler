@@ -34,11 +34,6 @@ class OrderedStringEnum(str, Enum):
         )
 
     @classmethod
-    def get_values(cls):
-        """Get all values for enum."""
-        return list(cls.__members__)
-
-    @classmethod
     def from_string(cls, string):
         """Get enum value from the corresponding string.
 

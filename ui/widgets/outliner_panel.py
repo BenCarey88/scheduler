@@ -19,22 +19,23 @@ class OutlinerPanel(QtWidgets.QSplitter):
     PANEL_KEY = "outliner_panel"
     SPLITTER_SIZES_PREF = "splitter_sizes"
 
-    def __init__(self, tab, name, project, parent=None):
+    def __init__(self, tab, filter_type, project, parent=None):
         """Initialise panel.
 
         Args:
             tab (BaseTab): tab this outliner is used for.
-            name (str): name of tab (to pass to manager classes).
+            filter_type (FilterType): filter type and name of tab.
             project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(OutlinerPanel, self).__init__(parent=parent)
-        self.name = name
-        self.tree_manager = project.get_tree_manager(name)
+        self.name = filter_type
+        self.tree_manager = project.get_tree_manager()
+        self.filter_manager = project.get_filter_manager(filter_type)
         self.user_prefs = project.user_prefs
         self.setOrientation(QtCore.Qt.Orientation.Vertical)
-        self.outliner = Outliner(tab, self.tree_manager)
-        self.filter_widget = FilterWidget(self.tree_manager, self.outliner)
+        self.outliner = Outliner(tab, self.tree_manager, self.filter_manager)
+        self.filter_widget = FilterWidget(self.filter_manager, self.outliner)
         self.filter_view = self.filter_widget.filter_view
         self.addWidget(self.filter_widget)
         self.addWidget(self.outliner)
@@ -91,16 +92,16 @@ class OutlinerPanel(QtWidgets.QSplitter):
 
 class FilterWidget(QtWidgets.QWidget):
     """Filter widget containing filter view, menu and button."""
-    def __init__(self, tree_manager, outliner, parent=None):
+    def __init__(self, filter_manager, outliner, parent=None):
         """Initialise widget.
 
         Args:
-            tree_manager (TreeManager): tree manager object.
+            filter_manager (FilterManager): tree manager object.
             outliner (Outliner): outliner view this filter applies to.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(FilterWidget, self).__init__(parent=parent)
-        self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
         main_layout = QtWidgets.QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(main_layout)
@@ -121,7 +122,7 @@ class FilterWidget(QtWidgets.QWidget):
             start_stretch=True,
             end_stretch=True,
         )
-        self.filter_view = FilterView(tree_manager, outliner)
+        self.filter_view = FilterView(filter_manager, outliner)
         main_layout.addWidget(self.filter_view)
 
     def open_filter_menu(self):
@@ -129,7 +130,7 @@ class FilterWidget(QtWidgets.QWidget):
         filter_menu = QtWidgets.QMenu("Filters")
         self._populate_filter_menu(
             filter_menu,
-            self.tree_manager.get_filters_dict(),
+            self.filter_manager.get_filters_dict(),
         )
         filter_menu.exec(self.mapToGlobal(self.menu_button.pos()))
 
@@ -169,4 +170,4 @@ class FilterWidget(QtWidgets.QWidget):
 
     def launch_filter_dialog(self):
         """Launch filter dialog."""
-        FilterDialog(self.tree_manager).exec_()
+        FilterDialog(self.filter_manager).exec_()

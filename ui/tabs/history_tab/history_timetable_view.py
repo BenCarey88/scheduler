@@ -28,7 +28,7 @@ class HistoryTimeTableView(BaseWeekTableView):
             HistoryWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
-        self.history_manager = project.get_history_manager(name)
+        self.history_manager = project.get_history_manager()
         self.setItemDelegate(HistoryDelegate(self))
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
@@ -147,6 +147,7 @@ class HistoryDelegate(QtWidgets.QStyledItemDelegate):
         self.table = table
         self.tree_manager = table.tree_manager
         self.history_manager = table.history_manager
+        self.filter_manager = table.filter_manager
 
     @property
     def calendar_week(self):
@@ -203,6 +204,7 @@ class HistoryDelegate(QtWidgets.QStyledItemDelegate):
             HistoryListModel(
                 self.tree_manager,
                 self.history_manager,
+                self.filter_manager,
                 calendar_day,
             )
         )

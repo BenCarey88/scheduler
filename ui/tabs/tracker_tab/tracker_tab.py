@@ -2,6 +2,8 @@
 
 from collections import OrderedDict
 
+from scheduler.api.filter import FilterType
+
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.widgets.navigation_panel import DateType, ViewType
 from scheduler.ui import utils
@@ -18,7 +20,7 @@ class TrackerTab(BaseCalendarTab):
             project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        name = "tracker"
+        name = FilterType.TRACKER
         main_views_dict = OrderedDict([
             (
                 (DateType.DAY, ViewType.TIMETABLE),

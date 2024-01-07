@@ -36,10 +36,15 @@ class TrackerTimetableView(BaseWeekTableView):
             TrackerWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
-        self.tracker_manager = project.get_tracker_manager(name)
+        self.tracker_manager = project.get_tracker_manager()
         utils.set_style(self, "tracker_view.qss")
         self.setItemDelegate(
-            TrackerDelegate(self, self.tracker_manager, self.tree_manager)
+            TrackerDelegate(
+                self,
+                self.tracker_manager,
+                self.tree_manager,
+                self.filter_manager,
+            )
         )
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
@@ -151,13 +156,20 @@ class TrackerTimetableView(BaseWeekTableView):
 
 class TrackerDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for tracker."""
-    def __init__(self, table, tracker_manager, tree_manager, parent=None):
+    def __init__(
+            self,
+            table,
+            tracker_manager,
+            tree_manager,
+            filter_manager,
+            parent=None):
         """Initialise task delegate item.
         
         Args:
             table (QtWidgets.QTableView): table widget this is delegate of.
             tracker_manager (TrackerManager): tracker manager object.
             tree_manager (TreeManager): tree manager object.
+            filter_manager (FilterManager): filter manager object.
             parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(TrackerDelegate, self).__init__(parent)
@@ -165,6 +177,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         self.tracker_manager = tracker_manager
         self.tracker = tracker_manager.tracker
         self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
 
     @property
     def calendar_week(self):
@@ -286,6 +299,9 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         layout.setContentsMargins(0, 0, 0, 0)
         return layout
 
+    # TODO: keep an eye on this and remove the commented out bits if it seems
+    # fine - I've just changed it to use the date only, which I believe should
+    # be fine but should confirm to be sure
     def update_task_value(self, task, date, value_widget):
         """Run edit to update task value.
 
@@ -294,7 +310,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             date (Date): date to update.
             value_widget (QtWidgets.QWidget): widget to get new value from.
         """
-        date_time = DateTime.from_date_and_time(date, Time())
+        # date_time = DateTime.from_date_and_time(date, Time())
         value = None
         status = None
 
@@ -318,7 +334,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
 
         self.tree_manager.update_task(
             task,
-            date_time,
+            date, #date_time,
             status,
             value,
         )
@@ -340,7 +356,8 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         editor_widget.setFixedSize(self.get_fixed_size())
 
         calendar_day = self.calendar_week.get_day_at_index(index.column())
-        for task in self.tracker_manager.iter_filtered_items():
+        iter_ = self.tracker_manager.iter_filtered_items(self.filter_manager)
+        for task in iter_:
             task_layout = self.get_layout_from_task(task, calendar_day.date)
             layout.addLayout(task_layout)
             layout.addStretch()

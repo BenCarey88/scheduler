@@ -11,17 +11,18 @@ from .base_tree_view import BaseTreeView
 
 class Outliner(BaseTreeView):
     """Task Outliner panel."""
-    def __init__(self, tab, tree_manager, parent=None):
+    def __init__(self, tab, tree_manager, filter_manager, parent=None):
         """Initialise task outliner.
 
         Args:
             tab (BaseTab): tab this outliner is used for.
             tree_manager (TreeManager): tree manager item.
+            filter_manager (FilterManager): filter manager item.
             parent (QtGui.QWidget or None): QWidget parent of widget. 
         """
         super(Outliner, self).__init__(tree_manager, parent=parent)
         self.tab = tab
-        self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
         self.root = tree_manager.tree_root
         self._allow_key_events = True
         self._is_full_tree = True
@@ -33,6 +34,7 @@ class Outliner(BaseTreeView):
         self.setModel(
             OutlinerTreeModel(
                 self.tree_manager,
+                self.filter_manager,
                 hide_filtered_items=self._hide_filtered_items,
                 parent=self
             )
@@ -52,7 +54,7 @@ class Outliner(BaseTreeView):
         )
         self.header().resizeSection(1, 1)
 
-        self.expand_items_from_tree_manager()
+        self.expand_items_from_filter_manager()
         self.expanded.connect(partial(self.mark_item_expanded, value=True))
         self.collapsed.connect(partial(self.mark_item_expanded, value=False))
 
@@ -64,12 +66,12 @@ class Outliner(BaseTreeView):
         """
         self.model().beginResetModel()
         self.model().endResetModel()
-        self.expand_items_from_tree_manager()
+        self.expand_items_from_filter_manager()
 
-    def _expand_item_from_tree_manager(self, index):
+    def _expand_item_from_filter_manager(self, index):
         """Recursively expand item at given index.
 
-        This only expands items marked as expanded in the tree_manager.
+        This only expands items marked as expanded in the filter_manager.
 
         Args:
             index (QtCore.QModelIndex): index of item to expand.
@@ -79,19 +81,19 @@ class Outliner(BaseTreeView):
         item = index.internalPointer()
         if item is None:
             return
-        if self.tree_manager.is_expanded(item):
+        if self.filter_manager.is_expanded(item):
             self.setExpanded(index, True)
         else:
             self.setExpanded(index, False)
         for i in range(item.num_children()):
             child_index = self.model().index(i, 0, index)
-            self._expand_item_from_tree_manager(child_index)
+            self._expand_item_from_filter_manager(child_index)
 
-    def expand_items_from_tree_manager(self):
-        """Expand all items marked as expanded in tree_manager."""
+    def expand_items_from_filter_manager(self):
+        """Expand all items marked as expanded in filter_manager."""
         for i in range(self.root.num_children()):
             child_index = self.model().index(i, 0, QtCore.QModelIndex())
-            self._expand_item_from_tree_manager(child_index)
+            self._expand_item_from_filter_manager(child_index)
 
     def mark_item_expanded(self, index, value):
         """Mark item as expanded in tree manager.
@@ -105,7 +107,7 @@ class Outliner(BaseTreeView):
         if index.isValid():
             item = index.internalPointer()
             if item:
-                self.tree_manager.expand_item(item, value)
+                self.filter_manager.expand_item(item, value)
 
     def expand_items_from_filtered(self):
         """Expand or collapsed items based on which are filtered.
@@ -113,8 +115,8 @@ class Outliner(BaseTreeView):
         Returns:
             (bool): whether or not action is successful.
         """
-        success = self.tree_manager.set_expanded_from_filtered()
-        self.expand_items_from_tree_manager()
+        success = self.filter_manager.set_expanded_from_filtered()
+        self.expand_items_from_filter_manager()
         return success
 
     def toggle_items_hidden(self):
@@ -136,7 +138,7 @@ class Outliner(BaseTreeView):
         if new_index.isValid():
             item = new_index.internalPointer()
             if item:
-                self.tree_manager.set_current_item(item)
+                self.filter_manager.set_current_tree_item(item)
                 self.tab.on_outliner_current_changed(item)
 
     def on_model_data_change(self, *args):
@@ -146,7 +148,7 @@ class Outliner(BaseTreeView):
     def on_field_filter_changed(self):
         """Callback for when field filter is changed in filter view."""
         self.model().update_filter()
-        self.expand_items_from_tree_manager()
+        self.expand_items_from_filter_manager()
         self.tab.on_outliner_filter_changed()
 
     def keyPressEvent(self, event):
@@ -163,7 +165,7 @@ class Outliner(BaseTreeView):
             if event.key() == QtCore.Qt.Key_H:
                 success = self.toggle_items_hidden()
                 if success:
-                    self.expand_items_from_tree_manager()
+                    self.expand_items_from_filter_manager()
             # ctrl+e: auto-collapse and expand based on filter-status
             elif event.key() == QtCore.Qt.Key_E:
                 success = self.expand_items_from_filtered()

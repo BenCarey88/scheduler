@@ -3,6 +3,8 @@
 from collections import OrderedDict
 
 from scheduler.api.enums import TimePeriod as TP
+from scheduler.api.filter import FilterType
+
 from scheduler.ui.tabs.base_calendar_tab import BaseCalendarTab
 from scheduler.ui.tabs.planner_tab.planner_hybrid_view import (
     OverlayedPlannerHybridView
@@ -22,7 +24,7 @@ class SchedulerTab(BaseCalendarTab):
             project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
-        name = "scheduler"
+        name = FilterType.SCHEDULER
         main_views_dict = OrderedDict([
             (
                 (DateType.DAY, ViewType.TIMETABLE),

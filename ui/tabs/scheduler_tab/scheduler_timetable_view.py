@@ -54,7 +54,7 @@ class SchedulerTimetableView(BaseWeekTableView):
             SchedulerWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
-        self.schedule_manager = project.get_schedule_manager(name)
+        self.schedule_manager = project.get_schedule_manager()
         # TODO: allow to change this and set as user pref
         self.open_dialog_on_drop_event = True
         self.display_widget_buttons = True
@@ -89,7 +89,10 @@ class SchedulerTimetableView(BaseWeekTableView):
         self.scheduled_item_widgets = [
             ScheduledItemWidget(self, self.schedule_manager, item)
             for calendar_day in self.calendar_week.iter_days()
-            for item in self.schedule_manager.iter_filtered_items(calendar_day)
+            for item in self.schedule_manager.iter_filtered_items(
+                self.filter_manager,
+                calendar_day,
+            )
         ]
         # Put background items below foreground ones
         self.scheduled_item_widgets.sort(
@@ -578,7 +581,7 @@ class SchedulerTimetableView(BaseWeekTableView):
                     self.schedule_manager,
                     start_datetime=self.selection_rect.start_datetime,
                     end_datetime=self.selection_rect.end_datetime,
-                    tree_item=self.tree_manager.get_current_item(),
+                    tree_item=self.filter_manager.get_current_tree_item(),
                 )
                 item_editor.exec()
             self.selection_rect = None

@@ -3,6 +3,7 @@
 from ._base_filter import (
     BaseFilter,
     CompositeFilter,
+    FilterType,
     NoFilter,
     register_serializable_filter,
 )
@@ -13,6 +14,7 @@ class BasePlannerFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BasePlannerFilter, self).__init__()
+        self._filter_type = FilterType.PLANNER
         self._composite_filter_class = CompositePlannerFilter
 
 

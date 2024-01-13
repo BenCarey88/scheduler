@@ -1,7 +1,8 @@
 """Converter module for conversion between filters of different types."""
 
-from ._base_filter import CompositeFilter, FilterError, FilterType, NoFilter
+from scheduler.api.enums import CompositionOperator
 
+from ._base_filter import CompositeFilter, FilterError, FilterType, NoFilter
 from .tree_filters import CompositeTreeFilter, NoFilter as TreeNoFilter
 from .planner_filters import (
     CompositePlannerFilter,
@@ -173,7 +174,7 @@ class FilterConverter(object):
             return full_conversion
 
         if (not isinstance(filter_, CompositeFilter)
-                or filter_.composition_operator == filter_.OR):
+                or filter_.composition_operator == CompositionOperator.OR):
             # note: 'OR' composites cannot be quasiconverted, as these don't
             # guarantee a less restrictive filter will be returned
             return EMPTY_FILTER_CLASSES.get(filter_type, NoFilter)()
@@ -186,7 +187,7 @@ class FilterConverter(object):
                 converted_subfilters.append(converted_subfilter)
         return COMPOSITE_CLASSES.get(filter_type, CompositeFilter)(
             converted_subfilters,
-            filter_.AND,
+            CompositionOperator.AND,
         )
 
 

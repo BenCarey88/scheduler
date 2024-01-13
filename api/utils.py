@@ -39,8 +39,6 @@ def indent_print(bookend=None, indent=1, time_it=False):
         print ("[TIME]:", duration)
 
 
-from .common.timeline import TimelineDict
-
 def print_dict(dict_, indent=0, key_ordering=None, start_message=None):
     """A nice way of printing a nested dictionary.
 

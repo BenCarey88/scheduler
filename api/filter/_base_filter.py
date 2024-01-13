@@ -2,8 +2,7 @@
 
 from collections import Hashable
 
-from scheduler.api.enums import OrderedStringEnum
-from scheduler.api.utils import fallback_value
+from scheduler.api.enums import CompositionOperator, OrderedStringEnum
 
 
 class FilterType(OrderedStringEnum):
@@ -214,13 +213,13 @@ class BaseFilter(object):
         subfilters_list = []
         for f in (self, filter_):
             if (isinstance(f, CompositeFilter)
-                    and f._compositon_operator == CompositeFilter.OR):
+                    and f._compositon_operator == CompositionOperator.OR):
                 subfilters_list.extend(f._subfilters_list)
             else:
                 subfilters_list.append(f)
         return self._composite_filter_class(
             subfilters_list,
-            CompositeFilter.OR,
+            CompositionOperator.OR,
         )
 
     def __and__(self, filter_):
@@ -248,13 +247,13 @@ class BaseFilter(object):
         subfilters_list = []
         for f in (self, filter_):
             if (isinstance(f, CompositeFilter)
-                    and f._compositon_operator == CompositeFilter.AND):
+                    and f._compositon_operator == CompositionOperator.AND):
                 subfilters_list.extend(f._subfilters_list)
             else:
                 subfilters_list.append(f)
         return self._composite_filter_class(
             subfilters_list,
-            CompositeFilter.AND,
+            CompositionOperator.AND,
         )
 
     def __bool__(self):
@@ -320,20 +319,20 @@ class CompositeFilter(BaseFilter):
     """Filter made of composites of other filters."""
     SUBFILTERS_KEY = "subfilters"
     COMPOSITION_OPERATOR_KEY = "composition_operator"
-    AND = "AND"
-    OR = "OR"
 
     def __init__(self, subfilters_list=None, composition_operator=None):
         """Initialize filter.
 
         Args:
             subfilters_list (list(BaseFilter) or None): list of subfilters.
-            composition_operator (str or None): filter composition operator
-                (must be AND or OR). Defaults to AND.
+            composition_operator (CompositionOperator or None): filter
+                composition operator (must be AND or OR). Defaults to AND.
         """
         super(CompositeFilter, self).__init__()
         self._subfilters_list = subfilters_list or []
-        self._compositon_operator = composition_operator or self.AND
+        self._compositon_operator = (
+            composition_operator or CompositionOperator.AND
+        )
         if not subfilters_list:
             self._is_valid = False
 
@@ -346,22 +345,21 @@ class CompositeFilter(BaseFilter):
         """
         if not self._subfilters_list:
             return True
-        if self._compositon_operator == self.AND:
-            return all([
-                subfilter._filter_function(*args, **kwargs)
-                for subfilter in self._subfilters_list
-            ])
-        elif self._compositon_operator == self.OR:
-            return any([
-                subfilter._filter_function(*args, **kwargs)
-                for subfilter in self._subfilters_list
-            ])
-        else:
+        boolean_op = {
+            CompositionOperator.OR: any,
+            CompositionOperator.AND: all,
+        }.get(self._compositon_operator)
+        if boolean_op is None:
             raise FilterError(
                 "Unsupported filter compositon operator {0}".format(
                     self._compositon_operator
                 )
             )
+
+        return boolean_op((
+                subfilter._filter_function(*args, **kwargs)
+                for subfilter in self._subfilters_list
+        ))
 
     @property
     def subfilters(self):

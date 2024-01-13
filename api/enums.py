@@ -146,6 +146,12 @@ class TimePeriod(OrderedStringEnum):
     YEAR = "year"
 
 
+class CompositionOperator(OrderedStringEnum):
+    """Enum for the two boolean composition operations."""
+    AND = "AND"
+    OR = "OR"
+
+
 class TrackedValueType(OrderedStringEnum):
     """Enum for tracker value types."""
     NONE = ""

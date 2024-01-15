@@ -394,7 +394,7 @@ class FilterManager(BaseManager):
             (bool): whether or not action was successful.
         """
         if tree_item is None:
-            tree_item = self.tree_root
+            tree_item = self._tree_root
         if self.is_filtered_out(tree_item):
             self.expand_item(tree_item, False)
         else:
@@ -475,10 +475,10 @@ class FilterManager(BaseManager):
                 self._tree_item_filter = FilterByItem(
                     list(self._filtered_tree_items)
                 )
-                converted_tree_filter = convert_filter(
-                    self._tree_item_filter,
-                    self._filter_type,
-                )
+            converted_tree_filter = convert_filter(
+                self._tree_item_filter,
+                self._filter_type,
+            )
             self._combined_filter = converted_tree_filter & self.field_filter
             return self._combined_filter
         return self.field_filter

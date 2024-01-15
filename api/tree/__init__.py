@@ -8,4 +8,3 @@ from .task import (
 from .task_category import TaskCategory
 from .task_history import TaskHistory
 from .task_root import TaskRoot, HistoryData
-from .tracker import Tracker

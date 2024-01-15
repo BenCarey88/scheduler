@@ -11,6 +11,10 @@ class RepeatPatternError(Exception):
     """Generic exception for repeat pattern errors."""
 
 
+# TODO: for neatness, make this match with other classes that don't need
+# file serialization but do use to_dict and from_dict methods (eg.
+# TaskHistory, Filter and TrackerTarget classes) - either these should all
+# subclass from NestedSerializable with SaveType.NESTED or none should).
 class RepeatPattern(NestedSerializable):
     """Class to determine the dates of a repeating scheduled item."""
     _SAVE_TYPE = SaveType.NESTED

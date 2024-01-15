@@ -81,6 +81,8 @@ class TimelineDict(MutableMapping):
         Args:
             key (variant or _Hosted): key to delete.
         """
+        # TODO: double check but presumably the below can be simplified to
+        # just be "for i, k in enumerate(self._key_list)"
         for i, (k, _) in enumerate(zip(self._key_list, self._value_list)):
             if k == key:
                 del self._key_list[i]
@@ -147,6 +149,8 @@ class TimelineDict(MutableMapping):
         ])
         return "TimelineDict({" + string + "})"
 
+    # TODO: remove this method? Doesn't make sense to move a timeline key
+    # to one end of dict, the order of the keys has to be fixed
     def move_to_end(self, key, last=True):
         """Move key, value to one end of dict.
 
@@ -182,6 +186,37 @@ class TimelineDict(MutableMapping):
         item = self[old_datetime]
         del self[old_datetime]
         self[new_datetime] = item
+
+    def iter_items(self, start=None, end=None, reverse=False):
+        """Iter datetimes and values with optional start and end dates.
+
+        Args:
+            start (BaseDateTimeWrapper or None): date to start iteration from.
+                If not given, use start date of timeline.
+            end (BaseDateTimeWrapper or None): date to end iteration at. If
+                not given, use end date of timeline.
+            reverse (bool): if True, iterate from end to start.
+
+        Yields:
+            (BaseDateTimeWrapper): datetime object.
+            (variant): value at that datetime object.
+        """
+        key_vals = zip(self._key_list, self._value_list)
+        if reverse:
+            key_vals = reversed(key_vals)
+
+        for date_time, value in key_vals:
+            if start is not None:
+                if date_time < start:
+                    if reverse:
+                        return
+                    continue
+            if end is not None:
+                if date_time > end:
+                    if not reverse:
+                        return
+                    continue
+            yield date_time, value
 
     def latest_key(self):
         """Get latest date/time in timeline.
@@ -248,7 +283,7 @@ class TimelineDict(MutableMapping):
         for date_time, value in zip(self._key_list, self._value_list):
             return date_time, value
         return None, None
-    
+
     def __copy__(self):
         """Return shallow copy of object.
 

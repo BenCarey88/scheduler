@@ -75,12 +75,15 @@ class Task(BaseTaskItem):
             status or ItemStatus.UNSTARTED,
             "status",
         )
+        self._value_type = MutableAttribute(
+            value_type or TrackedValueType.NONE,
+            "value_type",
+        )
         self._history = (
             TaskHistory.from_dict(history_dict, self)
             if history_dict is not None
             else TaskHistory(self)
         )
-        self.value_type = value_type or TrackedValueType.NONE
         self._size = MutableAttribute(
             size or ItemSize.NONE,
             "size"
@@ -149,9 +152,18 @@ class Task(BaseTaskItem):
         """Get task type.
 
         Returns:
-            (TaskType): current status.
+            (TaskType): task type.
         """
         return self._type.value
+    
+    @property
+    def value_type(self):
+        """Get task value type.
+
+        Returns:
+            (TrackedValueType): task tracked value type.
+        """
+        return self._value_type.value
 
     @property
     def size(self):
@@ -233,6 +245,19 @@ class Task(BaseTaskItem):
             (variant or None): task value at given date, if set.
         """
         return self.history.get_value_at_date(date)
+
+    def get_target_at_date(self, date):
+        """Get tracker target for given date.
+
+        Args:
+            date (Date): date to get target for.
+
+        Returns:
+            (BaseTrackerTarget or None): tracker target for given date -
+                this is the most recent target set before or on that date,
+                if one exists.
+        """
+        return self.history.get_target_at_date(date)
 
     def clone(self):
         """Create skeletal clone of item, missing parent and children.
@@ -316,7 +341,9 @@ class Task(BaseTaskItem):
         task_type = json_dict.get(cls.TYPE_KEY)
         task_status = ItemStatus.from_string(json_dict.get(cls.STATUS_KEY))
         task_history = json_dict.get(cls.HISTORY_KEY)
-        value_type = json_dict.get(cls.VALUE_TYPE_KEY)
+        value_type = TrackedValueType.from_string(
+            json_dict.get(cls.VALUE_TYPE_KEY)
+        )
         size = ItemSize.from_string(json_dict.get(cls.SIZE_KEY))
         importance = ItemImportance.from_string(
             json_dict.get(cls.IMPORTANCE_KEY)

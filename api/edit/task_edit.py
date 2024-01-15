@@ -310,15 +310,18 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             new_datetime=None,
             new_status=None,
             new_value=None,
+            new_target=None,
             new_status_override=None,
             remove_status=False,
             remove_value=False,
+            remove_target=False,
             remove_status_override=False):
         """Initialise edit.
 
         Args:
             task_item (Task): the task which is being updated.
-            influencer (Hosted): the object that is influencing the update.
+            influencer (Hosted): the object that is influencing the update -
+                note that this can just be the task item itself.
             old_datetime (Date, DateTime or None): the date or datetime that
                 this influencer was previously influencing at. If not given,
                 the edit will add it as a new influencer instead.
@@ -329,8 +332,12 @@ class UpdateTaskHistoryEdit(CompositeEdit):
                 will now be setting, if given.
             new_value (variant or None): the new value that the influencer will
                 now be setting, if given.
+            new_target ((BaseTrackerTarget or None): target value to set from
+                the given date, if wanted.
+            new_status_override (BaseTrackerTarget or None):
             remove_status (bool): if True, remove status from influencer.
             remove_value (bool): if True, remove value from influencer.
+            remove_target (bool): if True, remove target at old date.
             remove_status_override (bool): if True, remove status override.
         """
         history = task_item.history
@@ -341,6 +348,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
             history.STATUS_OVERRIDE_KEY: (
                 new_status_override, remove_status_override
             ),
+            history.TARGET_KEY: (new_target, remove_target),
         }
         for key, (add_arg, remove_arg) in keys_and_args.items():
             if remove_arg:

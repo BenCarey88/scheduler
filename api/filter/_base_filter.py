@@ -7,7 +7,7 @@ from scheduler.api.enums import CompositionOperator, OrderedStringEnum
 
 class FilterType(OrderedStringEnum):
     """Struct for different types of item to filter.
-    
+
     This defines the type of component that a filter is used on (eg. tree
     item, planned item, scheduled item etc.). If a filter is not used on
     any of these scheduler project components, it will just have 'general'
@@ -297,7 +297,7 @@ class BaseFilter(object):
             (dict): dictionary representation.
         """
         raise NotImplementedError(
-            "_get_dict_repr must be implemented in serializable subclasses."
+            "_to_dict must be implemented in serializable subclasses."
         )
 
     @classmethod
@@ -311,7 +311,7 @@ class BaseFilter(object):
             (BaseFilter or None): filter object, if found.
         """
         raise NotImplementedError(
-            "from_dict must be implemented in serializable subclasses."
+            "_from_dict must be implemented in serializable subclasses."
         )
 
 

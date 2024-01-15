@@ -421,6 +421,7 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             date_time=None,
             status=None,
             value=None,
+            target=None,
             status_override=None,
             comment=None,
             remove_from_prev_time=True,
@@ -436,6 +437,8 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
                 given, we calculate the next one.
             value (variant or None): value to set for task at given time. If
                 None, we ignore.
+            target (BaseTrackerTarget or None): tracker target to set starting
+                from a given date.
             status_override (bool or None): if True, this sets the status as
                 an override, so it's used even if it's less complete than
                 earlier statuses.
@@ -492,6 +495,7 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             old_time = history.find_influencer_at_date(date, task_item)
             if old_time is not None:
                 old_datetime = DateTime.from_date_and_time(date, old_time)
+
         return UpdateTaskHistoryEdit.create_and_run(
             task_item=task_item,
             influencer=task_item,
@@ -499,6 +503,7 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             new_datetime=date_time,
             new_status=status,
             new_value=value,
+            new_target=target,
             new_status_override=status_override,
         )
 

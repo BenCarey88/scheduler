@@ -20,7 +20,8 @@ from .serialization.serializable import (
     SerializationError,
 )
 from .serialization import file_utils
-from .tree import TaskRoot, Tracker
+from .tracker import Tracker
+from .tree import TaskRoot
 from .utils import backup_git_repo
 
 

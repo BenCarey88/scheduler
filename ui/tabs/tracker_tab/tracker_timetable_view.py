@@ -328,9 +328,10 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         elif task.value_type in (TrackedValueType.INT, TrackedValueType.FLOAT):
             value = value_widget.value()
         elif task.value_type == TrackedValueType.TIME:
-            # TODO: this should be fixed so it doesn't need to be a string
             qtime = value_widget.time()
-            value=str(Time(qtime.hour(), qtime.minute(), qtime.second()))
+            # TODO: I just changed this to Time from a string, keep an
+            # eye out to make sure it doesn't crash
+            value=Time(qtime.hour(), qtime.minute(), qtime.second())
 
         self.tree_manager.update_task(
             task,

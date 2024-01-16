@@ -1,6 +1,19 @@
 
+1.4.0:
+    Task item dialog, filter refactors, tracker targets and more:
+        - Task item dialog for editing task item properties
+        - Major manager refactor to use separate filter_manager class
+        - Pinned filters and distinct filters per tab
+        - Filter converter class
+        - Target functionality for tracked tasks
+        - Bugfix so task history edits no longer overwrite existing dict
+        - Various minor changes, eg.:
+            - Easier edit stacking, eg. when deleting multiple items
+            - Task item display name attributes
+            - TrackedItem class (unfinished) for tracking non-task items
+
 1.3.2:
-    - bugfixes for PlannedItem serialization, schedule dialog and filters
+    - Bugfixes for PlannedItem serialization, schedule dialog and filters
 
 1.3.1:
     - Added task update policy option to scheduler dialog
@@ -15,36 +28,36 @@
 1.2.1:
     Minor improvements and bugfixes to 1.2.0:
         - 1.2.0-dev3:
-            - open planned item dialog for new planned items
-            - bugfix with setting items in hosted data dict
+            - Open planned item dialog for new planned items
+            - Bugfix with setting items in hosted data dict
         - 1.2.0-dev-2:
-            - improvements to filter speed with caching (but more still to do)
-            - disabling autosaves for now because they're crashing things
-            - made separate weekday starts for week and three_days in nav panel
-            - switched order of activation to fix error with scheduled items
+            - Improvements to filter speed with caching (but more still to do)
+            - Disabling autosaves for now because they're crashing things
+            - Made separate weekday starts for week and three_days in nav panel
+            - Switched order of activation to fix error with scheduled items
         - 1.2.0-dev-1:
             - 3-day period always starts at current day
-            - task status and task importance filters
-            - added endswith and doesnt_match field filter operators
+            - Task status and task importance filters
+            - Added endswith and doesnt_match field filter operators
         - 1.2.0-dev:
-            - ask user before git backup
-            - added commandline arg to use custom project directory
+            - Ask user before git backup
+            - Added commandline arg to use custom project directory
 
 1.2.0:
     Added Planner and History Tabs, as well as filter view and archiving:
-        - new tabs and additional view types for each of the calendar tabs
-        - filterer class and filter view for creating custom filters
-        - basic archiving functionality setup for trees
-        - user prefs and project user prefs
-        - hosted data container classes and container pairing logic
-        - edit callbacks
-        - major api and ui refactoring
+        - New tabs and additional view types for each of the calendar tabs
+        - Filterer class and filter view for creating custom filters
+        - Basic archiving functionality setup for trees
+        - User prefs and project user prefs
+        - Hosted data container classes and container pairing logic
+        - Edit callbacks
+        - Major api and ui refactoring
 
 1.1.1:
     - Added background items and repeat calendar items
     - Also small additional features:
-        - tasks tab ctrl+click deselects ancestoral siblings too
-        - calendar tab timeevent to keep current time marker up to date
+        - Tasks tab ctrl+click deselects ancestoral siblings too
+        - Calendar tab timeevent to keep current time marker up to date
 
 1.1.0:
     First version of Calendar and Tracker tabs:

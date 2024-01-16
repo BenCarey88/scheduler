@@ -292,7 +292,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             )
 
         # Check if target is met
-        target = task.get_target_at_date(Date.now())
+        target = task.get_target_at_date(date)
         if (target is not None
                 and value is not None
                 and target.is_met_by(value)):
@@ -355,8 +355,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
 
         # Check if target is met
         # TODO: this is duplicate of above code - combine to one func
-        target = task.get_target_at_date(Date.now())
-        print ("TARGET IS ", target)
+        target = task.get_target_at_date(date)
         if (target is not None
                 and value is not None
                 and target.is_met_by(value)):

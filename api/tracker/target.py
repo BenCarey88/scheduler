@@ -16,8 +16,8 @@ class TrackerTargetError(Exception):
 
 class TargetOperator(OrderedStringEnum):
     """Operators for setting tracked item targets."""
-    LESS_THAN_EQ = "at least"
-    GREATER_THAN_EQ = "at most"
+    LESS_THAN_EQ = "at most"
+    GREATER_THAN_EQ = "at least"
 
     @classmethod
     def get_custom_names_dict(cls):
@@ -421,9 +421,17 @@ class TrackerTarget(BaseTrackerTarget):
             (bool): whether or not the given value meets the target.
         """
         if self._target_operator == TargetOperator.LESS_THAN_EQ:
+            if self.value_type == TrackedValueType.TIME:
+                # take into account 24 hour clock for time comparison
+                return value.less_than_eq_local(self._target_value)
             return (value <= self._target_value)
+
         if self._target_operator == TargetOperator.GREATER_THAN_EQ:
+            if self.value_type == TrackedValueType.TIME:
+                # take into account 24 hour clock for time comparison
+                return self._target_value.less_than_eq_local(value)
             return (value >= self._target_value)
+
         raise TrackerTargetError(
             "Target operation not yet defined for operator {0}".format(
                 self._target_operator

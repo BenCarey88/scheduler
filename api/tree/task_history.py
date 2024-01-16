@@ -632,8 +632,24 @@ class TaskHistory(object):
             elif key in old_influencer_dict:
                 remove_all = False
                 diff_dict[key] = old_influencer_dict[key]
-            elif key in influencer_dict_to_overwrite:
-                diff_dict[key] = None
+            elif remove_all and key in influencer_dict_to_overwrite:
+                remove_all = False
+                # TODO: I just commented out the below and added in
+                # 'remove_all = False' to change how this logic works:
+                # I think we don't want to fully overwrite any existing
+                # dict at the new datetime, we just want to overwrite
+                # any keys that the edit is updating or that are being
+                # ported over from a previous time
+                # but keep an eye on this and make sure there are no
+                # issues, if seems fine, delete this comment and line
+                # below, and THEN update the comments in these methods
+                # and the edit class to make it clear what happens with
+                # the old_datetime and new_datetime args (ie. any values
+                # set by the given influencer at the old datetime are removed
+                # from that time and then 'overmerged' with any values
+                # being set by that influencer at the new datetime)
+
+                # diff_dict[key] = None
         if not diff_dict:
             return None
         if remove_all:

@@ -2,9 +2,9 @@
 
 from functools import partial
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import DateTime, Time
+from scheduler.api.common.date_time import Date, DateTime, Time
 from scheduler.api.edit.edit_callbacks import (
     CallbackEditType as CET,
     CallbackItemType as CIT,
@@ -281,8 +281,8 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
                 partial(value_widget.setCurrentIndex, 1)
             )
             if value:
-                # TODO: task history should do this string conversion for us
-                time = Time.from_string(value)
+                # TODO: check this doesn't break now we've got Time not str
+                time = value # Time.from_string(value)
                 time_widget.setTime(
                     QtCore.QTime(time.hour, time.minute, time.second)
                 )
@@ -290,6 +290,19 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             time_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, time_widget)
             )
+
+        # Check if target is met
+        target = task.get_target_at_date(Date.now())
+        if (target is not None
+                and value is not None
+                and target.is_met_by(value)):
+            value_widget.setStyleSheet("background-color: #1AE72E")
+        else:
+            value_widget.setStyleSheet("")
+
+        # palette = value_widget.palette()
+        # palette.setColor(palette.ColorRole.Base, QtGui.QColor(0, 255, 0))
+        # value_widget.setBackgroundRole(palette.ColorRole.Base)
 
         value_widget.setFixedHeight(30)
         layout = QtWidgets.QHBoxLayout()
@@ -339,6 +352,17 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             status,
             value,
         )
+
+        # Check if target is met
+        # TODO: this is duplicate of above code - combine to one func
+        target = task.get_target_at_date(Date.now())
+        print ("TARGET IS ", target)
+        if (target is not None
+                and value is not None
+                and target.is_met_by(value)):
+            value_widget.setStyleSheet("background-color: #1AE72E")
+        else:
+            value_widget.setStyleSheet("")
 
     def createEditor(self, parent, option, index):
         """Create editor widget for edit role.

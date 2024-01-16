@@ -201,9 +201,13 @@ class TimelineDict(MutableMapping):
             (BaseDateTimeWrapper): datetime object.
             (variant): value at that datetime object.
         """
-        key_vals = zip(self._key_list, self._value_list)
         if reverse:
-            key_vals = reversed(key_vals)
+            key_vals = zip(
+                reversed(self._key_list),
+                reversed(self._value_list),
+            )
+        else:
+            key_vals = zip(self._key_list, self._value_list)
 
         for date_time, value in key_vals:
             if start is not None:
@@ -247,7 +251,8 @@ class TimelineDict(MutableMapping):
                 the timeline is non-empty.
             (variant or None): the value at that time.
         """
-        for datetime, value in reversed(zip(self._key_list, self._value_list)):
+        zipped = zip(reversed(self._key_list), reversed(self._value_list))
+        for datetime, value in zipped:
             return datetime, value
         return None, None
 

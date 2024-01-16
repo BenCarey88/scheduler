@@ -813,6 +813,7 @@ class TaskHistory(object):
             self.STATUS_KEY: status,
             self.VALUE_KEY: value,
             self.STATUS_OVERRIDE_KEY: status_override,
+            self.TARGET_KEY: target,
         }
         if (fallback_dict is not None and
                 (status is None or value is None or not status_override)):
@@ -839,7 +840,7 @@ class TaskHistory(object):
         keys_and_converters = [
             (self.STATUS_KEY, None),
             (self.STATUS_OVERRIDE_KEY, None),
-            (self.VALUE_KEY, self.task.value_type.get_json_serializer()),
+            (self.VALUE_KEY, self._task.value_type.get_json_serializer()),
             (self.TARGET_KEY, lambda target: target.to_dict()),
             (self.COMMENT_KEY, None),
         ]

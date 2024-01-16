@@ -129,6 +129,18 @@ def get_qicon(icon_filename):
     )
 
 
+class BaseValueWidget(QtWidgets.QWidget):
+    """Base class for any custom widget with getters and setters defined."""
+    def get_value(self):
+        raise NotImplementedError(
+            "subclasses of BaseValueWidget must implement get_value"
+        )
+    def set_value(self, value):
+        raise NotImplementedError(
+            "subclasses of BaseValueWidget must implement set_value"
+        )
+
+
 def get_widget_value(widget):
     """Get the current value of a qt widget.
 
@@ -157,6 +169,9 @@ def get_widget_value(widget):
     elif isinstance(widget, QtWidgets.QTimeEdit):
         time = widget.time()
         return Time(time.hour(), time.minute(), time.second())
+    
+    if isinstance(widget, BaseValueWidget):
+        return widget.get_value()
 
     raise ValueError(
         "get_widget_value method does not currently support widgets of "
@@ -213,6 +228,9 @@ def set_widget_value(widget, value):
             )
         elif isinstance(value, QtCore.QTime):
             return widget.setTime(value)
+
+    if isinstance(widget, BaseValueWidget):
+        return widget.set_value(value)
 
     else:
         raise ValueError(

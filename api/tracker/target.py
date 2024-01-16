@@ -16,31 +16,71 @@ class TrackerTargetError(Exception):
 
 class TargetOperator(OrderedStringEnum):
     """Operators for setting tracked item targets."""
-    LESS_THAN_EQ = "at most"
-    GREATER_THAN_EQ = "at least"
+    LESS_THAN_EQ = "at least"
+    GREATER_THAN_EQ = "at most"
 
     @classmethod
-    def get_custom_name(cls, target_operator, value_type):
-        """Get custom name of operator for given value type.
-
-        Args:
-            target_operator (TargetOperator): the target operator to get a
-                custom name for.
-            value_type (TrackedValueType): the tracked value type.
-
+    def get_custom_names_dict(cls):
+        """Get dict of custom names for operators.
+        
         Returns:
-            (str): name for target operator that corresponds to the given
-                value type.
+            (dict): dict of custom names.
         """
-        operator_dict = {
+        return {
             cls.LESS_THAN_EQ: {
                 TrackedValueType.TIME: "by",
             },
             cls.GREATER_THAN_EQ: {
                 TrackedValueType.TIME: "from",
             },
-        }.get(target_operator, {})
-        return operator_dict.get(value_type, target_operator.value)
+        }
+
+    @classmethod
+    def iter_custom_names(cls, value_type):
+        """Iterate through custom names of operators for given value type.
+
+        Args:
+            value_type (TrackedValueType): the tracked value type.
+
+        Yields:
+            (str): name for target operator that corresponds to the given
+                value type.
+        """
+        for enum, subdict in cls.get_custom_names_dict.items():
+            yield subdict.get(value_type, enum.value)
+
+    def get_custom_name(self, value_type):
+        """Get custom name of operator for given value type.
+
+        Args:
+            value_type (TrackedValueType): the tracked value type.
+
+        Returns:
+            (str): name for target operator that corresponds to the given
+                value type.
+        """
+        operator_dict = self.get_custom_names_dict().get(self, {})
+        return operator_dict.get(value_type, self.value)
+
+    @classmethod
+    def from_custom_name(cls, name):
+        """Get enum from custom name.
+
+        Args:
+            name (str): custom name.
+
+        Returns
+            (TargetOperator or None): target operator, if found.
+        """
+        custom_names_dict = cls.get_custom_names_dict()
+        for enum in TargetOperator:
+            if enum.value == name:
+                return enum
+            subdict = custom_names_dict.get(enum, {})
+            for custom_name in subdict.values():
+                if custom_name == name:
+                    return enum
+        return None
 
 
 """Dict of serializable target classes"""
@@ -93,6 +133,8 @@ class BaseTrackerTarget(object):
     """Base class for tracked item targets."""
     _TARGET_CLASS_NAME_KEY = "target_class"
     _TARGET_CLASS_NAME = None
+    TIME_PERIOD_KEY = "time_period"
+    VALUE_TYPE_KEY = "value_type"
 
     def __init__(self, time_period, value_type):
         """Initialize class.
@@ -123,6 +165,24 @@ class BaseTrackerTarget(object):
             (TrackedValueType): value type of target.
         """
         return self._value_type
+    
+    @property
+    def is_valid(self):
+        """Check if this class defines a valid target.
+
+        Returns:
+            (bool): whether or not this target is valid.
+        """
+        # TODO: use this to check whether value_type is targetable
+        return self._time_period is not None and self._value_type is not None
+    
+    def __eq__(self, target):
+        """Check if this is equal to other target.
+        
+        Args:
+            target (BaseTrackerTarget): other target.
+        """
+        raise NotImplementedError("__eq__ must be implemented in subclasses")
 
     def __or__(self, target):
         """Combine this with given target to make a less restrictive target.
@@ -237,11 +297,36 @@ class BaseTrackerTarget(object):
         )
 
 
+@register_serializable_target("NoTarget")
+class NoTarget(BaseTrackerTarget):
+    """Class defining an empty target."""
+    def _to_dict(self):
+        """Serialize class to dict."""
+        return {
+            self.TIME_PERIOD_KEY: self.time_period,
+            self.VALUE_TYPE_KEY: self.value_type,
+        }
+
+    @classmethod
+    def _from_dict(cls, dictionary):
+        """Initialize class from dict."""
+        return cls(
+            dictionary.get(cls.TIME_PERIOD_KEY),
+            dictionary.get(cls.VALUE_TYPE_KEY),
+        )
+    
+    def __eq__(self, target):
+        """Check if this is equal to other target.
+
+        Args:
+            target (BaseTrackerTarget): other target.
+        """
+        return isinstance(target, NoTarget)
+
+
 @register_serializable_target("TrackerTarget")
 class TrackerTarget(BaseTrackerTarget):
     """Class defining a target for a tracked item."""
-    TIME_PERIOD_KEY = "time_period"
-    VALUE_TYPE_KEY = "value_type"
     TARGET_OPERATOR_KEY = "target_operator"
     TARGET_VALUE_KEY = "target_value"
 
@@ -257,7 +342,73 @@ class TrackerTarget(BaseTrackerTarget):
         """
         self._target_operator = target_operator
         self._target_value = target_value
-        super(BaseTrackerTarget, self).__init__(time_period, value_type)
+        super(TrackerTarget, self).__init__(time_period, value_type)
+
+    # TODO: need to be more consistent with this stuff - either explicitly
+    # allow target_operator and target_value to be None (mention in the
+    # __init__ args in that case) OR require them to not be None, in which
+    # case most of this is_valid check is unneeded, BUT a similar check
+    # needs to be being made on the ui side when the class is called.
+    @property
+    def is_valid(self):
+        """Check if this class defines a valid target.
+
+        Returns:
+            (bool): whether or not this target is valid.
+        """
+        return super(TrackerTarget, self).is_valid and (
+            self.target_operator is not None
+            and self._target_value is not None
+            and isinstance(self._target_value, self._value_type.get_class())
+        )
+
+    @property
+    def target_operator(self):
+        """Get target operator.
+
+        Returns:
+            (TargetOperator): target operator.
+        """
+        return self._target_operator
+
+    @property
+    def target_value(self):
+        """Get target value.
+
+        Returns:
+            (variant): target value.
+        """
+        return self._target_value
+    
+    def __eq__(self, target):
+        """Check if this is equal to other target.
+
+        Args:
+            target (BaseTrackerTarget): other target.
+        """
+        return (
+            isinstance(target, TrackerTarget)
+            and self.time_period == target.time_period
+            and self.value_type == target.value_type
+            and self.target_operator == target.target_operator
+            and self.target_value == target.target_value
+        )
+    
+    def __str__(self):
+        """Get string representation of target.
+
+        Returns:
+            (str): string representation.
+        """
+        return (
+            "TrackerTarget(Period={0}, Type={1}, Operator={2}, Value={3})"
+            "".format(
+                self.time_period,
+                self.value_type,
+                self.target_operator,
+                self.target_value,
+            )
+        )
 
     def is_met_by(self, value):
         """Check if the given tracked value means this target has been met.

@@ -425,7 +425,9 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             status_override=None,
             comment=None,
             remove_from_prev_time=True,
-            ignore_time=False):
+            ignore_time=False,
+            ignore_status=False,
+            stack=False):
         """Update task history and status.
 
         Args:
@@ -448,6 +450,11 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             ignore_time (bool): only used if no date_time arg is given. In
                 this case, if True, we update at the current date, otherwise
                 we update at the current date and time.
+            ignore_status (bool): if True, only update status when a status
+                arg is explicitly given. Tbh this is probably just a stopgap
+                arg until I switch to a more sensible method of always only
+                updating status when a status arg is given.
+            stack (bool): if True, stack this with the previous edit.
 
         Returns:
             (bool): whether or not edit was successful.
@@ -476,7 +483,7 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
         # stop - ideally this should probably be set by eg. a ValueStatusPolicy
         # TODO: also separately, some routines should be allowed to be
         # in_progress! Not all, but def some, make that a separate thing
-        if status is None:
+        if status is None and not ignore_status:
             current_status = task_item.get_status_at_date(date)
             if current_status == ItemStatus.UNSTARTED:
                 if task_item.type == TaskType.ROUTINE:
@@ -505,6 +512,7 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             new_value=value,
             new_target=target,
             new_status_override=status_override,
+            stack=stack,
         )
 
     @require_class(Task, raise_error=False)
@@ -552,6 +560,9 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             type=None,
             size=None,
             importance=None,
+            is_tracked=None,
+            value_type=None,
+            target=None,
             stack=False):
         """Modify attributes of task.
 
@@ -564,6 +575,8 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             type (TaskType or None): new task type, if given.
             size (ItemSize or None): new size to change to, if given.
             importance (ItemImportance): new importance, if given.
+            is_tracked (bool or None): new tracking value, if given.
+            value_type (TrackedValueType or None): new value type, if given.
             stack (bool): if True, stack this with the previous edit.
 
         Returns:
@@ -579,6 +592,8 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
                 task_item._type: type,
                 task_item._size: size,
                 task_item._importance: importance,
+                task_item._is_tracked: is_tracked,
+                task_item._value_type: value_type,
             })
         attr_dict = {
             attr: value
@@ -588,6 +603,7 @@ class TreeManager(BaseManager):     #BaseManagerWithFilter):
             task_item,
             attr_dict,
             is_task=is_task,
+            tracker=self._tracker,
             stack=stack,
         )
 

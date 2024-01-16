@@ -2,7 +2,12 @@
 
 from enum import Enum
 
+from .common.date_time import Time
 
+
+# TODO: I think the manually defined ordering thing (with tuples) doesn't
+# work - either delete this (it's never used) or find a way to make the same
+# sort of method work to define other data
 class OrderedStringEnum(str, Enum):
     """Base ordered enumerator with string values.
 
@@ -34,9 +39,19 @@ class OrderedStringEnum(str, Enum):
         )
 
     @classmethod
-    def get_values(cls):
-        """Get all values for enum."""
-        return list(cls.__members__)
+    def from_string(cls, string):
+        """Get enum value from the corresponding string.
+
+        Args:
+            string (str or None): string to get enum value from.
+
+        Returns:
+            (OrderedStringEnum or None): enum value, or None if not found.
+        """
+        try:
+            return cls(string)
+        except ValueError:
+            return None
 
     @property
     def key(self):
@@ -134,6 +149,89 @@ class TimePeriod(OrderedStringEnum):
     WEEK = "week"
     MONTH = "month"
     YEAR = "year"
+
+
+class CompositionOperator(OrderedStringEnum):
+    """Enum for the two boolean composition operations."""
+    AND = "AND"
+    OR = "OR"
+
+
+class TrackedValueType(OrderedStringEnum):
+    """Enum for tracker value types."""
+    NONE = ""
+    TIME = "Time"
+    STRING = "String"
+    INT = "Int"
+    FLOAT = "Float"
+    MULTI = "Multi"
+
+    def get_class(self):
+        """Get class corresponding to value type, if one exists:
+
+        Returns:
+            (class or None): corresponding class.
+        """
+        return {
+            self.TIME: Time,
+            self.STRING: str,
+            self.INT: int,
+            self.FLOAT: float,
+        }.get(self, None)
+
+    def get_json_serializer(self):
+        """Get json serialization function for this tracked_value_type.
+
+        Returns:
+            (function or None): method for serializing values of this
+                type to a json-compatible dict, if needed.
+        """
+        return {
+            self.TIME: Time.string
+        }.get(self, None)
+
+    def get_json_deserializer(self):
+        """Get json deserialization function for this tracked_value_type.
+
+        Returns:
+            (function or None): method for deserializing values of this
+                type from a json-compatible dict, if needed.
+        """
+        return {
+            self.TIME: Time.from_string
+        }.get(self, None)
+
+    def do_json_serialize(self, value):
+        """Json-serialize the given value.
+
+        Args:
+            value (variant): value to serialize.
+
+        Returns:
+            (str, int or None): json-serialized value, if possible.
+        """
+        if not isinstance(value, self.get_class()):
+            return None
+        converter = self.get_json_serializer()
+        if converter is None:
+            return value
+        return converter(value)
+    
+    def do_json_deserialize(self, value):
+        """Json-serialize the given value.
+
+        Args:
+            value (str, int or None): value to deserialize.
+
+        Returns:
+            (variant or None): json-deserialized value, if possible.
+        """
+        if value is None:
+            return None
+        converter = self.get_json_deserializer()
+        if converter is None:
+            return value
+        return converter(value)
 
 
 class ItemStatus(OrderedStringEnum):

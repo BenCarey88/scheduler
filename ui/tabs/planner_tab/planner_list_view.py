@@ -89,10 +89,11 @@ class PlannerListView(BaseListView):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         self.open_dialog_on_drop_event = True
-        self.planner_manager = project.get_planner_manager(name)
+        self.planner_manager = project.get_planner_manager()
         model = PlannerListModel(
-            project.get_tree_manager(name),
+            project.get_tree_manager(),
             self.planner_manager,
+            project.get_filter_manager(name),
             time_period=time_period,
             open_dialog_on_drop_event=self.open_dialog_on_drop_event,
         )
@@ -107,11 +108,17 @@ class PlannerListView(BaseListView):
 
         self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToContents)
 
-        header = self.header()
-        header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionsMovable(True)
-        header.setSectionsClickable(True)
+        # header = self.header()
+        # header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        # header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        # header.setSectionsMovable(True)
+        # header.setSectionsClickable(True)
+        self.setHeaderHidden(True)
+        self.header().setStretchLastSection(False)
+        self.header().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.ResizeMode.Stretch
+        )
+        self.header().resizeSection(1, 1)
 
         for column in range(self.model().columnCount()):
             self.resizeColumnToContents(column)

@@ -2,14 +2,14 @@
 
 from functools import partial
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
-from scheduler.api.common.date_time import DateTime, Time
+from scheduler.api.common.date_time import Date, DateTime, Time
 from scheduler.api.edit.edit_callbacks import (
     CallbackEditType as CET,
     CallbackItemType as CIT,
 )
-from scheduler.api.tree.task import TaskValueType
+from scheduler.api.enums import TrackedValueType
 
 from scheduler.ui.models.table import TrackerWeekModel
 from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
@@ -36,10 +36,15 @@ class TrackerTimetableView(BaseWeekTableView):
             TrackerWeekModel(project.calendar, num_days=num_days),
             parent=parent,
         )
-        self.tracker_manager = project.get_tracker_manager(name)
+        self.tracker_manager = project.get_tracker_manager()
         utils.set_style(self, "tracker_view.qss")
         self.setItemDelegate(
-            TrackerDelegate(self, self.tracker_manager, self.tree_manager)
+            TrackerDelegate(
+                self,
+                self.tracker_manager,
+                self.tree_manager,
+                self.filter_manager,
+            )
         )
         self.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Fixed
@@ -151,13 +156,20 @@ class TrackerTimetableView(BaseWeekTableView):
 
 class TrackerDelegate(QtWidgets.QStyledItemDelegate):
     """Task Delegate for tracker."""
-    def __init__(self, table, tracker_manager, tree_manager, parent=None):
+    def __init__(
+            self,
+            table,
+            tracker_manager,
+            tree_manager,
+            filter_manager,
+            parent=None):
         """Initialise task delegate item.
         
         Args:
             table (QtWidgets.QTableView): table widget this is delegate of.
             tracker_manager (TrackerManager): tracker manager object.
             tree_manager (TreeManager): tree manager object.
+            filter_manager (FilterManager): filter manager object.
             parent (QtWidgets.QWidget or None): Qt parent of delegate.
         """
         super(TrackerDelegate, self).__init__(parent)
@@ -165,6 +177,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         self.tracker_manager = tracker_manager
         self.tracker = tracker_manager.tracker
         self.tree_manager = tree_manager
+        self.filter_manager = filter_manager
 
     @property
     def calendar_week(self):
@@ -217,7 +230,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         status = task.history.get_status_at_date(date)
         value = task.history.get_value_at_date(date)
 
-        if task_value_type == TaskValueType.MULTI:
+        if task_value_type == TrackedValueType.MULTI:
             layout = QtWidgets.QVBoxLayout()
             label = QtWidgets.QLabel(task.name)
             label.setStyleSheet("font-weight: bold")
@@ -229,7 +242,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             layout.setContentsMargins(1, 1, 1, 10)
             return layout
 
-        if task_value_type == TaskValueType.NONE:
+        if task_value_type == TrackedValueType.NONE:
             value_widget = QtWidgets.QCheckBox()
             value_widget.setCheckState(
                 constants.TASK_STATUS_CHECK_STATES.get(status)
@@ -238,27 +251,27 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.STRING:
+        elif task_value_type == TrackedValueType.STRING:
             value_widget = QtWidgets.QLineEdit(value or "")
             value_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.INT:
+        elif task_value_type == TrackedValueType.INT:
             value_widget = QtWidgets.QSpinBox()
             value_widget.setValue(value or 0)
             value_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.FLOAT:
+        elif task_value_type == TrackedValueType.FLOAT:
             value_widget = QtWidgets.QDoubleSpinBox()
             value_widget.setValue(value or 0)
             value_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, value_widget)
             )
 
-        elif task_value_type == TaskValueType.TIME:
+        elif task_value_type == TrackedValueType.TIME:
             value_widget = QtWidgets.QStackedWidget()
             push_button = QtWidgets.QPushButton("    ")
             time_widget = QtWidgets.QTimeEdit(QtCore.QTime(0, 0, 0))
@@ -268,8 +281,8 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
                 partial(value_widget.setCurrentIndex, 1)
             )
             if value:
-                # TODO: task history should do this string conversion for us
-                time = Time.from_string(value)
+                # TODO: check this doesn't break now we've got Time not str
+                time = value # Time.from_string(value)
                 time_widget.setTime(
                     QtCore.QTime(time.hour, time.minute, time.second)
                 )
@@ -277,6 +290,19 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             time_widget.editingFinished.connect(
                 partial(self.update_task_value, task, date, time_widget)
             )
+
+        # Check if target is met
+        target = task.get_target_at_date(date)
+        if (target is not None
+                and value is not None
+                and target.is_met_by(value)):
+            value_widget.setStyleSheet("background-color: #1AE72E")
+        else:
+            value_widget.setStyleSheet("")
+
+        # palette = value_widget.palette()
+        # palette.setColor(palette.ColorRole.Base, QtGui.QColor(0, 255, 0))
+        # value_widget.setBackgroundRole(palette.ColorRole.Base)
 
         value_widget.setFixedHeight(30)
         layout = QtWidgets.QHBoxLayout()
@@ -286,6 +312,9 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         layout.setContentsMargins(0, 0, 0, 0)
         return layout
 
+    # TODO: keep an eye on this and remove the commented out bits if it seems
+    # fine - I've just changed it to use the date only, which I believe should
+    # be fine but should confirm to be sure
     def update_task_value(self, task, date, value_widget):
         """Run edit to update task value.
 
@@ -294,11 +323,11 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             date (Date): date to update.
             value_widget (QtWidgets.QWidget): widget to get new value from.
         """
-        date_time = DateTime.from_date_and_time(date, Time())
+        # date_time = DateTime.from_date_and_time(date, Time())
         value = None
         status = None
 
-        if task.value_type == TaskValueType.NONE:
+        if task.value_type == TrackedValueType.NONE:
             # if value type is None we set status instead of value
             # TODO: this is a really gross way to do things really
             for status_, state in constants.TASK_STATUS_CHECK_STATES.items():
@@ -307,21 +336,32 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
                     break
             if not status:
                 return
-        elif task.value_type == TaskValueType.STRING:
+        elif task.value_type == TrackedValueType.STRING:
             value = value_widget.text()
-        elif task.value_type in (TaskValueType.INT, TaskValueType.FLOAT):
+        elif task.value_type in (TrackedValueType.INT, TrackedValueType.FLOAT):
             value = value_widget.value()
-        elif task.value_type == TaskValueType.TIME:
-            # TODO: this should be fixed so it doesn't need to be a string
+        elif task.value_type == TrackedValueType.TIME:
             qtime = value_widget.time()
-            value=str(Time(qtime.hour(), qtime.minute(), qtime.second()))
+            # TODO: I just changed this to Time from a string, keep an
+            # eye out to make sure it doesn't crash
+            value=Time(qtime.hour(), qtime.minute(), qtime.second())
 
         self.tree_manager.update_task(
             task,
-            date_time,
+            date, #date_time,
             status,
             value,
         )
+
+        # Check if target is met
+        # TODO: this is duplicate of above code - combine to one func
+        target = task.get_target_at_date(date)
+        if (target is not None
+                and value is not None
+                and target.is_met_by(value)):
+            value_widget.setStyleSheet("background-color: #1AE72E")
+        else:
+            value_widget.setStyleSheet("")
 
     def createEditor(self, parent, option, index):
         """Create editor widget for edit role.
@@ -340,7 +380,8 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         editor_widget.setFixedSize(self.get_fixed_size())
 
         calendar_day = self.calendar_week.get_day_at_index(index.column())
-        for task in self.tracker_manager.iter_filtered_items():
+        iter_ = self.tracker_manager.iter_filtered_items(self.filter_manager)
+        for task in iter_:
             task_layout = self.get_layout_from_task(task, calendar_day.date)
             layout.addLayout(task_layout)
             layout.addStretch()

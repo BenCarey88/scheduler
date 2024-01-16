@@ -2,6 +2,42 @@
 
 from collections import Hashable
 
+from scheduler.api.enums import CompositionOperator, OrderedStringEnum
+
+
+class FilterType(OrderedStringEnum):
+    """Struct for different types of item to filter.
+
+    This defines the type of component that a filter is used on (eg. tree
+    item, planned item, scheduled item etc.). If a filter is not used on
+    any of these scheduler project components, it will just have 'general'
+    type. If it can be used on all these components, it has 'global' type.
+    """
+    TREE = "tasks"
+    PLANNER = "planner"
+    SCHEDULER = "scheduler"
+    TRACKER = "tracker"
+    HISTORY = "history"
+    GLOBAL = "global"
+    GENERAL = "general"
+
+    @classmethod
+    def scheduler_filter_types(cls):
+        """Return all filter types of scheduler components.
+
+        Returns:
+            (list): list of filter types that correspond to components
+                in the scheduler. Specifically, this doesn't include the
+                Global and General filter types.
+        """
+        return [
+            cls.TREE,
+            cls.PLANNER,
+            cls.SCHEDULER,
+            cls.TRACKER,
+            cls.HISTORY,
+        ]
+
 
 class FilterError(Exception):
     """Base exception for filter class errors."""
@@ -61,15 +97,19 @@ class BaseFilter(object):
         """Initialize.
 
         Attributes:
-            _composite_filter_class (class): the class used to build composite
-                filters with and/or operators.
+            _filter_type (FilterType or None): filter type
+            _composite_filter_class (class or None): the class used to build
+                composite filters with and/or operators.
             _is_valid (bool): whether or not filter is valid.
             _name (str): name of filter.
             _filter_cache (dict(tuple, bool)): dictionary of items that have
                 already been run through this filter and the resulting value,
                 used to save recalculating.
         """
+        self._filter_type = FilterType.GENERAL
         self._composite_filter_class = CompositeFilter
+        # ^ TODO: make these class attributes? Might just need to be careful
+        # with the multi-class-inheritance
         self._is_valid = True
         self._name = None
         # set filter cache to None in classes we don't want to cache
@@ -84,6 +124,15 @@ class BaseFilter(object):
             (str or None): filter name.
         """
         return self._name
+
+    @property
+    def filter_type(self):
+        """Get type of filter.
+
+        Returns:
+            (FilterType): filter type.
+        """
+        return self._filter_type
 
     def set_name(self, name):
         """Set name of filter.
@@ -164,13 +213,13 @@ class BaseFilter(object):
         subfilters_list = []
         for f in (self, filter_):
             if (isinstance(f, CompositeFilter)
-                    and f._compositon_operator == CompositeFilter.OR):
+                    and f._compositon_operator == CompositionOperator.OR):
                 subfilters_list.extend(f._subfilters_list)
             else:
                 subfilters_list.append(f)
         return self._composite_filter_class(
             subfilters_list,
-            CompositeFilter.OR,
+            CompositionOperator.OR,
         )
 
     def __and__(self, filter_):
@@ -198,13 +247,13 @@ class BaseFilter(object):
         subfilters_list = []
         for f in (self, filter_):
             if (isinstance(f, CompositeFilter)
-                    and f._compositon_operator == CompositeFilter.AND):
+                    and f._compositon_operator == CompositionOperator.AND):
                 subfilters_list.extend(f._subfilters_list)
             else:
                 subfilters_list.append(f)
         return self._composite_filter_class(
             subfilters_list,
-            CompositeFilter.AND,
+            CompositionOperator.AND,
         )
 
     def __bool__(self):
@@ -248,7 +297,7 @@ class BaseFilter(object):
             (dict): dictionary representation.
         """
         raise NotImplementedError(
-            "_get_dict_repr must be implemented in serializable subclasses."
+            "_to_dict must be implemented in serializable subclasses."
         )
 
     @classmethod
@@ -262,7 +311,7 @@ class BaseFilter(object):
             (BaseFilter or None): filter object, if found.
         """
         raise NotImplementedError(
-            "from_dict must be implemented in serializable subclasses."
+            "_from_dict must be implemented in serializable subclasses."
         )
 
 
@@ -270,20 +319,20 @@ class CompositeFilter(BaseFilter):
     """Filter made of composites of other filters."""
     SUBFILTERS_KEY = "subfilters"
     COMPOSITION_OPERATOR_KEY = "composition_operator"
-    AND = "AND"
-    OR = "OR"
 
     def __init__(self, subfilters_list=None, composition_operator=None):
         """Initialize filter.
 
         Args:
             subfilters_list (list(BaseFilter) or None): list of subfilters.
-            composition_operator (str or None): filter composition operator
-                (must be AND or OR). Defaults to AND.
+            composition_operator (CompositionOperator or None): filter
+                composition operator (must be AND or OR). Defaults to AND.
         """
         super(CompositeFilter, self).__init__()
         self._subfilters_list = subfilters_list or []
-        self._compositon_operator = composition_operator or self.AND
+        self._compositon_operator = (
+            composition_operator or CompositionOperator.AND
+        )
         if not subfilters_list:
             self._is_valid = False
 
@@ -296,22 +345,21 @@ class CompositeFilter(BaseFilter):
         """
         if not self._subfilters_list:
             return True
-        if self._compositon_operator == self.AND:
-            return all([
-                subfilter._filter_function(*args, **kwargs)
-                for subfilter in self._subfilters_list
-            ])
-        elif self._compositon_operator == self.OR:
-            return any([
-                subfilter._filter_function(*args, **kwargs)
-                for subfilter in self._subfilters_list
-            ])
-        else:
+        boolean_op = {
+            CompositionOperator.OR: any,
+            CompositionOperator.AND: all,
+        }.get(self._compositon_operator)
+        if boolean_op is None:
             raise FilterError(
                 "Unsupported filter compositon operator {0}".format(
                     self._compositon_operator
                 )
             )
+
+        return boolean_op((
+                subfilter._filter_function(*args, **kwargs)
+                for subfilter in self._subfilters_list
+        ))
 
     @property
     def subfilters(self):

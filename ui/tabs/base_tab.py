@@ -10,20 +10,22 @@ from scheduler.ui.widgets.outliner_panel import OutlinerPanel
 
 class BaseTab(QtWidgets.QWidget):
     """Base Tab class."""
-    def __init__(self, name, project, parent=None):
+    def __init__(self, filter_type, project, parent=None):
         """Initialise tab.
 
         Args:
-            name (str): name of tab (to pass to manager classes).
+            filter_type (FilterType): filter_type that tab uses. This is
+                currently the name of the tab as well.
             project (Project): the project we're working on.
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(BaseTab, self).__init__(parent=parent)
-        self.name = name
-        self.tree_manager = project.get_tree_manager(name)
+        self.name = filter_type
+        self.tree_manager = project.get_tree_manager()
+        self.filter_manager = project.get_filter_manager(filter_type)
         self.outliner_panel = OutlinerPanel(
             self,
-            name,
+            filter_type,
             project,
             parent=self,
         )
@@ -65,7 +67,7 @@ class BaseTab(QtWidgets.QWidget):
         """
         item_type = callback_type[0]
         if item_type != CallbackItemType.FILTER:
-            self.tree_manager.clear_filter_caches()
+            self.filter_manager.clear_filter_caches()
         if (self._is_active and
                 item_type in (CallbackItemType.TREE, CallbackItemType.FILTER)):
             self.outliner_panel.post_edit_callback(callback_type, *args)

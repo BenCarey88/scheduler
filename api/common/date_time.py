@@ -1081,6 +1081,39 @@ class Time(BaseDateTimeWrapper):
             )
         return TimeDelta(_timedelta=time_delta)
 
+    # TODO: I think maybe this should be a temporary solution only
+    # - a potentially better solution to my mind would be to allow an
+    # additional day argument for Time objects to essentially allow
+    # greater than 24hr times. This would then need to be added into
+    # a ui widget (I'm hoping to make custom time and date widgets
+    # anyway, like the clock widget that google times use) and then
+    # this attribute has to be used whenever considering inequalities
+    # and subtraction/addition of times.
+    def less_than_eq_local(self, time):
+        """Check if this is 'locally' smaller (or equal) to other time.
+
+        Args:
+            time (Time): other time to compare to.
+
+        Returns:
+            (bool): whether or not this time is smaller, in a 'local' sense.
+                This comparison considers a 24 hour clock, and takes the
+                smaller time to be the one that comes first in whichever
+                12 hour span contains both times.
+        """
+        hour_diff = (time.hour - self.hour) % 24
+        if 0 < hour_diff < 12:
+            return True
+        if 12 < hour_diff < 24:
+            return False
+
+        # if hour diff is 0 or 12, need to look at minutes and seconds
+        diff = (time.minute - self.minute) or (time.second - self.second)
+        if hour_diff == 0:
+            return (diff >= 0)
+        if hour_diff == 12:
+            return (diff < 0)
+
     @property
     def hour(self):
         """Get hour.

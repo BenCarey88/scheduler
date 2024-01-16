@@ -39,8 +39,6 @@ def indent_print(bookend=None, indent=1, time_it=False):
         print ("[TIME]:", duration)
 
 
-from .common.timeline import TimelineDict
-
 def print_dict(dict_, indent=0, key_ordering=None, start_message=None):
     """A nice way of printing a nested dictionary.
 
@@ -49,9 +47,6 @@ def print_dict(dict_, indent=0, key_ordering=None, start_message=None):
         indent (int): number of tabs to indent with.
         key_ordering (list or None): list of keys in a given order, if wanted.
         start_message (str or None): string to print before dict.
-        additional_dict_types (tuple, list, type or None): if given, this
-            defines which other things will be considered dicts for the purpose
-            of this printing.
     """
     if start_message is not None:
         print (start_message)
@@ -156,8 +151,9 @@ def add_key_at_start(ordered_dict, key, value):
 def setdefault_not_none(dict_, key, default):
     """Return dict value at key, setting as default if not set or None.
 
-    This is the same as the setdefault method on dicts, but also guarantees
-    the return value won't be None (unless the default is None).
+    This is the same as the setdefault method on dicts, except that if the
+    value at the given key is None this method treats it as if the dict is
+    not set at that key, and replaces the value with the default.
 
     Args:
         dict_ (dict): dict to get value from (and set value if needed).

@@ -9,20 +9,14 @@ from scheduler.api.common.object_wrappers import (
 )
 from scheduler.api.serialization import item_registry
 from scheduler.api.serialization.serializable import SaveType
-from scheduler.api.enums import ItemStatus, OrderedStringEnum
-
+from scheduler.api.enums import (
+    ItemImportance,
+    ItemStatus,
+    ItemSize,
+    TrackedValueType,
+)
 from .base_task_item import BaseTaskItem
 from .task_history import TaskHistory, TaskType
-
-
-class TaskValueType(OrderedStringEnum):
-    """Enumeration for task value types."""
-    NONE = ""
-    TIME = "Time"
-    STRING = "String"
-    INT = "Int"
-    FLOAT = "Float"
-    MULTI = "Multi"
 
 
 class Task(BaseTaskItem):
@@ -49,7 +43,8 @@ class Task(BaseTaskItem):
             history_dict=None,
             value_type=None,
             size=None,
-            importance=None):
+            importance=None,
+            **kwargs):
         """Initialise task class.
 
         Args:
@@ -61,11 +56,17 @@ class Task(BaseTaskItem):
                 we default to unstarted.
             history_dict (OrderedDict or None): serialized task history dict,
                 if exists.
-            value_type (TaskValueType or None): task value type, if not None.
+            value_type (TrackedValueType or None): task value type, if not None.
             size (ItemSize or None): task size, if given.
             importance (ItemImportance or None): task importance, if given.
+            **kwargs (dict): kwargs to pass to superclass init (including
+                things like color and display_name).
         """
-        super(Task, self).__init__(name, parent)
+        super(Task, self).__init__(
+            name,
+            parent,
+            **kwargs,
+        )
         self._type = MutableAttribute(
             task_type or TaskType.GENERAL,
             "type"
@@ -74,14 +75,23 @@ class Task(BaseTaskItem):
             status or ItemStatus.UNSTARTED,
             "status",
         )
+        self._value_type = MutableAttribute(
+            value_type or TrackedValueType.NONE,
+            "value_type",
+        )
         self._history = (
             TaskHistory.from_dict(history_dict, self)
             if history_dict is not None
             else TaskHistory(self)
         )
-        self.value_type = value_type or TaskValueType.NONE
-        self._size = MutableAttribute(size, "size")
-        self._importance = MutableAttribute(importance, "importance")
+        self._size = MutableAttribute(
+            size or ItemSize.NONE,
+            "size"
+        )
+        self._importance = MutableAttribute(
+            importance or ItemImportance.NONE,
+            "importance"
+        )
         self._is_tracked = MutableAttribute(False, "is_tracked")
         self._allowed_child_types = [Task]
 
@@ -142,9 +152,18 @@ class Task(BaseTaskItem):
         """Get task type.
 
         Returns:
-            (TaskType): current status.
+            (TaskType): task type.
         """
         return self._type.value
+    
+    @property
+    def value_type(self):
+        """Get task value type.
+
+        Returns:
+            (TrackedValueType): task tracked value type.
+        """
+        return self._value_type.value
 
     @property
     def size(self):
@@ -227,6 +246,19 @@ class Task(BaseTaskItem):
         """
         return self.history.get_value_at_date(date)
 
+    def get_target_at_date(self, date):
+        """Get tracker target for given date.
+
+        Args:
+            date (Date): date to get target for.
+
+        Returns:
+            (BaseTrackerTarget or None): tracker target for given date -
+                this is the most recent target set before or on that date,
+                if one exists.
+        """
+        return self.history.get_target_at_date(date)
+
     def clone(self):
         """Create skeletal clone of item, missing parent and children.
 
@@ -240,8 +272,11 @@ class Task(BaseTaskItem):
             status=self.status,
             history_dict=self.history.to_dict(),
             value_type=self.value_type,
+            size=self.size,
+            importance=self.importance,
+            display_name=self.display_name,
+            color=self._color.value,
         )
-        task._color = self._color
         return task
 
     def to_dict(self):
@@ -264,11 +299,11 @@ class Task(BaseTaskItem):
         Returns:
             (OrderedDict): dictionary representation.
         """
-        json_dict = {
+        json_dict = super(Task, self).to_dict()
+        json_dict.update({
             self.STATUS_KEY: self.status,
             self.TYPE_KEY: self.type,
-            self.ID_KEY: self._get_id(),
-        }
+        })
         if self.history:
             json_dict[self.HISTORY_KEY] = self.history.to_dict()
         if self.value_type:
@@ -277,6 +312,8 @@ class Task(BaseTaskItem):
             json_dict[self.SIZE_KEY] = self.size
         if self.importance:
             json_dict[self.IMPORTANCE_KEY] = self.importance
+        if self.display_name:
+            json_dict[self.DISPLAY_NAME_KEY] = self.display_name
         if self._subtasks:
             subtasks_dict = OrderedDict()
             for subtask_name, subtask in self._subtasks.items():
@@ -301,34 +338,31 @@ class Task(BaseTaskItem):
         Returns:
             (Task): task class for given dict.
         """
-        task_type = json_dict.get(cls.TYPE_KEY, None)
-        task_status = json_dict.get(cls.STATUS_KEY, None)
-        if task_status is not None:
-            task_status = ItemStatus(task_status)
-        task_history = json_dict.get(cls.HISTORY_KEY, None)
-        value_type = json_dict.get(cls.VALUE_TYPE_KEY, None)
-        size = json_dict.get(cls.SIZE_KEY, None)
-        importance = json_dict.get(cls.IMPORTANCE_KEY, None)
-        task = cls(
-            name,
-            parent,
-            task_type,
-            task_status,
-            task_history,
-            value_type,
-            size,
-            importance,
+        task_type = json_dict.get(cls.TYPE_KEY)
+        task_status = ItemStatus.from_string(json_dict.get(cls.STATUS_KEY))
+        task_history = json_dict.get(cls.HISTORY_KEY)
+        value_type = TrackedValueType.from_string(
+            json_dict.get(cls.VALUE_TYPE_KEY)
         )
-        task._activate()
-        id = json_dict.get(cls.ID_KEY, None)
-        if id is not None:
-            # TODO: this bit means tasks are now added to the item registry.
-            # This was done to make deserialization of task history dicts
-            # work. Keep an eye on this, I want to make sure it doesn't slow
-            # down loading too much.
-            item_registry.register_item(id, task)
+        size = ItemSize.from_string(json_dict.get(cls.SIZE_KEY))
+        importance = ItemImportance.from_string(
+            json_dict.get(cls.IMPORTANCE_KEY)
+        )
+
+        task = super(Task, cls).from_dict(
+            json_dict,
+            name=name,
+            parent=parent,
+            task_type=task_type,
+            status=task_status,
+            history_dict=task_history,
+            value_type=value_type,
+            size=size,
+            importance=importance,
+        )
+
         if history_data:
-            for date, subdict in task._history.iter_date_dicts():
+            for date, subdict in task.history.iter_date_dicts():
                 history_data._add_data(date, task, subdict)
 
         subtasks = json_dict.get(cls.TASKS_KEY, {})

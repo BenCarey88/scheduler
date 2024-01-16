@@ -8,6 +8,7 @@ import os
 import shutil
 import tempfile
 
+from scheduler.api.enums import OrderedStringEnum
 from .file_utils import (
     check_directory_can_be_written_to,
     is_serialize_directory,
@@ -32,6 +33,7 @@ def _print_erroring_directory(method):
             raise e
     return decorated_method
 
+
 def _print_erroring_directory_static(method):
     """Decorator to determine which file/directory an error occurred in.
 
@@ -50,7 +52,7 @@ def _print_erroring_directory_static(method):
     return decorated_method
 
 
-class SaveType():
+class SaveType(OrderedStringEnum):
     """Struct for types of save available for serialized classes.
 
     The interpretation of the different types is as follows:
@@ -71,11 +73,24 @@ class SaveType():
     EITHER = "Either"
     NESTED = "Nested"
 
-    _FILE_TYPES = [FILE, EITHER]
-    _DIR_TYPES = [DIRECTORY, EITHER]
+    def is_file_type(self):
+        """Check if save type is a file save type.
+
+        Returns:
+            (bool): whether or not save type is a file type.
+        """
+        return self in [self.FILE, self.EITHER]
+
+    def is_directory_type(self):
+        """Check if save type is a directory save type.
+
+        Returns:
+            (bool): whether or not save type is a directory type.
+        """
+        return self in [self.DIRECTORY, self.EITHER]
 
 
-class SerializableFileTypes():
+class SerializableFileTypes(OrderedStringEnum):
     """Struct for accepted filetypes for json serialized files.
 
     The intended purpose of these file types are as follows:
@@ -218,7 +233,7 @@ class BaseSerializable(ABC):
         Returns:
             (BaseSerializable): class instance.
         """
-        if cls._SAVE_TYPE not in SaveType._FILE_TYPES:
+        if not cls._SAVE_TYPE.is_file_type():
             raise SerializationError(
                 "{0} has save type '{1}', so can't be read from a file".format(
                     str(cls), cls._SAVE_TYPE
@@ -238,7 +253,7 @@ class BaseSerializable(ABC):
                 file in most cases, or a .info file for the additional
                 info file sometimes required in directory serialization.
         """
-        if self._save_type not in SaveType._FILE_TYPES:
+        if not self._save_type.is_file_type():
             raise SerializationError(
                 "{0} has save type '{1}', so can't be saved to a file".format(
                     str(self), self._save_type
@@ -458,7 +473,7 @@ class NestedSerializable(BaseSerializable):
 
         This checks whether the global class attrs have been defined correctly.
         """
-        if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
+        if not cls._SAVE_TYPE.is_directory_type():
             return
 
         # directory error checks
@@ -472,13 +487,13 @@ class NestedSerializable(BaseSerializable):
                 "Directory writing not possible without a defined "
                 "_SUBDIR_KEY or _FILE_KEY attribute"
             )
-        if (cls._SUBDIR_KEY and
-                cls._subdir_class()._SAVE_TYPE not in SaveType._DIR_TYPES):
+        if (cls._SUBDIR_KEY
+                and not cls._subdir_class()._SAVE_TYPE.is_directory_type()):
             raise SerializationError(
                 "_subdir_class() must have a directory save type"
             )
-        if (cls._FILE_KEY and
-                cls._file_class()._SAVE_TYPE not in SaveType._FILE_TYPES):
+        if (cls._FILE_KEY
+                and not cls._file_class()._SAVE_TYPE.is_file_type()):
             raise SerializationError(
                 "_file_class() must have a file save type"
             )
@@ -514,7 +529,7 @@ class NestedSerializable(BaseSerializable):
         Returns:
             (bool): whether or not directory path can be written to.
         """
-        if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
+        if not cls._SAVE_TYPE.is_directory_type():
             raise SerializationError(
                 "{0} has save type '{1}', so can't be saved to a dir".format(
                     str(cls), cls._SAVE_TYPE
@@ -625,7 +640,7 @@ class NestedSerializable(BaseSerializable):
             (NestedSerializable): class instance.
         """
         cls._run_directory_checks()
-        if cls._SAVE_TYPE not in SaveType._DIR_TYPES:
+        if not cls._SAVE_TYPE.is_directory_type():
             raise SerializationError(
                 "{0} has save type '{1}', so can't be read from a dir".format(
                     str(cls), cls._SAVE_TYPE

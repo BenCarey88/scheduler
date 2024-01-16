@@ -3,6 +3,7 @@
 from ._base_filter import (
     BaseFilter,
     CompositeFilter,
+    FilterType,
     NoFilter,
     register_serializable_filter,
 )
@@ -13,6 +14,7 @@ class BaseTrackerFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BaseTrackerFilter, self).__init__()
+        self._filter_type = FilterType.TRACKER
         self._composite_filter_class = CompositeTrackerFilter
 
 

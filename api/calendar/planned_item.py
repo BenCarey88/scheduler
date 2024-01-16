@@ -16,29 +16,22 @@ class PlannedItem(BaseCalendarItem):
     TREE_ITEM_KEY = "tree_item"
     TIME_PERIOD_KEY = "time_period"
 
-    def __init__(
-            self,
-            calendar,
-            calendar_period,
-            tree_item=None,
-            status=None,
-            task_update_policy=None):
+    def __init__(self, calendar, calendar_period, tree_item=None, **kwargs):
         """Initialize class.
 
         Args:
             calendar (Calendar): calendar object.
             calendar_period (BaseCalendarPeriod): calendar period this is
                 associated to.
-            tree_item (BaseTaskItem): the task that this item represents.
-            status (ItemStatus): the status of the item.
-            task_update_policy (ItemUpdatePolicy or None): update policy for
-                the linked task.
+            tree_item (BaseTaskItem or None): the task item, if given.
+            kwargs (dict): additional keyword arguments to pass to subclass
+                init. This includes things like, status, update policies and
+                name.
         """
         super(PlannedItem, self).__init__(
             calendar,
-            tree_item,
-            status,
-            task_update_policy,
+            tree_item=tree_item,
+            **kwargs,
         )
         self._is_planned_item = True
         self._calendar_period = MutableAttribute(
@@ -72,17 +65,6 @@ class PlannedItem(BaseCalendarItem):
             (TimePeriod): period type item is planned for.
         """
         return self.calendar_period.get_time_period_type()
-
-    @property
-    def name(self):
-        """Get name of item.
-
-        Returns:
-            (str): name of item.
-        """
-        if self.tree_item:
-            return self.tree_item.name
-        return ""
 
     @property
     def tree_path(self):

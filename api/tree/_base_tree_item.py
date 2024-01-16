@@ -110,7 +110,18 @@ class BaseTreeItem(Hosted, NestedSerializable):
         Returns:
             (str): string repr of self.
         """
-        return self.path
+        return "{0}({1})".format(
+            self.__class__.__name__,
+            self.path,
+        )
+
+    def __repr__(self):
+        """Get string representation of object.
+
+        Returns:
+            (str): string representation.
+        """
+        return self.__str__()
 
     @contextmanager
     def filter_children(self, child_filter):

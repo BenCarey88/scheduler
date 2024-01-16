@@ -17,7 +17,13 @@ from ._container_edit import DictEdit, ContainerOp
 class BaseTreeEdit(CompositeEdit):
     """Edit that can be called on a tree item."""
 
-    def __init__(self, tree_item, diff_dict, op_type, include_host_edit=True):
+    def __init__(
+            self,
+            tree_item,
+            diff_dict,
+            op_type,
+            include_host_edit=True,
+            dict_edit_only=False):
         """Initialise base tree edit.
 
         Args:
@@ -28,6 +34,10 @@ class BaseTreeEdit(CompositeEdit):
             operation_type (ContainerOp): The type of edit operation to do.
             include_host_edit (bool): if True, activate/deactivate the item
                 during add/remove edits.
+            dict_edit_only (bool): if True, only update the children dictionary
+                and no other attributes. This arg should only be used by other
+                edits that are already taking care of the relevant attribute
+                updates.
         """
         ordered_dict_edit = DictEdit.create_unregistered(
             tree_item._children,
@@ -35,8 +45,10 @@ class BaseTreeEdit(CompositeEdit):
             op_type,
         )
         edit_list = [ordered_dict_edit]
+        if dict_edit_only:
+            return super(BaseTreeEdit, self).__init__(edit_list)
 
-        if op_type == ContainerOp.RENAME:
+        elif op_type == ContainerOp.RENAME:
             name_change_edit = AttributeEdit.create_unregistered(
                 {
                     tree_item.get_child(old_name)._name: new_name
@@ -213,22 +225,28 @@ class RemoveChildrenEdit(BaseTreeEdit):
             ",".join(children_to_remove),
             tree_item.path
         )
+        self._edit_stack_name = "RemoveTreeChildren Edit Stack"
 
 
 class RenameChildrenEdit(BaseTreeEdit):
     """Tree edit for renaming children."""
-    def __init__(self, tree_item, children_to_rename):
+    def __init__(self, tree_item, children_to_rename, dict_edit_only=False):
         """Initialise edit item.
 
         Args:
             tree_item (BaseTreeItem): the tree item this edit is being run on.
-            children_to_remove (dict(str, str)): dict of old names of children
+            children_to_rename (dict(str, str)): dict of old names of children
                 and new ones to replace them with. Can be ordered or not.
+            dict_edit_only (bool): if True, only update the name in the
+                children dictionary and not the name attribute. This arg should
+                only be used by other edits that are already taking care of the
+                attributue update.
         """
         super(RenameChildrenEdit, self).__init__(
             tree_item=tree_item,
             diff_dict=OrderedDict(children_to_rename),
             op_type=ContainerOp.RENAME,
+            dict_edit_only=dict_edit_only,
         )
 
         self._callback_args = self._undo_callback_args = ([

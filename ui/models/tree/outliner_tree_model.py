@@ -15,16 +15,17 @@ class OutlinerTreeModel(BaseTreeModel):
     This model is to be used in the task outliner. It's intended to expand
     up to the first task items under each category but not show any subtasks.
     """
-
     def __init__(
             self,
             tree_manager,
+            filter_manager,
             hide_filtered_items=False,
             parent=None):
         """Initialise task category tree model.
 
         Args:
             tree_manager (TreeManager): tree manager item.
+            filter_manager (FilterManager): filter manager item.
             hide_filtered_items (bool): if True, use the child_filter from the
                 tree manager to filter out all items whose checkboxes are
                 deselected in the outliner.
@@ -32,9 +33,10 @@ class OutlinerTreeModel(BaseTreeModel):
         """
         self._hide_filtered_items = hide_filtered_items
         if hide_filtered_items:
-            filter_ = tree_manager.child_filter
+            filter_ = filter_manager.combined_filter
         else:
-            filter_ = tree_manager.field_filter
+            filter_ = filter_manager.field_filter
+        self.filter_manager = filter_manager
         super(OutlinerTreeModel, self).__init__(
             tree_manager,
             filter=filter_,
@@ -58,10 +60,12 @@ class OutlinerTreeModel(BaseTreeModel):
             if role == QtCore.Qt.ItemDataRole.CheckStateRole:
                 item = index.internalPointer()
                 if item:
-                    return not self.tree_manager.is_selected_for_filtering(item)
+                    return (
+                        not self.filter_manager.is_selected_for_filtering(item)
+                    )
             if role == QtCore.Qt.ItemDataRole.ForegroundRole:
                 item = index.internalPointer()
-                if item and self.tree_manager.is_filtered_out(item):
+                if item and self.filter_manager.is_filtered_out(item):
                     return constants.INACTIVE_TEXT_COLOR
             if role == QtCore.Qt.ItemDataRole.FontRole:
                 item = index.internalPointer()
@@ -99,16 +103,16 @@ class OutlinerTreeModel(BaseTreeModel):
                 return False
             modifiers = QtWidgets.QApplication.keyboardModifiers()
             if modifiers == QtCore.Qt.KeyboardModifier.ControlModifier:
-                self.tree_manager.unfilter_item(item)
-                if self.tree_manager.ancestor_sibs_selected_for_filter(item):
-                    self.tree_manager.unfilter_ancestoral_siblings(item)
+                self.filter_manager.unfilter_item(item)
+                if self.filter_manager.ancestor_sibs_selected_for_filter(item):
+                    self.filter_manager.unfilter_ancestoral_siblings(item)
                 else:
-                    self.tree_manager.filter_ancestoral_siblings(item)
+                    self.filter_manager.filter_ancestoral_siblings(item)
             else:
-                if self.tree_manager.is_selected_for_filtering(item):
-                    self.tree_manager.unfilter_item(item)
+                if self.filter_manager.is_selected_for_filtering(item):
+                    self.filter_manager.unfilter_item(item)
                 else:
-                    self.tree_manager.filter_item(item)
+                    self.filter_manager.filter_item(item)
             if self._hide_filtered_items:
                 self.set_items_hidden(True)
             self.dataChanged.emit(index, index)
@@ -136,7 +140,8 @@ class OutlinerTreeModel(BaseTreeModel):
             )
             item = index.internalPointer()
             parent_item = item.parent
-            if parent_item and self.tree_manager.is_filtered_out(parent_item):
+            if (parent_item 
+                    and self.filter_manager.is_filtered_out(parent_item)):
                 return flags
             return QtCore.Qt.ItemFlag.ItemIsEnabled | flags
         return super(OutlinerTreeModel, self).flags(index)
@@ -157,6 +162,6 @@ class OutlinerTreeModel(BaseTreeModel):
     def update_filter(self):
         """Update filter to match tree manager."""
         if self._hide_filtered_items:
-            return self.set_filter(self.tree_manager.child_filter)
+            return self.set_filter(self.filter_manager.combined_filter)
         else:
-            return self.set_filter(self.tree_manager.field_filter)
+            return self.set_filter(self.filter_manager.field_filter)

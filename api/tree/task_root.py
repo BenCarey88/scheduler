@@ -185,7 +185,7 @@ class TaskRoot(TaskCategory):
             json_dict,
             name=name,
             history_data=history_data,
-            parent=None
+            parent=None,
         )
         task_root._history_data = history_data
         return task_root

@@ -16,6 +16,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             self,
             tree_manager,
             planner_manager,
+            filter_manager,
             calendar_period=None,
             time_period=None,
             open_dialog_on_drop_event=False,
@@ -25,6 +26,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         Args:
             tree_manager (TreeManager): the tree manager object.
             planner_manager (PlannerManager): the planner manager object.
+            filter_manager (FilterManager): the filter manager object. 
             calendar_period (BaseCalendarPeriod or None): the calendar
                 period this is modelling.
             time_period (TimePeriod): the time period type this is modelling,
@@ -40,11 +42,13 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         super(PlannerListModel, self).__init__(parent)
         self.tree_manager = tree_manager
         self.planner_manager = planner_manager
+        self.filter_manager = filter_manager
         self.calendar = planner_manager.calendar
         if calendar_period is None:
             calendar_period = self.calendar.get_current_period(time_period)
         self.calendar_period = calendar_period
-        self.columns = [self.NAME_COLUMN, self.PATH_COLUMN]
+        self.columns = [self.NAME_COLUMN] #, self.PATH_COLUMN]
+        # TODO: delete path column? Or leave it as an option?
         self.open_dialog_on_drop_event = open_dialog_on_drop_event
 
         self._insert_rows_in_progress = False
@@ -118,6 +122,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
             (QtCore.QModelIndex or None): index, if found.
         """
         item_list = self.planner_manager.get_filtered_items(
+            self.filter_manager,
             self.calendar_period,
         )
         # item_list = self.calendar_period.get_planned_items_container()
@@ -180,6 +185,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         if self.hasIndex(row, column, parent_index):
             item_list = self.planner_manager.get_filtered_items(
+                self.filter_manager,
                 self.calendar_period,
             )
             # item_list = self.calendar_period.get_planned_items_container()
@@ -209,7 +215,10 @@ class PlannerListModel(QtCore.QAbstractItemModel):
         """
         # return len(self.calendar_period.get_planned_items_container())
         return len(
-            self.planner_manager.get_filtered_items(self.calendar_period)
+            self.planner_manager.get_filtered_items(
+                self.filter_manager,
+                self.calendar_period,
+            )
         )
 
     def columnCount(self, parent_index=None):
@@ -432,7 +441,7 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                 success = self.planner_manager.create_planned_item(
                     self.calendar,
                     self.calendar_period,
-                    tree_item,
+                    tree_item=tree_item,
                     index=row,
                 )
             return bool(success)
@@ -478,8 +487,8 @@ class PlannerListModel(QtCore.QAbstractItemModel):
                     success = self.planner_manager.create_planned_item(
                         self.calendar,
                         self.calendar_period,
-                        planned_item.tree_item,
                         index=row,
+                        tree_item=planned_item.tree_item,
                         parent=planned_item,
                     )
                 return success

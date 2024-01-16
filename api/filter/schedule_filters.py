@@ -4,6 +4,7 @@ from scheduler.api.calendar.scheduled_item import ScheduledItemType
 from ._base_filter import (
     BaseFilter,
     CompositeFilter,
+    FilterType,
     NoFilter,
     register_serializable_filter,
 )
@@ -14,6 +15,7 @@ class BaseSchedulerFilter(BaseFilter):
     def __init__(self):
         """Initialize."""
         super(BaseSchedulerFilter, self).__init__()
+        self._filter_type = FilterType.SCHEDULER
         self._composite_filter_class = CompositeSchedulerFilter
 
 

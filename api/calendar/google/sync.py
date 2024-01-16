@@ -83,7 +83,7 @@ def sync_scheduler_to_google_calendar(
     """
     scheduled_items = scheduler_calendar.get_events_in_range(
         date_range,
-        include_repeat_items=include_repeat_items
+        include_repeat_items=include_repeat_items,
     )
     google_events = [
         scheduled_item_to_google_event(scheduled_item)

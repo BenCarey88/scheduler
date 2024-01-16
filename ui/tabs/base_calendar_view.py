@@ -19,15 +19,20 @@ class BaseCalendarView(object):
     """Base class for all calendar views."""
     VIEW_UPDATED_SIGNAL = QtCore.pyqtSignal()
 
-    def __init__(self, name, project, *args, **kwargs):
+    def __init__(self, filter_type, project, *args, **kwargs):
         """Initialize.
 
         Args:
-            name (str): name of tab this is used in.
+            filter_type (FilterType): name of tab this is used in, and type
+                of filter.
             project (Project): the project we're working on.
         """
         super(BaseCalendarView, self).__init__(*args, **kwargs)
-        self.tree_manager = project.get_tree_manager(name)
+        self.tree_manager = project.get_tree_manager()
+        # TODO: atm tab and views use name and filter_type interchangeably -
+        # should formalise it to call the attribute of the tabs filter_type
+        # maybe then can make name a property which just returns filter_type
+        self.filter_manager = project.get_filter_manager(filter_type)
         self.tree_root = self.tree_manager.tree_root
         self.calendar = project.calendar
         self.calendar_period = None
@@ -126,6 +131,7 @@ class BaseListView(BaseCalendarView, QtWidgets.QTreeView):
         self.setModel(list_model)
         self.setItemsExpandable(False)
         utils.set_style(self, "base_list_view.qss")
+        self.setIndentation(0)
 
     def set_to_calendar_period(self, calendar_period):
         """Set view to given calendar_period.

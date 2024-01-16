@@ -3,6 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from scheduler.api.edit.edit_callbacks import CallbackItemType, CallbackType
+from scheduler.api.filter import FilterType
 
 from scheduler.ui.tabs.base_tab import BaseTab
 from .task_header_widget import TaskHeaderListView
@@ -22,7 +23,7 @@ class TaskTab(BaseTab):
             parent (QtGui.QWidget or None): QWidget parent of widget.
         """
         super(TaskTab, self).__init__(
-            "tasks",
+            FilterType.TREE,
             project,
             parent=parent,
         )
@@ -33,6 +34,7 @@ class TaskTab(BaseTab):
         self._scroll_value = None
         self.task_header_view = TaskHeaderListView(
             self.tree_manager,
+            self.filter_manager,
             self.tree_root,
             self,
             item_spacing=self.OUTER_CATEGORY_SPACING,

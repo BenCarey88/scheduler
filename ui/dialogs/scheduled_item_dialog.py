@@ -515,7 +515,7 @@ class RepeatPatternWidget(QtWidgets.QWidget):
             repeat_pattern is not None and repeat_pattern.end_date is not None
         )
         if end_date_enabled:
-            self.end_date_enabled_checkbox.setCheckState(True)
+            self.end_date_enabled_checkbox.setChecked(True)
             end_date = repeat_pattern.end_date
             self.cb_end_date.setDate(
                 QtCore.QDate(end_date.year, end_date.month, end_date.day)
@@ -536,6 +536,11 @@ class RepeatPatternWidget(QtWidgets.QWidget):
                     self.weekday_buttons[
                         date.weekday_string(short=False)
                     ].setChecked(True)
+        elif start_date is not None:
+            # set current day as active in repeat pattern
+            self.weekday_buttons[
+                start_date.weekday_string(short=False)
+            ].setChecked(True)
         self.toggle_active_status(enabled)
 
     def toggle_active_status(self, enabled):

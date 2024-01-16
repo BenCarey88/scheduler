@@ -1,7 +1,5 @@
-"""Tracker file reader."""
-# TODO: should this module live in another location?
+"""Tracker class for holding tracked tasks."""
 
-from scheduler.api import constants
 from scheduler.api.common.object_wrappers import HostedDataList
 from scheduler.api.serialization.serializable import BaseSerializable
 

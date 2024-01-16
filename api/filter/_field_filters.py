@@ -145,8 +145,8 @@ class FieldFilter(BaseFilter):
         Note that this doesn't attempt to serialize the getter; the
         assumption is that subclasses will define the getter and then
         are uniquely determined by the operator and the value. For any
-        subclasses where this isn't the case, _to_dict must be
-        reimplemented.
+        subclasses where this isn't the case, _to_dict and _from_dict must
+        be reimplemented.
 
         Returns:
             (dict): dictionary representation.

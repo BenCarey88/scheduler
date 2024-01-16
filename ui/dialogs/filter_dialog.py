@@ -13,12 +13,13 @@ from scheduler.api.common.date_time import (
     Time,
 )
 from scheduler.api.enums import (
+    CompositionOperator,
     ItemImportance,
     ItemSize,
     ItemStatus,
     OrderedStringEnum,
 )
-from scheduler.api.filter import FieldFilter, FilterOperator
+from scheduler.api.filter import FieldFilter, FilterOperator, FilterType
 from scheduler.api.filter.tree_filters import (
     NoFilter,
     CompositeTreeFilter,
@@ -65,9 +66,9 @@ class FilterFieldData(object):
         Args:
             name (str): name of field.
             filter_class (class): the corresponding filter class.
-            values (list(str) or None): list of possible predefined values
-                for this field. If not given, it is assumed that the field's
-                values are unrestricted.
+            values (OrderedStringEnum, list, or None): enum or list of possible
+                predefined values for this field. If not given, it is assumed
+                that the field's values are unrestricted.
             value_type (type): type of value. This defaults to string.
         """
         self.name = name
@@ -150,24 +151,24 @@ class FilterField(Enum):
     STATUS = FilterFieldData(
         "Status",
         TaskStatusFilter,
-        ItemStatus.get_values(),
+        ItemStatus,
         OrderedStringEnum,
     )
     TYPE = FilterFieldData(
         "Type",
         TaskTypeFilter,
-        TaskType.get_values(),
+        TaskType,
     )
     SIZE = FilterFieldData(
         "Size",
         TaskSizeFilter,
-        ItemSize.get_values(),
+        ItemSize,
         OrderedStringEnum,
     )
     IMPORTANCE = FilterFieldData(
         "Importance",
         TaskImportanceFilter,
-        ItemImportance.get_values(),
+        ItemImportance,
         OrderedStringEnum,
     )
     PATH = FilterFieldData(
@@ -414,7 +415,7 @@ class FilterGroupWidget(QtWidgets.QFrame):
         super(FilterGroupWidget, self).__init__(parent=parent)
         self.subfilters = subfilters or []
         self.composition_operator = (
-            composition_operator or CompositeTreeFilter.OR
+            composition_operator or CompositionOperator.OR
         )
         self.setFrameShape(self.Shape.Box)
 
@@ -432,7 +433,7 @@ class FilterGroupWidget(QtWidgets.QFrame):
         operator_layout.addStretch()
         operator_picker = QtWidgets.QComboBox()
         operator_picker.addItems(
-            [CompositeTreeFilter.OR, CompositeTreeFilter.AND]
+            [CompositionOperator.OR, CompositionOperator.AND]
         )
         operator_picker.setCurrentText(self.composition_operator)
         operator_picker.currentTextChanged.connect(
@@ -492,10 +493,10 @@ class FilterGroupWidget(QtWidgets.QFrame):
         elif isinstance(filter_, FieldFilter):
             filter_widget = FieldWidget.from_filter(filter_)
         elif make_group:
-            operator = CompositeTreeFilter.OR
-            if self.composition_operator == CompositeTreeFilter.OR:
+            operator = CompositionOperator.OR
+            if self.composition_operator == CompositionOperator.OR:
                 # use opposite operator to current one
-                operator = CompositeTreeFilter.AND
+                operator = CompositionOperator.AND
             filter_widget = FilterGroupWidget(composition_operator=operator)
         else:
             filter_widget = FieldWidget()
@@ -578,7 +579,7 @@ class FilterGroupWidget(QtWidgets.QFrame):
         if isinstance(filter_, CompositeTreeFilter):
             return cls(filter_.subfilters, filter_.composition_operator)
         if isinstance(filter_, FieldFilter):
-            return cls([filter_], CompositeTreeFilter.OR)
+            return cls([filter_], CompositionOperator.OR)
         return cls()
 
 
@@ -588,22 +589,25 @@ class FilterDialog(QtWidgets.QDialog):
 
     def __init__(
             self,
-            tree_manager,
+            filter_manager,
             filter=None,
             parent=None):
         """Initialise dialog.
 
         Args:
-            tree_manager (TreeManager): the task tree manager object.
+            filter_manager (FilterManager): the task tree manager object.
             filter (BaseFilter or None): filter we're editing if given, else
                 we're in create mode.
             parent (QtWidgets.QWidget or None): parent widget, if one exists.
         """
         super(FilterDialog, self).__init__(parent=parent)
         set_style(self, "filter_dialog.qss")
-        self._tree_manager = tree_manager
+        self._filter_manager = filter_manager
         self.is_editor = (filter is not None)
         self.original_name = filter.name if filter is not None else None
+        filter_type = filter_manager.filter_type
+        if filter is not None:
+            filter_type = filter.filter_type
 
         self.setWindowTitle("Filter Manager")
         flags = QtCore.Qt.WindowFlags(
@@ -614,9 +618,11 @@ class FilterDialog(QtWidgets.QDialog):
 
         # all layouts
         main_layout = QtWidgets.QVBoxLayout()
+        filter_type_layout = QtWidgets.QHBoxLayout()
         name_layout = QtWidgets.QHBoxLayout()
         buttons_layout = QtWidgets.QHBoxLayout()
         main_layout.addLayout(name_layout)
+        main_layout.addLayout(filter_type_layout)
         self.filter_group = FilterGroupWidget.from_filter(filter)
         main_layout.addWidget(self.filter_group)
         main_layout.addLayout(buttons_layout)
@@ -628,6 +634,15 @@ class FilterDialog(QtWidgets.QDialog):
         if self.original_name:
             self.name_widget.setText(self.original_name)
         name_layout.addWidget(self.name_widget)
+
+        # Filter type layout
+        filter_type_layout.addWidget(QtWidgets.QLabel("Filter Type"))
+        self.cb_filter_type = QtWidgets.QComboBox()
+        self.cb_filter_type.addItems(FilterType.scheduler_filter_types())
+        if filter_type is not None:
+            self.cb_filter_type.setCurrentText(filter_type)
+        filter_type_layout.addWidget(self.cb_filter_type)
+        filter_type_layout.addStretch()
 
         if self.is_editor:
             self.delete_button = QtWidgets.QPushButton("Delete Filter")
@@ -672,24 +687,29 @@ class FilterDialog(QtWidgets.QDialog):
                 "Name field must be filled in",
             )
         if self.is_editor:
-            if (self.filter_name != self.original_name and
-                    self.filter_name in self._tree_manager.field_filters_dict):
+            if (self.filter_name in self._filter_manager.field_filters_dict
+                    and self.filter_name != self.original_name):
                 return simple_message_dialog(
                     "Invalid Name",
                     "Cannot change name to {0} - a filter with this name "
                     "already exists".format(self.filter_name),
                 )
-            self._tree_manager.modify_field_filter(
-                self.original_name,
+            self._filter_manager.modify_field_filter(
+                [self.original_name],
                 self.filter,
             )
         else:
-            if self.filter_name in self._tree_manager.field_filters_dict:
+            if self.filter_name in self._filter_manager.field_filters_dict:
                 return simple_message_dialog(
                     "Invalid Name",
-                    "A filter called {0} already exists".format(self.filter_name)
+                    "A filter called {0} already exists".format(
+                        self.filter_name
+                    )
                 )
-            self._tree_manager.add_field_filter(self.filter)
+            self._filter_manager.add_field_filter(
+                self.filter,
+                [self.filter.name],
+            )
         self.accept()
         self.close()
 
@@ -698,6 +718,6 @@ class FilterDialog(QtWidgets.QDialog):
 
         Called when user clicks delete.
         """
-        self._tree_manager.remove_field_filter(self.original_name)
+        self._filter_manager.remove_field_filter([self.original_name])
         self.reject()
         self.close()

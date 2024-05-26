@@ -297,6 +297,9 @@ class BaseTrackerTarget(object):
         )
 
 
+# TODO: is this class needed? We don't really want an empty target
+# as the implementation of is_met_by would have to either auto-fail
+# or auto-succeed, both of which feel wrong
 @register_serializable_target("NoTarget")
 class NoTarget(BaseTrackerTarget):
     """Class defining an empty target."""
@@ -314,7 +317,7 @@ class NoTarget(BaseTrackerTarget):
             dictionary.get(cls.TIME_PERIOD_KEY),
             dictionary.get(cls.VALUE_TYPE_KEY),
         )
-    
+
     def __eq__(self, target):
         """Check if this is equal to other target.
 
@@ -414,12 +417,15 @@ class TrackerTarget(BaseTrackerTarget):
         """Check if the given tracked value means this target has been met.
 
         Args:
-            value (variant): a value for the tracked task that this target
-                has been set for.
+            value (variant or None): a value for the tracked task that this
+                target has been set for. Accepts None for ease and autofails.
 
         Returns:
             (bool): whether or not the given value meets the target.
         """
+        if value is None:
+            return False
+
         if self._target_operator == TargetOperator.LESS_THAN_EQ:
             if self.value_type == TrackedValueType.TIME:
                 # take into account 24 hour clock for time comparison
@@ -448,11 +454,13 @@ class TrackerTarget(BaseTrackerTarget):
         Returns:
             (TrackerTarget or None): tracker target, if could be deserialized.
         """
-        time_period = TimePeriod.from_string(
-            dictionary.get(cls.TIME_PERIOD_KEY)
-        )
         value_type = TrackedValueType.from_string(
             dictionary.get(cls.VALUE_TYPE_KEY)
+        )
+        if value_type is None:
+            return None
+        time_period = TimePeriod.from_string(
+            dictionary.get(cls.TIME_PERIOD_KEY)
         )
         target_op = TargetOperator.from_string(
             dictionary.get(cls.TARGET_OPERATOR_KEY)
@@ -460,8 +468,7 @@ class TrackerTarget(BaseTrackerTarget):
         target_value = value_type.do_json_deserialize(
             dictionary.get(cls.TARGET_VALUE_KEY)
         )
-        if any((x is None
-                for x in [time_period, value_type, target_op, target_value])):
+        if any(x is None for x in [time_period, target_op, target_value]):
             return None
         return cls(time_period, value_type, target_op, target_value)
 

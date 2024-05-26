@@ -3,6 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
+# TODO: fix data, underlying data should be the actual calendar days, not empty lists
 class BaseTableModel(QtCore.QAbstractTableModel):
     """Base for all table models."""
     TIME_INTERVAL = 1

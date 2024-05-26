@@ -4,10 +4,37 @@ from collections.abc import MutableMapping
 from contextlib import contextmanager
 import datetime
 import sys
+import time
 
 
 """Global dictionary for dumping simple debugging info."""
 _GLOBAL_DEBUG_DICT = {}
+
+"""Global time variable, for use with print_time_elapsed."""
+_GLOBAL_TIME = None
+
+
+def print_time_elapsed(comment, reset=False, indent=0):
+    """Print comment with time elapsed since last comment, for debugging.
+
+    Args:
+        comment (str): comment to print.
+        reset (bool): if True, reset global time var and don't print it.
+        indent (int): indent by this many tabs.
+    """
+    new_time = time.time()
+    global _GLOBAL_TIME
+    if reset or _GLOBAL_TIME is None:
+        print ("{0}{1}".format("\t" * indent, comment))
+    else:
+        print (
+            "{0}{1} ({2})".format(
+                "\t" * indent,
+                comment,
+                new_time - _GLOBAL_TIME,
+            )
+        )
+    _GLOBAL_TIME = new_time
 
 
 @contextmanager

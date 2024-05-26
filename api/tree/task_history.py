@@ -780,7 +780,7 @@ class TaskHistory(object):
         starting_values = starting_values or {}
         status = starting_values.get(self.STATUS_KEY, None)
         value = starting_values.get(self.VALUE_KEY, None)
-        target = starting_values.get(self.TARGET_KEY)
+        target = starting_values.get(self.TARGET_KEY, None)
         status_override = starting_values.get(self.STATUS_OVERRIDE_KEY, None)
 
         if diff_dict is not None:
@@ -862,10 +862,11 @@ class TaskHistory(object):
         ]
         for key, converter in keys_and_converters:
             if key in subdict:
-                if converter is None:
-                    json_subdict[key] = subdict[key]
-                else:
-                    json_subdict[key] = converter(subdict[key])
+                json_value = subdict[key]
+                if converter is not None and json_value is not None:
+                    json_value = converter(json_value)
+                if json_value is not None:
+                    json_subdict[key] = json_value
 
         if include_influencers_key and self.INFLUENCERS_KEY in subdict:
             json_inf_subdict = OrderedDict()
@@ -912,10 +913,11 @@ class TaskHistory(object):
         ]
         for key, converter in keys_and_converters:
             if key in json_dict:
-                if converter is None:
-                    subdict[key] = json_dict[key]
-                else:
-                    subdict[key] = converter(json_dict[key])
+                value = json_dict[key]
+                if converter is not None and value is not None:
+                    value = converter(value)
+                if value is not None:
+                    subdict[key] = value
 
         if include_influencers_key and cls.INFLUENCERS_KEY in json_dict:
             if date_time_obj is None or task_history_item is None:
@@ -981,21 +983,25 @@ class TaskHistory(object):
         Returns:
             (OrderedDict): json dict.
         """
-        json_dict = OrderedDict()
-        for date, subdict in self._dict.items():
-            json_subdict = self._subdict_to_json_dict(subdict, True)
-            if self.TIMES_KEY in subdict:
-                json_times_subdict = OrderedDict()
-                json_subdict[self.TIMES_KEY] = json_times_subdict
-                for time, time_subdict in subdict[self.TIMES_KEY].items():
-                    json_time_subdict = self._subdict_to_json_dict(
-                        time_subdict,
-                        include_influencers_key=True,
-                    )
-                    json_times_subdict[time.string()] = json_time_subdict
-            if json_subdict:
-                json_dict[date.string()] = json_subdict
-        return json_dict
+        try:
+            json_dict = OrderedDict()
+            for date, subdict in self._dict.items():
+                json_subdict = self._subdict_to_json_dict(subdict, True)
+                if self.TIMES_KEY in subdict:
+                    json_times_subdict = OrderedDict()
+                    json_subdict[self.TIMES_KEY] = json_times_subdict
+                    for time, time_subdict in subdict[self.TIMES_KEY].items():
+                        json_time_subdict = self._subdict_to_json_dict(
+                            time_subdict,
+                            include_influencers_key=True,
+                        )
+                        json_times_subdict[time.string()] = json_time_subdict
+                if json_subdict:
+                    json_dict[date.string()] = json_subdict
+            return json_dict
+        except Exception as e:
+            print (self._dict)
+            raise e
 
     @classmethod
     def from_dict(cls, json_dict, task):

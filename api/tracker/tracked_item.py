@@ -68,7 +68,7 @@ class TrackedItem(Hosted, BaseSerializable):
             return self._value_type.value
         if self.task_item is not None:
             return self.task_item.value_type
-        return TrackedValueType.NONE
+        return TrackedValueType.STATUS
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.

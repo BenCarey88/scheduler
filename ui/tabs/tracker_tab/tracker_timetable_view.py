@@ -17,8 +17,6 @@ from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
 from scheduler.ui import constants, utils
 
 
-# TODO: the tracker needs to be able to update when tracked items are
-# updated/deleted. (At the moment deletion will crash it).
 class TrackerTimetableView(BaseWeekTableView):
     """Tracker table view."""
     def __init__(self, name, project, num_days=7, parent=None):
@@ -70,8 +68,6 @@ class TrackerTimetableView(BaseWeekTableView):
         self.model().endResetModel()
         self.update()
 
-    # TODO: need to add logic for if item is deleted too (atm it crashes
-    # if item is deleted and we still try to edit it).
     def pre_edit_callback(self, callback_type, *args):
         """Callback for before an edit of any type is run.
 
@@ -242,7 +238,8 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             layout.setContentsMargins(1, 1, 1, 10)
             return layout
 
-        if task_value_type == TrackedValueType.NONE:
+        if task_value_type in (
+                TrackedValueType.STATUS, TrackedValueType.COMPLETIONS):
             value_widget = QtWidgets.QCheckBox()
             value_widget.setCheckState(
                 constants.TASK_STATUS_CHECK_STATES.get(status)
@@ -327,9 +324,11 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         value = None
         status = None
 
-        if task.value_type == TrackedValueType.NONE:
-            # if value type is None we set status instead of value
-            # TODO: this is a really gross way to do things really
+        if task.value_type in (
+                TrackedValueType.STATUS, TrackedValueType.COMPLETIONS):
+            # if value type is Status we set status instead of value
+            # TODO: is this a bit of a gross way to do things really?
+            # should it set the value as well, to be equal to the status?
             for status_, state in constants.TASK_STATUS_CHECK_STATES.items():
                 if value_widget.checkState() == state:
                     status = status_

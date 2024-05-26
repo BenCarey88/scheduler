@@ -150,6 +150,23 @@ class TimePeriod(OrderedStringEnum):
     MONTH = "month"
     YEAR = "year"
 
+    def get_periodicity_string(self):
+        """Get periodicity string.
+
+        Returns:
+            (str): string representing the periodicity of the time period.
+        """
+        return "per {0}".format(self)
+
+    @classmethod
+    def from_periodicity_string(cls, string):
+        """Get time period from periodicity string.
+
+        Returns:
+            (TimePeriod): TimePeriod object.
+        """
+        return cls(string[4:])
+
 
 class CompositionOperator(OrderedStringEnum):
     """Enum for the two boolean composition operations."""
@@ -159,7 +176,8 @@ class CompositionOperator(OrderedStringEnum):
 
 class TrackedValueType(OrderedStringEnum):
     """Enum for tracker value types."""
-    NONE = ""
+    STATUS = "Status"
+    COMPLETIONS = "Completions"
     TIME = "Time"
     STRING = "String"
     INT = "Int"
@@ -173,6 +191,8 @@ class TrackedValueType(OrderedStringEnum):
             (class or None): corresponding class.
         """
         return {
+            self.STATUS: ItemStatus,
+            self.COMPLETIONS: int,
             self.TIME: Time,
             self.STRING: str,
             self.INT: int,
@@ -198,7 +218,8 @@ class TrackedValueType(OrderedStringEnum):
                 type from a json-compatible dict, if needed.
         """
         return {
-            self.TIME: Time.from_string
+            self.STATUS: ItemStatus.from_string,
+            self.TIME: Time.from_string,
         }.get(self, None)
 
     def do_json_serialize(self, value):
@@ -210,13 +231,15 @@ class TrackedValueType(OrderedStringEnum):
         Returns:
             (str, int or None): json-serialized value, if possible.
         """
+        if self.get_class() is None:
+            return None
         if not isinstance(value, self.get_class()):
             return None
         converter = self.get_json_serializer()
         if converter is None:
             return value
         return converter(value)
-    
+
     def do_json_deserialize(self, value):
         """Json-serialize the given value.
 
@@ -232,6 +255,13 @@ class TrackedValueType(OrderedStringEnum):
         if converter is None:
             return value
         return converter(value)
+
+    @classmethod
+    def from_string(cls, string):
+        """Temporary override of from_string for legacy saves."""
+        if string == "":
+            return cls.STATUS
+        return super().from_string(string)
 
 
 class ItemStatus(OrderedStringEnum):

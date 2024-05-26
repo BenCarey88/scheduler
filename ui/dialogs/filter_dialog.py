@@ -35,27 +35,12 @@ from scheduler.api.utils import fallback_value
 from scheduler.ui.utils import (
     set_style,
     simple_message_dialog,
-    suppress_signals,
+    ValueWidgetWrapper,
 )
 
 
 class FilterDialogError(Exception):
     """Base exception for filter dialog."""
-
-
-class ValueWidgetWrapper(object):
-    """Wrapper around a value widget."""
-    def __init__(self, value_widget, getter, setter):
-        """Initialize struct.
-
-        Args:
-            value_widget (QtWidgets.QWidget): widget for a field value.
-            getter (function): function to return the value.
-            setter (function): function to set the value.
-        """
-        self.widget = value_widget
-        self.get_value = getter
-        self.set_value = setter
 
 
 class FilterFieldData(object):
@@ -113,33 +98,20 @@ class FilterFieldData(object):
         """
         if (operator in FilterOperator.get_string_ops()
                 and issubclass(self.value_type, str)):
-            widget = QtWidgets.QLineEdit()
-            return ValueWidgetWrapper(widget, widget.text, widget.setText)
+            return ValueWidgetWrapper(QtWidgets.QLineEdit())
         elif self.values is None:
             if issubclass(self.value_type, Date):
-                widget = QtWidgets.QDateEdit()
-                return ValueWidgetWrapper(widget, widget.date, widget.setDate)
+                return ValueWidgetWrapper(QtWidgets.QDateEdit())
             if issubclass(self.value_type, DateTime):
-                widget = QtWidgets.QDateTimeEdit()
-                return ValueWidgetWrapper(
-                    widget,
-                    widget.dateTime,
-                    widget.setDateTime,
-                )
+                return ValueWidgetWrapper(QtWidgets.QDateTimeEdit())
             if issubclass(self.value_type, Time):
-                widget = QtWidgets.QTimeEdit()
-                return ValueWidgetWrapper(widget, widget.time, widget.setTime)
+                return ValueWidgetWrapper(QtWidgets.QTimeEdit())
             if issubclass(self.value_type, str):
-                widget = QtWidgets.QLineEdit()
-                return ValueWidgetWrapper(widget, widget.text, widget.setText)
+                return ValueWidgetWrapper(QtWidgets.QLineEdit())
         else:
             widget = QtWidgets.QComboBox()
             widget.addItems(self.values)
-            return ValueWidgetWrapper(
-                widget,
-                widget.currentText,
-                widget.setCurrentText,
-            )
+            return ValueWidgetWrapper(widget)
         raise FilterDialogError(
             "Cannot get widget for field {0} with operator of type {1}"
             "".format(self.name, operator)

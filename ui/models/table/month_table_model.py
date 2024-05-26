@@ -126,7 +126,7 @@ class BaseMonthModel(BaseTableModel):
             day = self.day_from_row_and_column(index.row(), index.column())
             if day.calendar_month == self.calendar_month:
                 return QtCore.Qt.ItemFlag.ItemIsEnabled
-        return QtCore.Qt.ItemFlag.NoItemFlags            
+        return QtCore.Qt.ItemFlag.NoItemFlags
 
     def headerData(self, section, orientation, role):
         """Get header data.

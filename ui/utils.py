@@ -141,6 +141,215 @@ class BaseValueWidget(QtWidgets.QWidget):
         )
 
 
+class ValueWidgetWrapper(object):
+    """Wrapper around qt widgets that represent a specific value."""
+    def __init__(
+            self,
+            widget,
+            getter=None,
+            setter=None,
+            default=None,
+            add_to_layout=None):
+        """Initialize struct.
+
+        Args:
+            widget (QtWidgets.QWidget): widget representing a value.
+            getter (function or None): function to return the value. If not
+                given, use the default.
+            setter (function or None): function to set the value. If not
+                given, use the default defined below.
+            default (variant or None): if given, set the widget to this
+                default value.
+            add_to_layout (QtWidgets.QBoxLayout or None): if given, add
+                the widget to the given layout.
+        """
+        self.widget = widget
+        self.get_value = getter or get_widget_value_getter(widget)
+        self.set_value = setter or get_widget_value_setter(widget)
+        if default is not None:
+            self.set_value(default)
+        if add_to_layout is not None:
+            add_to_layout.addWidget(widget)
+
+
+class AttributeWidgetWrapper(ValueWidgetWrapper):
+    """Wrapper around widgets that represent an attribute of an object."""
+    def __init__(
+            self,
+            widget,
+            attribute_name,
+            attribute_getter,
+            default_object=None,
+            **kwargs):
+        """Initialize struct.
+
+        Args:
+            widget (QtWidgets.QWidget): widget representing an attribute.
+            attribute_name (str): name of attribute.
+            attribute_getter (function): this function must accept a single
+                argument which is the object whose attribute this widget
+                represents, and it should return the value of this attribute
+                on the object. This can be used to define default values on
+                the widget.
+            default_object (object or None): if given, set the default value
+                of the widget based on the value of the attribute given.
+            **kwargs: kwargs to pass to ValueWidgetWrapper init.
+        """
+        default = kwargs.get("default", None)
+        if default is not None and default_object is not None:
+            raise ValueError(
+                "Cannot use both default and default_obejct args"
+            )
+        if default_object is not None:
+            default = attribute_getter(default_object)
+        super(AttributeWidgetWrapper, self).__init__(
+            widget,
+            **kwargs,
+            default=default,
+        )
+        self.name = attribute_name
+        self._attribute_getter = attribute_getter
+
+    def get_attribute_value(self, object_):
+        """Get value of attribute on object.
+        
+        Args:
+            object_ (object): the object whose attribute this widget
+                represents.
+
+        Returns:
+            (variant): the value of the attribute on the object.
+        """
+        return self._attribute_getter(object_)
+
+
+def get_widget_value_getter(widget):
+    """Get a function to return the current value of a qt widget.
+
+    Args:
+        widget (QWidget): widget that represents a value.
+
+    Raises:
+        (ValueError): if widget type not accepted yet.
+
+    Returns:
+        (function): getter for widget. This function takes no args and
+            returns the current value of the widget.
+    """
+    if isinstance(widget, QtWidgets.QLineEdit):
+        return widget.text
+
+    elif isinstance(widget, QtWidgets.QComboBox):
+        return widget.currentText
+
+    elif isinstance(widget, QtWidgets.QCheckBox):
+        return widget.checkState
+
+    elif isinstance(widget, (QtWidgets.QSpinBox, QtWidgets.QDoubleSpinBox)):
+        return widget.value
+
+    elif isinstance(widget, QtWidgets.QDateEdit):
+        def getter():
+            date = widget.date()
+            return Date(date.year(), date.month(), date.day())
+        return getter
+
+    elif isinstance(widget, QtWidgets.QTimeEdit):
+        def getter():
+            time = widget.time()
+            return Time(time.hour(), time.minute(), time.second())
+        return getter
+
+    elif isinstance(widget, BaseValueWidget):
+        return widget.get_value
+
+    raise ValueError(
+        "get_widget_value_getter method does not currently support widgets of "
+        "type {0}".format(type(widget))
+    )
+
+
+def get_widget_value_setter(widget):
+    """Get a function to set the value of a qt widget.
+
+    Args:
+        widget (QWidget): widget that represents a value.
+
+    Raises:
+        (ValueError): if widget not accepted yet.
+
+    Returns:
+        (function): setter for widget. This function takes one arg, the new
+            value to set, and running it sets that value on the widget.
+    """
+    # helper functions    
+    def value_error(value, widget):
+        return ValueError(
+            "Can't set value of type {0} on widget of type {1}".format(
+                type(value),
+                type(widget),
+            )
+        )
+    def get_setter(setter_func, accepted_value_types):
+        def setter(value):
+            if isinstance(value, accepted_value_types):
+                return setter_func(value)
+            raise value_error(value, widget)
+        return setter
+
+    # find setters
+    if isinstance(widget, QtWidgets.QLineEdit):
+        return get_setter(widget.setText, str)
+
+    elif isinstance(widget, QtWidgets.QComboBox):
+        return get_setter(widget.setCurrentText, str)
+
+    elif isinstance(widget, QtWidgets.QCheckBox):
+        def setter(value):
+            if isinstance(value, bool):
+                return widget.setChecked(value)
+            elif isinstance(value, int):
+                return widget.setCheckState(value)
+            raise value_error(value, widget)
+        return setter
+
+    elif isinstance(widget, QtWidgets.QSpinBox):
+        return get_setter(widget.setValue, int)
+
+    elif isinstance(widget, QtWidgets.QDoubleSpinBox):
+        return get_setter(widget.setValue, (float, int))
+
+    elif isinstance(widget, QtWidgets.QDateEdit):
+        def setter(value):
+            if isinstance(value, Date):
+                return widget.setDate(
+                    QtCore.QDate(value.year, value.month, value.day)
+                )
+            elif isinstance(value, QtCore.QDate):
+                return widget.setDate(value)
+            raise value_error(value, widget)
+        return setter
+
+    elif isinstance(widget, QtWidgets.QTimeEdit):
+        def setter(value):
+            if isinstance(value, Time):
+                return widget.setTime(
+                    QtCore.QTime(value.hour, value.minute, value.second)
+                )
+            elif isinstance(value, QtCore.QTime):
+                return widget.setTime(value)
+            raise value_error(value, widget)
+        return setter
+
+    elif isinstance(widget, BaseValueWidget):
+        return widget.set_value
+
+    raise ValueError(
+        "set_widget_value method does not currently support widgets of "
+        "type {0}".format(type(widget))
+    )
+
+
 def get_widget_value(widget):
     """Get the current value of a qt widget.
 
@@ -150,99 +359,18 @@ def get_widget_value(widget):
     Returns:
         (variant): current value of widget.
     """
-    if isinstance(widget, QtWidgets.QLineEdit):
-        return widget.text()
-
-    elif isinstance(widget, QtWidgets.QComboBox):
-        return widget.currentText()
-
-    elif isinstance(widget, QtWidgets.QCheckBox):
-        return widget.checkState()
-
-    elif isinstance(widget, (QtWidgets.QSpinBox, QtWidgets.QDoubleSpinBox)):
-        return widget.value()
-
-    elif isinstance(widget, QtWidgets.QDateEdit):
-        date = widget.date()
-        return Date(date.year(), date.month(), date.day())
-    
-    elif isinstance(widget, QtWidgets.QTimeEdit):
-        time = widget.time()
-        return Time(time.hour(), time.minute(), time.second())
-    
-    if isinstance(widget, BaseValueWidget):
-        return widget.get_value()
-
-    raise ValueError(
-        "get_widget_value method does not currently support widgets of "
-        "type {0}".format(type(widget))
-    )
+    return get_widget_value_getter(widget)()
 
 
 def set_widget_value(widget, value):
-    """Set the value of a qt widget.
+    """Set the current value of a qt widget.
 
     Args:
-        widget (QWidget): widget to set.
+        widget (QWidget): widget to read.
         value (variant): value to set. Accepted values types will depend on
             the type of widget.
-
-    Raises:
-        (ValueError): if widget not accepted yet or value is not one that the
-            widget can set.
     """
-    if isinstance(widget, QtWidgets.QLineEdit):
-        if isinstance(value, str):
-            return widget.setText(value)
-
-    elif isinstance(widget, QtWidgets.QComboBox):
-        if isinstance(value, str):
-            return widget.setCurrentText(value)
-
-    elif isinstance(widget, QtWidgets.QCheckBox):
-        if isinstance(value, bool):
-            return widget.setChecked(value)
-        elif isinstance(value, int):
-            return widget.setCheckState(value)
-
-    elif isinstance(widget, QtWidgets.QSpinBox):
-        if isinstance(value, int):
-            return widget.setValue(value)
-
-    elif isinstance(widget, QtWidgets.QDoubleSpinBox):
-        if isinstance(value, (float, int)):
-            return widget.setValue(value)
-
-    elif isinstance(widget, QtWidgets.QDateEdit):
-        if isinstance(value, Date):
-            return widget.setDate(
-                QtCore.QDate(value.year, value.month, value.day)
-            )
-        elif isinstance(value, QtCore.QDate):
-            return widget.setDate(value)
-
-    elif isinstance(widget, QtWidgets.QTimeEdit):
-        if isinstance(value, Time):
-            return widget.setTime(
-                QtCore.QTime(value.hour, value.minute, value.second)
-            )
-        elif isinstance(value, QtCore.QTime):
-            return widget.setTime(value)
-
-    if isinstance(widget, BaseValueWidget):
-        return widget.set_value(value)
-
-    else:
-        raise ValueError(
-            "set_widget_value method does not currently support widgets of "
-            "type {0}".format(type(widget))
-        )
-    raise ValueError(
-        "widget of type {0} cannot set values of type {1}".format(
-            type(widget),
-            type(value),
-        )
-    )
+    return get_widget_value_setter(widget)(value)
 
 
 """Id registry to store floating items by temporary ids."""

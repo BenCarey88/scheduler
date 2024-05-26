@@ -13,6 +13,7 @@
     ],
     "ignore_patterns": [
         "_archived_code",
-        "notes"
+        "notes",
+        "test"
     ]
 }

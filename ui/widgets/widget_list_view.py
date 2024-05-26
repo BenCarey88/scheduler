@@ -1,7 +1,6 @@
 """List view of widgets."""
 
 from collections import OrderedDict
-from turtle import update
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 

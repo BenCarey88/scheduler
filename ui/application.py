@@ -161,10 +161,11 @@ class SchedulerWindow(QtWidgets.QMainWindow):
         """
         user_prefs.set_app_user_pref(self.CURRENT_TAB_PREF, index)
         self.tabs_widget.widget(self.current_active_tab).set_active(False)
-        self.tabs_widget.currentWidget().set_active(True)
         self.current_active_tab = index
         self.outliner_stack.setCurrentIndex(index)
-        self.tabs_widget.currentWidget().on_tab_changed()
+        current_widget = self.tabs_widget.currentWidget()
+        current_widget.set_active(True)
+        current_widget.on_tab_changed()
 
     def on_splitter_moved(self, new_pos, index):
         """Called when splitter is moved.

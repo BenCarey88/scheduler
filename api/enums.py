@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from .common.date_time import Time
+from .common.date_time import Time, TimeDelta
 
 
 # TODO: I think the manually defined ordering thing (with tuples) doesn't
@@ -39,6 +39,19 @@ class OrderedStringEnum(str, Enum):
         )
 
     @classmethod
+    def legacy_string_conversions(cls):
+        """Get dict of conversions for legacy names.
+
+        Update this in subclasses when an enum name is changed so that we
+        can correctly deserialize the old names.
+
+        Returns:
+            (dict(str, str)): dictionary of old name keys with the new names
+                as the values.
+        """
+        return {}
+
+    @classmethod
     def from_string(cls, string):
         """Get enum value from the corresponding string.
 
@@ -48,6 +61,7 @@ class OrderedStringEnum(str, Enum):
         Returns:
             (OrderedStringEnum or None): enum value, or None if not found.
         """
+        string = cls.legacy_string_conversions().get(string, string)
         try:
             return cls(string)
         except ValueError:
@@ -106,6 +120,16 @@ class OrderedStringEnum(str, Enum):
         """Get string representation of enum."""
         return self.value
 
+    @classmethod
+    def contains(cls, string):
+        """Check if enum contains given string."""
+        if not isinstance(string, str):
+            return False
+        for value in cls:
+            if value == string:
+                return True
+        return False
+
     def next(self, cycle=True):
         """Get the next enum in the class.
 
@@ -150,6 +174,36 @@ class TimePeriod(OrderedStringEnum):
     MONTH = "month"
     YEAR = "year"
 
+    def get_periodicity_string(self):
+        """Get periodicity string.
+
+        Returns:
+            (str): string representing the periodicity of the time period.
+        """
+        return "per {0}".format(self)
+
+    @classmethod
+    def from_periodicity_string(cls, string):
+        """Get time period from periodicity string.
+
+        Returns:
+            (TimePeriod): TimePeriod object.
+        """
+        return cls(string[4:])
+
+    def get_time_delta(self):
+        """Get TimeDelta corresponding to period.
+
+        Returns:
+            (TimeDelta): corresponding TimeDelta.        
+        """
+        return {
+            self.DAY: TimeDelta(days=1),
+            self.WEEK: TimeDelta(days=7),
+            self.MONTH: TimeDelta(months=1),
+            self.YEAR: TimeDelta(years=1),
+        }.get(self)
+
 
 class CompositionOperator(OrderedStringEnum):
     """Enum for the two boolean composition operations."""
@@ -159,7 +213,8 @@ class CompositionOperator(OrderedStringEnum):
 
 class TrackedValueType(OrderedStringEnum):
     """Enum for tracker value types."""
-    NONE = ""
+    STATUS = "Status"
+    COMPLETIONS = "Completions"
     TIME = "Time"
     STRING = "String"
     INT = "Int"
@@ -173,6 +228,8 @@ class TrackedValueType(OrderedStringEnum):
             (class or None): corresponding class.
         """
         return {
+            self.STATUS: ItemStatus,
+            self.COMPLETIONS: int,
             self.TIME: Time,
             self.STRING: str,
             self.INT: int,
@@ -198,7 +255,8 @@ class TrackedValueType(OrderedStringEnum):
                 type from a json-compatible dict, if needed.
         """
         return {
-            self.TIME: Time.from_string
+            self.STATUS: ItemStatus.from_string,
+            self.TIME: Time.from_string,
         }.get(self, None)
 
     def do_json_serialize(self, value):
@@ -210,13 +268,15 @@ class TrackedValueType(OrderedStringEnum):
         Returns:
             (str, int or None): json-serialized value, if possible.
         """
+        if self.get_class() is None:
+            return None
         if not isinstance(value, self.get_class()):
             return None
         converter = self.get_json_serializer()
         if converter is None:
             return value
         return converter(value)
-    
+
     def do_json_deserialize(self, value):
         """Json-serialize the given value.
 
@@ -232,6 +292,13 @@ class TrackedValueType(OrderedStringEnum):
         if converter is None:
             return value
         return converter(value)
+
+    @classmethod
+    def from_string(cls, string):
+        """Temporary override of from_string for legacy saves."""
+        if string == "":
+            return cls.STATUS
+        return super().from_string(string)
 
 
 class ItemStatus(OrderedStringEnum):
@@ -285,10 +352,23 @@ class ItemUpdatePolicy(OrderedStringEnum):
             this policy will override any previously set statuses on the item.
             This can only be used when there is only one driving item.
     """
-    NO_UPDATE = "No_Update"
-    IN_PROGRESS = "In_Progress"
+    NO_UPDATE = "No Update"
+    IN_PROGRESS = "In Progress"
     COMPLETE = "Complete"
     OVERRIDE = "Override"
+
+    @classmethod
+    def legacy_string_conversions(cls):
+        """Get dict of conversions for legacy names.
+
+        Returns:
+            (dict(str, str)): dictionary of old name keys with the new names
+                as the values.
+        """
+        return {
+            "No_Update": "No Update",
+            "In_Progress": "In Progress",
+        }
 
     @classmethod
     def get_task_policies(cls):
@@ -351,3 +431,29 @@ class ItemUpdatePolicy(OrderedStringEnum):
             return statuses[0]
 
         return None
+
+
+class TimeValueUpdates(OrderedStringEnum):
+    """Different types of time value update.
+
+    These are used to update the value of a task from a scheduled item.
+    """
+    START = "Start"
+    MIDDLE = "Middle"
+    END = "End"
+
+    def get_time(self, start_time, end_time):
+        """Get time value defined by enum in given time range.
+
+        Args:
+            start_time (Time): start of time range.
+            end_time (Time): end of time range.
+
+        Returns:
+            (Time): defined time.
+        """
+        if self == self.START:
+            return start_time
+        elif self == self.END:
+            return end_time
+        return (start_time + 0.5 * (end_time - start_time))

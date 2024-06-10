@@ -10,12 +10,17 @@ from scheduler.api.calendar.scheduled_item import (
     ScheduledItem,
     ScheduledItemType,
 )
-from scheduler.api.enums import ItemUpdatePolicy
+from scheduler.api.enums import (
+    ItemUpdatePolicy,
+    TrackedValueType,
+    TimeValueUpdates,
+)
 
 from scheduler.ui import utils
 from .item_dialog import ItemDialog
 
 
+# TODO: update to use WidgetAttributeWrappers
 class ScheduledItemDialog(ItemDialog):
     """Dialog for creating or editing scheduled items."""
     END_TIME_KEY = "End"
@@ -85,6 +90,7 @@ class ScheduledItemDialog(ItemDialog):
         event_name = scheduled_item.name
         is_background = scheduled_item.is_background
         task_update_policy = scheduled_item.task_update_policy
+        task_value_update = scheduled_item.task_value_update
 
         self.setMinimumSize(900, 700)
         utils.set_style(self, "scheduled_item_dialog.qss")
@@ -154,6 +160,7 @@ class ScheduledItemDialog(ItemDialog):
         task_selection_layout.addWidget(self.task_label)
         task_selection_layout.addStretch()
 
+        # task update policy
         task_update_layout = QtWidgets.QHBoxLayout()
         task_selection_layout.addLayout(task_update_layout)
         task_update_label = QtWidgets.QLabel("Task Update Policy")
@@ -164,6 +171,49 @@ class ScheduledItemDialog(ItemDialog):
         )
         self.cb_task_update_policy.setCurrentText(task_update_policy)
         task_update_layout.addWidget(self.cb_task_update_policy)
+        task_selection_layout.addStretch()
+
+        # task value update
+        value_update_layout = QtWidgets.QHBoxLayout()
+        task_selection_layout.addLayout(value_update_layout)
+        self.value_update_label = QtWidgets.QLabel()
+        self.value_update_checkbox = QtWidgets.QCheckBox()
+        self.value_update_widget = QtWidgets.QStackedWidget()
+        self.value_update_widget.setEnabled(False)
+        self.value_update_checkbox.toggled.connect(
+            self.value_update_widget.setEnabled
+        )
+        empty_widget = QtWidgets.QWidget()
+        empty_widget.hide()
+        time_widget = QtWidgets.QComboBox()
+        time_widget.addItems(TimeValueUpdates)
+        self.value_update_widgets = {
+            TrackedValueType.INT: QtWidgets.QSpinBox(),
+            TrackedValueType.FLOAT: QtWidgets.QDoubleSpinBox(),
+            TrackedValueType.STRING: QtWidgets.QLineEdit(),
+            TrackedValueType.TIME: time_widget,
+            None: empty_widget,
+        }
+        for widget in self.value_update_widgets.values():
+            self.value_update_widget.addWidget(widget)
+        value_update_layout.setSizeConstraint(30)
+        value_update_layout.addWidget(self.value_update_label)
+        value_update_layout.addWidget(self.value_update_checkbox)
+        value_update_layout.addStretch()
+        value_update_layout.addWidget(self.value_update_widget)
+
+        if tree_item is not None and tree_manager.is_task(tree_item):
+            self.value_update_label.setText(
+                "Update Value ({0})".format(tree_item.value_type)
+            )
+            widget = self.value_update_widgets.get(
+                tree_item.value_type,
+                self.value_update_widgets[None]
+            )
+            self.value_update_widget.setCurrentWidget(widget)
+            if task_value_update is not None:
+                self.value_update_checkbox.setChecked(True)
+                utils.set_widget_value(widget, task_value_update)
         task_selection_layout.addStretch()
 
         # Event Tab
@@ -209,6 +259,7 @@ class ScheduledItemDialog(ItemDialog):
         if self.tree_item:
             self.task_label.setText(self.tree_item.path)
         self._configure_task_update_policy()
+        self._configure_task_value_updates()
 
     @property
     def scheduled_item(self):
@@ -341,6 +392,27 @@ class ScheduledItemDialog(ItemDialog):
         return ItemUpdatePolicy(self.cb_task_update_policy.currentText())
 
     @property
+    def task_value_update(self):
+        """Get task value update defined by widget.
+
+        Returns:
+            (variant or None): task value update defined by widget.
+        """
+        if self.tree_item is None:
+            return None
+        if self.tree_item.value_type not in self.value_update_widgets:
+            return None
+        if not self.value_update_checkbox.isChecked():
+            return None
+        value = utils.get_widget_value(
+            self.value_update_widget.currentWidget(),
+            raise_error=False,
+        )
+        if self.tree_item.value_type == TrackedValueType.TIME:
+            value = TimeValueUpdates(value)
+        return value
+
+    @property
     def is_background(self):
         """Return whether or not this item is a background item.
 
@@ -351,12 +423,34 @@ class ScheduledItemDialog(ItemDialog):
 
     def _configure_task_update_policy(self):
         """Configure enabled/disabled state of task update policy combobox."""
-        if (self.is_background or
-                (self.tree_item is not None and
-                self._tree_manager.is_task_category(self.tree_item))):
+        if (self.tree_item is not None and
+                self._tree_manager.is_task_category(self.tree_item)):
             self.cb_task_update_policy.setEnabled(False)
         else:
             self.cb_task_update_policy.setEnabled(True)
+
+    def _configure_task_value_updates(self):
+        """Configure states of task value updates."""
+        if (self.tree_item is None
+                or self._tree_manager.is_task_category(self.tree_item)):
+            self.value_update_label.setText("Update Value")
+            enable = False
+        else:
+            value_type = self.tree_item.value_type
+            self.value_update_label.setText(
+                "Update Value ({0})".format(value_type)
+            )
+            widget = self.value_update_widgets.get(
+                value_type,
+                self.value_update_widgets[None],
+            )
+            self.value_update_widget.setCurrentWidget(widget)
+            enable = (value_type in self.value_update_widgets)
+        self.value_update_label.setEnabled(enable)
+        self.value_update_checkbox.setEnabled(enable)
+        self.value_update_widget.setEnabled(
+            enable and self.value_update_checkbox.isChecked()
+        )
 
     def _get_invalid_repeat_pattern_message(self):
         """Check if repeat pattern is invalid and return message if so.
@@ -400,6 +494,7 @@ class ScheduledItemDialog(ItemDialog):
                 event_category=self.category,
                 event_name=self.name,
                 task_update_policy=self.task_update_policy,
+                task_value_update=self.task_value_update,
                 is_background=self.is_background,
             )
         else:
@@ -414,6 +509,7 @@ class ScheduledItemDialog(ItemDialog):
                     event_category=self.category,
                     event_name=self.name,
                     task_update_policy=self.task_update_policy,
+                    task_value_update=self.task_value_update,
                     is_background=self.is_background,
                     planned_item=self._planned_item,
                 )
@@ -428,6 +524,7 @@ class ScheduledItemDialog(ItemDialog):
                     event_category=self.category,
                     event_name=self.name,
                     task_update_policy=self.task_update_policy,
+                    task_value_update=self.task_value_update,
                     is_background=self.is_background,
                     repeat_pattern=self.repeat_pattern,
                     planned_item=self._planned_item,

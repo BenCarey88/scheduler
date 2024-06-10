@@ -13,7 +13,12 @@ from scheduler.api.common.object_wrappers import MutableAttribute
 from scheduler.api.serialization import item_registry
 from scheduler.api.tree.task import Task
 from scheduler.api.tree.task_category import TaskCategory
-from scheduler.api.enums import OrderedStringEnum
+from scheduler.api.enums import (
+    ItemStatus,
+    OrderedStringEnum,
+    TimeValueUpdates,
+    TrackedValueType,
+)
 from scheduler.api.utils import fallback_value
 from .repeat_pattern import RepeatPattern
 from ._base_calendar_item import BaseCalendarItem
@@ -291,6 +296,16 @@ class BaseScheduledItem(BaseCalendarItem):
         return max(self._status.value, self._status_from_children.value)
 
     @property
+    @_template_item_decorator
+    def task_value_update(self):
+        """Reimplement task value update to use template item decorator.
+
+        Returns:
+            (variant or None): task value update.
+        """
+        return self._task_value_update.value
+
+    @property
     def defunct(self):
         """Override defunct property.
 
@@ -402,6 +417,57 @@ class BaseScheduledItem(BaseCalendarItem):
         if not isinstance(task_item, Task):
             return None
         return task_item
+
+    def _get_updated_value(
+            self,
+            new_value_update=None,
+            new_task=None,
+            new_status=None,
+            new_start_time=None,
+            new_end_time=None):
+        """Utility method to return the value to update a task to.
+
+        This is used only by edit classes that update the task value based
+        on updates to this scheduled item.
+
+        Args:
+            new_value_update (variant or None): new task_value_update attr
+                the scheduled item will have, if needed.
+            new_task (BaseTaskItem or None): new linked tree item the
+                scheduled item will have, if needed.
+            new_status (ItemStatus or None): new status the scheduled item
+                will have, if needed.
+            new_start_time (Time or None): new start time that the scheduled
+                item will have, if needed.
+            new_end_time (Time or None): new end time that the scheduled
+                item will have, if needed.
+
+        Returns:
+            (value or None): new value for task, if one should be set.
+        """
+        value_update = fallback_value(new_value_update, self.task_value_update)
+        task = fallback_value(new_task, self._get_task_to_update())
+        status = fallback_value(new_status, self.status)
+
+        if task is None:
+            return None
+        if status != ItemStatus.COMPLETE:
+            # TODO: allow setting values for non-completed scheduled items too?
+            return None
+
+        value_type = task.value_type
+        if value_type in (
+                (TrackedValueType.COMPLETIONS, TrackedValueType.STATUS)):
+            # can't set values for status types, we set status instead
+            return None
+        if (value_type == TrackedValueType.TIME
+                and isinstance(value_update, TimeValueUpdates)):
+            start_time = fallback_value(new_start_time, self.start_time)
+            end_time = fallback_value(new_end_time, self.end_time)
+            return value_update.get_time(start_time, end_time)
+        if not isinstance(value_update, value_type.get_class()):
+            return None
+        return value_update
 
     def _iter_influences(self):
         """Get tasks influenced at datetimes by this item or its instances.

@@ -24,7 +24,7 @@ class TimelineDict(MutableMapping):
                 by. If None, we set this based on whatever item we first add.
         """
         if timeline_type not in [None, Date, DateTime, Time]:
-            raise TimelineError(
+            raise KeyError(
                 "Timeline type must be Date, Time or DateTime."
             )
         self._timeline_type = timeline_type
@@ -89,7 +89,7 @@ class TimelineDict(MutableMapping):
                 del self._value_list[i]
                 return
         raise KeyError(
-            "No valid item at key {0} in HostedDataDict".format(key)
+            "No valid item at key {0} in TimelineDict".format(key)
         )
 
     def __setitem__(self, key, value):
@@ -103,13 +103,13 @@ class TimelineDict(MutableMapping):
         if self._timeline_type is None:
             timeline_type = type(key)
             if timeline_type not in [None, Date, DateTime, Time]:
-                raise TimelineError(
+                raise KeyError(
                     "Key type must be Date, Time or DateTime."
                 )
             self._timeline_type = timeline_type
         else:
             if type(key) != self._timeline_type:
-                raise TimelineError(
+                raise KeyError(
                     "Key type must be {0}.".format(self._timeline_type)
                 )
 

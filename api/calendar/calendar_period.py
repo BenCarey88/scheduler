@@ -875,6 +875,8 @@ class CalendarMonth(BaseCalendarPeriod):
             length=length,
         )
 
+    # TODO: swap this and iter method, so that the base method iterates
+    # and then the getter_method just turns that into a list
     def get_calendar_weeks(self, starting_day=0, overspill=False):
         """Get calendar weeks list.
 
@@ -921,17 +923,19 @@ class CalendarMonth(BaseCalendarPeriod):
         for day in self._calendar_days.values():
             yield day
     
-    def iter_weeks(self, starting_day=0):
+    def iter_weeks(self, starting_day=0, overspill=False):
         """Iterate through weeks in class.
 
         Args:
             starting_day (int or str): integer or string representing starting
                 day for weeks. By default we start weeks on monday.
+            overspill (bool): if True, overspill weeks at either side to ensure
+                all weeks have length 7.
 
         Yields:
             (CalendarWeek): next calendar week.
         """
-        for week in self.get_calendar_weeks(starting_day):
+        for week in self.get_calendar_weeks(starting_day, overspill):
             yield week
 
     def iter_planned_items(self, filter=None):

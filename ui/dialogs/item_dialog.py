@@ -85,6 +85,10 @@ class ItemDialog(QtWidgets.QDialog):
         self.tree_view.selectionModel().currentChanged.connect(
             self.on_tree_view_changed
         )
+        self.tree_view.selectionModel().currentChanged.connect(
+            self.enable_buttons
+        )
+        self.enable_buttons()
 
         edit_callbacks.register_general_purpose_pre_callback(
             self,
@@ -113,6 +117,10 @@ class ItemDialog(QtWidgets.QDialog):
         This should be reimplemented in subclasses.
         """
         pass
+
+    def enable_buttons(self, *args):
+        """Enable buttons when a tree item is selected."""
+        self.accept_button.setEnabled(self.tree_item is not None)
 
     def accept_and_close(self):
         """Create or modify item and close dialog.

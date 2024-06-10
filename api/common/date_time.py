@@ -1230,6 +1230,7 @@ class DateTime(Date, Time):
         Returns:
             (DateTime): DateTime object.
         """
+        # TODO: switch all this page to isoformat() and from_isoformat()
         _datetime = datetime.datetime.strptime(
             datetime_str,
             "%Y-%m-%d %H:%M:%S"

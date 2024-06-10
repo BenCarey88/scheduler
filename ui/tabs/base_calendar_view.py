@@ -105,6 +105,15 @@ class BaseCalendarView(object):
         for subview in self.get_subviews():
             subview.on_outliner_filter_changed()
 
+    def on_outliner_current_changed(self, tree_item):
+        """Callback for what to do when active tree item is changed.
+
+        Args:
+            tree_item (BaseTaskItem): new item selected in outliner.
+        """
+        for subview in self.get_subviews():
+            subview.on_outliner_current_changed(tree_item)
+
 
 ### LIST ###
 class BaseListView(BaseCalendarView, QtWidgets.QTreeView):
@@ -473,6 +482,48 @@ class BaseWeekTableView(BaseTableView):
         )
 
 
+class BaseMonthTableView(BaseTableView):
+    """Base week table view for timetable tabs."""
+
+    def __init__(
+            self,
+            name,
+            project,
+            timetable_month_model,
+            parent=None):
+        """Initialize class instance.
+
+        Args:
+            name (str): name of tab this is used in.
+            project (Project): the project we're working on.
+            timetable_month_model (BaseMonthModel): the model we're using for
+                this view.
+            parent (QtGui.QWidget or None): QWidget parent of widget.
+        """
+        super(BaseMonthTableView, self).__init__(
+            name,
+            project,
+            timetable_month_model,
+            parent=parent
+        )
+        self.calendar_month = self.calendar.get_current_period(
+            CalendarMonth,
+        )
+
+    def set_to_calendar_period(self, calendar_period):
+        """Set view to given calendar_month.
+
+        Args:
+            calendar_period (CalendarMonth): calendar month to set to.
+        """
+        self.calendar_month = calendar_period
+        self.model().set_calendar_month(calendar_period)
+        self.update()
+        super(BaseMonthTableView, self).set_to_calendar_period(
+            calendar_period
+        )
+
+
 ### HYBRID ###
 class BaseHybridView(BaseCalendarView, QtWidgets.QSplitter):
     """Base hybrid view for combo of two other calendar views."""
@@ -533,6 +584,7 @@ class BaseTitledView(BaseCalendarView, QtWidgets.QFrame):
         font = QtGui.QFont()
         font.setPixelSize(self.TITLE_SIZE)
         self.title.setFont(font)
+        self.title.setText(self.get_title(self.calendar_period))
 
         main_layout = QtWidgets.QVBoxLayout()
         self.setLayout(main_layout)
@@ -555,12 +607,13 @@ class BaseTitledView(BaseCalendarView, QtWidgets.QFrame):
             calendar_period (BaseCalendarPeriod): calendar period to set to.
         """
         self.title.setText(self.get_title(calendar_period))
-        self.planner_list_view.set_to_calendar_period(calendar_period)
+        self.sub_view.set_to_calendar_period(calendar_period)
         super(BaseTitledView, self).set_to_calendar_period(calendar_period)
 
-    @staticmethod
-    def get_title(calendar_period):
+    def get_title(self, calendar_period):
         """Get title for given calendar period.
+
+        Reimplement this for subclasses with different titles.
 
         Args:
             calendar_period (BaseCalendarPeriod): calendar period to get title

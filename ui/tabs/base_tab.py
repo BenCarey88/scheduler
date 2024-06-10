@@ -71,7 +71,16 @@ class BaseTab(QtWidgets.QWidget):
         if (self._is_active and
                 item_type in (CallbackItemType.TREE, CallbackItemType.FILTER)):
             self.outliner_panel.post_edit_callback(callback_type, *args)
-        self.update()
+        if self._is_active:
+            # TODO: keep an eye on, I just added the above if, but I think
+            # it's what we want - we update when we switch to tab anyway
+            # TODO: actually do we want this at all? It looks like most of
+            # the updates will be handled by subclasses anyway?
+            self.update()
+        # TODO: check to make sure all subclasses are using the _is_active
+        # arg, as it doesn't seem like they are and they probably should be.
+        # or am I getting mixed up and they should since this is the best way
+        # for their models to stay on top of the updates?
 
     def set_active(self, value):
         """Mark tab as active/inactive when the user changes tab.

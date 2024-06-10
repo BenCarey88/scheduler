@@ -9,6 +9,7 @@ from scheduler.api.common.object_wrappers import (
 from scheduler.api.serialization.serializable import BaseSerializable
 
 
+# TODO: start using this module?
 # TODO: need to include a history dict for non-task items (can still use
 # TaskHistory class, although maybe that could do with renaming?)
 class TrackedItem(Hosted, BaseSerializable):
@@ -68,7 +69,7 @@ class TrackedItem(Hosted, BaseSerializable):
             return self._value_type.value
         if self.task_item is not None:
             return self.task_item.value_type
-        return TrackedValueType.NONE
+        return TrackedValueType.STATUS
 
     def to_dict(self):
         """Get json compatible dictionary representation of class.

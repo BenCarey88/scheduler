@@ -17,8 +17,6 @@ from scheduler.ui.tabs.base_calendar_view import BaseWeekTableView
 from scheduler.ui import constants, utils
 
 
-# TODO: the tracker needs to be able to update when tracked items are
-# updated/deleted. (At the moment deletion will crash it).
 class TrackerTimetableView(BaseWeekTableView):
     """Tracker table view."""
     def __init__(self, name, project, num_days=7, parent=None):
@@ -70,8 +68,6 @@ class TrackerTimetableView(BaseWeekTableView):
         self.model().endResetModel()
         self.update()
 
-    # TODO: need to add logic for if item is deleted too (atm it crashes
-    # if item is deleted and we still try to edit it).
     def pre_edit_callback(self, callback_type, *args):
         """Callback for before an edit of any type is run.
 
@@ -216,6 +212,13 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         height = (table_size.height() -  (line_width * (rows - 1))) / rows
         return QtCore.QSize(width, height)
 
+    # TODO: need to handle case where task is updated to a new value type
+    # and old values at the date now have incompatible types (eg. if we have
+    # an old Time value and are now have a value type of INT then we'll end
+    # up trying to set a spin box to a Time, which will crash). The most
+    # important thing is to handle this here, but would also be good to give
+    # a warning to the user when switching tasks to a new value type if there
+    # are incompatible values already saved in the task's history
     def get_layout_from_task(self, task, date):
         """Get qt layout of widgets corresponding to given tracked task.
 
@@ -242,7 +245,8 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
             layout.setContentsMargins(1, 1, 1, 10)
             return layout
 
-        if task_value_type == TrackedValueType.NONE:
+        if task_value_type in (
+                TrackedValueType.STATUS, TrackedValueType.COMPLETIONS):
             value_widget = QtWidgets.QCheckBox()
             value_widget.setCheckState(
                 constants.TASK_STATUS_CHECK_STATES.get(status)
@@ -295,7 +299,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         target = task.get_target_at_date(date)
         if (target is not None
                 and value is not None
-                and target.is_met_by(value)):
+                and target.is_met_by_value(value)):
             value_widget.setStyleSheet("background-color: #1AE72E")
         else:
             value_widget.setStyleSheet("")
@@ -327,9 +331,11 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         value = None
         status = None
 
-        if task.value_type == TrackedValueType.NONE:
-            # if value type is None we set status instead of value
-            # TODO: this is a really gross way to do things really
+        if task.value_type in (
+                TrackedValueType.STATUS, TrackedValueType.COMPLETIONS):
+            # if value type is Status we set status instead of value
+            # TODO: is this a bit of a gross way to do things really?
+            # should it set the value as well, to be equal to the status?
             for status_, state in constants.TASK_STATUS_CHECK_STATES.items():
                 if value_widget.checkState() == state:
                     status = status_
@@ -358,7 +364,7 @@ class TrackerDelegate(QtWidgets.QStyledItemDelegate):
         target = task.get_target_at_date(date)
         if (target is not None
                 and value is not None
-                and target.is_met_by(value)):
+                and target.is_met_by_value(value)):
             value_widget.setStyleSheet("background-color: #1AE72E")
         else:
             value_widget.setStyleSheet("")

@@ -76,7 +76,7 @@ class Task(BaseTaskItem):
             "status",
         )
         self._value_type = MutableAttribute(
-            value_type or TrackedValueType.NONE,
+            value_type or TrackedValueType.STATUS,
             "value_type",
         )
         self._history = (

@@ -46,8 +46,8 @@ class TaskHistory(object):
     date/time subdicts.
 
     The structure of a task history dict is like this:
-    {
-        date_1: TimelineDict({
+    TimelineDict({
+        date_1: {
             status: task_status,
             value: task_value,
             target: tracker_target,
@@ -84,7 +84,7 @@ class TaskHistory(object):
             }),
         }),
         ...
-    }
+    })
     """
     STATUS_KEY = "status"
     VALUE_KEY = "value"
@@ -700,21 +700,16 @@ class TaskHistory(object):
             ]
             if influencer_diff_dict[self.INFLUENCERS_KEY] is None:
                 # if removing all influencers at given time, propagate removal
-                times_dict = self.get_dict_at_date(date).get(
-                    self.TIMES_KEY, {}
-                )
-                if len(times_dict) == 1:
-                    date_dict = self.get_dict_at_date(date)
-                    if not date_dict.get(self.INFLUENCERS_KEY):
-                        # case 1: removed all times and no influencers exist
-                        # at date level, so we delete the whole date dict
-                        diff_dict[date] = None
-                    else:
-                        # case 2: just removed all times, so delete times dict
-                        date_diff_dict[self.TIMES_KEY] = None
-                else:
-                    # case 3: just removed a specific time, so delete that dict
-                    date_diff_dict[self.TIMES_KEY][time] = None
+                # NOTE: conceptually it would be nicer here to be able to check
+                # if this edit would remove the only entry in the time dict and
+                # if so just delete the entire time dict. In practice this is
+                # slightly faffy because we'd need to ensure that the other
+                # dict isn't going to be adding a new entry at another time,
+                # as in that case we couldn't delete the whole dict. So instead
+                # I'm just leaving the possibility of empty time dicts
+                # scattered around - they get remove during serialization
+                # anyway so they're not going to be a huge memory sink.
+                date_diff_dict[self.TIMES_KEY][time] = None
 
             else:
                 # otherwise propagate edits up to times level
@@ -780,7 +775,7 @@ class TaskHistory(object):
         starting_values = starting_values or {}
         status = starting_values.get(self.STATUS_KEY, None)
         value = starting_values.get(self.VALUE_KEY, None)
-        target = starting_values.get(self.TARGET_KEY)
+        target = starting_values.get(self.TARGET_KEY, None)
         status_override = starting_values.get(self.STATUS_OVERRIDE_KEY, None)
 
         if diff_dict is not None:
@@ -862,10 +857,11 @@ class TaskHistory(object):
         ]
         for key, converter in keys_and_converters:
             if key in subdict:
-                if converter is None:
-                    json_subdict[key] = subdict[key]
-                else:
-                    json_subdict[key] = converter(subdict[key])
+                json_value = subdict[key]
+                if converter is not None and json_value is not None:
+                    json_value = converter(json_value)
+                if json_value is not None:
+                    json_subdict[key] = json_value
 
         if include_influencers_key and self.INFLUENCERS_KEY in subdict:
             json_inf_subdict = OrderedDict()
@@ -873,9 +869,9 @@ class TaskHistory(object):
                 # TODO: this currently assumes only tasks, planned items and
                 # scheduled items can be influencers. May need updating?
                 inf_key = inf._get_id()
-                json_inf_subdict[inf_key] = self._subdict_to_json_dict(
-                    inf_subdict
-                )
+                _serialized_value = self._subdict_to_json_dict(inf_subdict)
+                if _serialized_value:
+                    json_inf_subdict[inf_key] = _serialized_value
             json_subdict[self.INFLUENCERS_KEY] = json_inf_subdict
         return json_subdict
 
@@ -912,10 +908,11 @@ class TaskHistory(object):
         ]
         for key, converter in keys_and_converters:
             if key in json_dict:
-                if converter is None:
-                    subdict[key] = json_dict[key]
-                else:
-                    subdict[key] = converter(json_dict[key])
+                value = json_dict[key]
+                if converter is not None and value is not None:
+                    value = converter(value)
+                if value is not None:
+                    subdict[key] = value
 
         if include_influencers_key and cls.INFLUENCERS_KEY in json_dict:
             if date_time_obj is None or task_history_item is None:
@@ -972,7 +969,6 @@ class TaskHistory(object):
         )
         influencers_dict[influencer] = influence_dict
 
-    # TODO: make these work with status overrides, influencers etc.
     def to_dict(self):
         """Convert class to serialized json dict.
 
@@ -981,21 +977,28 @@ class TaskHistory(object):
         Returns:
             (OrderedDict): json dict.
         """
-        json_dict = OrderedDict()
-        for date, subdict in self._dict.items():
-            json_subdict = self._subdict_to_json_dict(subdict, True)
-            if self.TIMES_KEY in subdict:
-                json_times_subdict = OrderedDict()
-                json_subdict[self.TIMES_KEY] = json_times_subdict
-                for time, time_subdict in subdict[self.TIMES_KEY].items():
-                    json_time_subdict = self._subdict_to_json_dict(
-                        time_subdict,
-                        include_influencers_key=True,
-                    )
-                    json_times_subdict[time.string()] = json_time_subdict
-            if json_subdict:
-                json_dict[date.string()] = json_subdict
-        return json_dict
+        try:
+            json_dict = OrderedDict()
+            for date, subdict in self._dict.items():
+                json_subdict = self._subdict_to_json_dict(subdict, True)
+                if self.TIMES_KEY in subdict:
+                    json_times_subdict = OrderedDict()
+                    for time, time_subdict in subdict[self.TIMES_KEY].items():
+                        json_time_subdict = self._subdict_to_json_dict(
+                            time_subdict,
+                            include_influencers_key=True,
+                        )
+                        if not json_time_subdict:
+                            continue
+                        json_times_subdict[time.string()] = json_time_subdict
+                    if json_times_subdict:
+                        json_subdict[self.TIMES_KEY] = json_times_subdict
+                if json_subdict:
+                    json_dict[date.string()] = json_subdict
+            return json_dict
+        except Exception as e:
+            print (self._dict)
+            raise e
 
     @classmethod
     def from_dict(cls, json_dict, task):

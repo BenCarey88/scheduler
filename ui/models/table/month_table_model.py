@@ -58,7 +58,10 @@ class BaseMonthModel(BaseTableModel):
         Args:
             calendar_month (CalendarMonth): new calendar month to set.
         """
-        self.num_rows = len(calendar_month.get_calendar_weeks())
+        self.num_rows = len(
+            calendar_month.get_calendar_weeks(self.weekday_start)
+        )
+        self.update_data()
         self.set_calendar_period(calendar_month)
 
     def set_week_start_day(self, week_start_day):
@@ -73,6 +76,7 @@ class BaseMonthModel(BaseTableModel):
         self.num_rows = len(
             self.calendar_month.get_calendar_weeks(week_start_day)
         )
+        self.update_data()
 
     def day_from_row_and_column(self, row, column):
         """Get calendar day at given row and column.
@@ -126,7 +130,7 @@ class BaseMonthModel(BaseTableModel):
             day = self.day_from_row_and_column(index.row(), index.column())
             if day.calendar_month == self.calendar_month:
                 return QtCore.Qt.ItemFlag.ItemIsEnabled
-        return QtCore.Qt.ItemFlag.NoItemFlags            
+        return QtCore.Qt.ItemFlag.NoItemFlags
 
     def headerData(self, section, orientation, role):
         """Get header data.

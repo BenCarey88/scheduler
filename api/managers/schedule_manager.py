@@ -208,6 +208,7 @@ class ScheduleManager(BaseCalendarManager):
             event_category=None,
             event_name=None,
             task_update_policy=None,
+            task_value_update=None,
             is_background=None):
         """Modify scheduled item.
 
@@ -223,6 +224,8 @@ class ScheduleManager(BaseCalendarManager):
             event_category (str or None): new category name.
             event_name (str or None): new event name.
             task_update_policy (ItemUpdatePolicy or None): new update policy.
+            task_value_update (variant or None): new value to update task
+                tracked value to when item is completed.
             is_background (bool or None): new background value.
 
         Returns:
@@ -240,6 +243,7 @@ class ScheduleManager(BaseCalendarManager):
                 scheduled_item._event_category: event_category,
                 scheduled_item._event_name: event_name,
                 scheduled_item._task_update_policy: task_update_policy,
+                scheduled_item._task_value_update: task_value_update,
                 scheduled_item._is_background: is_background,
             }
             attr_dict = {
@@ -278,6 +282,14 @@ class ScheduleManager(BaseCalendarManager):
             is_background,
             scheduled_item.is_background
         )
+        task_update_policy = fallback_value(
+            task_update_policy,
+            scheduled_item.task_update_policy,
+        )
+        task_value_update = fallback_value(
+            task_value_update,
+            scheduled_item.task_value_update,
+        )
 
         if is_repeating:
             new_scheduled_item = RepeatScheduledItem(
@@ -290,6 +302,8 @@ class ScheduleManager(BaseCalendarManager):
                 event_category=event_category,
                 event_name=event_name,
                 is_background=is_background,
+                task_update_policy=task_update_policy,
+                task_value_update=task_value_update,
             )
         else:
             new_scheduled_item = ScheduledItem(
@@ -303,6 +317,8 @@ class ScheduleManager(BaseCalendarManager):
                 event_name=event_name,
                 is_background=is_background,
                 repeat_pattern=repeat_pattern,
+                task_update_policy=task_update_policy,
+                task_value_update=task_value_update,
             )
         return ReplaceScheduledItemEdit.create_and_run(
             scheduled_item,

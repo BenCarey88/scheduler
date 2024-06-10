@@ -250,3 +250,8 @@ class BaseCalendarTab(BaseTab):
         """Callback for what to do when filter is changed in outliner."""
         super(BaseCalendarTab, self).on_outliner_filter_changed(*args)
         self.main_view.on_outliner_filter_changed()
+
+    def on_outliner_current_changed(self, tree_item):
+        """Callback for what to do when current item is changed in outliner."""
+        super(BaseCalendarTab, self).on_outliner_current_changed(tree_item)
+        self.main_view.on_outliner_current_changed(tree_item)

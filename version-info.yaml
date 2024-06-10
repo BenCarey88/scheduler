@@ -1,4 +1,8 @@
 
+1.4.1:
+    - Month tracker view, task target widget & scheduled item value updates
+    - bugfix to UpdateTaskHistoryEdit
+
 1.4.0:
     Task item dialog, filter refactors, tracker targets and more:
         - Task item dialog for editing task item properties

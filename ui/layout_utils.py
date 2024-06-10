@@ -2,6 +2,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from .utils import ValueWidgetWrapper, AttributeWidgetWrapper
+
 
 def _layout_widgets(
         layout_or_widget,
@@ -63,7 +65,8 @@ def _layout_widgets(
     elif new_layout is not None:
         outer_layout.addLayout(new_layout)
 
-    return new_layout
+    return new_layout # or outer_layout
+    # TODO: add the above commented code for when new_layout is None?
 
 
 def add_widgets_horizontally(layout_or_widget, *widget_list, **kwargs):
@@ -133,7 +136,7 @@ def layout_widget_dict(layout_or_widget, widget_list_or_dict):
 
     Widget dicts looks like this:
     {
-        # optionaly keyword args for layout properties, eg.
+        # optional keyword args for layout properties, eg.
         frame: True,
         orientation: vertical,
         widget_1: {
@@ -146,8 +149,8 @@ def layout_widget_dict(layout_or_widget, widget_list_or_dict):
             ...
         },
         layout_name_2: {
-            # as above, but to avoid having to manually create layouts,
-            # you can just give an arbitrary name and then have them made for you
+            # as above, but to avoid having to manually create layouts, you
+            # can just give an arbitrary name and then have them made for you
         }
         ...
     }
@@ -157,23 +160,39 @@ def layout_widget_dict(layout_or_widget, widget_list_or_dict):
         widget_list_or_dict (list or OrderedDict): list or ordered dict of
             widgets to add. Can be nested, allowing sublayouts (and the nested
             elements can be either dicts or lists). See above for how they
-            should be laid out. 
+            should be laid out.
     """
     # ^TODO: maybe just delete this method because it's super gross?
     # or come up with a consistent way of doing it
 
 
-def add_field_widget(vertical_layout, field_name, field_widget, **kwargs):
+def add_field_widget(
+        vertical_layout,
+        field_name,
+        field_widget,
+        wrap=False,
+        attribute_getter=None,
+        default_object=None,
+        **kwargs):
     """Add a label and widget representing a field and its value.
 
     Args:
         vertical_layout (QVBoxLayout): layout to add to.
         field_name (str): name of field that this widget edits.
         field_widget (QWidget): the widget that edits this field.
+        wrap (bool): if True, wrap return value with ValueWidgetWrapper or
+            AttributeWidgetWrapper. Which one is used depends on whether
+            or not an attribute_getter arg is passed.
+        attribute_getter (function or None): function to get the value of the
+            attribute that this widget edits from the object being edited.
+            This is required if we want to wrap the object with
+            AttributeWidgetWrapper.
+        default_object (object or None): default object arg to pass to
+            AttributeWidgetWrapper __init__.
         kwargs (dict): kwargs to pass to add_widgets_horizontally.
 
     Returns:
-        (QWidget): the field widget.
+        (QWidget or ValueWidgetWrapper): the field widget, wrapped if needed.
     """
     if not isinstance(vertical_layout, QtWidgets.QLayout):
         raise ValueError(
@@ -183,6 +202,16 @@ def add_field_widget(vertical_layout, field_name, field_widget, **kwargs):
         )
     label = QtWidgets.QLabel(field_name)
     add_widgets_horizontally(vertical_layout, label, field_widget, **kwargs)
+
+    if wrap:
+        if attribute_getter is not None:
+            return AttributeWidgetWrapper(
+                field_widget,
+                field_name,
+                attribute_getter,
+                default_object=default_object,
+            )
+        return ValueWidgetWrapper(field_widget)
     return field_widget
 
 

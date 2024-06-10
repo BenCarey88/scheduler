@@ -10,7 +10,7 @@ SCHEDULER_PKG_DIR = os.path.normpath(
 )
 if DEV_MODE:
     SCHEDULER_PKG_DIR = os.path.normpath(
-        "/users/benca/OneDrive/Documents/pkg-data/Scheduler_dev"
+        "/users/benca/OneDrive/Documents/pkg-data/dev/Scheduler"
     )
 USER_PREFS_FILE = os.path.join(SCHEDULER_PKG_DIR, "user_prefs.json")
 

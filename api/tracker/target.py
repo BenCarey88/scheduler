@@ -1,11 +1,13 @@
 """Module to define targets for tracked items."""
 
 
+from scheduler.api.common.date_time import TimeDelta
 from scheduler.api.enums import (
     CompositionOperator,
+    ItemStatus,
     OrderedStringEnum,
     TimePeriod,
-    TrackedValueType,
+    TrackedValueType as TVT,
 )
 from scheduler.api.utils import fallback_value
 
@@ -28,10 +30,10 @@ class TargetOperator(OrderedStringEnum):
         """
         return {
             cls.LESS_THAN_EQ: {
-                TrackedValueType.TIME: "by",
+                TVT.TIME: "by",
             },
             cls.GREATER_THAN_EQ: {
-                TrackedValueType.TIME: "from",
+                TVT.TIME: "from",
             },
         }
 
@@ -175,7 +177,17 @@ class BaseTrackerTarget(object):
         """
         # TODO: use this to check whether value_type is targetable
         return self._time_period is not None and self._value_type is not None
-    
+
+    def get_time_delta(self):
+        """Get time delta that target is set over.
+
+        Returns:
+            (TimeDelta): timedelta of task.
+        """
+        if isinstance(self.time_period, TimePeriod):
+            return self.time_period.get_time_delta()
+        return self.time_period
+
     def __eq__(self, target):
         """Check if this is equal to other target.
         
@@ -242,7 +254,7 @@ class BaseTrackerTarget(object):
             CompositionOperator.AND,
         )
 
-    def is_met_by(self, value):
+    def is_met_by_value(self, value):
         """Check if the given tracked value means this target has been met.
 
         Args:
@@ -253,8 +265,24 @@ class BaseTrackerTarget(object):
             (bool): whether or not the given value meets the target.
         """
         raise NotImplementedError(
-            "is_met_by method must be implemented in BaseTrackerTaarget "
+            "is_met_by_value method must be implemented in BaseTrackerTaarget "
             "subclasses"
+        )
+
+    def is_met_by_task_from_date(self, task, start_date):
+        """Check if target is met by task from the given start date.
+
+        Args:
+            task (Task): task to check.
+            start_date (date): date to start at. We check over all subsequent
+                days for the duration of the time period.
+
+        Returns:
+            (bool): whether or not the given value meets the target.
+        """
+        raise NotImplementedError(
+            "is_met_by_task_from_date method must be implemented in "
+            "BaseTrackerTaarget subclasses"
         )
 
     def to_dict(self):
@@ -297,6 +325,9 @@ class BaseTrackerTarget(object):
         )
 
 
+# TODO: is this class needed? We don't really want an empty target
+# as the implementation of is_met_by_value would have to either auto-fail
+# or auto-succeed, both of which feel wrong
 @register_serializable_target("NoTarget")
 class NoTarget(BaseTrackerTarget):
     """Class defining an empty target."""
@@ -314,7 +345,7 @@ class NoTarget(BaseTrackerTarget):
             dictionary.get(cls.TIME_PERIOD_KEY),
             dictionary.get(cls.VALUE_TYPE_KEY),
         )
-    
+
     def __eq__(self, target):
         """Check if this is equal to other target.
 
@@ -410,24 +441,28 @@ class TrackerTarget(BaseTrackerTarget):
             )
         )
 
-    def is_met_by(self, value):
+    def is_met_by_value(self, value):
         """Check if the given tracked value means this target has been met.
 
         Args:
-            value (variant): a value for the tracked task that this target
-                has been set for.
+            value (variant or None): a value for the tracked task that this
+                target has been set for. Accepts None for ease and autofails.
 
         Returns:
             (bool): whether or not the given value meets the target.
         """
+        if value is None:
+            # TODO: should this always be the case? eg. LESS_THAN_EQ
+            return False
+
         if self._target_operator == TargetOperator.LESS_THAN_EQ:
-            if self.value_type == TrackedValueType.TIME:
+            if self.value_type == TVT.TIME:
                 # take into account 24 hour clock for time comparison
                 return value.less_than_eq_local(self._target_value)
             return (value <= self._target_value)
 
         if self._target_operator == TargetOperator.GREATER_THAN_EQ:
-            if self.value_type == TrackedValueType.TIME:
+            if self.value_type == TVT.TIME:
                 # take into account 24 hour clock for time comparison
                 return self._target_value.less_than_eq_local(value)
             return (value >= self._target_value)
@@ -437,7 +472,44 @@ class TrackerTarget(BaseTrackerTarget):
                 self._target_operator
             )
         )
-    
+
+    # TODO: neaten this and above function? maybe change names
+    def is_met_by_task_from_date(self, task, start_date):
+        """Check if target is met by task from the given start date.
+
+        Args:
+            task (Task): task to check.
+            start_date (date): date to start at. We check over all subsequent
+                days for the duration of the time period.
+
+        Returns:
+            (bool): whether or not the given value meets the target.
+        """
+        # TODO: for now these two value types can only use TimePeriod.Day
+        # we should officially enforce this or create the possibility
+        # for eg. week time targets that need target to be met on a given
+        # number of days - though probably this should be a separate class
+        # that does a kind of MultiTarget (distinct from CompositeTarget)
+        if self.value_type == TVT.TIME:
+            return self.is_met_by_value(task.get_value_at_date(start_date))
+        elif self.value_type == TVT.STATUS:
+            return self.is_met_by_value(task.get_status_at_date(start_date))
+
+        combined_value = 0
+        end_date = start_date + self.get_time_delta()
+        date = start_date
+        while date < end_date:
+            if self.value_type in (TVT.INT, TVT.FLOAT):
+                value = task.get_value_at_date(date)
+                if value is not None:
+                    combined_value += value
+            elif self.value_type == TVT.COMPLETIONS:
+                status = task.get_status_at_date(date)
+                if status == ItemStatus.COMPLETE:
+                    combined_value += 1
+            date += TimeDelta(days=1)
+        return self.is_met_by_value(combined_value)
+
     @classmethod
     def _from_dict(cls, dictionary):
         """Initialise class from dictionary.
@@ -448,11 +520,13 @@ class TrackerTarget(BaseTrackerTarget):
         Returns:
             (TrackerTarget or None): tracker target, if could be deserialized.
         """
+        value_type = TVT.from_string(
+            dictionary.get(cls.VALUE_TYPE_KEY)
+        )
+        if value_type is None:
+            return None
         time_period = TimePeriod.from_string(
             dictionary.get(cls.TIME_PERIOD_KEY)
-        )
-        value_type = TrackedValueType.from_string(
-            dictionary.get(cls.VALUE_TYPE_KEY)
         )
         target_op = TargetOperator.from_string(
             dictionary.get(cls.TARGET_OPERATOR_KEY)
@@ -460,8 +534,7 @@ class TrackerTarget(BaseTrackerTarget):
         target_value = value_type.do_json_deserialize(
             dictionary.get(cls.TARGET_VALUE_KEY)
         )
-        if any((x is None
-                for x in [time_period, value_type, target_op, target_value])):
+        if any(x is None for x in [time_period, target_op, target_value]):
             return None
         return cls(time_period, value_type, target_op, target_value)
 
@@ -521,7 +594,7 @@ class CompositeTrackerTarget(BaseTrackerTarget):
             composition_operator or CompositionOperator.AND
         )
 
-    def is_met_by(self, value):
+    def is_met_by_value(self, value):
         """Check if the given tracked value means this target has been met.
 
         Args:
@@ -543,7 +616,34 @@ class CompositeTrackerTarget(BaseTrackerTarget):
             )
 
         return boolean_op(
-            (target.is_met_by(value) for target in self._subtargets_list)
+            (target.is_met_by_value(value) for target in self._subtargets_list)
+        )
+
+    def is_met_by_task_from_date(self, task, start_date):
+        """Check if target is met by task from the given start date.
+
+        Args:
+            task (Task): task to check.
+            start_date (date): date to start at. We check over all subsequent
+                days for the duration of the time period.
+
+        Returns:
+            (bool): whether or not the given value meets the target.
+        """
+        boolean_op = {
+            CompositionOperator.OR: any,
+            CompositionOperator.AND: all,
+        }.get(self._compositon_operator)
+        if boolean_op is None:
+            raise TrackerTargetError(
+                "Unsupported target compositon operator {0}".format(
+                    self._compositon_operator
+                )
+            )
+
+        return boolean_op(
+            (target.is_met_by_task_from_date(task, start_date)
+             for target in self._subtargets_list)
         )
 
     @classmethod

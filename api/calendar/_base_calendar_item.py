@@ -16,7 +16,7 @@ from scheduler.api.serialization.serializable import (
     SaveType
 )
 from scheduler.api import constants
-from scheduler.api.enums import ItemStatus, ItemUpdatePolicy
+from scheduler.api.enums import ItemStatus, ItemUpdatePolicy, TimeValueUpdates
 from scheduler.api.utils import fallback_value
 
 
@@ -29,6 +29,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
     NAME_KEY = "name"
     STATUS_KEY = "status"
     TASK_UPDATE_POLICY_KEY = "task_update_policy"
+    TASK_VALUE_UPDATE_KEY = "task_value_update"
     ID_KEY = "id"
 
     _SERIALIZE_TREE_ITEM = True
@@ -39,7 +40,8 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             tree_item=None,
             name=None,
             status=None,
-            task_update_policy=None):
+            task_update_policy=None,
+            task_value_update=None):
         """Initialize class.
 
         Args:
@@ -49,6 +51,8 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             status (ItemStatus or None): status of item, if given.
             task_update_policy (ItemUpdatePolicy or None): update policy for
                 linked task.
+            task_value_update (int or None): update policy for linked task
+                value.
         """
         super(BaseCalendarItem, self).__init__()
         self._calendar = calendar
@@ -71,6 +75,10 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         self._task_update_policy = MutableAttribute(
             task_update_policy or ItemUpdatePolicy.IN_PROGRESS,
             "task_update_policy",
+        )
+        self._task_value_update = MutableAttribute(
+            task_value_update,
+            "task_value_update",
         )
         self._from_children_update_policy = MutableAttribute(
             # TODO: if this is going to be used, it should be an init arg
@@ -181,6 +189,15 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             (ItemUpdatePolicy): update policy for linked tasks.
         """
         return self._task_update_policy.value
+    
+    @property
+    def task_value_update(self):
+        """Get value update for linked tasks.
+
+        Returns:
+            (variant or None): how to update value when item is completed.
+        """
+        return self._task_value_update.value
 
     @property
     def from_children_update_policy(self):
@@ -380,6 +397,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         This implements the base functionality:
         - set the status
         - set the tree item
+        - set the status and value update policies
         - activate the instance
         - add children (and hence parents, through the pairing framework)
         - register in item_registry
@@ -399,6 +417,9 @@ class BaseCalendarItem(Hosted, NestedSerializable):
         task_update_policy = ItemUpdatePolicy.from_string(
             dict_repr.get(cls.TASK_UPDATE_POLICY_KEY)
         )
+        task_value_update = dict_repr.get(cls.TASK_VALUE_UPDATE_KEY)
+        if TimeValueUpdates.contains(task_value_update):
+            task_value_update = TimeValueUpdates.from_string(task_value_update)
         class_instance = cls(
             calendar,
             *init_args,
@@ -406,6 +427,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             name=name,
             status=status,
             task_update_policy=task_update_policy,
+            task_value_update=task_value_update,
             **init_kwargs,
         )
         class_instance._activate()
@@ -431,6 +453,7 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             - the status, if not unstarted
             - the tree item, if item represents a task
             - a list of all child items, if any exist
+            - status and value update policies
 
         Returns:
             (dict): dictionary representation.
@@ -448,4 +471,6 @@ class BaseCalendarItem(Hosted, NestedSerializable):
             ]
         if self.task_update_policy != ItemUpdatePolicy.IN_PROGRESS:
             dict_repr[self.TASK_UPDATE_POLICY_KEY] = self.task_update_policy
+        if self.task_value_update is not None:
+            dict_repr[self.TASK_VALUE_UPDATE_KEY] = self.task_value_update
         return dict_repr

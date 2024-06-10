@@ -3,6 +3,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
+# TODO: fix data, underlying data should be the actual calendar days, not empty lists
 class BaseTableModel(QtCore.QAbstractTableModel):
     """Base for all table models."""
     TIME_INTERVAL = 1
@@ -29,6 +30,10 @@ class BaseTableModel(QtCore.QAbstractTableModel):
         self.calendar_period = calendar_period
         self.num_rows = num_rows
         self.num_cols = num_cols
+        self.update_data()
+
+    def update_data(self):
+        """Update data to match num_rows and num_cols."""
         self._data = [
             [(i, j) for i in range(self.num_cols)]
             for j in range(self.num_rows)

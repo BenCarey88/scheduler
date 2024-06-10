@@ -118,7 +118,7 @@ class ScheduledItemWidget(object):
             self._scheduled_item,
             strict=True,
         )
-        if not is_task or self._scheduled_item.is_background:
+        if not is_task: # or self._scheduled_item.is_background:
             return None
         max_buffer = 3
         min_buffer = 1
@@ -183,21 +183,8 @@ class ScheduledItemWidget(object):
             self._scheduled_item,
             strict=True,
         )
-        if not is_task or self._scheduled_item.is_background:
+        if not is_task: # or self._scheduled_item.is_background:
             return None
-        task = self._scheduled_item.tree_item
-        # TODO: ultimately allow checkbox to be based on various options
-        # but for now the logic should probably be somtehing like:
-        #   all scheduled items hold a checkbox attr
-        #   make sure that task histories can give us the status of
-        #       items immediately before a given date time
-        #   if item was completed before this time, changing value has no
-        #       effect
-        #   if item was in progress before this time, changing value to
-        #       1 adds a new in progress entry, 2 completes, 0 removes any
-        #       entry added by 1 or 2
-        #   if item was unstarted, 1 or 2 change to unstarted/complete, 0
-        #       again removes unstarted entry
         return {
             ItemStatus.UNSTARTED: QtWidgets.QStyle.State_Off,
             ItemStatus.IN_PROGRESS: QtWidgets.QStyle.State_NoChange,
@@ -411,9 +398,9 @@ class ScheduledItemWidget(object):
             if tree_item and tree_item.color:
                 brush_color = QtGui.QColor(*tree_item.color)
             else:
-                brush_color = constants.BASE_SCHEDULED_TASK_COLOR
+                brush_color = QtGui.QColor(constants.BASE_SCHEDULED_TASK_COLOR)
         else:
-            brush_color = constants.BASE_SCHEDULED_EVENT_COLOR
+            brush_color = QtGui.QColor(constants.BASE_SCHEDULED_EVENT_COLOR)
         brush_color.setAlpha(alpha)
         brush = QtGui.QBrush(brush_color)
         painter.setBrush(brush)

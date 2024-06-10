@@ -108,7 +108,7 @@ class UpdateTaskHistoryEdit(CompositeEdit):
                 note that this can just be the task item itself.
             old_datetime (Date, DateTime or None): the date or datetime that
                 this influencer was previously influencing at. If not given,
-                the edit will add it as a new influencer instead.
+                the edit will add the updates as a new influencer instead.
             new_datetime (Date, DateTime or None): the date or datetime that
                 this update will be occurring at. If not given, the edit will
                 just remove the influencer at the old time instead.
